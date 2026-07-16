@@ -165,12 +165,16 @@ object CdpResolverImpl {
                 // Instantly kill process to prevent zombie browsers
                 try {
                     process?.destroyForcibly()
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    AppLogger.w("Failed to kill CDP browser process", e)
+                }
 
                 // Cleanup temp dir
                 try {
                     tempDir.deleteRecursively()
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    AppLogger.w("Failed to delete CDP temp dir", e)
+                }
             }
         }
     }

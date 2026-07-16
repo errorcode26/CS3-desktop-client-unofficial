@@ -105,7 +105,9 @@ object NetworkConfig {
         val insecureBuilder = app.baseClient.newBuilder()
         try {
             insecureBuilder.ignoreAllSSLErrors()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.e("Failed to apply insecure SSL bypass: ${e.message}", e)
+        }
         insecureApp.baseClient = insecureBuilder.build()
         insecureApp.defaultHeaders = mapOf("user-agent" to com.lagradost.cloudstream3.USER_AGENT)
 

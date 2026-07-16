@@ -36,7 +36,9 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
     continuation.invokeOnCancellation {
         try {
             cancel()
-        } catch (ex: Throwable) {}
+        } catch (ex: Throwable) {
+            com.lagradost.common.logging.AppLogger.w("Failed to cancel OkHttp call: ${ex.message}", ex)
+        }
     }
     enqueue(object : Callback {
         override fun onResponse(call: Call, response: Response) {
@@ -50,6 +52,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
                     response.body?.close()
                 }
             } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Error resuming coroutine onResponse: ${e.message}", e)
                 response.body?.close()
             }
         }
@@ -57,7 +60,9 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
             if (continuation.isCancelled) return
             try {
                 continuation.resumeWithException(e)
-            } catch (ignored: Exception) {}
+            } catch (ignored: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Error resuming coroutine onFailure: ${ignored.message}", ignored)
+            }
         }
     })
 }
@@ -175,7 +180,9 @@ object LocalStreamProxy {
                     try {
                         response = proxyClient.newCall(requestBuilder.build()).await()
                         if (response.isSuccessful) break
-                    } catch (e: Exception) {}
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.w("Prefetch attempt failed: ${e.message}", e)
+                    }
                     if (attempt < 4) {
                         response?.body?.close()
                         kotlinx.coroutines.delay(200L * attempt)
@@ -214,7 +221,9 @@ object LocalStreamProxy {
                     session.masterCache[url] = GlobalScope.async { bytes }
                 }
                 // Media playlist — do NOT cache, let handleRequest fetch fresh each time
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.w("Error analyzing prefetch payload for caching: ${e.message}", e)
+            }
         }
     }
     private suspend fun handleRequest(call: io.ktor.server.application.ApplicationCall) {
@@ -490,14 +499,18 @@ object LocalStreamProxy {
                             withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     currentResponse?.body?.close()
-                                } catch (ignored: Exception) {}
+                                } catch (ignored: Exception) {
+                                    com.lagradost.common.logging.AppLogger.w("Failed to close response body: ${ignored.message}", ignored)
+                                }
                             }
                         }
                     }
                 } catch (e: Exception) {
                     if (!streamStarted) {
                         withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            try { response.body?.close() } catch (ignored: Exception) {}
+                            try { response.body?.close() } catch (ignored: Exception) {
+                                com.lagradost.common.logging.AppLogger.w("Failed to close response body on early error: ${ignored.message}", ignored)
+                            }
                         }
                     }
                     throw e
@@ -507,7 +520,9 @@ object LocalStreamProxy {
             AppLogger.e("LocalStreamProxy error: ${e.message}")
             try {
                 call.respond(HttpStatusCode.InternalServerError)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Failed to send 500 status to client: ${e.message}", e)
+            }
         }
     }
 

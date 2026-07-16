@@ -719,7 +719,10 @@ fun ComposeNativeWebPlayer(
         val sessionId = validated.proxySessionId
         val videoUrlHost = try {
             java.net.URI(link.url).host
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.w("Failed to extract host from video URL", e)
+            null
+        }
 
         val finalSubtitles = subtitles.map { sub ->
             var fixedUrl = sub.url
@@ -729,7 +732,9 @@ fun ComposeNativeWebPlayer(
                     if (subUri.host?.contains("*") == true) {
                         fixedUrl = fixedUrl.replace(subUri.host, videoUrlHost)
                     }
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    com.lagradost.common.logging.AppLogger.w("Failed to parse subtitle URI: $fixedUrl", e)
+                }
             }
             if (sessionId != null) {
                 sub.copy(url = com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, fixedUrl))
