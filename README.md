@@ -21,6 +21,15 @@ The project is structured into modular layers to cleanly separate concerns and a
 
 ---
 
+## ✨ Core Capabilities
+
+*   **Native Compose UI:** Built entirely in Compose for Desktop with rich cinematic header fades, responsive hero layouts, dynamic color extraction, and multi-mode search (persistent overlays & quick-clear controls).
+*   **Android Plugin Compatibility:** Runs standard Android plugins directly on the JVM through custom compatibility stubs (`android.*`, `androidx.*`) and isolated class loaders.
+*   **Advanced Media Abstraction (`:player-abstraction`):** Native MPV decoding (via JNA `libmpv` bindings) and fallback web/process wrappers, backed by an embedded Ktor Netty proxy (`LocalStreamProxy`) for HLS segment header rewriting and CDN bypasses.
+*   **Modular Storage & Synchronization:** SQLDelight local database management decoupled from the presentation layer, with built-in multi-provider watch tracking and history sync.
+
+---
+
 ## 🛠️ Setup & Development Workflow
 
 ### Prerequisites
@@ -43,9 +52,13 @@ Before running, you need a local copy of the `libmpv` shared library for video d
    `desktop-app/appResources/windows/mpv/`
 
 ### 3. Run Locally
-To compile the codebase and launch the application locally in developer mode:
+To compile and launch the desktop application in developer mode:
 ```bash
-./gradlew.bat :desktop-app:run
+.\gradlew.bat :desktop-app:run
+```
+To quickly run only the isolated media player test harness:
+```bash
+.\gradlew.bat :desktop-app:testPlayer
 ```
 
 ### 4. Build Installer (Optional)
