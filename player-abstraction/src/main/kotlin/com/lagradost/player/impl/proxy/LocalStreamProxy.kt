@@ -14,7 +14,9 @@ import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.writeFully
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +34,7 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+private val ProxyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
     // Converting callbacks to coroutines is always a nightmare. If OkHttp hangs here, good luck debugging it.
     continuation.invokeOnCancellation {
@@ -164,7 +167,7 @@ object LocalStreamProxy {
         val session = sessions[sessionId] ?: return
         if (session.masterCache.containsKey(url)) return
 
-        val deferred = GlobalScope.async(kotlinx.coroutines.Dispatchers.IO) {
+        val deferred = ProxyScope.async(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val requestBuilder = okhttp3.Request.Builder().url(url)
                 val mergedHeaders = session.headers.toMutableMap()
@@ -214,7 +217,7 @@ object LocalStreamProxy {
         // Immediately store in masterCache to prevent race conditions when MPV requests it right away.
         // If after analysis we find it is not a master playlist, we remove it.
         session.masterCache[url] = deferred
-        GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        ProxyScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val bytes = deferred.await()
                 val content = String(bytes, Charsets.UTF_8)
@@ -453,7 +456,7 @@ object LocalStreamProxy {
                     // BUT ONLY if it's a MASTER playlist. Media playlists MUST NOT be cached,
                     // otherwise mpv will never discover new segments for live streams.
                     if (m3u8Content.contains("#EXT-X-STREAM-INF")) {
-                        session.masterCache[url] = kotlinx.coroutines.GlobalScope.async { bytes }
+                        session.masterCache[url] = ProxyScope.async { bytes }
                     }
 
                     call.response.header("Content-Type", "application/vnd.apple.mpegurl")
