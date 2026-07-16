@@ -51,7 +51,7 @@ To compile the codebase and launch the application locally in developer mode:
 ### 4. Build Installer (Optional)
 If you need to generate a standalone Windows `.exe` setup installer for testing:
 1. Run `compile.bat` to clean and compile the latest executable binaries.
-2. Open Inno Setup Compiler and compile [installer/setup.iss](file:///c:/Users/user/Desktop/CS3%20DESKTOP/cloudstream-windows-workspace/installer/setup.iss).
+2. Open Inno Setup Compiler and compile [installer/setup.iss](installer/setup.iss).
 
 The compiled setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.
 
