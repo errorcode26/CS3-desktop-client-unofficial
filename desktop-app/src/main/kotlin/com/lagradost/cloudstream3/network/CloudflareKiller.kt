@@ -1,9 +1,6 @@
 package com.lagradost.cloudstream3.network
 
-import com.lagradost.cloudstream3.app
 import com.lagradost.common.logging.AppLogger
-import com.lagradost.nicehttp.Requests.Companion.await
-import kotlinx.coroutines.runBlocking
 import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.Request
@@ -91,7 +88,7 @@ class CloudflareKiller : Interceptor {
         if (isCloudflareChallenge) {
             AppLogger.w("$TAG: Cloudflare challenge detected for $host. Browser invoke is disabled.")
             // TODO: We will implement the actual popup windows for CF later when we are able to.
-            // For now, the automated headless browser bypass is completely disabled because 
+            // For now, the automated headless browser bypass is completely disabled because
             // it is unnecessary, buggy, and fails against modern Turnstile checks.
             failedHosts.add(host)
         }

@@ -1,25 +1,25 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
+import androidx.compose.foundation.lazy.LazyListState
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.fixUrlNull
+import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.lagradost.cloudstream3.newMovieLoadResponse
-import com.lagradost.cloudstream3.fixUrlNull
 import java.awt.Color
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
-import androidx.compose.foundation.lazy.LazyListState
-import kotlinx.coroutines.SupervisorJob
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 const val PREF_GLOBAL_SEARCH = "global_search_enabled"
@@ -34,7 +34,6 @@ fun MainAPI.isRealProvider(): Boolean {
     if (providerType == com.lagradost.cloudstream3.ProviderType.MetaProvider) return false
     return true
 }
-
 
 object DesktopHomeViewModel {
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -60,27 +59,38 @@ object DesktopHomeViewModel {
     // The dominant vibrant color extracted from the currently featured hero image
     val heroExtractedColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
 
+    // Per-item color map so each hero page has its OWN preloaded color — no cross-bleed during transitions
+    val heroColorMap = MutableStateFlow<Map<String, androidx.compose.ui.graphics.Color>>(emptyMap())
+
     // Cache to avoid re-extracting the same URL repeatedly
     private val colorCache = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.Color>()
 
-    fun updateHeroColor(imageUrl: String?) {
+    fun updateHeroColor(imageUrl: String?, itemUrl: String? = null) {
         if (imageUrl == null) {
-            heroExtractedColor.value = null
+            if (itemUrl == null) heroExtractedColor.value = null
             return
         }
         // Return cached result immediately if available
-        colorCache[imageUrl]?.let {
-            heroExtractedColor.value = it
+        colorCache[imageUrl]?.let { cached ->
+            if (itemUrl == null) {
+                // Called for current displayed item — update live color
+                heroExtractedColor.value = cached
+            } else {
+                // Called for a prefetched item — only populate the per-item map, NEVER override live color
+                heroColorMap.update { map -> map + (itemUrl to cached) }
+            }
             return
         }
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val bytes = app.get(imageUrl).body.bytes()
                 val img: BufferedImage = ImageIO.read(bytes.inputStream()) ?: return@launch
-                val dominant = sampleDominantColor(img)
-                if (dominant != null) {
-                    colorCache[imageUrl] = dominant
+                val dominant = sampleDominantColor(img) ?: return@launch
+                colorCache[imageUrl] = dominant
+                if (itemUrl == null) {
                     heroExtractedColor.value = dominant
+                } else {
+                    heroColorMap.update { map -> map + (itemUrl to dominant) }
                 }
             } catch (e: Exception) {
                 AppLogger.w("HeroColor: Failed to extract color from $imageUrl — ${e.message}")
@@ -88,9 +98,15 @@ object DesktopHomeViewModel {
         }
     }
 
+    fun setCurrentHeroColor(itemUrl: String?) {
+        if (itemUrl != null) {
+            heroColorMap.value[itemUrl]?.let { heroExtractedColor.value = it }
+        }
+    }
+
     private fun sampleDominantColor(img: BufferedImage): androidx.compose.ui.graphics.Color? {
         val area = img.width * img.height
-        val step = maxOf(1, Math.sqrt(area / 300.0).toInt()) // Sample ~300 pixels evenly across the 2D grid
+        val step = maxOf(1, Math.sqrt(area / 300.0).toInt())
         val colorBuckets = mutableMapOf<Int, Int>()
 
         var x = 0
@@ -128,8 +144,19 @@ object DesktopHomeViewModel {
 
         if (colorBuckets.isEmpty()) return null
 
-        // Pick the most frequently occurring vibrant bucket
-        val dominant = colorBuckets.maxByOrNull { it.value }?.key ?: return null
+        // Score each bucket by population * (saturation ^ 2) to strongly favor vibrant colors
+        val dominant = colorBuckets.maxByOrNull { entry ->
+            val key = entry.key
+            val count = entry.value
+            val r = (key shr 16) and 0xFF
+            val g = (key shr 8) and 0xFF
+            val b = key and 0xFF
+            val max = maxOf(r, g, b)
+            val min = minOf(r, g, b)
+            val sat = if (max == 0) 0f else (max - min).toFloat() / max.toFloat()
+            count * (sat * sat)
+        }?.key ?: return null
+
         val r = (dominant shr 16) and 0xFF
         val g = (dominant shr 8) and 0xFF
         val b = dominant and 0xFF
@@ -236,9 +263,13 @@ object DesktopHomeViewModel {
 
     private fun updateProviders() {
         val currentProviders = APIHolder.allProviders.filter { it.isRealProvider() }
-        if (currentProviders.size != providers.value.size) {
+        if (currentProviders.size != providers.value.size || !currentProviders.containsAll(providers.value)) {
             providers.value = currentProviders
-            if (selectedProviderName.value == null && currentProviders.isNotEmpty()) {
+            val currentSelection = selectedProviderName.value
+            if (currentSelection != null && currentProviders.none { it.name == currentSelection }) {
+                selectedProviderName.value = currentProviders.firstOrNull()?.name
+                searchResultsGrouped.value = null
+            } else if (selectedProviderName.value == null && currentProviders.isNotEmpty()) {
                 val restored = currentProviders.firstOrNull { it.name == DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER) }
                 if (restored != null) {
                     selectedProviderName.value = restored.name
@@ -305,8 +336,8 @@ object DesktopHomeViewModel {
 
                     com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(dummy, "dummy_${item.url}", onScreenshotsLoaded = {})
 
-                    val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }
-                    val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }
+                    val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
+                    val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
                     val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: cleanHeroTitle(item.name)
                     val tags = dummy.tags?.take(4) ?: emptyList()
                     val plot = dummy.plot?.take(200)
@@ -315,9 +346,9 @@ object DesktopHomeViewModel {
                     val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
                     HeroCache.cache[cacheKey] = meta
                     heroMetaMap.update { it + (item.url to meta) }
-                    
-                    // Pre-calculate the dominant color in the background so it's ready instantly
-                    updateHeroColor(backdropUrl ?: provider.fixUrlNull(item.posterUrl))
+
+                    // Pre-calculate the dominant color in the background so it's ready instantly when this item is displayed
+                    updateHeroColor(backdropUrl ?: provider.fixUrlNull(item.posterUrl), itemUrl = item.url)
                 } else {
                     val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
                     HeroCache.cache[cacheKey] = meta
@@ -338,7 +369,7 @@ object DesktopHomeViewModel {
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
-                        } catch (e: Exception) {
+                        } catch (e: Throwable) {
                             attempt++
                             if (attempt >= 3) throw e
                         }
@@ -362,6 +393,8 @@ object DesktopHomeViewModel {
                         val finalMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
                         HeroCache.cache[cacheKey] = finalMeta
                         heroMetaMap.update { it + (item.url to finalMeta) }
+                        // Re-extract color now that we have the real high-quality backdrop
+                        if (newBackdrop != null) updateHeroColor(newBackdrop, itemUrl = item.url)
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {

@@ -16,7 +16,7 @@ object DesktopPlayerShield {
     fun showForActiveWindow() {
         val isWindows = System.getProperty("os.name").lowercase().contains("win")
         if (!isWindows) return
-        
+
         SwingUtilities.invokeLater {
             val owner = activeOwnerWindow() ?: return@invokeLater
             val bounds = ownerContentBounds(owner) ?: return@invokeLater

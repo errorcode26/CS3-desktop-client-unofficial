@@ -2,38 +2,24 @@ package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
-import com.lagradost.cloudstream3.desktop.ui.screens.home.AnimatedSearchOverlay
-import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
-import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
-import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.desktop.ui.components.DockItem
+import com.lagradost.cloudstream3.desktop.ui.components.TopBar
+import com.lagradost.cloudstream3.desktop.ui.components.UpdatesNotificationBell
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
@@ -41,25 +27,12 @@ import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import com.lagradost.cloudstream3.desktop.ui.components.DockItem
-import com.lagradost.cloudstream3.desktop.ui.components.UpdatesNotificationBell
-import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 
 object DesktopUiState {
     val forceShowSearchBar = MutableStateFlow(false)
     val searchFocusTrigger = MutableStateFlow(0)
     val forceProviderRefresh = MutableStateFlow(0)
-    
+
     // Global provider selection states (fed by HomeViewModel)
     val homeProviders = MutableStateFlow<List<com.lagradost.cloudstream3.MainAPI>>(emptyList())
     val selectedProviderName = MutableStateFlow<String?>(null)
@@ -142,17 +115,17 @@ fun DesktopAppShell(
                                                 0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
                                                 0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
                                                 0.6f to primaryColor.copy(alpha = ambientGlowIntensity * 0.2f),
-                                                1.0f to Color.Transparent
+                                                1.0f to Color.Transparent,
                                             ),
                                             center = centerOffset,
-                                            radius = size.width.coerceAtLeast(size.height) * 0.8f
-                                        )
+                                            radius = size.width.coerceAtLeast(size.height) * 0.8f,
+                                        ),
                                     )
                                 }
                             }
                         } else {
                             Modifier.background(surfaceColor)
-                        }
+                        },
                     ),
                 contentAlignment = Alignment.TopCenter,
             ) {
@@ -204,7 +177,7 @@ fun DesktopAppShell(
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
                 )
             }
-            
+
             // Navigation Dock
             val dockAlignment = when (dockPosition) {
                 "Right" -> Alignment.CenterEnd
@@ -234,7 +207,6 @@ fun DesktopAppShell(
                 updatesHistory = updatesHistory,
                 onMarkUpdatesRead = { DesktopDataStore.setUnreadUpdates(false) },
             )
-
         }
     }
 }
@@ -267,7 +239,7 @@ private fun NavigationDock(
             onClick = {
                 com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
                 onNavigate(Screen.Home)
-            }
+            },
         )
         DockItem(
             icon = PremiumIcons.Search,
@@ -275,7 +247,7 @@ private fun NavigationDock(
             selected = current is Screen.Home && isSearchForced,
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
-            onClick = onSearchClick
+            onClick = onSearchClick,
         )
         DockItem(icon = PremiumIcons.Library, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY, selected = current is Screen.Library, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Library) })
         DockItem(
@@ -316,7 +288,7 @@ private fun NavigationDock(
             shape = RoundedCornerShape(16.dp),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f) // Subtle light-catching border
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), // Subtle light-catching border
             ),
         ) {
             if (isHorizontal) {
@@ -343,4 +315,3 @@ private fun NavigationDock(
         mainDockSurface()
     }
 }
-

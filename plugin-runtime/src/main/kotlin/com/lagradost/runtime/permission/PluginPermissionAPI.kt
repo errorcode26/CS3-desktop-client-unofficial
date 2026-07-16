@@ -1,9 +1,9 @@
 package com.lagradost.runtime.permission
 
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.util.concurrent.ConcurrentHashMap
 import java.util.prefs.Preferences
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.core.type.TypeReference
 
 /**
  * Clean management interface for inspecting and modifying plugin security permissions.

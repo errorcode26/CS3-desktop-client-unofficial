@@ -23,14 +23,14 @@ object ReflectionStub {
         if (className == "java.lang.ProcessBuilder" || className == "java.lang.Thread" || className == "java.lang.ClassLoader") {
             return true
         }
-        
+
         // Prevent meta-reflection (using reflection to bypass this stub by reflecting into java.lang.reflect)
         if (className.startsWith("java.lang.reflect.")) return true
         if (className.startsWith("java.lang.invoke.")) return true
-        
+
         // Prevent bypassing the stub by reflecting directly into the stub itself
         if (className.startsWith("com.lagradost.runtime.loader.stubs.")) return true
-        
+
         // Prevent reflecting into the classloader itself
         if (className == "com.lagradost.runtime.loader.SafePluginClassLoader") return true
 
@@ -72,7 +72,7 @@ object ReflectionStub {
         }
         return constructor.newInstance(*(args ?: emptyArray()))
     }
-    
+
     @JvmStatic
     fun setAccessible(accessibleObject: java.lang.reflect.AccessibleObject, flag: Boolean) {
         val declaringClass = when (accessibleObject) {

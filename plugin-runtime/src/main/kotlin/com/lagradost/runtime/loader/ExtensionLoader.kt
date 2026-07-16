@@ -24,7 +24,7 @@ object ExtensionLoader {
 
     // Map class loader to plugin name
     val classLoaders: MutableMap<ClassLoader, String> = java.util.concurrent.ConcurrentHashMap()
-    
+
     // Map class loader to jar file
     val classLoaderToJar: MutableMap<ClassLoader, File> = java.util.concurrent.ConcurrentHashMap()
 
@@ -101,7 +101,8 @@ object ExtensionLoader {
                 AppLogger.i("[PluginLoader] Native JVM JAR detected: ${jarFile.name}")
             } else if (dexEntry != null) {
                 val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
-                val isCacheValid = convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified()
+                val isCacheValid = convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified() &&
+                    (pluginClassName == null || checkJarHasClass(convertedJar, pluginClassName!!))
 
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Transpiling Dalvik DEX -> JVM JAR for ${jarFile.name}...")
@@ -134,22 +135,21 @@ object ExtensionLoader {
 
         AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
-        if (!forceBypassSecurity && !isTrusted(jarToLoad)) {
-            AppLogger.i("Running static bytecode security verification on ${jarToLoad.name}...")
-            com.lagradost.runtime.security.PluginSecurityVerifier.verifyJar(jarToLoad, finalInternalName)
-        } else {
-            if (forceBypassSecurity) {
-                addTrusted(jarToLoad)
-            }
-            AppLogger.i("Bypassing static bytecode security verification for trusted plugin ${jarToLoad.name}!")
+        val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad)
+        if (forceBypassSecurity) {
+            addTrusted(jarToLoad)
         }
+
+        AppLogger.i("Running static bytecode security verification on ${jarToLoad.name} (Trusted: $isPluginTrusted)...")
+        com.lagradost.runtime.security.PluginSecurityVerifier.verifyJar(jarToLoad, finalInternalName, isPluginTrusted)
 
         val nativeIntercept = nativePluginInterceptor?.invoke(pluginClassName!!)
         val pluginInstance: BasePlugin = if (nativeIntercept != null) {
             AppLogger.i("Intercepted plugin $pluginClassName! Injecting native JVM implementation.")
             nativeIntercept
         } else {
-            val safeParentLoader = SafePluginClassLoader(this::class.java.classLoader)
+            val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad)
+            val safeParentLoader = SafePluginClassLoader(this::class.java.classLoader, isPluginTrusted)
             val classLoader = CompatPluginClassLoader(arrayOf(jarToLoad.toURI().toURL()), safeParentLoader)
             val pluginClass = classLoader.loadClass(pluginClassName)
 
@@ -183,7 +183,7 @@ object ExtensionLoader {
                 // Ignore zip errors
             }
             classLoaderToClassNames[classLoader] = classNames
-            
+
             // Proactively scan for any Android XML preferences and populate schema registry
             scanAllXmlPreferences(jarToLoad, finalInternalName)
 
@@ -204,7 +204,7 @@ object ExtensionLoader {
                             key = key,
                             type = "String",
                             defaultValue = "false",
-                            isGlobal = false
+                            isGlobal = false,
                         )
                     }
                     AppLogger.i("CineStream: Proactively registered ${providers.size} sub-providers in settings registry.")
@@ -220,83 +220,109 @@ object ExtensionLoader {
                         key = "use_trakt_source",
                         type = "Boolean",
                         defaultValue = false,
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "provider_concurrency",
                         type = "Int",
                         defaultValue = -1,
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "enabled_plugins_saved",
                         type = "StringSet",
                         defaultValue = setOf("StreamPlay", "StreamPlay-Anime"),
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "streamplay_stremio_saved_links",
                         type = "String",
                         defaultValue = "",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "streamplay_stremio_addon_saved_links",
                         type = "String",
                         defaultValue = "",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "wyzie_key",
                         type = "String",
                         defaultValue = "",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "tmdb_language_code",
                         type = "String",
                         defaultValue = "en-US",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "token",
                         type = "String",
                         defaultValue = "",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "disabled_providers",
                         type = "StringSet",
                         defaultValue = emptySet<String>(),
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                         pluginPrefName = "StreamPlay_",
                         key = "provider_profiles",
                         type = "String",
                         defaultValue = "",
-                        isGlobal = false
+                        isGlobal = false,
                     )
                     AppLogger.i("StreamPlay: Proactively registered settings keys.")
                 } catch (e: Exception) {
                     AppLogger.e("StreamPlay: Failed to proactively register settings keys", e)
                 }
             }
-            
+
             instance
         }
 
         pluginInstance.filename = jarFile.absolutePath
         // store plugin instance for later unloading
         plugins[jarFile.absolutePath] = pluginInstance
+
+        // Backfill sourcePlugin for any provider/extractor registered during constructor init
+        // when pluginInstance.filename was not yet assigned
+        try {
+            synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
+                com.lagradost.cloudstream3.APIHolder.allProviders.forEach { provider ->
+                    if (provider.sourcePlugin == null && provider.sourcePlugin != "built-in") {
+                        provider.sourcePlugin = jarFile.absolutePath
+                    }
+                }
+            }
+            com.lagradost.cloudstream3.APIHolder.apis.forEach { provider ->
+                if (provider.sourcePlugin == null && provider.sourcePlugin != "built-in") {
+                    provider.sourcePlugin = jarFile.absolutePath
+                }
+            }
+            synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
+                com.lagradost.cloudstream3.utils.extractorApis.forEach { extractor ->
+                    if (extractor.sourcePlugin == null) {
+                        extractor.sourcePlugin = jarFile.absolutePath
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            AppLogger.i("Failed to backfill sourcePlugin for ${jarFile.name}: ${t.message}")
+        }
 
         return pluginInstance
     }
@@ -343,17 +369,23 @@ object ExtensionLoader {
     }
 
     fun unloadPlugin(absolutePath: String) {
-        val plugin = plugins[absolutePath]
-        if (plugin == null) return
+        val normPath = File(absolutePath).absolutePath
+        val canonicalPath = try { File(absolutePath).canonicalPath } catch (_: Throwable) { normPath }
+        val plugin = plugins[normPath] ?: plugins[absolutePath] ?: plugins[canonicalPath]
 
-        try {
-            plugin.beforeUnload()
-        } catch (t: Throwable) {
-            AppLogger.i("Failed to run beforeUnload for $absolutePath: ${t.message}")
+        if (plugin != null) {
+            try {
+                plugin.beforeUnload()
+            } catch (t: Throwable) {
+                AppLogger.i("Failed to run beforeUnload for $absolutePath: ${t.message}")
+            }
         }
 
+        val pathsToRemove = setOfNotNull(normPath, absolutePath, canonicalPath, plugin?.filename)
+
         // Close the ClassLoader to release file locks on Windows
-        val classLoader = plugin.javaClass.classLoader
+        val classLoader = plugin?.javaClass?.classLoader
+            ?: classLoaderToJar.entries.firstOrNull { pathsToRemove.contains(it.value.absolutePath) }?.key
         if (classLoader != null) {
             classLoaders.remove(classLoader) // Fix Metaspace Leak!
             classLoaderToJar.remove(classLoader)
@@ -369,35 +401,32 @@ object ExtensionLoader {
 
         // Remove providers and mappings registered by this plugin
         try {
-            // APIHolder and extractorApis live in the library module
-            com.lagradost.cloudstream3.APIHolder.apis.filter { it.sourcePlugin == plugin.filename }.forEach {
+            com.lagradost.cloudstream3.APIHolder.apis.filter { pathsToRemove.contains(it.sourcePlugin) }.forEach {
                 com.lagradost.cloudstream3.APIHolder.removePluginMapping(it)
             }
             synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
-                com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { it.sourcePlugin == plugin.filename }
+                com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { pathsToRemove.contains(it.sourcePlugin) }
             }
         } catch (t: Throwable) {
             AppLogger.i("Failed to remove plugin mappings for $absolutePath: ${t.message}")
         }
 
         try {
-            // extractorApis
             synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
-                com.lagradost.cloudstream3.utils.extractorApis.removeIf { it.sourcePlugin == plugin.filename }
+                com.lagradost.cloudstream3.utils.extractorApis.removeIf { pathsToRemove.contains(it.sourcePlugin) }
             }
         } catch (t: Throwable) {
             // ignore
         }
 
         try {
-            // VideoClickActionHolder
-            com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { it.sourcePlugin == plugin.filename }
+            com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { pathsToRemove.contains(it.sourcePlugin) }
         } catch (t: Throwable) {
             // ignore
         }
 
-        // Remove from tracked plugins
-        plugins.remove(absolutePath)
+        // Remove from tracked plugins across all possible path keys
+        pathsToRemove.forEach { plugins.remove(it) }
     }
 
     fun isPluginLoaded(absolutePath: String): Boolean = plugins.containsKey(absolutePath)
@@ -435,7 +464,7 @@ object ExtensionLoader {
             val classLoader = fragment.javaClass.classLoader
             val jarFile = classLoaderToJar[classLoader] ?: return
             val pluginPrefName = classLoaders[classLoader] ?: return
-            
+
             scanAllXmlPreferences(jarFile, pluginPrefName)
         } catch (e: Exception) {
             AppLogger.e("Failed to parse plugin preferences", e)
@@ -458,11 +487,11 @@ object ExtensionLoader {
                 for (entry in xmlEntries) {
                     val path = entry.name
                     AppLogger.i("Found XML path: $path")
-                    
+
                     try {
                         val bytes = zip.getInputStream(entry).use { it.readBytes() }
                         var xmlString = String(bytes, Charsets.UTF_8)
-                        
+
                         // Check if it's likely a binary XML (binary XML typically doesn't start with human-readable '<')
                         if (!xmlString.trimStart().startsWith("<")) {
                             if (apkFileLazy == null) {
@@ -478,11 +507,11 @@ object ExtensionLoader {
                         }
 
                         if (xmlString.isNullOrEmpty()) continue
-            
+
                         val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
                         val builder = factory.newDocumentBuilder()
                         val document = builder.parse(org.xml.sax.InputSource(java.io.StringReader(xmlString)))
-                        
+
                         val nodeList = document.getElementsByTagName("*")
                         for (i in 0 until nodeList.length) {
                             val node = nodeList.item(i)
@@ -513,7 +542,11 @@ object ExtensionLoader {
                                         }
                                     }
                                     com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                                        finalPrefName, key, type, defValue, false
+                                        finalPrefName,
+                                        key,
+                                        type,
+                                        defValue,
+                                        false,
                                     )
                                     AppLogger.i("Registered XML plugin setting: $finalPrefName -> $key ($type = $defValue)")
                                 }
@@ -527,6 +560,17 @@ object ExtensionLoader {
             apkFileLazy?.close()
         } catch (e: Exception) {
             AppLogger.e("Failed to parse plugin preferences", e)
+        }
+    }
+
+    private fun checkJarHasClass(jar: File, className: String): Boolean {
+        return try {
+            val entryPath = className.replace('.', '/') + ".class"
+            ZipFile(jar).use { zip ->
+                zip.getEntry(entryPath) != null
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:property-naming")
+
 package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.common.logging.AppLogger
@@ -19,11 +21,15 @@ interface MpvLibrary : Library {
     fun mpv_free(data: Pointer)
     fun mpv_terminate_destroy(handle: Pointer)
 
+    @Suppress("ktlint:standard:property-naming")
     @Structure.FieldOrder("event_id", "error", "reply_userdata", "data")
     open class MpvEvent(p: Pointer? = null) : Structure(p) {
         @JvmField var event_id: Int = 0
+
         @JvmField var error: Int = 0
+
         @JvmField var reply_userdata: Long = 0
+
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -33,7 +39,9 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("name", "format", "data")
     open class MpvEventProperty(p: Pointer? = null) : Structure(p) {
         @JvmField var name: String? = null
+
         @JvmField var format: Int = 0
+
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -43,9 +51,13 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("reason", "error", "playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries")
     open class MpvEventEndFile(p: Pointer? = null) : Structure(p) {
         @JvmField var reason: Int = 0
+
         @JvmField var error: Int = 0
+
         @JvmField var playlist_entry_id: Long = 0
+
         @JvmField var playlist_insert_id: Long = 0
+
         @JvmField var playlist_insert_num_entries: Int = 0
         init {
             p?.let { read() }

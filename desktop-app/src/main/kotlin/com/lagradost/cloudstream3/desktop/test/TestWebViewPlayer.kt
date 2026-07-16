@@ -1,7 +1,7 @@
 package com.lagradost.cloudstream3.desktop.test
 
-import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.player.MpvLibrary
+import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.sun.jna.Native
 import java.awt.Canvas
 import java.awt.Color
@@ -78,7 +78,7 @@ fun main() {
             override fun onPlayerEvent(eventJson: String, value: String) {
                 val type = extractJsonString(value, "type")
                 val arg = extractJsonValue(value, "value")
-                
+
                 val handle = mpvHandle
                 if (handle != null) {
                     when (type) {
@@ -110,18 +110,18 @@ fun main() {
                             val bounds = gc.bounds
                             val scaleX = gc.defaultTransform.scaleX
                             val scaleY = gc.defaultTransform.scaleY
-                            
+
                             val ptr = com.sun.jna.Native.getComponentPointer(window)
                             val hwnd = com.sun.jna.Pointer.nativeValue(ptr)
                             isFullscreen = !isFullscreen
-                            
+
                             NativePlayerBridge.setFullscreen(
                                 hwnd,
                                 isFullscreen,
                                 (bounds.x * scaleX).toInt(),
                                 (bounds.y * scaleY).toInt(),
                                 (bounds.width * scaleX).toInt(),
-                                (bounds.height * scaleY).toInt()
+                                (bounds.height * scaleY).toInt(),
                             )
                             if (isFullscreen) {
                                 window.toFront()
@@ -159,7 +159,7 @@ fun main() {
             val reqPath = exchange.requestURI.path.takeIf { it != "/" } ?: "/controls.html"
             val relativePath = reqPath.removePrefix("/")
             val file = File("src/main/resources/player-ui", relativePath)
-            
+
             if (file.exists()) {
                 val bytes = file.readBytes()
                 exchange.sendResponseHeaders(200, bytes.size.toLong())
@@ -181,8 +181,14 @@ fun main() {
             Timer(1000) {
                 println("Opening DevTools...")
                 NativePlayerBridge.openDevTools()
-            }.also { it.isRepeats = false; it.start() }
-        }.also { it.isRepeats = false; it.start() }
+            }.also {
+                it.isRepeats = false
+                it.start()
+            }
+        }.also {
+            it.isRepeats = false
+            it.start()
+        }
 
         // Periodically push real player state and enforce resize
         Timer(100) {
@@ -193,15 +199,15 @@ fun main() {
                 val pauseStr = MpvLibrary.getPropertyString(handle, "pause") ?: "yes"
                 val volStr = MpvLibrary.getPropertyString(handle, "volume") ?: "100.0"
                 val muteStr = MpvLibrary.getPropertyString(handle, "mute") ?: "no"
-                
+
                 val posMs = ((posStr.toDoubleOrNull() ?: 0.0) * 1000).toLong()
                 val durMs = ((durationStr.toDoubleOrNull() ?: 0.0) * 1000).toLong()
                 val isPlaying = pauseStr != "yes"
                 val volume = volStr.toDoubleOrNull() ?: 100.0
                 val isMuted = muteStr == "yes"
-                
+
                 NativePlayerBridge.executeScript(
-                    "if(window.playerUpdate) window.playerUpdate('{\"type\":\"state_update\", \"positionMs\": $posMs, \"durationMs\": $durMs, \"isPlaying\": $isPlaying, \"volume\": $volume, \"isMuted\": $isMuted}')"
+                    "if(window.playerUpdate) window.playerUpdate('{\"type\":\"state_update\", \"positionMs\": $posMs, \"durationMs\": $durMs, \"isPlaying\": $isPlaying, \"volume\": $volume, \"isMuted\": $isMuted}')",
                 )
             }
             // Enforce resize periodically

@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,7 +21,7 @@ import kotlinx.coroutines.launch
 fun SettingsAccounts() {
     val coroutineScope = rememberCoroutineScope()
     var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
-    
+
     // To trigger recomposition when accounts update
     var accountsUpdated by remember { mutableStateOf(0) }
 
@@ -34,50 +33,50 @@ fun SettingsAccounts() {
             items(AccountManager.allApis.size) { index ->
                 val api = AccountManager.allApis[index]
                 // Hack to force recomposition
-                accountsUpdated.hashCode() 
+                accountsUpdated.hashCode()
                 val accounts = AccountManager.cachedAccounts[api.idPrefix] ?: emptyArray()
                 val currentAccount = accounts.firstOrNull()
 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Column {
                             Text(api.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
                             Spacer(modifier = Modifier.height(4.dp))
-                                val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
-
-                                if (currentAccount != null) {
-                                    if (isApiKeyOnly) {
-                                        Text("API Key Active", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                    } else {
-                                        Text("Logged in as ${currentAccount.user.name}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                    }
-                                } else {
-                                    if (isApiKeyOnly) {
-                                        Text("No API Key", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                    } else {
-                                        Text("Not logged in", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                    }
-                                }
-                            }
+                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
 
                             if (currentAccount != null) {
-                                val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
-                                Button(
-                                    onClick = {
-                                        AccountManager.updateAccounts(api.idPrefix, emptyArray())
-                                        accountsUpdated++
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text(if (isApiKeyOnly) "Remove Key" else "Logout")
+                                if (isApiKeyOnly) {
+                                    Text("API Key Active", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                } else {
+                                    Text("Logged in as ${currentAccount.user.name}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                                 }
+                            } else {
+                                if (isApiKeyOnly) {
+                                    Text("No API Key", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                } else {
+                                    Text("Not logged in", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                }
+                            }
+                        }
+
+                        if (currentAccount != null) {
+                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
+                            Button(
+                                onClick = {
+                                    AccountManager.updateAccounts(api.idPrefix, emptyArray())
+                                    accountsUpdated++
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            ) {
+                                Text(if (isApiKeyOnly) "Remove Key" else "Logout")
+                            }
                         } else if (api.requiresLogin) {
                             val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
                             Button(
@@ -88,7 +87,7 @@ fun SettingsAccounts() {
                                         // Not supported on desktop yet
                                         com.lagradost.common.logging.AppLogger.w("${api.name} login not supported on Desktop yet (missing hasInApp)")
                                     }
-                                }
+                                },
                             ) {
                                 Text(if (api.hasInApp) (if (isApiKeyOnly) "Add Key" else "Login") else "Not Supported")
                             }
@@ -107,7 +106,7 @@ fun SettingsAccounts() {
                 AccountManager.updateAccounts(selectedApiForLogin!!.idPrefix, arrayOf(authData))
                 accountsUpdated++
                 selectedApiForLogin = null
-            }
+            },
         )
     }
 }
@@ -121,7 +120,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
     var apiKeyStr by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    
+
     val coroutineScope = rememberCoroutineScope()
     val req = api.inAppLoginRequirement
 
@@ -131,7 +130,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = Color(0xFF1E1E1E),
-            modifier = Modifier.width(400.dp)
+            modifier = Modifier.width(400.dp),
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(if (isApiKeyOnly) "Enter API Key for ${api.name}" else "Login to ${api.name}", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
@@ -143,7 +142,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                         onValueChange = { username = it },
                         label = { Text("Username") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -154,7 +153,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                         onValueChange = { email = it },
                         label = { Text("Email") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -166,7 +165,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                         label = { Text("Password") },
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -177,7 +176,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                         onValueChange = { server = it },
                         label = { Text("Server") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -188,7 +187,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                         onValueChange = { apiKeyStr = it },
                         label = { Text("API Key") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -214,7 +213,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                                         password = password.takeIf { req?.password == true },
                                         email = email.takeIf { req?.email == true },
                                         server = server.takeIf { req?.server == true },
-                                        apiKey = apiKeyStr.takeIf { req?.apiKey == true }
+                                        apiKey = apiKeyStr.takeIf { req?.apiKey == true },
                                     )
                                     val token = api.login(form)
                                     if (token != null) {
@@ -234,7 +233,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                                 }
                             }
                         },
-                        enabled = !isLoading
+                        enabled = !isLoading,
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)

@@ -75,6 +75,7 @@ dependencies {
     // Image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.0")
+    implementation("io.coil-kt.coil3:coil-svg:3.0.0")
 
     // Logging
     implementation(libs.slf4j.api)
@@ -127,7 +128,7 @@ compose.desktop {
                 "jdk.zipfs", // Required by dex2jar for JAR generation
                 "java.compiler", // Required by Rhino JS compiler
                 "jdk.compiler", // Required by Rhino JS compiler
-                "jdk.localedata" // Required by Rhino JS Date functions
+                "jdk.localedata", // Required by Rhino JS Date functions
             )
             appResourcesRootDir.set(project.layout.projectDirectory.dir("appResources"))
 

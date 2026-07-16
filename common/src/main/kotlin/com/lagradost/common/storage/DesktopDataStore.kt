@@ -17,7 +17,7 @@ enum class DesktopWatchType(val id: Int, val stringRes: String) {
     ONHOLD(2, "On Hold"),
     DROPPED(3, "Dropped"),
     PLANTOWATCH(4, "Plan to Watch"),
-    REWATCHING(5, "Re-watching")
+    REWATCHING(5, "Re-watching"),
 }
 
 data class DesktopBookmark(

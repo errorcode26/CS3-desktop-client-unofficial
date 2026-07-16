@@ -28,7 +28,7 @@ object DesktopStrings {
     const val NO_UPDATES = "No recent updates"
     const val PLUGIN_UPDATED = "updated to"
     const val PLUGIN_INSTALLED = "installed"
-    
+
     // Details
     const val WATCH_TRAILER = "Watch Trailer"
     const val MORE_INFO = "More Info"

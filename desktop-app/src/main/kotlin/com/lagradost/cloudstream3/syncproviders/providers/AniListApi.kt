@@ -1,12 +1,10 @@
 package com.lagradost.cloudstream3.syncproviders.providers
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Actor
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.ActorRole
-import com.lagradost.cloudstream3.APIHolder
-import com.lagradost.cloudstream3.CloudStreamApp.Companion.getKey
-import com.lagradost.cloudstream3.CloudStreamApp.Companion.setKey
 import com.lagradost.cloudstream3.ErrorLoadingException
 import com.lagradost.cloudstream3.NextAiring
 import com.lagradost.cloudstream3.Score
@@ -19,8 +17,6 @@ import com.lagradost.cloudstream3.syncproviders.AuthToken
 import com.lagradost.cloudstream3.syncproviders.AuthUser
 import com.lagradost.cloudstream3.syncproviders.SyncAPI
 import com.lagradost.cloudstream3.syncproviders.SyncIdName
-import com.lagradost.cloudstream3.ui.SyncWatchType
-import com.lagradost.cloudstream3.ui.library.ListSorting
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
@@ -89,21 +85,23 @@ class AniListApi : SyncAPI() {
                 this.name,
                 it.id.toString(),
                 getUrlFromId(it.id),
-                it.bannerImage
+                it.bannerImage,
             )
         }
     }
 
     override suspend fun load(auth: AuthData?, id: String): SyncAPI.SyncResult? {
-        val internalId = (Regex("anilist\\.co/anime/(\\d*)").find(id)?.groupValues?.getOrNull(1)
-            ?: id).toIntOrNull() ?: throw ErrorLoadingException("Invalid internalId")
+        val internalId = (
+            Regex("anilist\\.co/anime/(\\d*)").find(id)?.groupValues?.getOrNull(1)
+                ?: id
+            ).toIntOrNull() ?: throw ErrorLoadingException("Invalid internalId")
         val season = getSeason(internalId).data.media
         return SyncAPI.SyncResult(
             season.id.toString(),
             nextAiring = season.nextAiringEpisode?.let {
                 NextAiring(
                     it.episode ?: return@let null,
-                    (it.timeUntilAiring ?: return@let null) + APIHolder.unixTime
+                    (it.timeUntilAiring ?: return@let null) + APIHolder.unixTime,
                 )
             },
             title = season.title?.userPreferred,
@@ -116,8 +114,8 @@ class AniListApi : SyncAPI() {
                 ActorData(
                     actor = Actor(
                         name = node.name?.userPreferred ?: node.name?.full ?: node.name?.native
-                        ?: return@mapNotNull null,
-                        image = node.image?.large ?: node.image?.medium
+                            ?: return@mapNotNull null,
+                        image = node.image?.large ?: node.image?.medium,
                     ),
                     role = when (edge.role) {
                         "MAIN" -> ActorRole.Main
@@ -128,11 +126,11 @@ class AniListApi : SyncAPI() {
                     voiceActor = edge.voiceActors?.firstNotNullOfOrNull { staff ->
                         Actor(
                             name = staff.name?.userPreferred ?: staff.name?.full
-                            ?: staff.name?.native
-                            ?: return@mapNotNull null,
-                            image = staff.image?.large ?: staff.image?.medium
+                                ?: staff.name?.native
+                                ?: return@mapNotNull null,
+                            image = staff.image?.large ?: staff.image?.medium,
                         )
-                    }
+                    },
                 )
             },
             publicScore = Score.from100(season.averageScore),
@@ -144,13 +142,13 @@ class AniListApi : SyncAPI() {
                     recMedia.id?.toString() ?: return@mapNotNull null,
                     getUrlFromId(recMedia.id),
                     recMedia.coverImage?.extraLarge ?: recMedia.coverImage?.large
-                    ?: recMedia.coverImage?.medium
+                        ?: recMedia.coverImage?.medium,
                 )
             },
             trailers = when (season.trailer?.site?.lowercase()?.trim()) {
                 "youtube" -> listOf("https://www.youtube.com/watch?v=${season.trailer.id}")
                 else -> null
-            }
+            },
             // TODO REST
         )
     }
@@ -162,7 +160,7 @@ class AniListApi : SyncAPI() {
     override suspend fun updateStatus(
         auth: AuthData?,
         id: String,
-        newStatus: AbstractSyncStatus
+        newStatus: AbstractSyncStatus,
     ): Boolean {
         return false
     }
@@ -243,14 +241,14 @@ class AniListApi : SyncAPI() {
                             search = name,
                             page = 1,
                             type = "ANIME",
-                        ).toJson()
+                        ).toJson(),
                     )
 
                 val res = app.post(
                     "https://graphql.anilist.co/",
                     // headers = mapOf(),
                     data = data, // (if (vars == null) mapOf("query" to q) else mapOf("query" to q, "variables" to vars))
-                    timeout = 5000 // REASONABLE TIMEOUT
+                    timeout = 5000, // REASONABLE TIMEOUT
                 ).text.replace("\\", "")
                 return parseJson<GetSearchRoot>(res)
             } catch (e: Exception) {
@@ -270,14 +268,14 @@ class AniListApi : SyncAPI() {
                 "(TV)",
                 "(Uncensored)",
                 "(Censored)",
-                "(\\d+)" // year
+                "(\\d+)", // year
             )
             val blackListRegex =
                 Regex(
                     """ (${
                         blackList.joinToString(separator = "|").replace("(", "\\(")
                             .replace(")", "\\)")
-                    })"""
+                    })""",
                 )
             // println("NAME $name NEW NAME ${name.replace(blackListRegex, "")}")
             val shows = searchShows(name.replace(blackListRegex, ""))
@@ -288,8 +286,12 @@ class AniListApi : SyncAPI() {
 
             val filtered =
                 shows?.data?.page?.media?.filter {
-                    (((it.startDate.year ?: year.toString()) == year.toString()
-                            || year == null))
+                    (
+                        (
+                            (it.startDate.year ?: year.toString()) == year.toString() ||
+                                year == null
+                            )
+                        )
                 }
             filtered?.forEach {
                 it.title.romaji?.let { romaji ->
@@ -307,7 +309,7 @@ class AniListApi : SyncAPI() {
             Dropped(3),
             Planning(4),
             ReWatching(5),
-            None(-1)
+            None(-1),
         }
 
         fun fromIntToAnimeStatus(inp: Int): AniListStatusType {
@@ -487,16 +489,16 @@ class AniListApi : SyncAPI() {
             "https://graphql.anilist.co/",
             headers = mapOf(
                 "Authorization" to "Bearer ${token.accessToken ?: return null}",
-                if (cache) "Cache-Control" to "max-stale=$MAX_STALE" else "Cache-Control" to "no-cache"
+                if (cache) "Cache-Control" to "max-stale=$MAX_STALE" else "Cache-Control" to "no-cache",
             ),
             cacheTime = 0,
             data = mapOf(
                 "query" to URLEncoder.encode(
                     q,
-                    "UTF-8"
-                )
+                    "UTF-8",
+                ),
             ), // (if (vars == null) mapOf("query" to q) else mapOf("query" to q, "variables" to vars))
-            timeout = 5 // REASONABLE TIMEOUT
+            timeout = 5, // REASONABLE TIMEOUT
         ).text.replace("\\/", "/")
     }
 
@@ -578,8 +580,8 @@ class AniListApi : SyncAPI() {
             return SyncAPI.LibraryItem(
                 // English title first
                 this.media.title.english ?: this.media.title.romaji
-                ?: this.media.synonyms.firstOrNull()
-                ?: "",
+                    ?: this.media.synonyms.firstOrNull()
+                    ?: "",
                 "https://anilist.co/anime/${this.media.id}/",
                 this.media.id.toString(),
                 this.progress,
@@ -589,7 +591,7 @@ class AniListApi : SyncAPI() {
                 "AniList",
                 TvType.Anime,
                 this.media.coverImage.extraLarge ?: this.media.coverImage.large
-                ?: this.media.coverImage.medium,
+                    ?: this.media.coverImage.medium,
                 null,
                 null,
                 null,
@@ -704,7 +706,7 @@ class AniListApi : SyncAPI() {
         id: Int,
         type: AniListStatusType,
         score: Score?,
-        progress: Int?
+        progress: Int?,
     ): Boolean {
         val userID = auth.user.id
         val q =

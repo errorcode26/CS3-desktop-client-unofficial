@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
@@ -20,10 +23,6 @@ import com.lagradost.cloudstream3.desktop.ui.screens.ComposeExtensionScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
 import com.lagradost.common.storage.WatchHistory
-
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerButton
 
 data class VideoLaunchData(
     val links: List<com.lagradost.cloudstream3.utils.ExtractorLink> = emptyList(),
@@ -79,7 +78,7 @@ fun CloudstreamApp() {
     val selectedFont by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.selectedFont.collectAsState()
     val typography = androidx.compose.runtime.remember(selectedFont) {
         com.lagradost.cloudstream3.desktop.ui.theme.buildTypography(
-            com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(selectedFont)
+            com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(selectedFont),
         )
     }
 
@@ -117,7 +116,7 @@ fun CloudstreamApp() {
                                     }
                                 }
                             }
-                        }
+                        },
                 ) {
                     val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
 
@@ -139,65 +138,73 @@ fun CloudstreamApp() {
                             if (isPush) {
                                 if (isToDetails) {
                                     // Smooth fade and slight scale-in for Details, without scaling the Home screen
-                                    (androidx.compose.animation.fadeIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                                    ) + androidx.compose.animation.scaleIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        initialScale = 0.95f
-                                    )).togetherWith(
-                                        androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                    (
+                                        androidx.compose.animation.fadeIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        ) + androidx.compose.animation.scaleIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            initialScale = 0.95f,
                                         )
+                                        ).togetherWith(
+                                        androidx.compose.animation.fadeOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        ),
                                     ).apply { targetContentZIndex = 1f }
                                 } else {
                                     // Shared Axis Z — push: new screen scales up from 92%, old screen zooms away to 108%
-                                    (androidx.compose.animation.fadeIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                                    ) + androidx.compose.animation.scaleIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        initialScale = 0.92f
-                                    )).togetherWith(
+                                    (
+                                        androidx.compose.animation.fadeIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        ) + androidx.compose.animation.scaleIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            initialScale = 0.92f,
+                                        )
+                                        ).togetherWith(
                                         androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                                         ) + androidx.compose.animation.scaleOut(
                                             animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 1.08f
-                                        )
+                                            targetScale = 1.08f,
+                                        ),
                                     ).apply { targetContentZIndex = 1f }
                                 }
                             } else if (isPop) {
                                 if (isFromDetails) {
                                     // Smooth fade out and scale down for Details, without scaling the Home screen
-                                    (androidx.compose.animation.fadeIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                                    )).togetherWith(
+                                    (
+                                        androidx.compose.animation.fadeIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        )
+                                        ).togetherWith(
                                         androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                                         ) + androidx.compose.animation.scaleOut(
                                             animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 0.95f
-                                        )
+                                            targetScale = 0.95f,
+                                        ),
                                     ).apply { targetContentZIndex = -1f }
                                 } else {
                                     // Shared Axis Z — pop: old screen shrinks back to 92%, previous screen zooms in from 108%
-                                    (androidx.compose.animation.fadeIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-                                    ) + androidx.compose.animation.scaleIn(
-                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        initialScale = 1.08f
-                                    )).togetherWith(
+                                    (
+                                        androidx.compose.animation.fadeIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        ) + androidx.compose.animation.scaleIn(
+                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            initialScale = 1.08f,
+                                        )
+                                        ).togetherWith(
                                         androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                                         ) + androidx.compose.animation.scaleOut(
                                             animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 0.92f
-                                        )
+                                            targetScale = 0.92f,
+                                        ),
                                     ).apply { targetContentZIndex = -1f }
                                 }
                             } else {
                                 // Tab switch: simple crossfade — no depth needed for same-level navigation
                                 androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
-                                androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
+                                    androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
                             }
                         },
                         label = "screen_transition",
@@ -235,7 +242,7 @@ fun CloudstreamApp() {
                                 ) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
                                         navController = navController,
-                                        onErrorLogs = { showErrorsDialog = true }
+                                        onErrorLogs = { showErrorsDialog = true },
                                     )
                                 }
                                 is Screen.CategoryGrid -> DesktopAppShell(
@@ -268,14 +275,14 @@ fun CloudstreamApp() {
                     val exitFadeAlpha by androidx.compose.animation.core.animateFloatAsState(
                         targetValue = if (showExitFade) 1f else 0f,
                         animationSpec = if (showExitFade) androidx.compose.animation.core.tween(400) else androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.LinearEasing),
-                        label = "exitFadeAlpha"
+                        label = "exitFadeAlpha",
                     )
 
                     if (exitFadeAlpha > 0f) {
                         androidx.compose.foundation.layout.Box(
                             modifier = androidx.compose.ui.Modifier
                                 .fillMaxSize()
-                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = exitFadeAlpha))
+                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = exitFadeAlpha)),
                         )
                     }
 
@@ -287,24 +294,24 @@ fun CloudstreamApp() {
 
                             // Smoothly fade to black over 400ms before destroying the player
                             kotlinx.coroutines.delay(450)
-                            
+
                             // Destroy the native player. The screen stays black because our shield is completely opaque!
                             currentVideo = null
-                            
+
                             // Wait 50ms more to ensure the native window is truly gone from Windows DWM
                             kotlinx.coroutines.delay(50)
-                            
+
                             // Drop the shield and let Compose's exit fade take over!
                             com.lagradost.cloudstream3.desktop.player.DesktopPlayerShield.hideAfter(100)
-                            
-                            // Do NOT exit fullscreen here, as the user wants to stay in fullscreen 
+
+                            // Do NOT exit fullscreen here, as the user wants to stay in fullscreen
                             // if they were already in it before opening the player!
-                            
+
                             // Trigger the smooth fade-out!
                             showExitFade = false
                         }
                     }
-                    
+
                     if (showErrorsDialog) {
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { showErrorsDialog = false },

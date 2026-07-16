@@ -20,7 +20,7 @@ object URLStub {
         }
         return url.openStream()
     }
-    
+
     @JvmStatic
     fun getContent(url: URL): Any {
         if (url.protocol == "file") {

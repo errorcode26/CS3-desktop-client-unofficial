@@ -72,14 +72,14 @@ fun AppDropdownMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: androidx.compose.ui.unit.DpOffset = androidx.compose.ui.unit.DpOffset(0.dp, 0.dp),
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = modifier.heightIn(max = 400.dp).widthIn(max = 350.dp),
         offset = offset,
-        content = content
+        content = content,
     )
 }
 
@@ -144,8 +144,8 @@ fun CategoryRowWithHeader(
     trailingHeaderExtra: @Composable (() -> Unit)? = null,
     // Padding applied to the LazyRow's content — lets it extend full-width while items
     // align with the constrained header above. PaddingValues.Absolute avoids RTL mirroring.
-    rowContentPadding: PaddingValues = PaddingValues(horizontal = 4.dp),
-    headerPadding: PaddingValues = PaddingValues(start = 4.dp, top = 12.dp, bottom = 8.dp, end = 4.dp),
+    rowContentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 16.dp),
+    headerPadding: PaddingValues = PaddingValues(start = 10.dp, top = 12.dp, bottom = 8.dp, end = 10.dp),
     content: LazyListScope.() -> Unit,
 ) {
     val initialIndex = remember(isInfinite, itemCount) {
@@ -223,7 +223,6 @@ fun CategoryRowWithHeader(
         )
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

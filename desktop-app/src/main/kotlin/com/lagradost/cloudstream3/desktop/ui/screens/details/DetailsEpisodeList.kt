@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,7 +45,7 @@ fun EpisodeCard(
     data: LoadResponse,
     isAntiSpoiler: Boolean = false,
     modifier: Modifier = Modifier,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit
+    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
 ) {
     var isHovered by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
@@ -54,9 +54,14 @@ fun EpisodeCard(
     val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
 
     val progress = if (history != null && history.duration > 0) {
-        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
-        else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-    } else 0f
+        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
+            1f
+        } else {
+            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+        }
+    } else {
+        0f
+    }
 
     val shouldHideSpoilers = isAntiSpoiler && progress < 0.9f
 
@@ -86,6 +91,11 @@ fun EpisodeCard(
                 }
             }
             .scale(scale)
+            .border(
+                width = 1.dp,
+                color = if (isHovered) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(10.dp),
+            )
             .clip(RoundedCornerShape(10.dp))
             .clickable { navigateToPlay(provider, data, ep, onPlay) },
     ) {
@@ -105,7 +115,7 @@ fun EpisodeCard(
                             model = fallbackImg,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().blur(if (shouldHideSpoilers) 16.dp else 8.dp)
+                            modifier = Modifier.fillMaxSize().blur(if (shouldHideSpoilers) 16.dp else 8.dp),
                         )
                     }
                 },
@@ -115,18 +125,18 @@ fun EpisodeCard(
                             model = fallbackImg,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
                         )
                     } else {
                         Box(
                             modifier = Modifier.fillMaxSize()
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
                         }
                     }
-                }
+                },
             )
         } else {
             Box(
@@ -148,8 +158,8 @@ fun EpisodeCard(
                         0.35f to Color.Transparent,
                         0.62f to Color.Black.copy(alpha = 0.60f),
                         1.0f to Color.Black.copy(alpha = 0.97f),
-                    )
-                )
+                    ),
+                ),
         )
 
         // ── Hover play overlay ───────────────────────────────────────────────
@@ -162,7 +172,7 @@ fun EpisodeCard(
             Box(
                 modifier = Modifier.fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.28f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
@@ -189,7 +199,7 @@ fun EpisodeCard(
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.Black.copy(alpha = 0.6f))
                         .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                 ) {
                     Text("Hidden by Anti-spoiler", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -204,11 +214,11 @@ fun EpisodeCard(
                     .padding(10.dp)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(Color.Black.copy(alpha = 0.75f))
-                    .padding(horizontal = 9.dp, vertical = 3.dp)
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
             ) {
                 Text(
                     text = "EP $epNum",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold,
                 )
@@ -223,8 +233,11 @@ fun EpisodeCard(
                 .padding(10.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isWatched) Color(0xFF4CAF50).copy(alpha = 0.85f) 
-                    else Color.Black.copy(alpha = 0.5f)
+                    if (isWatched) {
+                        Color(0xFF4CAF50).copy(alpha = 0.85f)
+                    } else {
+                        Color.Black.copy(alpha = 0.5f)
+                    },
                 )
                 .clickable {
                     if (isWatched) {
@@ -236,13 +249,13 @@ fun EpisodeCard(
                         toggleEpisodeWatched(provider, data, ep, isWatched = false)
                     }
                 }
-                .padding(6.dp)
+                .padding(6.dp),
         ) {
             Icon(
                 Icons.Default.Check,
                 contentDescription = if (isWatched) "Unmark as watched" else "Mark as watched",
                 tint = if (isWatched) Color.White else Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(16.dp),
             )
         }
 
@@ -252,16 +265,16 @@ fun EpisodeCard(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp),
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
-                modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this }
+                modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this },
             )
             val hasDesc = !ep.description.isNullOrBlank()
             Text(
@@ -271,11 +284,11 @@ fun EpisodeCard(
                     runTimeStr != null -> "Runtime: $runTimeStr"
                     else -> "No description available."
                 },
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 17.sp),
                 color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.72f else 0.42f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this }
+                modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
             )
         }
 
@@ -286,13 +299,13 @@ fun EpisodeCard(
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(Color.White.copy(alpha = 0.2f))
+                    .background(Color.White.copy(alpha = 0.2f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progress)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(MaterialTheme.colorScheme.primary),
                 )
             }
         }
@@ -389,7 +402,7 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
         Box(modifier = Modifier.fillMaxSize()) {
             val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
             val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
-            
+
             if (epImg != null || fallbackImg != null) {
                 SubcomposeAsyncImage(
                     model = epImg ?: fallbackImg,
@@ -408,7 +421,7 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                                 model = fallbackImg,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().blur(8.dp)
+                                modifier = Modifier.fillMaxSize().blur(8.dp),
                             )
                         }
                     },
@@ -418,10 +431,10 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                                 model = fallbackImg,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
-                    }
+                    },
                 )
                 // Gradient overlay so text is readable
                 Box(

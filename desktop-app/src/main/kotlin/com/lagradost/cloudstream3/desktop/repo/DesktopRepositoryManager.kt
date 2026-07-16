@@ -14,9 +14,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -51,6 +51,8 @@ object DesktopRepositoryManager {
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     private val reposFile by lazy { File(getExtensionsDir(), "repos.json") }
+    private val repoCacheFile by lazy { File(getExtensionsDir(), "repo_cache.json") }
+    private val pluginsCacheFile by lazy { File(getExtensionsDir(), "plugins_cache.json") }
     private val repoCache = mutableMapOf<String, Repository>()
     private val pluginsCache = mutableMapOf<String, List<SitePlugin>>()
 
@@ -74,6 +76,38 @@ object DesktopRepositoryManager {
 
     init {
         refreshSavedRepositoriesFromDisk()
+        loadCachesFromDisk()
+    }
+
+    private fun loadCachesFromDisk() {
+        try {
+            if (repoCacheFile.exists()) {
+                val data: Map<String, Repository> = mapper.readValue(
+                    repoCacheFile,
+                    object : TypeReference<Map<String, Repository>>() {},
+                )
+                repoCache.putAll(data)
+            }
+            if (pluginsCacheFile.exists()) {
+                val data: Map<String, List<SitePlugin>> = mapper.readValue(
+                    pluginsCacheFile,
+                    object : TypeReference<Map<String, List<SitePlugin>>>() {},
+                )
+                pluginsCache.putAll(data)
+            }
+        } catch (e: Exception) {
+            AppLogger.e("Failed to load repository caches from disk", e)
+        }
+    }
+
+    private fun saveCachesToDisk() {
+        try {
+            repoCacheFile.parentFile?.mkdirs()
+            mapper.writeValue(repoCacheFile, repoCache)
+            mapper.writeValue(pluginsCacheFile, pluginsCache)
+        } catch (e: Exception) {
+            AppLogger.e("Failed to save repository caches to disk", e)
+        }
     }
 
     fun getSavedRepositories(): List<RepositoryData> = _savedRepositories.value
@@ -147,6 +181,13 @@ object DesktopRepositoryManager {
     fun removeRepository(url: String) {
         val current = readRepositoriesFromDisk().filter { it.url != url }
         writeRepositoriesToDisk(current)
+        val repo = repoCache.remove(url)
+        if (repo != null) {
+            for (listUrl in repo.pluginLists) {
+                pluginsCache.remove(listUrl)
+            }
+        }
+        saveCachesToDisk()
     }
 
     /**
@@ -212,7 +253,10 @@ object DesktopRepositoryManager {
     suspend fun getCachedRepository(url: String): Repository? {
         if (repoCache.containsKey(url)) return repoCache[url]
         val repo = fetchRepository(url)
-        if (repo != null) repoCache[url] = repo
+        if (repo != null) {
+            repoCache[url] = repo
+            saveCachesToDisk()
+        }
         return repo
     }
 
@@ -220,6 +264,7 @@ object DesktopRepositoryManager {
         if (pluginsCache.containsKey(listUrl)) return pluginsCache[listUrl]!!
         val plugins = fetchPlugins(listUrl).filter { it.status != 0 }
         pluginsCache[listUrl] = plugins
+        saveCachesToDisk()
 
         val newIcons = remotePluginIcons.value.toMutableMap()
         plugins.forEach { remotePlugin ->
@@ -626,7 +671,6 @@ object DesktopRepositoryManager {
     suspend fun syncAll(): SyncReport = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             AppLogger.i("=== Desktop sync started ===")
-            clearCaches()
 
             val reposRefreshed = refreshAllRepositoryMetadata()
             val catalogPlugins = rebuildRemotePluginCatalog()
@@ -635,6 +679,7 @@ object DesktopRepositoryManager {
             val iconsCached = remotePluginIcons.value.size
 
             syncGeneration.value = syncGeneration.value + 1
+            saveCachesToDisk()
             AppLogger.i("=== Desktop sync finished ===")
 
             SyncReport(

@@ -2,26 +2,25 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.hoverable
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,8 +57,14 @@ fun TimelineBar(
                     playerState = playerState,
                     isDragging = isDragging,
                     dragPositionMs = dragPositionMs,
-                    onDragStart = { isDragging = true; dragPositionMs = it },
-                    onDragEnd = { isDragging = false; playerState.seekTo(dragPositionMs) }
+                    onDragStart = {
+                        isDragging = true
+                        dragPositionMs = it
+                    },
+                    onDragEnd = {
+                        isDragging = false
+                        playerState.seekTo(dragPositionMs)
+                    },
                 )
             }
 
@@ -76,7 +81,7 @@ fun TimelineBar(
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             // Left Side Controls (Play/Pause, Rewind, Forward, Volume)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -86,7 +91,7 @@ fun TimelineBar(
                         imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                         contentDescription = "Play/Pause",
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
                     )
                 }
 
@@ -97,7 +102,7 @@ fun TimelineBar(
                         imageVector = Icons.Default.Replay10,
                         contentDescription = "Rewind 10s",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
                     )
                 }
 
@@ -106,7 +111,7 @@ fun TimelineBar(
                         imageVector = Icons.Default.Forward10,
                         contentDescription = "Forward 10s",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
                     )
                 }
 
@@ -162,7 +167,7 @@ private fun TimelineScrubber(
     isDragging: Boolean,
     dragPositionMs: Long,
     onDragStart: (Long) -> Unit,
-    onDragEnd: () -> Unit
+    onDragEnd: () -> Unit,
 ) {
     val positionMs by playerState.positionMs.collectAsState()
     val durationMs by playerState.durationMs.collectAsState()
@@ -193,7 +198,7 @@ private fun TimelineScrubber(
                 modifier = Modifier
                     .size(thumbSize)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(Color.White),
             )
         },
         track = { sliderState ->
@@ -203,14 +208,14 @@ private fun TimelineScrubber(
             ) {
                 // Buffer track
                 Box(
-                    modifier = Modifier.fillMaxWidth(fraction = bufferProgress).height(trackHeight).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.5f))
+                    modifier = Modifier.fillMaxWidth(fraction = bufferProgress).height(trackHeight).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.5f)),
                 )
                 // Played track
                 Box(
-                    modifier = Modifier.fillMaxWidth(fraction = sliderState.value).height(trackHeight).clip(RoundedCornerShape(4.dp)).background(Color(0xFF9151FF))
+                    modifier = Modifier.fillMaxWidth(fraction = sliderState.value).height(trackHeight).clip(RoundedCornerShape(4.dp)).background(Color(0xFF9151FF)),
                 )
             }
-        }
+        },
     )
 
     if (isDragging) {
@@ -266,7 +271,7 @@ fun VolumeScrubber(playerState: PlayerState) {
                     playerState.setVolume(pct * 100f)
                 }
             },
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.CenterStart,
     ) {
         // Background track
         Box(modifier = Modifier.fillMaxWidth().height(volumeHeight).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f)))

@@ -34,17 +34,17 @@ class LocalStreamProxyTest {
         val sessionId = LocalStreamProxy.registerSession(headers)
 
         assertTrue(sessionId.isNotEmpty(), "Session ID should not be empty")
-        
+
         // Build URL
         val url = "https://example.com/video.m3u8"
         val proxyUrl = LocalStreamProxy.buildProxyUrl(sessionId, url)
-        
+
         val encodedUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray(Charsets.UTF_8))
-        
+
         assertEquals(
             "http://127.0.0.1:${LocalStreamProxy.port}/proxy?s=$sessionId&u=$encodedUrl",
             proxyUrl,
-            "Proxy URL should be correctly formatted with base64 encoded URL"
+            "Proxy URL should be correctly formatted with base64 encoded URL",
         )
     }
 

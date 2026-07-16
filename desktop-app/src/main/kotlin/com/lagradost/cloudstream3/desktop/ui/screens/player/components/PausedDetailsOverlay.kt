@@ -5,7 +5,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,7 +33,7 @@ fun PausedDetailsOverlay(
         visible = isPaused && showControls,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = modifier
+        modifier = modifier,
     ) {
         val loadResponse = launchData.loadResponse
 
@@ -47,17 +46,17 @@ fun PausedDetailsOverlay(
                         0.0f to Color.Black.copy(alpha = 0.85f),
                         0.25f to Color.Black.copy(alpha = 0.6f),
                         0.60f to Color.Black.copy(alpha = 0.1f),
-                        1.0f to Color.Transparent
-                    )
-                )
+                        1.0f to Color.Transparent,
+                    ),
+                ),
         )
-        
+
         Column(
             modifier = Modifier
                 .width(500.dp)
                 .padding(start = 32.dp, top = 64.dp),
             verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.Start
+            horizontalAlignment = Alignment.Start,
         ) {
             Text(
                 text = "You Are Watching",
@@ -66,7 +65,7 @@ fun PausedDetailsOverlay(
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 2.sp,
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Attempt to load custom logo PNG if the provider supports it.
@@ -77,7 +76,7 @@ fun PausedDetailsOverlay(
                     contentDescription = "Show Logo",
                     modifier = Modifier.heightIn(max = 140.dp).fillMaxWidth(0.8f),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    alignment = Alignment.CenterStart
+                    alignment = Alignment.CenterStart,
                 )
             } else {
                 // Text Title Fallback
@@ -98,7 +97,7 @@ fun PausedDetailsOverlay(
             val seasonStr = if (epData.season != null) "S${epData.season}" else ""
             val epStr = if (epData.episode != null) "E${epData.episode}" else ""
             val combinedMeta = listOf(seasonStr, epStr).filter { it.isNotBlank() }.joinToString(" ")
-            
+
             var episodeTitle = launchData.title?.substringAfter(" - ") ?: epData.showName
             // If the scraped title is literally just "S1E1" or similar, don't show it redundantly
             val redundantName = "S${epData.season}E${epData.episode}"

@@ -131,6 +131,12 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                 onResult("Blocked (Security)")
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
+                try {
+                    val jarFile = java.io.File(DesktopRepositoryManager.getExtensionsDir(), "${repoName.replace(" ", "_")}/${plugin.internalName}.jar")
+                    if (jarFile.exists()) {
+                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+                    }
+                } catch (_: Throwable) {}
                 onResult("Error")
             }
         }
@@ -154,6 +160,12 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                 }
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
+                try {
+                    val jarFile = java.io.File(DesktopRepositoryManager.getExtensionsDir(), "${repoName.replace(" ", "_")}/${plugin.internalName}.jar")
+                    if (jarFile.exists()) {
+                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+                    }
+                } catch (_: Throwable) {}
             }
         }
     }
@@ -178,18 +190,18 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
             for (plugin in plugins) {
                 try {
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
-                    
+
                     // Windows file lock release workaround
                     System.gc()
                     kotlinx.coroutines.delay(100)
-                    
+
                     val parentDir = plugin.file.parentFile
                     val cs3Deleted = plugin.file.delete()
                     val jvmDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar").delete()
                     val dexDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + ".dex").delete()
-                    
+
                     com.lagradost.common.logging.AppLogger.i("Uninstalled ${plugin.name}: cs3=$cs3Deleted, jvm=$jvmDeleted, dex=$dexDeleted")
-                    
+
                     if (parentDir != null && parentDir.listFiles()?.isEmpty() == true) {
                         parentDir.delete()
                     }

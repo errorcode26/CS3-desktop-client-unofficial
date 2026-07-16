@@ -12,15 +12,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -108,14 +105,14 @@ fun PosterCard(
             ) {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
             }
-            
+
             androidx.compose.animation.AnimatedVisibility(
                 visible = isHovered,
-                enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) + 
-                        androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) + 
-                       androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                modifier = Modifier.align(Alignment.Center)
+                enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) +
+                    androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) +
+                    androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                modifier = Modifier.align(Alignment.Center),
             ) {
                 Box(
                     modifier = Modifier
@@ -123,21 +120,21 @@ fun PosterCard(
                         .clip(androidx.compose.foundation.shape.CircleShape)
                         .background(Color.White.copy(alpha = 0.15f))
                         .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play",
                         tint = Color.White,
-                        modifier = Modifier.size(32.dp).padding(start = 2.dp)
+                        modifier = Modifier.size(32.dp).padding(start = 2.dp),
                     )
                 }
             }
 
             val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
             var showBookmarkMenu by remember { mutableStateOf(false) }
-            var currentBookmark by remember(bookmarkId) { 
-                mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null) 
+            var currentBookmark by remember(bookmarkId) {
+                mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null)
             }
 
             val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
@@ -150,7 +147,7 @@ fun PosterCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .graphicsLayer { alpha = bookmarkAlpha }
+                        .graphicsLayer { alpha = bookmarkAlpha },
                 ) {
                     IconButton(
                         onClick = { if (provider != null) showBookmarkMenu = true },
@@ -160,7 +157,7 @@ fun PosterCard(
                             imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
                             contentDescription = "Bookmark",
                             tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
                         )
                     }
 
@@ -170,24 +167,24 @@ fun PosterCard(
                         modifier = Modifier
                             .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
                             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                            .padding(4.dp)
+                            .padding(4.dp),
                     ) {
                         Text(
                             "Add to Library",
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                         com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
                             val isSelected = currentBookmark?.watchType == type.id
                             DropdownMenuItem(
-                                text = { 
+                                text = {
                                     Text(
                                         type.stringRes,
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    ) 
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    )
                                 },
                                 onClick = {
                                     val newBookmark = DesktopBookmark(
@@ -196,7 +193,7 @@ fun PosterCard(
                                         url = item.url,
                                         apiName = provider!!.name,
                                         posterUrl = item.posterUrl,
-                                        watchType = type.id
+                                        watchType = type.id,
                                     )
                                     DesktopDataStore.addBookmark(newBookmark)
                                     currentBookmark = newBookmark
@@ -204,14 +201,14 @@ fun PosterCard(
                                 },
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
                             )
                         }
                         if (currentBookmark != null) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
                             DropdownMenuItem(
-                                text = { 
-                                    Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) 
+                                text = {
+                                    Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                                 },
                                 onClick = {
                                     DesktopDataStore.removeBookmark(bookmarkId)
@@ -220,7 +217,7 @@ fun PosterCard(
                                 },
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
                             )
                         }
                     }
@@ -320,9 +317,14 @@ fun WatchHistoryCard(
     )
 
     val progress = if (history.duration > 0) {
-        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
-        else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-    } else 0f
+        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
+            1f
+        } else {
+            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+        }
+    } else {
+        0f
+    }
 
     val isSeries = history.season != null || history.episode != null
     val seText = if (isSeries) {
@@ -330,13 +332,18 @@ fun WatchHistoryCard(
             history.season?.let { "S$it" } ?: "",
             history.episode?.let { "E$it" } ?: "",
         ).filter { it.isNotBlank() }.joinToString(" ")
-    } else ""
+    } else {
+        ""
+    }
 
     Box(
         modifier = modifier
             .width(cardWidth)
             .height(cardHeight)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(shape)
             .hoverable(interactionSource)
             .clickable(onClick = onClick),

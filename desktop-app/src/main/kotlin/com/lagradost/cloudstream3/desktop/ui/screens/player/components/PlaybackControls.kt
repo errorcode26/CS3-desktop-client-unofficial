@@ -17,11 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
-import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 
 @Composable
 fun PlaybackControls(
@@ -42,7 +40,7 @@ fun PlaybackControls(
             GlassIconButton(
                 onClick = onSkipPrevious,
                 icon = Icons.Default.SkipPrevious,
-                contentDescription = "Previous Episode"
+                contentDescription = "Previous Episode",
             )
             Spacer(modifier = Modifier.width(24.dp))
         }
@@ -51,7 +49,7 @@ fun PlaybackControls(
         GlassIconButton(
             onClick = { playerState.seekBy(-10000L) },
             icon = Icons.Default.Replay10,
-            contentDescription = "Skip back 10s"
+            contentDescription = "Skip back 10s",
         )
 
         Spacer(modifier = Modifier.width(36.dp))
@@ -60,11 +58,17 @@ fun PlaybackControls(
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
         val isPressed by interactionSource.collectIsPressedAsState()
-        
+
         val scale by animateFloatAsState(
-            targetValue = if (isPressed) 0.9f else if (isHovered) 1.05f else 1f,
+            targetValue = if (isPressed) {
+                0.9f
+            } else if (isHovered) {
+                1.05f
+            } else {
+                1f
+            },
             animationSpec = tween(150),
-            label = "playScale"
+            label = "playScale",
         )
 
         Box(
@@ -76,9 +80,9 @@ fun PlaybackControls(
                 .clickable(
                     interactionSource = interactionSource,
                     indication = androidx.compose.material3.ripple(color = Color.White),
-                    onClick = { playerState.togglePlayPause() }
+                    onClick = { playerState.togglePlayPause() },
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             if (isBuffering) {
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(40.dp))
@@ -98,7 +102,7 @@ fun PlaybackControls(
         GlassIconButton(
             onClick = { playerState.seekBy(10000L) },
             icon = Icons.Default.Forward10,
-            contentDescription = "Skip forward 10s"
+            contentDescription = "Skip forward 10s",
         )
 
         if (onSkipNext != null) {
@@ -106,7 +110,7 @@ fun PlaybackControls(
             GlassIconButton(
                 onClick = onSkipNext,
                 icon = Icons.Default.SkipNext,
-                contentDescription = "Next Episode"
+                contentDescription = "Next Episode",
             )
         }
     }
@@ -116,16 +120,22 @@ fun PlaybackControls(
 private fun GlassIconButton(
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String
+    contentDescription: String,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
-    
+
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.9f else if (isHovered) 1.1f else 1f,
+        targetValue = if (isPressed) {
+            0.9f
+        } else if (isHovered) {
+            1.1f
+        } else {
+            1f
+        },
         animationSpec = tween(150),
-        label = "iconScale"
+        label = "iconScale",
     )
 
     Box(
@@ -137,16 +147,15 @@ private fun GlassIconButton(
             .clickable(
                 interactionSource = interactionSource,
                 indication = androidx.compose.material3.ripple(color = Color.White),
-                onClick = onClick
+                onClick = onClick,
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = Color.White,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(32.dp),
         )
     }
 }
-

@@ -9,7 +9,7 @@ import java.util.zip.ZipFile
 object PluginSecurityVerifier {
 
     @Throws(SecurityException::class)
-    fun verifyJar(jarFile: File, pluginInternalName: String) {
+    fun verifyJar(jarFile: File, pluginInternalName: String, isTrusted: Boolean = false) {
         ZipFile(jarFile).use { zip ->
             val entries = zip.entries()
             while (entries.hasMoreElements()) {
@@ -26,7 +26,7 @@ object PluginSecurityVerifier {
                                     val owner = insn.owner // internal name e.g. java/lang/Runtime
 
                                     // Enforce Default Deny (Whitelist-Only) policy on ASM owner
-                                    if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isAsmOwnerAllowed(owner)) {
+                                    if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isAsmOwnerAllowed(owner, isTrusted)) {
                                         throw SecurityException("Security Sandbox: Unsafe class '$owner' detected in ${classNode.name} method ${method.name} by Default Deny policy.")
                                     }
 
@@ -86,14 +86,16 @@ object PluginSecurityVerifier {
                                     }
 
                                     // Block TimeZone and Region (Locale) access
-                                    if (owner == "java/util/TimeZone" && insn.name == "getDefault") {
-                                        throw SecurityException("Security Sandbox: Access to TimeZone.getDefault() is blocked. Plugins do not need timezone data.")
-                                    }
-                                    if (owner == "java/time/ZoneId" && insn.name == "systemDefault") {
-                                        throw SecurityException("Security Sandbox: Access to ZoneId.systemDefault() is blocked. Plugins do not need timezone data.")
-                                    }
-                                    if (owner == "java/util/Locale" && insn.name == "getDefault") {
-                                        throw SecurityException("Security Sandbox: Access to Locale.getDefault() is blocked. Plugins do not need region data.")
+                                    if (!isTrusted) {
+                                        if (owner == "java/util/TimeZone" && insn.name == "getDefault") {
+                                            throw SecurityException("Security Sandbox: Access to TimeZone.getDefault() is blocked. Plugins do not need timezone data.")
+                                        }
+                                        if (owner == "java/time/ZoneId" && insn.name == "systemDefault") {
+                                            throw SecurityException("Security Sandbox: Access to ZoneId.systemDefault() is blocked. Plugins do not need timezone data.")
+                                        }
+                                        if (owner == "java/util/Locale" && insn.name == "getDefault") {
+                                            throw SecurityException("Security Sandbox: Access to Locale.getDefault() is blocked. Plugins do not need region data.")
+                                        }
                                     }
                                 }
                             }

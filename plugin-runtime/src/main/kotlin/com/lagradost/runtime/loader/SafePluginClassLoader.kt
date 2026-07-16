@@ -1,13 +1,13 @@
 package com.lagradost.runtime.loader
 
-class SafePluginClassLoader(parent: ClassLoader) : ClassLoader(parent) {
+class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean = false) : ClassLoader(parent) {
     private val ghostCache = java.util.concurrent.ConcurrentHashMap<String, Class<*>>()
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
         // Enforce Default Deny (Whitelist-Only) security policy
         val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
         val hasSocketPerm = com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS) || com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)
-        if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isClassAllowed(name, hasSocketPerm)) {
+        if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isClassAllowed(name, hasSocketPerm, isTrusted)) {
             if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)) {
                 throw SecurityException("Security Sandbox: Access to class '$name' is blocked by Default Deny policy.")
             }
@@ -105,7 +105,6 @@ class SafePluginClassLoader(parent: ClassLoader) : ClassLoader(parent) {
         return clazz
     }
 }
-
 
 @Deprecated("Use com.lagradost.runtime.permission.PluginPermissionAPI instead.")
 object PermissionManager {

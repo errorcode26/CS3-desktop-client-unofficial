@@ -3,7 +3,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,8 +14,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun SettingsAppearance() {
@@ -40,7 +40,7 @@ fun SettingsAppearance() {
 
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // --- Group 1: Theme & Colors ---
         SettingsGroupCard(title = "Theme & Colors") {
@@ -70,9 +70,9 @@ fun SettingsAppearance() {
                     }
                 }
             }
-            
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            
+
             SettingsToggleItem(
                 label = "Light Theme",
                 subtitle = "Use a bright white interface",
@@ -80,9 +80,9 @@ fun SettingsAppearance() {
                 onCheckedChange = {
                     AppearanceConfig.setLightMode(it)
                     if (it) AppearanceConfig.setAmoledMode(false)
-                }
+                },
             )
-            
+
             SettingsToggleItem(
                 label = "AMOLED Mode",
                 subtitle = "Pure black background for OLED screens",
@@ -90,7 +90,7 @@ fun SettingsAppearance() {
                 onCheckedChange = {
                     AppearanceConfig.setAmoledMode(it)
                     if (it) AppearanceConfig.setLightMode(false)
-                }
+                },
             )
         }
 
@@ -101,7 +101,7 @@ fun SettingsAppearance() {
                 subtitle = "Choose the font used throughout the app",
                 options = com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it },
                 currentValue = selectedFont,
-                onSelectionChanged = { AppearanceConfig.setSelectedFont(it) }
+                onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
             )
         }
 
@@ -111,21 +111,21 @@ fun SettingsAppearance() {
                 label = "Ambient Glow",
                 subtitle = "Adds a subtle, theme-colored gradient background",
                 checked = ambientGlowEnabled,
-                onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) }
+                onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) },
             )
-            
+
             if (ambientGlowEnabled) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                
+
                 SettingsSliderItem(
                     label = "Intensity",
                     subtitle = "Adjust how bright the background ambient glow is",
                     value = ambientGlowIntensity,
                     valueRange = 0.0f..0.5f,
                     steps = 100,
-                    onValueChange = { AppearanceConfig.setAmbientGlowIntensity(it) }
+                    onValueChange = { AppearanceConfig.setAmbientGlowIntensity(it) },
                 )
-                
+
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text("Position", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(12.dp))
@@ -133,7 +133,7 @@ fun SettingsAppearance() {
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         listOf("Center", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right").forEach { pos ->
                             val isSelected = ambientGlowPositions.contains(pos)
@@ -148,8 +148,8 @@ fun SettingsAppearance() {
                                 border = FilterChipDefaults.filterChipBorder(
                                     borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                     enabled = true,
-                                    selected = isSelected
-                                )
+                                    selected = isSelected,
+                                ),
                             )
                         }
                     }
@@ -162,7 +162,7 @@ fun SettingsAppearance() {
                 label = "Dynamic Hero Color",
                 subtitle = "Tints the home page background with colors sampled from the featured hero item",
                 checked = heroDynamicColorEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroDynamicColorEnabled(it) }
+                onCheckedChange = { AppearanceConfig.setHeroDynamicColorEnabled(it) },
             )
         }
 
@@ -173,37 +173,37 @@ fun SettingsAppearance() {
                 subtitle = "Choose where the main navigation dock is placed",
                 options = listOf("Left" to "Left", "Top" to "Top", "Bottom" to "Bottom", "Right" to "Right"),
                 currentValue = dockPosition,
-                onSelectionChanged = { AppearanceConfig.setDockPosition(it) }
+                onSelectionChanged = { AppearanceConfig.setDockPosition(it) },
             )
-            
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            
+
             SettingsDropdownItem(
                 label = "Poster Size",
                 subtitle = "Adjust the size of posters on the home screen",
                 options = listOf("Compact" to "Compact", "Normal" to "Normal", "Large" to "Large"),
                 currentValue = gridScale,
-                onSelectionChanged = { AppearanceConfig.setGridScale(it) }
+                onSelectionChanged = { AppearanceConfig.setGridScale(it) },
             )
-            
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            
+
             SettingsDropdownItem(
                 label = "Layout Width",
                 subtitle = "Restrict maximum content width on large monitors",
                 options = listOf("Fluid" to "Edge-to-Edge", "Modern" to "Centered", "Compact" to "Narrow"),
                 currentValue = layoutWidth,
-                onSelectionChanged = { AppearanceConfig.setLayoutWidth(it) }
+                onSelectionChanged = { AppearanceConfig.setLayoutWidth(it) },
             )
-            
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            
+
             SettingsDropdownItem(
                 label = "Search Bar Visibility",
                 subtitle = "Control how the search bar appears on the home screen",
                 options = listOf("Always Visible" to "Always Visible", "Auto-hide" to "Auto-hide"),
                 currentValue = searchBarMode,
-                onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) }
+                onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) },
             )
         }
     }

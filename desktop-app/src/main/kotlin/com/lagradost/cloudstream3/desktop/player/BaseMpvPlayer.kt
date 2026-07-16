@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.player
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -14,7 +13,6 @@ import java.awt.Canvas
 import java.awt.Color
 import java.awt.event.*
 import java.io.File
-
 
 @Composable
 fun BaseMpvPlayer(
@@ -57,7 +55,7 @@ fun BaseMpvPlayer(
                 // Setup native observers for critical instant-response properties
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 1L, "time-pos", 5) // Double
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 2L, "duration", 5) // Double
-                MpvLibrary.INSTANCE.mpv_observe_property(h, 3L, "pause", 3)    // Flag
+                MpvLibrary.INSTANCE.mpv_observe_property(h, 3L, "pause", 3) // Flag
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 4L, "eof-reached", 3) // Flag
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 5L, "volume", 5) // Double
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 6L, "speed", 5) // Double
@@ -75,288 +73,300 @@ fun BaseMpvPlayer(
 
                 while (isActive) {
                     try {
-                    // Block IO thread for up to 200ms waiting for an event. 
-                    // This allows instant response (0ms latency) if an event arrives!
-                    val eventPtr = MpvLibrary.INSTANCE.mpv_wait_event(h, 0.2)
-                    if (eventPtr != null) {
-                        val event = MpvLibrary.MpvEvent(eventPtr)
-                        val eventId = event.event_id
+                        // Block IO thread for up to 200ms waiting for an event.
+                        // This allows instant response (0ms latency) if an event arrives!
+                        val eventPtr = MpvLibrary.INSTANCE.mpv_wait_event(h, 0.2)
+                        if (eventPtr != null) {
+                            val event = MpvLibrary.MpvEvent(eventPtr)
+                            val eventId = event.event_id
 
-                        if (eventId == 2) { // MPV_EVENT_SHUTDOWN
-                            break
+                            if (eventId == 2) { // MPV_EVENT_SHUTDOWN
+                                break
+                            }
+
+                            if (eventId == 7) { // MPV_EVENT_END_FILE
+                                val endFilePtr = event.data
+                                if (endFilePtr != null) {
+                                    val endFile = MpvLibrary.MpvEventEndFile(endFilePtr)
+                                    if (endFile.reason == 4) { // MPV_END_FILE_REASON_ERROR
+                                        // 403 Forbidden or generic network error
+                                        com.lagradost.common.logging.AppLogger.e("MPV instant failure (MPV_END_FILE_REASON_ERROR)")
+                                        val currentLoad = loadfileIssuedAt
+                                        if (lastErrorLoadfileAt != currentLoad) {
+                                            lastErrorLoadfileAt = currentLoad
+                                            currentOnPlaybackError("Connection rejected by source (HTTP error or dead link).")
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (eventId == 21 || eventId == 8) { // MPV_EVENT_PLAYBACK_RESTART or MPV_EVENT_FILE_LOADED
+                                if (!hasEverPlayed) {
+                                    hasEverPlayed = true
+                                    playbackStartedAt = System.currentTimeMillis()
+                                    playerState?.isBuffering?.value = false
+                                    playerState?.isProbing?.value = false
+                                    currentOnPlaybackReady()
+                                }
+                            }
+
+                            if (eventId == 22) { // MPV_EVENT_PROPERTY_CHANGE
+                                val propPtr = event.data
+                                if (propPtr != null) {
+                                    val prop = MpvLibrary.MpvEventProperty(propPtr)
+                                    val name = prop.name
+                                    if (name != null && prop.format != 0 && prop.data != null) {
+                                        when (name) {
+                                            "time-pos" -> {
+                                                if (prop.format == 5) {
+                                                    lastPos = prop.data!!.getDouble(0)
+                                                    if (!hasEverPlayed && lastPos > 0.1) {
+                                                        hasEverPlayed = true
+                                                        playbackStartedAt = System.currentTimeMillis()
+                                                        playerState?.isBuffering?.value = false
+                                                        playerState?.isProbing?.value = false
+                                                        currentOnPlaybackReady()
+                                                    }
+                                                }
+
+                                                // One-shot diagnostic: 30s after playback starts,
+                                                // log the actual rendering pipeline and frame stats.
+                                                // This fires exactly once to help debug stutter.
+                                                if (!diagnosticLogged && playbackStartedAt > 0 &&
+                                                    System.currentTimeMillis() - playbackStartedAt > 30000
+                                                ) {
+                                                    diagnosticLogged = true
+                                                    val dVo = MpvLibrary.getPropertyString(h, "current-vo")
+                                                    val dHwdec = MpvLibrary.getPropertyString(h, "hwdec-current")
+                                                    val dCodec = MpvLibrary.getPropertyString(h, "video-codec")
+                                                    val dDropped = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")
+                                                    val dFps = MpvLibrary.getPropertyString(h, "estimated-vf-fps")
+                                                    val dW = MpvLibrary.getPropertyString(h, "width")
+                                                    val dH = MpvLibrary.getPropertyString(h, "height")
+                                                    val dCache = MpvLibrary.getPropertyString(h, "demuxer-cache-duration")
+                                                    com.lagradost.common.logging.AppLogger.i(
+                                                        "MPV 30s DIAGNOSTIC: vo=$dVo hwdec=$dHwdec codec=$dCodec " +
+                                                            "dropped=$dDropped fps=$dFps res=${dW}x$dH cache=${dCache}s",
+                                                    )
+                                                }
+
+                                                // Throttle UI position updates to 4 Hz max.
+                                                // MPV fires time-pos at video framerate (24-60 Hz),
+                                                // and each update triggers Compose recomposition of
+                                                // the seekbar + time labels, competing with MPV's
+                                                // render thread for GPU time.
+                                                val now = System.currentTimeMillis()
+                                                if (now - lastUiPositionEmit > 16) {
+                                                    lastUiPositionEmit = now
+                                                    val posMs = (lastPos * 1000).toLong()
+                                                    // Route through debouncer so stale time-pos events
+                                                    // from before a seek don't visually snap the slider back.
+                                                    playerState?.updatePositionFromPlayer(posMs)
+                                                    currentOnPositionChange(posMs, (lastDur * 1000).toLong())
+                                                }
+                                            }
+                                            "duration" -> {
+                                                if (prop.format == 5) lastDur = prop.data!!.getDouble(0)
+                                                playerState?.durationMs?.value = (lastDur * 1000).toLong()
+                                            }
+                                            "pause" -> {
+                                                if (prop.format == 3) playerState?.isPaused?.value = prop.data!!.getInt(0) != 0
+                                            }
+                                            "paused-for-cache" -> {
+                                                if (prop.format == 3) {
+                                                    val isBuffering = prop.data!!.getInt(0) != 0
+                                                    // Only update buffering state if we have actually started playing
+                                                    if (hasEverPlayed) {
+                                                        playerState?.isBuffering?.value = isBuffering
+                                                    }
+                                                }
+                                            }
+                                            "eof-reached" -> {
+                                                if (prop.format == 3) lastEofReached = prop.data!!.getInt(0) != 0
+                                            }
+                                            "volume" -> {
+                                                if (prop.format == 5) playerState?.volume?.value = prop.data!!.getDouble(0).toFloat()
+                                            }
+                                            "speed" -> {
+                                                if (prop.format == 5) playerState?.playbackSpeed?.value = prop.data!!.getDouble(0).toFloat()
+                                            }
+                                            "core-idle" -> {
+                                                if (prop.format == 3) {
+                                                    val isCoreIdle = prop.data!!.getInt(0) != 0
+                                                    // If hasn't played yet and core is idle, it is probing the network
+                                                    if (!hasEverPlayed) {
+                                                        playerState?.isProbing?.value = isCoreIdle
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        if (eventId == 7) { // MPV_EVENT_END_FILE
-                            val endFilePtr = event.data
-                            if (endFilePtr != null) {
-                                val endFile = MpvLibrary.MpvEventEndFile(endFilePtr)
-                                if (endFile.reason == 4) { // MPV_END_FILE_REASON_ERROR
-                                    // 403 Forbidden or generic network error
-                                    com.lagradost.common.logging.AppLogger.e("MPV instant failure (MPV_END_FILE_REASON_ERROR)")
-                                    val currentLoad = loadfileIssuedAt
-                                    if (lastErrorLoadfileAt != currentLoad) {
+                        // Throttle non-critical string property polling to at most every 1s
+                        // (was 200ms — 5Hz Compose recomposition of the seekbar buffer indicator
+                        // was competing with MPV's render thread for GPU time)
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastPeriodicUpdate >= 1000L) {
+                            lastPeriodicUpdate = currentTime
+
+                            // Check buffer state (demuxer cache is noisy, we poll it manually)
+                            val demuxerCacheStr = MpvLibrary.getPropertyString(h, "demuxer-cache-duration")
+                            val demuxerCacheSec = demuxerCacheStr?.toDoubleOrNull() ?: 0.0
+                            if (demuxerCacheSec > 0.0) {
+                                playerState?.bufferMs?.value = ((lastPos + demuxerCacheSec) * 1000).toLong()
+                            } else {
+                                playerState?.bufferMs?.value = ((lastPos) * 1000).toLong()
+                            }
+
+                            val currentDur = MpvLibrary.getPropertyString(h, "duration")?.toDoubleOrNull()
+                            if (currentDur != null && currentDur > 0.0) {
+                                lastDur = currentDur
+                                playerState?.durationMs?.value = (lastDur * 1000).toLong()
+                            }
+
+                            val currentPos = MpvLibrary.getPropertyString(h, "time-pos")?.toDoubleOrNull()
+                            if (currentPos != null && currentPos >= 0.0) {
+                                lastPos = currentPos
+
+                                // Emit to UI using the same throttle so it works even if native events are dropped!
+                                val now = System.currentTimeMillis()
+                                if (now - lastUiPositionEmit > 16) {
+                                    lastUiPositionEmit = now
+                                    val posMs = (lastPos * 1000).toLong()
+                                    playerState?.updatePositionFromPlayer(posMs)
+                                    currentOnPositionChange(posMs, (lastDur * 1000).toLong())
+                                }
+                            }
+
+                            // Poll tracks and stats (already throttled to 1000ms outside this)
+                            val trackCountStr = MpvLibrary.getPropertyString(h, "track-list/count")
+                            val trackCount = trackCountStr?.toIntOrNull() ?: 0
+
+                            val audioTracks = mutableListOf<PlayerState.VideoTrack>()
+                            val subTracks = mutableListOf<PlayerState.VideoTrack>()
+                            val videoTracks = mutableListOf<PlayerState.VideoTrack>()
+
+                            for (i in 0 until trackCount) {
+                                val id = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
+                                val type = MpvLibrary.getPropertyString(h, "track-list/$i/type") ?: continue
+                                val lang = MpvLibrary.getPropertyString(h, "track-list/$i/lang")
+                                val title = MpvLibrary.getPropertyString(h, "track-list/$i/title")
+                                val selected = MpvLibrary.getPropertyString(h, "track-list/$i/selected") == "yes"
+
+                                val name = buildString {
+                                    if (!lang.isNullOrBlank()) append(lang.uppercase())
+                                    if (!title.isNullOrBlank()) {
+                                        if (isNotEmpty()) append(" - ")
+                                        append(title)
+                                    }
+                                    if (isEmpty()) {
+                                        append(
+                                            if (type == "audio") {
+                                                "Audio $id"
+                                            } else if (type == "video") {
+                                                "Video $id"
+                                            } else {
+                                                "Subtitle $id"
+                                            },
+                                        )
+                                    }
+                                }
+                                if (type == "audio") {
+                                    audioTracks.add(PlayerState.VideoTrack(id, name, selected))
+                                } else if (type == "sub") {
+                                    subTracks.add(PlayerState.VideoTrack(id, name, selected))
+                                } else if (type == "video") {
+                                    val res = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
+                                    val fpsVal = MpvLibrary.getPropertyString(h, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
+                                    val finalName = if (res.isNotEmpty()) {
+                                        if (fpsVal > 30.0) "${res}p ${fpsVal.toInt()}fps" else "${res}p"
+                                    } else {
+                                        name
+                                    }
+                                    videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
+                                }
+                            }
+                            playerState?.audioTracks?.value = audioTracks
+                            playerState?.subtitleTracks?.value = subTracks
+                            playerState?.videoTracks?.value = videoTracks
+                            // Poll Video Stats
+                            if (playerState != null && playerState.showStats.value) {
+                                playerState.videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
+                                playerState.audioCodec.value = MpvLibrary.getPropertyString(h, "audio-codec") ?: "Unknown"
+                                playerState.hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current") ?: "Unknown"
+                                playerState.droppedFrames.value = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
+                                playerState.fps.value = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
+                                val w = MpvLibrary.getPropertyString(h, "width") ?: "0"
+                                val hw = MpvLibrary.getPropertyString(h, "height") ?: "0"
+                                playerState.resolution.value = "${w}x$hw"
+                                playerState.videoBitrate.value = MpvLibrary.getPropertyString(h, "video-bitrate")?.toLongOrNull() ?: 0L
+                                playerState.audioBitrate.value = MpvLibrary.getPropertyString(h, "audio-bitrate")?.toLongOrNull() ?: 0L
+                            }
+                        } // End of periodic update block
+                        loops++
+
+                        // Check for completion
+                        if (lastEofReached) {
+                            // For live/non-seekable streams, EOF just means the current HTTP chunk ended.
+                            // Don't treat it as "finished" — the stream may resume.
+                            val seekableStr = MpvLibrary.getPropertyString(h, "seekable")
+                            val isSeekable = seekableStr == "yes"
+                            val currentLoad = loadfileIssuedAt
+                            if (lastErrorLoadfileAt != currentLoad) {
+                                if (isSeekable) {
+                                    // Normal VOD stream — genuinely finished
+                                    // If it finished suspiciously fast (under 2 seconds), it's a dead/corrupt stream
+                                    // that MPV instantly skipped to the end of due to bad packets.
+                                    val timeSinceLoad = System.currentTimeMillis() - loadStartTime
+                                    if (timeSinceLoad < 2000) {
                                         lastErrorLoadfileAt = currentLoad
-                                        currentOnPlaybackError("Connection rejected by source (HTTP error or dead link).")
+                                        currentOnPlaybackError("Stream is empty or corrupt.")
+                                    } else if (hasEverPlayed) {
+                                        lastErrorLoadfileAt = currentLoad
+                                        currentOnFinished()
+                                    } else {
+                                        lastErrorLoadfileAt = currentLoad
+                                        currentOnPlaybackError("Stream failed to load or instantly ended.")
                                     }
-                                }
-                            }
-                        }
-
-                        if (eventId == 21 || eventId == 8) { // MPV_EVENT_PLAYBACK_RESTART or MPV_EVENT_FILE_LOADED
-                            if (!hasEverPlayed) {
-                                hasEverPlayed = true
-                                playbackStartedAt = System.currentTimeMillis()
-                                playerState?.isBuffering?.value = false
-                                playerState?.isProbing?.value = false
-                                currentOnPlaybackReady()
-                            }
-                        }
-
-                        if (eventId == 22) { // MPV_EVENT_PROPERTY_CHANGE
-                            val propPtr = event.data
-                            if (propPtr != null) {
-                                val prop = MpvLibrary.MpvEventProperty(propPtr)
-                                val name = prop.name
-                                if (name != null && prop.format != 0 && prop.data != null) {
-                                    when (name) {
-                                        "time-pos" -> {
-                                             if (prop.format == 5) {
-                                                 lastPos = prop.data!!.getDouble(0)
-                                                 if (!hasEverPlayed && lastPos > 0.1) {
-                                                     hasEverPlayed = true
-                                                     playbackStartedAt = System.currentTimeMillis()
-                                                     playerState?.isBuffering?.value = false
-                                                     playerState?.isProbing?.value = false
-                                                     currentOnPlaybackReady()
-                                                 }
-                                             }
-
-                                            // One-shot diagnostic: 30s after playback starts,
-                                            // log the actual rendering pipeline and frame stats.
-                                            // This fires exactly once to help debug stutter.
-                                            if (!diagnosticLogged && playbackStartedAt > 0 &&
-                                                System.currentTimeMillis() - playbackStartedAt > 30000) {
-                                                diagnosticLogged = true
-                                                val dVo = MpvLibrary.getPropertyString(h, "current-vo")
-                                                val dHwdec = MpvLibrary.getPropertyString(h, "hwdec-current")
-                                                val dCodec = MpvLibrary.getPropertyString(h, "video-codec")
-                                                val dDropped = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")
-                                                val dFps = MpvLibrary.getPropertyString(h, "estimated-vf-fps")
-                                                val dW = MpvLibrary.getPropertyString(h, "width")
-                                                val dH = MpvLibrary.getPropertyString(h, "height")
-                                                val dCache = MpvLibrary.getPropertyString(h, "demuxer-cache-duration")
-                                                com.lagradost.common.logging.AppLogger.i(
-                                                    "MPV 30s DIAGNOSTIC: vo=$dVo hwdec=$dHwdec codec=$dCodec " +
-                                                    "dropped=$dDropped fps=$dFps res=${dW}x${dH} cache=${dCache}s"
-                                                )
-                                            }
-
-                                            // Throttle UI position updates to 4 Hz max.
-                                             // MPV fires time-pos at video framerate (24-60 Hz),
-                                             // and each update triggers Compose recomposition of
-                                             // the seekbar + time labels, competing with MPV's
-                                             // render thread for GPU time.
-                                             val now = System.currentTimeMillis()
-                                             if (now - lastUiPositionEmit > 16) {
-                                                 lastUiPositionEmit = now
-                                                 val posMs = (lastPos * 1000).toLong()
-                                                 // Route through debouncer so stale time-pos events
-                                                 // from before a seek don't visually snap the slider back.
-                                                 playerState?.updatePositionFromPlayer(posMs)
-                                                 currentOnPositionChange(posMs, (lastDur * 1000).toLong())
-                                             }  
-                                        }
-                                        "duration" -> {
-                                            if (prop.format == 5) lastDur = prop.data!!.getDouble(0)
-                                            playerState?.durationMs?.value = (lastDur * 1000).toLong()
-                                        }
-                                        "pause" -> {
-                                            if (prop.format == 3) playerState?.isPaused?.value = prop.data!!.getInt(0) != 0
-                                        }
-                                        "paused-for-cache" -> {
-                                            if (prop.format == 3) {
-                                                val isBuffering = prop.data!!.getInt(0) != 0
-                                                // Only update buffering state if we have actually started playing
-                                                if (hasEverPlayed) {
-                                                    playerState?.isBuffering?.value = isBuffering
-                                                }
-                                            }
-                                        }
-                                        "eof-reached" -> {
-                                            if (prop.format == 3) lastEofReached = prop.data!!.getInt(0) != 0
-                                        }
-                                        "volume" -> {
-                                            if (prop.format == 5) playerState?.volume?.value = prop.data!!.getDouble(0).toFloat()
-                                        }
-                                        "speed" -> {
-                                            if (prop.format == 5) playerState?.playbackSpeed?.value = prop.data!!.getDouble(0).toFloat()
-                                        }
-                                        "core-idle" -> {
-                                            if (prop.format == 3) {
-                                                val isCoreIdle = prop.data!!.getInt(0) != 0
-                                                // If hasn't played yet and core is idle, it is probing the network
-                                                if (!hasEverPlayed) {
-                                                    playerState?.isProbing?.value = isCoreIdle
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Throttle non-critical string property polling to at most every 1s
-                    // (was 200ms — 5Hz Compose recomposition of the seekbar buffer indicator
-                    // was competing with MPV's render thread for GPU time)
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastPeriodicUpdate >= 1000L) {
-                        lastPeriodicUpdate = currentTime
-
-                        // Check buffer state (demuxer cache is noisy, we poll it manually)
-                        val demuxerCacheStr = MpvLibrary.getPropertyString(h, "demuxer-cache-duration")
-                        val demuxerCacheSec = demuxerCacheStr?.toDoubleOrNull() ?: 0.0
-                        if (demuxerCacheSec > 0.0) {
-                            playerState?.bufferMs?.value = ((lastPos + demuxerCacheSec) * 1000).toLong()
-                        } else {
-                            playerState?.bufferMs?.value = ((lastPos) * 1000).toLong()
-                        }
-
-                        val currentDur = MpvLibrary.getPropertyString(h, "duration")?.toDoubleOrNull()
-                        if (currentDur != null && currentDur > 0.0) {
-                            lastDur = currentDur
-                            playerState?.durationMs?.value = (lastDur * 1000).toLong()
-                        }
-
-                        val currentPos = MpvLibrary.getPropertyString(h, "time-pos")?.toDoubleOrNull()
-                        if (currentPos != null && currentPos >= 0.0) {
-                            lastPos = currentPos
-                            
-                            // Emit to UI using the same throttle so it works even if native events are dropped!
-                            val now = System.currentTimeMillis()
-                            if (now - lastUiPositionEmit > 16) {
-                                lastUiPositionEmit = now
-                                val posMs = (lastPos * 1000).toLong()
-                                playerState?.updatePositionFromPlayer(posMs)
-                                currentOnPositionChange(posMs, (lastDur * 1000).toLong())
-                            }
-                        }
-
-                    // Poll tracks and stats (already throttled to 1000ms outside this)
-                        val trackCountStr = MpvLibrary.getPropertyString(h, "track-list/count")
-                        val trackCount = trackCountStr?.toIntOrNull() ?: 0
-
-                        val audioTracks = mutableListOf<PlayerState.VideoTrack>()
-                        val subTracks = mutableListOf<PlayerState.VideoTrack>()
-                        val videoTracks = mutableListOf<PlayerState.VideoTrack>()
-
-                        for (i in 0 until trackCount) {
-                            val id = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
-                            val type = MpvLibrary.getPropertyString(h, "track-list/$i/type") ?: continue
-                            val lang = MpvLibrary.getPropertyString(h, "track-list/$i/lang")
-                            val title = MpvLibrary.getPropertyString(h, "track-list/$i/title")
-                            val selected = MpvLibrary.getPropertyString(h, "track-list/$i/selected") == "yes"
-
-                            val name = buildString {
-                                if (!lang.isNullOrBlank()) append(lang.uppercase())
-                                if (!title.isNullOrBlank()) {
-                                    if (isNotEmpty()) append(" - ")
-                                    append(title)
-                                }
-                                if (isEmpty()) append(if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id")
-                            }
-                            if (type == "audio") {
-                                audioTracks.add(PlayerState.VideoTrack(id, name, selected))
-                            } else if (type == "sub") {
-                                subTracks.add(PlayerState.VideoTrack(id, name, selected))
-                            } else if (type == "video") {
-                                val res = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
-                                val fpsVal = MpvLibrary.getPropertyString(h, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
-                                val finalName = if (res.isNotEmpty()) {
-                                    if (fpsVal > 30.0) "${res}p ${fpsVal.toInt()}fps" else "${res}p"
-                                } else {
-                                    name
-                                }
-                                videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
-                            }
-                        }
-                        playerState?.audioTracks?.value = audioTracks
-                        playerState?.subtitleTracks?.value = subTracks
-                        playerState?.videoTracks?.value = videoTracks
-                        // Poll Video Stats
-                        if (playerState != null && playerState.showStats.value) {
-                            playerState.videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
-                            playerState.audioCodec.value = MpvLibrary.getPropertyString(h, "audio-codec") ?: "Unknown"
-                            playerState.hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current") ?: "Unknown"
-                            playerState.droppedFrames.value = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
-                            playerState.fps.value = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
-                            val w = MpvLibrary.getPropertyString(h, "width") ?: "0"
-                            val hw = MpvLibrary.getPropertyString(h, "height") ?: "0"
-                            playerState.resolution.value = "${w}x$hw"
-                            playerState.videoBitrate.value = MpvLibrary.getPropertyString(h, "video-bitrate")?.toLongOrNull() ?: 0L
-                            playerState.audioBitrate.value = MpvLibrary.getPropertyString(h, "audio-bitrate")?.toLongOrNull() ?: 0L
-                        }
-                    } // End of periodic update block
-                    loops++
-
-                    // Check for completion
-                    if (lastEofReached) {
-                        // For live/non-seekable streams, EOF just means the current HTTP chunk ended.
-                        // Don't treat it as "finished" — the stream may resume.
-                        val seekableStr = MpvLibrary.getPropertyString(h, "seekable")
-                        val isSeekable = seekableStr == "yes"
-                        val currentLoad = loadfileIssuedAt
-                        if (lastErrorLoadfileAt != currentLoad) {
-                            if (isSeekable) {
-                                // Normal VOD stream — genuinely finished
-                                // If it finished suspiciously fast (under 2 seconds), it's a dead/corrupt stream
-                                // that MPV instantly skipped to the end of due to bad packets.
-                                val timeSinceLoad = System.currentTimeMillis() - loadStartTime
-                                if (timeSinceLoad < 2000) {
-                                    lastErrorLoadfileAt = currentLoad
-                                    currentOnPlaybackError("Stream is empty or corrupt.")
-                                } else if (hasEverPlayed) {
-                                    lastErrorLoadfileAt = currentLoad
-                                    currentOnFinished()
-                                } else {
+                                } else if (!hasEverPlayed) {
+                                    // Non-seekable stream that never played — it's truly dead
                                     lastErrorLoadfileAt = currentLoad
                                     currentOnPlaybackError("Stream failed to load or instantly ended.")
                                 }
-                            } else if (!hasEverPlayed) {
-                                // Non-seekable stream that never played — it's truly dead
+                            }
+                            // else: non-seekable stream that HAS played before — likely a live stream
+                            // that hit a temporary EOF. Don't break, let MPV's internal reconnect handle it.
+                        }
+
+                        // Fast-fail detection
+                        val currentLoad = loadfileIssuedAt
+                        if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && currentLoad > 0 &&
+                            System.currentTimeMillis() - currentLoad > 800
+                        ) {
+                            val idleActive = MpvLibrary.getPropertyString(h, "idle-active")
+                            if (idleActive == "yes") {
                                 lastErrorLoadfileAt = currentLoad
-                                currentOnPlaybackError("Stream failed to load or instantly ended.")
+                                com.lagradost.common.logging.AppLogger.e("MPV went idle-active after loadfile — stream failed (likely 403/404)")
+                                currentOnPlaybackError("Stream failed to load (connection rejected or forbidden).")
                             }
                         }
-                        // else: non-seekable stream that HAS played before — likely a live stream
-                        // that hit a temporary EOF. Don't break, let MPV's internal reconnect handle it.
-                    }
 
-                    // Fast-fail detection
-                    val currentLoad = loadfileIssuedAt
-                    if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && currentLoad > 0 &&
-                        System.currentTimeMillis() - currentLoad > 800) {
-                        val idleActive = MpvLibrary.getPropertyString(h, "idle-active")
-                        if (idleActive == "yes") {
+                        // Check timeout. Allow user to strictly control how long they wait before skipping.
+                        val timeoutStr = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT)
+                        val userTimeoutMs = timeoutStr?.toLongOrNull() ?: 20000L
+
+                        // For complex HLS streams with many tracks, probing all of them in safe batches takes 10-15s.
+                        // Enforce a minimum of 90s timeout here to ensure FFmpeg isn't killed prematurely.
+                        val timeoutMs = maxOf(userTimeoutMs, 90000L)
+
+                        if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && System.currentTimeMillis() - loadStartTime > timeoutMs) {
                             lastErrorLoadfileAt = currentLoad
-                            com.lagradost.common.logging.AppLogger.e("MPV went idle-active after loadfile — stream failed (likely 403/404)")
-                            currentOnPlaybackError("Stream failed to load (connection rejected or forbidden).")
+                            com.lagradost.common.logging.AppLogger.e("MPV timeout reached while buffering ($timeoutMs ms)")
+                            currentOnPlaybackError("Connection timed out. The stream might be dead or too slow.")
                         }
-                    }
-
-                    // Check timeout. Allow user to strictly control how long they wait before skipping.
-                    val timeoutStr = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT)
-                    val userTimeoutMs = timeoutStr?.toLongOrNull() ?: 20000L
-
-                    // For complex HLS streams with many tracks, probing all of them in safe batches takes 10-15s.
-                    // Enforce a minimum of 90s timeout here to ensure FFmpeg isn't killed prematurely.
-                    val timeoutMs = maxOf(userTimeoutMs, 90000L)
-
-                    if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && System.currentTimeMillis() - loadStartTime > timeoutMs) {
-                        lastErrorLoadfileAt = currentLoad
-                        com.lagradost.common.logging.AppLogger.e("MPV timeout reached while buffering ($timeoutMs ms)")
-                        currentOnPlaybackError("Connection timed out. The stream might be dead or too slow.")
-                    }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         break // Normal coroutine cancellation
                     } catch (e: Throwable) {
@@ -370,7 +380,7 @@ fun BaseMpvPlayer(
     }
 
     LaunchedEffect(link, title, mpvHandle) {
-        // IMPORTANT: Prevent the watcher loop from false-firing its idle-active check 
+        // IMPORTANT: Prevent the watcher loop from false-firing its idle-active check
         // while we are setting up the new link.
         loadfileIssuedAt = 0L
 
@@ -406,8 +416,8 @@ fun BaseMpvPlayer(
                 // 100MB forward is plenty for most 1080p HLS streams (segments are typically 2-6MB each).
                 // 400MB was causing CDN rate-limiting: MPV/FFmpeg would burst-request many segments
                 // at once to fill the cache, hitting 429 errors from Cloudflare/Akamai/Fastly after 20-30s.
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "100000000")      // 100MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "30000000")  // 30MB back
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "100000000") // 100MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "30000000") // 30MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 // 30s lookahead is aggressive but won't overwhelm CDNs the way 60s did.
                 lib.mpv_set_property_string(handle, "cache-secs", "30")
@@ -445,11 +455,11 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(handle, "demuxer-lavf-o", lavfDashOpts)
                 // DASH: 30MB forward buffer is plenty for 1080p segments (~4MB each)
                 // Back-buffer: 5MB for live, could be more for VOD but keep conservative
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "30000000")       // 30MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "5000000")   // 5MB back
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "30000000") // 30MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "5000000") // 5MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
             }
-        PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
+            PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
                 // Raw MPEG-TS / progressive HTTP live streams need reconnect too.
                 // Without this, FFmpeg treats the end of an HTTP chunk as permanent EOF.
                 lib.mpv_set_property_string(
@@ -467,7 +477,7 @@ fun BaseMpvPlayer(
                 // MKV/MP4 files from CDNs like Pixeldrain often use one-time download links.
                 // Seeking forces MPV to open a new HTTP connection with a Range header, which returns 404.
                 // By massively increasing the buffer and forcing seekable-cache, MPV can seek entirely in memory!
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000")      // 400MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000") // 400MB forward
                 lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "100000000") // 100MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
@@ -629,8 +639,8 @@ fun BaseMpvPlayer(
                 }
                 val mpvDir = mpvExe.parentFile
                 System.setProperty("jna.library.path", mpvDir.absolutePath)
-                
-                // CRITICAL: JNA caches jna.library.path on initialization. 
+
+                // CRITICAL: JNA caches jna.library.path on initialization.
                 // We MUST use addSearchPath to inject our bundled DLL path dynamically.
                 val targets = listOf("libmpv-2", "mpv-2", "mpv-1", "mpv", "libmpv", "mpv-3.dll")
                 targets.forEach { target ->
@@ -754,7 +764,7 @@ fun BaseMpvPlayer(
                 // teardown gap from exposing a white flash.
                 this.isVisible = false
                 this.bounds = java.awt.Rectangle(0, 0, 0, 0)
-                
+
                 // Find and remove the dispatcher to prevent memory leaks
                 val focusManager = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 this.keyDispatcher?.let {
@@ -764,7 +774,7 @@ fun BaseMpvPlayer(
                 val h = mpvHandle
                 mpvHandle = null
                 playerState?.detachMpv()
-                
+
                 // DEFERRED CLEANUP: Wait 150ms for Compose/Skia to draw the DetailsScreen
                 // over the empty space before actually destroying the native window.
                 if (h != null) {

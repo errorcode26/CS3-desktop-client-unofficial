@@ -14,10 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Manages link scraping state and VLC watch-history saving for [LinksSidePanel].
- * Extracted from the god-composable to keep network calls out of the UI layer.
- */
 class LinksViewModel(private val viewModelScope: CoroutineScope) {
 
     private val _links = MutableStateFlow<List<ExtractorLink>>(emptyList())
@@ -34,7 +30,6 @@ class LinksViewModel(private val viewModelScope: CoroutineScope) {
 
     private var scrapeJob: Job? = null
 
-    /** Start (or restart) scraping links for the given [dataUrl]. */
     fun scrapeLinks(provider: MainAPI, dataUrl: String) {
         scrapeJob?.cancel()
         val linkBuffer = mutableListOf<ExtractorLink>()
@@ -75,18 +70,16 @@ class LinksViewModel(private val viewModelScope: CoroutineScope) {
         }
     }
 
-    /** Cancel any in-progress scrape job. */
     fun cancelScrape() {
         scrapeJob?.cancel()
     }
 
-    /** Update status text (e.g., after player launch). */
     fun setStatus(text: String) {
         _statusText.value = text
     }
 
-    /** Persist watch position to DataStore every 5 seconds. */
     fun saveWatchPosition(history: WatchHistory, positionMs: Long, durationMs: Long) {
+        // Save position every 5s because 1s will melt the database
         val posSec = positionMs / 1000L
         val durSec = durationMs / 1000L
         if (posSec > 0 && durSec > 0) {

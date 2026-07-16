@@ -22,7 +22,7 @@ fun HomeHeroCarouselPlaceholder() {
             .fillMaxWidth()
             .height(550.dp)
             .padding(top = 16.dp, bottom = 0.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         // Main center card
         Box(
@@ -30,7 +30,7 @@ fun HomeHeroCarouselPlaceholder() {
                 .fillMaxHeight()
                 .fillMaxWidth(0.5f) // Matches approximate width of coverflow center item
                 .clip(RoundedCornerShape(12.dp))
-                .shimmerBackground()
+                .shimmerBackground(),
         )
     }
 }
@@ -39,7 +39,7 @@ fun HomeHeroCarouselPlaceholder() {
 fun CategoryRowPlaceholder(
     title: String,
     maxWidthConstraint: Dp,
-    showLargeHeader: Boolean = false
+    showLargeHeader: Boolean = false,
 ) {
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
@@ -50,7 +50,7 @@ fun CategoryRowPlaceholder(
                 "Large" -> 220.dp
                 else -> 190.dp
             }
-            
+
             val netWidth = availableWidth - 8.dp
             val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
             val columns = exactColumns.toInt().coerceAtLeast(1)
@@ -66,13 +66,13 @@ fun CategoryRowPlaceholder(
                         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 0.dp),
                     )
                 }
-                
+
                 // Header for the row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = title,
@@ -87,7 +87,7 @@ fun CategoryRowPlaceholder(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     repeat(columns) {
                         Box(
@@ -95,7 +95,7 @@ fun CategoryRowPlaceholder(
                                 .width(optimalItemWidth)
                                 .aspectRatio(2f / 3f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .shimmerBackground()
+                                .shimmerBackground(),
                         )
                     }
                 }
