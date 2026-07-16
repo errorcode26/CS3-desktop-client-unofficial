@@ -97,6 +97,14 @@ fun ComposeNativeWebPlayer(
     // AFTER loadfile has been issued and had time to take effect.
     var loadfileIssuedAt by remember { mutableStateOf(0L) }
 
+    val primaryColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
+    val accentColorHex = remember(primaryColor) {
+        String.format("#%02X%02X%02X", (primaryColor.red * 255).toInt(), (primaryColor.green * 255).toInt(), (primaryColor.blue * 255).toInt())
+    }
+    val accentColorRgb = remember(primaryColor) {
+        "${(primaryColor.red * 255).toInt()}, ${(primaryColor.green * 255).toInt()}, ${(primaryColor.blue * 255).toInt()}"
+    }
+
     val currentOnPlaybackReady by rememberUpdatedState(onPlaybackReady)
     val currentOnPlaybackError by rememberUpdatedState(onPlaybackError)
     val currentOnFinished by rememberUpdatedState(onFinished)
@@ -905,6 +913,8 @@ fun ComposeNativeWebPlayer(
                 val tempFile = File(webView2DataDir, "cloudstream_controls.html")
                 val htmlContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/controls.html")
                     ?.use { it.readBytes().toString(Charsets.UTF_8) }
+                    ?.replace("{{ACCENT_COLOR}}", accentColorHex)
+                    ?.replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
                     ?: ""
                 if (htmlContent.isNotEmpty()) {
                     tempFile.writeText(htmlContent, Charsets.UTF_8)
