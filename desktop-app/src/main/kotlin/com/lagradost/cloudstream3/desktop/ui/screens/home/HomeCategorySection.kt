@@ -35,7 +35,7 @@ fun HomeCategorySection(
     provider: MainAPI,
     isFirstPage: Boolean = false,
     parentScope: CoroutineScope,
-    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.HomeViewModel,
+    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
     afterHeroContent: @Composable () -> Unit = {},
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,

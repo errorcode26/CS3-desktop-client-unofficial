@@ -258,7 +258,38 @@ fun EmbeddedVideoPlayer(
                                     saveJob?.cancel()
                                     saveJob = coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                         delay(2000)
-                                        DesktopDataStore.setLastWatched(updatedHistory)
+                                        val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
+                                        if (percentage >= 0.90f) {
+                                            val hasNext = viewModel.hasNextEpisode()
+                                            if (hasNext) {
+                                                val nextEp = viewModel.getNextEpisode()
+                                                if (nextEp != null) {
+                                                    // Save current episode
+                                                    DesktopDataStore.setLastWatched(updatedHistory)
+                                                    // Queue next episode
+                                                    val nextEpHistory = com.lagradost.common.storage.WatchHistory(
+                                                        parentId = actualLaunchData.history.parentId,
+                                                        showName = actualLaunchData.history.showName,
+                                                        showUrl = actualLaunchData.history.showUrl,
+                                                        apiName = actualLaunchData.history.apiName,
+                                                        posterUrl = actualLaunchData.history.posterUrl,
+                                                        episode = nextEp.episode,
+                                                        season = nextEp.season,
+                                                        episodeId = nextEp.data,
+                                                        position = 0,
+                                                        duration = 0,
+                                                        updateTime = System.currentTimeMillis() + 1000 // Ensure it stays most recent
+                                                    )
+                                                    DesktopDataStore.setLastWatched(nextEpHistory)
+                                                } else {
+                                                    DesktopDataStore.setLastWatched(updatedHistory)
+                                                }
+                                            } else {
+                                                DesktopDataStore.setLastWatched(updatedHistory)
+                                            }
+                                        } else {
+                                            DesktopDataStore.setLastWatched(updatedHistory)
+                                        }
                                     }
                                 }
                             },

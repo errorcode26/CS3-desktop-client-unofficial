@@ -21,11 +21,12 @@ CREATE TABLE IF NOT EXISTS Bookmarks (
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     apiName TEXT NOT NULL,
-    posterUrl TEXT
+    posterUrl TEXT,
+    watchType INTEGER DEFAULT 0
 );
 
 insertBookmark:
-INSERT OR REPLACE INTO Bookmarks(id, name, url, apiName, posterUrl) VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Bookmarks(id, name, url, apiName, posterUrl, watchType) VALUES (?, ?, ?, ?, ?, ?);
 
 deleteBookmark:
 DELETE FROM Bookmarks WHERE id = ?;

@@ -18,6 +18,8 @@ import com.lagradost.cloudstream3.fixUrlNull
 import java.awt.Color
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
+import androidx.compose.foundation.lazy.LazyListState
+import kotlinx.coroutines.SupervisorJob
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 const val PREF_GLOBAL_SEARCH = "global_search_enabled"
@@ -33,7 +35,10 @@ fun MainAPI.isRealProvider(): Boolean {
     return true
 }
 
-class HomeViewModel(private val coroutineScope: CoroutineScope) {
+
+object DesktopHomeViewModel {
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    val listState = LazyListState()
     val providers = MutableStateFlow<List<MainAPI>>(emptyList())
     val selectedProviderName = MutableStateFlow<String?>(null)
 
@@ -247,7 +252,10 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
             .filter { it.duration >= 30L && (it.position * 100 / it.duration) > 1L }
             .sortedByDescending { it.updateTime }
             .distinctBy { it.parentId }
-            
+            .filter {
+                val percentage = if (it.duration > 0) (it.position.toFloat() / it.duration) else 0f
+                percentage < 0.90f
+            }
         historyList.value = newHistory
         prefetchTopHistory(newHistory.take(3))
     }

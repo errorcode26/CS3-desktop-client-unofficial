@@ -25,6 +25,24 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.common.storage.DesktopWatchType
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
+import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.common.storage.DesktopDataStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,36 +84,76 @@ fun ComposeLibraryScreen(navController: NavController) {
                 }
             }
         } else {
-            val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
-            val minSize = when (gridScale) {
-                "Compact" -> 120.dp
-                "Large" -> 180.dp
-                else -> 150.dp
+            var selectedTab by remember { mutableStateOf(DesktopWatchType.WATCHING) }
+            val filteredBookmarks = remember(bookmarksState.toList(), selectedTab) {
+                bookmarksState.filter { it.watchType == selectedTab.id }
             }
 
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = minSize),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(bookmarksState) { bookmark ->
-                    BookmarkCard(
-                        bookmark = bookmark,
-                        onClick = {
-                            val provider = APIHolder.getApiFromNameNull(bookmark.apiName)
-                            if (provider != null) {
-                                navController.navigate(Screen.Details(provider, bookmark.url))
-                            } else {
-                                showError = "The provider '${bookmark.apiName}' is not loaded. Please install or enable it first."
-                            }
-                        },
-                        onDelete = {
-                            DesktopDataStore.removeBookmark(bookmark.id)
-                            bookmarksState.remove(bookmark)
-                        },
-                    )
+            Column(modifier = Modifier.fillMaxSize()) {
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab.ordinal,
+                    edgePadding = 16.dp,
+                    containerColor = Color.Transparent,
+                    divider = {},
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    DesktopWatchType.entries.forEach { tab ->
+                        val selected = selectedTab == tab
+                        Tab(
+                            selected = selected,
+                            onClick = { selectedTab = tab },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        ) {
+                            Text(
+                                text = tab.stringRes,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+
+                if (filteredBookmarks.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No bookmarks in ${selectedTab.stringRes}.",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                } else {
+                    val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
+                    val minSize = when (gridScale) {
+                        "Compact" -> 150.dp
+                        "Large" -> 220.dp
+                        else -> 190.dp
+                    }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = minSize),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(filteredBookmarks) { bookmark ->
+                            BookmarkCard(
+                                bookmark = bookmark,
+                                onClick = {
+                                    val provider = APIHolder.getApiFromNameNull(bookmark.apiName)
+                                    if (provider != null) {
+                                        navController.navigate(Screen.Details(provider, bookmark.url))
+                                    } else {
+                                        showError = "The provider '${bookmark.apiName}' is not loaded. Please install or enable it first."
+                                    }
+                                },
+                                onDelete = {
+                                    DesktopDataStore.removeBookmark(bookmark.id)
+                                    bookmarksState.remove(bookmark)
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -115,80 +173,156 @@ fun ComposeLibraryScreen(navController: NavController) {
 
 @Composable
 fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val shape = RoundedCornerShape(12.dp)
+
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(260.dp)
+            .posterHoverEffect()
+            .clip(shape)
+            .hoverable(interactionSource)
             .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = shape,
+        color = DesktopUi.SurfaceCard,
+        tonalElevation = 2.dp,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Poster
-                if (bookmark.posterUrl != null) {
-                    AsyncImage(
-                        model = bookmark.posterUrl,
-                        contentDescription = bookmark.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .background(Color.DarkGray),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("No Poster", color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-
-                // Title & Provider
-                Column(
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f),
+        ) {
+            // Poster
+            if (bookmark.posterUrl != null) {
+                AsyncImage(
+                    model = bookmark.posterUrl,
+                    contentDescription = bookmark.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .fillMaxSize()
+                        .background(DesktopUi.SurfaceElevated),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = bookmark.name,
-                        style = MaterialTheme.typography.bodyMedium,
+                        bookmark.name.take(2).uppercase(),
+                        color = DesktopUi.Accent,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = bookmark.apiName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
-            // Delete Button (Top Right over Poster)
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+            AnimatedVisibility(
+                visible = isHovered,
+                enter = fadeIn(),
+                exit = fadeOut(),
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Remove Bookmark",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(16.dp),
-                )
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+            }
+
+            // Play button on hover
+            AnimatedVisibility(
+                visible = isHovered,
+                enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
+                exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f, animationSpec = tween(200)),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp).padding(start = 2.dp)
+                    )
+                }
+            }
+
+            // Gradient at the bottom with the title
+            AnimatedVisibility(
+                visible = isHovered,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0f to Color.Transparent,
+                                    0.35f to Color.Black.copy(alpha = 0.7f),
+                                    1f to Color.Black.copy(alpha = 0.92f),
+                                ),
+                            ),
+                        )
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                ) {
+                    Column {
+                        // Provider Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.White.copy(alpha = 0.25f))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = bookmark.apiName,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                letterSpacing = 0.5.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = bookmark.name,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                }
+            }
+
+            // Delete Button (Top Right over Poster)
+            AnimatedVisibility(
+                visible = isHovered,
+                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove Bookmark",
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }

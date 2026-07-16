@@ -100,6 +100,14 @@ fun PosterCard(
                     )
                 }
             }
+
+            AnimatedVisibility(
+                visible = isHovered,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+            ) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+            }
             
             androidx.compose.animation.AnimatedVisibility(
                 visible = isHovered,
@@ -127,45 +135,95 @@ fun PosterCard(
             }
 
             val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
-            var isBookmarked by remember(bookmarkId) { mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.isBookmarked(bookmarkId) else false) }
+            var showBookmarkMenu by remember { mutableStateOf(false) }
+            var currentBookmark by remember(bookmarkId) { 
+                mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null) 
+            }
 
             val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (isHovered || isBookmarked) 1f else 0f,
+                targetValue = if (isHovered || currentBookmark != null || showBookmarkMenu) 1f else 0f,
                 label = "bookmarkAlpha",
             )
 
             if (bookmarkAlpha > 0f) {
-                IconButton(
-                    onClick = {
-                        if (provider == null) return@IconButton
-                        if (isBookmarked) {
-                            DesktopDataStore.removeBookmark(bookmarkId)
-                        } else {
-                            DesktopDataStore.addBookmark(
-                                DesktopBookmark(
-                                    id = bookmarkId,
-                                    name = item.name,
-                                    url = item.url,
-                                    apiName = provider.name,
-                                    posterUrl = item.posterUrl,
-                                ),
-                            )
-                        }
-                        isBookmarked = !isBookmarked
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                         .graphicsLayer { alpha = bookmarkAlpha }
-                        .size(32.dp),
                 ) {
-                    Icon(
-                        imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                        contentDescription = "Bookmark",
-                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.White,
+                    IconButton(
+                        onClick = { if (provider != null) showBookmarkMenu = true },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                            contentDescription = "Bookmark",
+                            tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showBookmarkMenu,
+                        onDismissRequest = { showBookmarkMenu = false },
                         modifier = Modifier
-                            .size(24.dp)
-                    )
+                            .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                            .padding(4.dp)
+                    ) {
+                        Text(
+                            "Add to Library",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                            val isSelected = currentBookmark?.watchType == type.id
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(
+                                        type.stringRes,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    ) 
+                                },
+                                onClick = {
+                                    val newBookmark = DesktopBookmark(
+                                        id = bookmarkId,
+                                        name = item.name,
+                                        url = item.url,
+                                        apiName = provider!!.name,
+                                        posterUrl = item.posterUrl,
+                                        watchType = type.id
+                                    )
+                                    DesktopDataStore.addBookmark(newBookmark)
+                                    currentBookmark = newBookmark
+                                    showBookmarkMenu = false
+                                },
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                            )
+                        }
+                        if (currentBookmark != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                            DropdownMenuItem(
+                                text = { 
+                                    Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) 
+                                },
+                                onClick = {
+                                    DesktopDataStore.removeBookmark(bookmarkId)
+                                    currentBookmark = null
+                                    showBookmarkMenu = false
+                                },
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                            )
+                        }
+                    }
                 }
             }
 
@@ -307,6 +365,14 @@ fun WatchHistoryCard(
                 ),
             ),
         )
+
+        AnimatedVisibility(
+            visible = isHovered,
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut(),
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+        }
 
         // Play button overlay on hover
         AnimatedVisibility(
