@@ -30,6 +30,21 @@ The project is structured into modular layers to cleanly separate concerns and a
 
 ---
 
+## ⚡ Experimental Feature Branch (`feature/vega-bridge`)
+
+This branch introduces the **Vega Bridge**, a modular node/javascript bridge architecture enabling dynamic provider isolation and catalog execution outside the core JVM runtime:
+*   **Decoupled Provider Bridge:** Runs isolated extension scripts via local IPC/websocket server (`vega-bridge/server.js`), allowing instant provider reloading without restarting the desktop shell.
+*   **Sandboxed Extension Execution:** All external scripts execute inside an isolated runtime with strict schema validation (`zod`) and controlled network access.
+*   **Running the Bridge:**
+    To test the bridge locally alongside the desktop client, initialize the bridge runtime:
+    ```bash
+    cd vega-bridge
+    npm install
+    npm start
+    ```
+
+---
+
 ## 🛠️ Setup & Development Workflow
 
 ### Prerequisites

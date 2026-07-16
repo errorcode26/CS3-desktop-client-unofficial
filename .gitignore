@@ -97,6 +97,8 @@ manifests/
 **/manifests/
 plugins/
 **/plugins/
+node_modules/
+**/node_modules/
 *.db
 *.db-shm
 *.db-wal
