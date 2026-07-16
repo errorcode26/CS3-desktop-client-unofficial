@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun ComposeExtensionScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Browse", "Installed", "Repositories")
+    val tabs = listOf("Browse", "Installed", "Repositories", "Vega Providers", "Vega Repos")
     val syncGen by DesktopRepositoryManager.syncGeneration.collectAsState()
 
     val coroutineScope = rememberCoroutineScope()
@@ -134,6 +134,8 @@ fun ComposeExtensionScreen(navController: NavController) {
                         0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
                         1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
                         2 -> RepositoriesTab(viewModel = viewModel)
+                        3 -> VegaTab(viewModel = viewModel, syncGeneration = syncGen)
+                        4 -> VegaRepositoriesTab(viewModel = viewModel, syncGeneration = syncGen)
                     }
                 }
             }

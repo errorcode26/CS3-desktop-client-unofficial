@@ -1621,7 +1621,7 @@
         document.getElementById('episodesList').innerHTML = filtered.map((ep, i) => {
             const num = ep.episode || (i + 1);
             const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
-            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode','${ep.id}');closeAllPanels();">
+            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${encodeURIComponent(ep.id)}'));closeAllPanels();">
                 <span class="ep-num">${num}</span>
                 ${thumb}
                 <div class="ep-info">

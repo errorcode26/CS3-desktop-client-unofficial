@@ -96,17 +96,27 @@ fun cleanHeroTitle(raw: String): String {
     androidx.compose.ui.ExperimentalComposeUiApi::class
 )
 @Composable
-fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel: HomeViewModel, onItemClick: (SearchResponse, String?, Boolean) -> Unit) {
+fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel, onItemClick: (SearchResponse, String?, Boolean) -> Unit) {
     if (items.isEmpty()) return
 
     val displayItems = items.take(10)
     val heroMetaMap by viewModel.heroMetaMap.collectAsState()
     val scope = rememberCoroutineScope()
-    var currentIndex by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(6000)
-            currentIndex = (currentIndex + 1) % displayItems.size
+    var globalIndex by remember { mutableStateOf(0) }
+    
+    // Initialize globalIndex once displayItems are loaded
+    LaunchedEffect(displayItems.size) {
+        if (displayItems.isNotEmpty() && globalIndex == 0) {
+            globalIndex = displayItems.size * 1000
+        }
+    }
+    
+    val currentIndex = if (displayItems.isNotEmpty()) globalIndex % displayItems.size else 0
+    
+    LaunchedEffect(globalIndex, displayItems.size) {
+        if (displayItems.isNotEmpty()) {
+            delay(10000)
+            globalIndex++
         }
     }
 
@@ -180,6 +190,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                             model = ambientBg,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
+                            alignment = Alignment.TopCenter,
                             modifier = Modifier.fillMaxSize().then(
                                 if (meta?.backdropUrl == null) Modifier.blur(24.dp) else Modifier
                             )
@@ -357,7 +368,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     }
                                     Spacer(Modifier.width(14.dp))
                                 }
-                                if (meta?.duration != null) {
+                                if (meta?.duration != null && meta.duration > 0) {
                                     Text(
                                         text = "${meta.duration}m",
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -374,12 +385,14 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     Spacer(Modifier.width(14.dp))
                                 }
                                 if (!meta?.tags.isNullOrEmpty()) {
-                                    val tagsText = meta!!.tags.distinct().take(4).joinToString(" • ")
+                                    val tagsText = meta!!.tags.distinct().take(3).joinToString(" • ")
                                     Text(
                                         text = tagsText,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         style = androidx.compose.ui.text.TextStyle(
                                             shadow = androidx.compose.ui.graphics.Shadow(
                                                 color = Color.Black.copy(alpha = 0.69f),
@@ -445,36 +458,86 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                 }
 
                                 val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
-                                var isBookmarked by remember(bookmarkId) { mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.isBookmarked(bookmarkId) else false) }
+                                var showBookmarkMenu by remember { mutableStateOf(false) }
+                                var currentBookmark by remember(bookmarkId) { 
+                                    mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null) 
+                                }
 
-                                IconButton(
-                                    onClick = {
-                                        if (provider == null) return@IconButton
-                                        if (isBookmarked) {
-                                            DesktopDataStore.removeBookmark(bookmarkId)
-                                        } else {
-                                            DesktopDataStore.addBookmark(
-                                                DesktopBookmark(
-                                                    id = bookmarkId,
-                                                    name = item.name,
-                                                    url = item.url,
-                                                    apiName = provider.name,
-                                                    posterUrl = item.posterUrl,
-                                                ),
+                                Box {
+                                    IconButton(
+                                        onClick = { if (provider != null) showBookmarkMenu = true },
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                                    ) {
+                                        Icon(
+                                            imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                                            contentDescription = "Bookmark",
+                                            tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showBookmarkMenu,
+                                        onDismissRequest = { showBookmarkMenu = false },
+                                        modifier = Modifier
+                                            .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                            .padding(4.dp)
+                                    ) {
+                                        Text(
+                                            "Add to Library",
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                            val isSelected = currentBookmark?.watchType == type.id
+                                            DropdownMenuItem(
+                                                text = { 
+                                                    Text(
+                                                        type.stringRes,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                    ) 
+                                                },
+                                                onClick = {
+                                                    val newBookmark = DesktopBookmark(
+                                                        id = bookmarkId,
+                                                        name = item.name,
+                                                        url = item.url,
+                                                        apiName = provider!!.name,
+                                                        posterUrl = item.posterUrl,
+                                                        watchType = type.id
+                                                    )
+                                                    DesktopDataStore.addBookmark(newBookmark)
+                                                    currentBookmark = newBookmark
+                                                    showBookmarkMenu = false
+                                                },
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
                                             )
                                         }
-                                        isBookmarked = !isBookmarked
-                                    },
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
-                                ) {
-                                    Icon(
-                                        imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                        contentDescription = "Bookmark",
-                                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.White,
-                                        modifier = Modifier.size(24.dp),
-                                    )
+                                        if (currentBookmark != null) {
+                                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                                            DropdownMenuItem(
+                                                text = { 
+                                                    Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) 
+                                                },
+                                                onClick = {
+                                                    DesktopDataStore.removeBookmark(bookmarkId)
+                                                    currentBookmark = null
+                                                    showBookmarkMenu = false
+                                                },
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -502,15 +565,15 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     IconButton(
-                        onClick = { currentIndex = (currentIndex - 1 + displayItems.size) % displayItems.size },
+                        onClick = { if (displayItems.isNotEmpty()) globalIndex-- },
                         modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
                     ) {
                         Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White)
                     }
 
-                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-                    LaunchedEffect(currentIndex) {
-                        listState.animateScrollToItem(maxOf(0, currentIndex - 2))
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
+                    LaunchedEffect(globalIndex) {
+                        listState.animateScrollToItem(maxOf(0, globalIndex - 2))
                     }
 
                     LazyRow(
@@ -519,54 +582,58 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        itemsIndexed(displayItems) { index, item ->
-                            val posterUrl = provider?.fixUrlNull(item.posterUrl)
-                            val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
-                            
-                            val isSelected = index == currentIndex
-                            
-                            if (thumbUrl != null) {
-                                val thumbHeight by androidx.compose.animation.core.animateDpAsState(
-                                    targetValue = if (isSelected) 140.dp else 110.dp,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                )
-                                val thumbAlpha by androidx.compose.animation.core.animateFloatAsState(
-                                    targetValue = if (isSelected) 1f else 0.5f,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                )
-                                val borderWidth by androidx.compose.animation.core.animateDpAsState(
-                                    targetValue = if (isSelected) 2.dp else 0.dp,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                )
-                                val borderColor by androidx.compose.animation.animateColorAsState(
-                                    targetValue = if (isSelected) Color.White else Color.Transparent,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                )
+                        if (displayItems.isNotEmpty()) {
+                            items(Int.MAX_VALUE) { globalThumbIndex ->
+                                val itemIndex = globalThumbIndex % displayItems.size
+                                val item = displayItems[itemIndex]
+                                val posterUrl = provider?.fixUrlNull(item.posterUrl)
+                                val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
+                                
+                                val isSelected = globalThumbIndex == globalIndex
+                                
+                                if (thumbUrl != null) {
+                                    val thumbHeight by androidx.compose.animation.core.animateDpAsState(
+                                        targetValue = if (isSelected) 140.dp else 110.dp,
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    )
+                                    val thumbAlpha by androidx.compose.animation.core.animateFloatAsState(
+                                        targetValue = if (isSelected) 1f else 0.5f,
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    )
+                                    val borderWidth by androidx.compose.animation.core.animateDpAsState(
+                                        targetValue = if (isSelected) 2.dp else 0.dp,
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    )
+                                    val borderColor by androidx.compose.animation.animateColorAsState(
+                                        targetValue = if (isSelected) Color.White else Color.Transparent,
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    )
 
-                                AsyncImage(
-                                    model = thumbUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .height(thumbHeight)
-                                        .aspectRatio(2f/3f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(
-                                            width = borderWidth,
-                                            color = borderColor,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .alpha(thumbAlpha)
-                                        .clickable {
-                                            currentIndex = index
-                                        }
-                                )
+                                    AsyncImage(
+                                        model = thumbUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .height(thumbHeight)
+                                            .aspectRatio(2f/3f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(
+                                                width = borderWidth,
+                                                color = borderColor,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .alpha(thumbAlpha)
+                                            .clickable {
+                                                globalIndex = globalThumbIndex
+                                            }
+                                    )
+                                }
                             }
                         }
                     }
 
                     IconButton(
-                        onClick = { currentIndex = (currentIndex + 1) % displayItems.size },
+                        onClick = { if (displayItems.isNotEmpty()) globalIndex++ },
                         modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
                     ) {
                         Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next", tint = Color.White)

@@ -11,12 +11,22 @@ import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 
+enum class DesktopWatchType(val id: Int, val stringRes: String) {
+    WATCHING(0, "Watching"),
+    COMPLETED(1, "Completed"),
+    ONHOLD(2, "On Hold"),
+    DROPPED(3, "Dropped"),
+    PLANTOWATCH(4, "Plan to Watch"),
+    REWATCHING(5, "Re-watching")
+}
+
 data class DesktopBookmark(
     val id: String,
     val name: String,
     val url: String,
     val apiName: String,
     val posterUrl: String?,
+    val watchType: Int = 0,
 )
 
 data class WatchHistory(
@@ -67,7 +77,7 @@ object DesktopDataStore {
                                 try {
                                     val bookmarks: List<DesktopBookmark> = mapper.readValue(jsonStr, object : TypeReference<List<DesktopBookmark>>() {})
                                     bookmarks.forEach { b ->
-                                        db.cloudstreamDBQueries.insertBookmark(b.id, b.name, b.url, b.apiName, b.posterUrl)
+                                        db.cloudstreamDBQueries.insertBookmark(b.id, b.name, b.url, b.apiName, b.posterUrl, b.watchType.toLong())
                                     }
                                 } catch (e: Exception) {
                                     AppLogger.e("Failed to migrate bookmarks", e)
@@ -148,7 +158,7 @@ object DesktopDataStore {
 
     fun getBookmarks(): List<DesktopBookmark> {
         return DatabaseFactory.database.cloudstreamDBQueries.selectAllBookmarks().executeAsList().map {
-            DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl)
+            DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0)
         }
     }
 
@@ -159,6 +169,7 @@ object DesktopDataStore {
             bookmark.url,
             bookmark.apiName,
             bookmark.posterUrl,
+            bookmark.watchType.toLong(),
         )
     }
 

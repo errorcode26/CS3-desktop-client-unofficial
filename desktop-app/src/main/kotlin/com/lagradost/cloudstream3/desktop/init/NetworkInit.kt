@@ -20,6 +20,9 @@ fun initNetwork() {
     // Initialize global NiceHttp clients
     NetworkConfig.updateGlobalNetworkClients()
 
+    // Initialize NewPipe for plugins that depend on it
+    org.schabi.newpipe.extractor.NewPipe.init(com.lagradost.cloudstream3.desktop.network.NewPipeDownloader.getInstance())
+
     // Patch Jackson mapper for dex2jar Kotlin reflection bugs
     val mapper = mapper
 

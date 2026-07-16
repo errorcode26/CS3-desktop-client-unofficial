@@ -45,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
@@ -236,46 +237,110 @@ fun DetailsMetadata(
                     heroAction()
                     
                     val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                    var isBookmarked by remember { mutableStateOf(DesktopDataStore.isBookmarked(bookmarkId)) }
-                    Box(
-                        modifier = Modifier
-                            .height(56.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (isBookmarked) MaterialTheme.colorScheme.primary
-                                else Color.White.copy(alpha = 0.18f)
-                            )
-                            .border(
-                                1.5.dp,
-                                if (isBookmarked) MaterialTheme.colorScheme.primary
-                                else Color.White.copy(alpha = 0.4f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                if (isBookmarked) DesktopDataStore.removeBookmark(bookmarkId)
-                                else DesktopDataStore.addBookmark(DesktopBookmark(bookmarkId, data.name, data.url, provider.name, data.posterUrl))
-                                isBookmarked = !isBookmarked
+                    var currentBookmark by remember { 
+                        mutableStateOf(DesktopDataStore.getBookmarks().find { it.id == bookmarkId }) 
+                    }
+                    var showBookmarkMenu by remember { mutableStateOf(false) }
+
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .height(56.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (currentBookmark != null) MaterialTheme.colorScheme.primary
+                                    else Color.White.copy(alpha = 0.18f)
+                                )
+                                .border(
+                                    1.5.dp,
+                                    if (currentBookmark != null) MaterialTheme.colorScheme.primary
+                                    else Color.White.copy(alpha = 0.4f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { showBookmarkMenu = true }
+                                .padding(horizontal = 28.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                                    contentDescription = "Library",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                val text = currentBookmark?.let { b ->
+                                    com.lagradost.common.storage.DesktopWatchType.entries.find { type -> type.id == b.watchType }?.stringRes
+                                } ?: "Add to Library"
+                                Text(
+                                    text = text,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
                             }
-                            .padding(horizontal = 28.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                contentDescription = if (isBookmarked) "In Library" else "Add to Library",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = if (isBookmarked) "In Library" else "Add to Library",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium,
-                            )
+                            DropdownMenu(
+                                expanded = showBookmarkMenu,
+                                onDismissRequest = { showBookmarkMenu = false },
+                                modifier = Modifier
+                                    .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .padding(4.dp)
+                            ) {
+                                Text(
+                                    "Add to Library",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                    val isSelected = currentBookmark?.watchType == type.id
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Text(
+                                                type.stringRes,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            ) 
+                                        },
+                                        onClick = {
+                                            val newBookmark = DesktopBookmark(
+                                                id = bookmarkId,
+                                                name = data.name,
+                                                url = data.url,
+                                                apiName = provider.name,
+                                                posterUrl = data.posterUrl,
+                                                watchType = type.id
+                                            )
+                                            DesktopDataStore.addBookmark(newBookmark)
+                                            currentBookmark = newBookmark
+                                            showBookmarkMenu = false
+                                        },
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                                    )
+                                }
+                                if (currentBookmark != null) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) 
+                                        },
+                                        onClick = {
+                                            DesktopDataStore.removeBookmark(bookmarkId)
+                                            currentBookmark = null
+                                            showBookmarkMenu = false
+                                        },
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                                    )
+                                }
+                            }
                         }
                     }
-                    
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))

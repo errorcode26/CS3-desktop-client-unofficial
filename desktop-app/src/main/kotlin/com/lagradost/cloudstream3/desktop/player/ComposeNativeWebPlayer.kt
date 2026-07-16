@@ -925,8 +925,16 @@ fun ComposeNativeWebPlayer(
                         // is already a clean JSON: {"type":"togglePlay","value":""}
                         // We use regex instead of fragile substringAfter to handle both
                         // string values ("value":"123") and numeric values ("value":123).
-                        val eventType = extractJsonString(value, "type")
-                        val eventValue = extractJsonValue(value, "value")
+                        // The regex extraction is broken for escaped JSON strings (like JSON-encoded episode IDs)
+                        // because it doesn't unescape them. We use Jackson to safely parse and unescape the value,
+                        // with a fallback to the old regex if parsing fails.
+                        val cleanJson = value.replace(Regex("[\\x00-\\x1F]"), "")
+                        val rootNode = try {
+                            com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanJson)
+                        } catch (e: Exception) { null }
+                        
+                        val eventType = rootNode?.get("type")?.asText() ?: extractJsonString(value, "type")
+                        val eventValue = rootNode?.get("value")?.asText() ?: extractJsonValue(value, "value")
 
                         when (eventType) {
                             "ui_ready" -> {

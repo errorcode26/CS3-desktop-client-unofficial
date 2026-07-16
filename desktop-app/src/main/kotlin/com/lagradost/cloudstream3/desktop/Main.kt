@@ -279,6 +279,7 @@ fun main() {
                         initNetwork()
                         initProviders()
                         initPlugins()
+                        com.lagradost.cloudstream3.desktop.plugins.vega.VegaBridgeManager.startBridge()
                         com.lagradost.cloudstream3.APIHolder.initAll()
                         launchAutoUpdater()
                     }

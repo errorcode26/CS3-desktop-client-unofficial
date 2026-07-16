@@ -133,7 +133,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 ExtensionCard(
                     name = plugin.name,
                     internalName = plugin.internalName,
-                    version = plugin.version,
+                    version = plugin.version.toString(),
                     repoName = plugin.repoName,
                     language = plugin.language,
                     tvTypes = plugin.tvTypes,

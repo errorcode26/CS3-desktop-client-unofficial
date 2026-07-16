@@ -239,7 +239,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard(
                                         name = plugin.name,
                                         internalName = plugin.internalName,
-                                        version = plugin.version,
+                                        version = plugin.version.toString(),
                                         repoName = repo.name,
                                         language = plugin.language,
                                         tvTypes = plugin.tvTypes,

@@ -1,0 +1,15 @@
+{
+  "name": "vega-bridge",
+  "version": "1.0.0",
+  "description": "Node.js IPC bridge for running Vega JS providers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "cheerio": "^1.1.0",
+    "express": "^4.21.2",
+    "zod": "^3.23.0"
+  }
+}

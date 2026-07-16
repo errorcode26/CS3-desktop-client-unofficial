@@ -157,6 +157,18 @@ object DesktopRepositoryManager {
     suspend fun addRepositoryFromInput(inputUrl: String): List<Repository>? = withContext(Dispatchers.IO) {
         val trimmed = inputUrl.trim()
         if (trimmed.isEmpty()) return@withContext null
+        
+        // Intercept Vega short codes / GitHub raw urls
+        val isVega = trimmed == "vega-org" || trimmed.contains("vega-org") || trimmed.contains("Rowdy-Avinash") || trimmed.contains("vega-providers")
+        if (isVega) {
+            val added = com.lagradost.cloudstream3.desktop.plugins.vega.VegaRepositoryManager.addRepository(trimmed)
+            if (added) {
+                // Return an empty list so the UI knows it succeeded but doesn't expect a standard CloudStream .jar repository response
+                return@withContext emptyList() 
+            }
+            return@withContext null
+        }
+        
         val resolvedUrl = parseRepoUrl(trimmed) ?: trimmed
 
         // Check if the URL resolves to a Mega Repo (JSON array)

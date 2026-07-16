@@ -22,7 +22,7 @@ import coil3.compose.AsyncImage
 fun ExtensionCard(
     name: String,
     internalName: String,
-    version: Int,
+    version: String,
     repoName: String,
     language: String?,
     tvTypes: List<String>?,

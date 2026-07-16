@@ -28,7 +28,7 @@ fun ComposeHomeScreen(
     navController: NavController,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { HomeViewModel(coroutineScope) }
+    val viewModel = com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel
 
     val providers by viewModel.providers.collectAsState()
     val selectedProvider by viewModel.selectedProvider.collectAsState()
@@ -93,7 +93,7 @@ fun ComposeHomeScreen(
             )
         } else if (selectedProvider != null && selectedProvider!!.hasMainPage && selectedProvider!!.mainPage.isNotEmpty()) {
             val currentProvider = selectedProvider!!
-            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val listState = viewModel.listState
 
             val searchBarMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.searchBarMode.collectAsState()
 
@@ -177,19 +177,19 @@ fun ComposeHomeScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "No Providers Found",
+                        com.lagradost.cloudstream3.desktop.utils.DesktopStrings.NO_PROVIDERS_FOUND,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Please go to the Extensions tab to install some plugins.",
+                        com.lagradost.cloudstream3.desktop.utils.DesktopStrings.PLEASE_INSTALL_PLUGINS,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(onClick = { navController.navigate(Screen.Extensions) }) {
-                        Text("Go to Extensions")
+                        Text(com.lagradost.cloudstream3.desktop.utils.DesktopStrings.GO_TO_EXTENSIONS)
                     }
                 }
             }

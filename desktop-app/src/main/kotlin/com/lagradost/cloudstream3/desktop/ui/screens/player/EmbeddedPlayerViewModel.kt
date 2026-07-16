@@ -221,8 +221,6 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
         val epData = _targetEpisodeData.value ?: return
         if (_nextEpisodeLinks.value.isEmpty()) return
 
-        loadLinksJob?.cancel()
-
         val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
             parentId = currentData.history.parentId,
             episodeId = epData.data
@@ -305,6 +303,13 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
         val currentData = _launchData.value ?: return false
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         return currentIndex != -1 && currentIndex + 1 < episodes.size
+    }
+
+    fun getNextEpisode(): com.lagradost.cloudstream3.Episode? {
+        val episodes = getEpisodesList()
+        val currentData = _launchData.value ?: return null
+        val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
+        return if (currentIndex != -1 && currentIndex + 1 < episodes.size) episodes[currentIndex + 1] else null
     }
 
     fun hasPrevEpisode(): Boolean {
