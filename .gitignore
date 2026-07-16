@@ -106,3 +106,4 @@ node_modules/
 *.sqlite3
 settings.json
 appDataDir/
+.agents/
