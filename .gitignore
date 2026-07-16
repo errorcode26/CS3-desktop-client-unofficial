@@ -153,3 +153,9 @@ exe_test_out.txt
 
 # Documentation
 docs/
+
+# Exceptions for WebView2 SDK
+!desktop-app/src/main/cpp/webview2/build/
+!desktop-app/src/main/cpp/webview2/build/**
+!desktop-app/src/main/cpp/webview2/build/**/*.dll
+!desktop-app/src/main/cpp/webview2/build/**/*.lib
