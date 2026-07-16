@@ -286,7 +286,7 @@ fun DetailsContent(navController: NavController, provider: MainAPI, data: LoadRe
                 Box(modifier = Modifier.fillMaxWidth()) {
                     DetailsBackdrop(provider = provider, data = data, scrollState = scrollState, hazeState = hazeState, enrichmentTrigger = enrichmentTrigger, modifier = Modifier.matchParentSize())
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        DetailsMetadata(provider = provider, data = data, hazeState = hazeState, heroAction = heroAction, enrichmentTrigger = enrichmentTrigger)
+                        DetailsMetadata(provider = provider, data = data, hazeState = hazeState, heroAction = heroAction, enrichmentTrigger = enrichmentTrigger, isLoading = isLoading)
                         Spacer(modifier = Modifier.height(32.dp))
                     }
                 }

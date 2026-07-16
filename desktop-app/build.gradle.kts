@@ -146,7 +146,7 @@ tasks.withType<Test> {
 tasks.register<JavaExec>("runTestWebViewPlayer") {
     mainClass.set("com.lagradost.cloudstream3.desktop.test.TestWebViewPlayerKt")
     classpath = sourceSets["main"].runtimeClasspath
-    jvmArgs("-Djava.library.path=build/libs", "-Djna.library.path=appResources/windows/mpv")
+    jvmArgs("-Djava.library.path=appResources/windows/jni", "-Djna.library.path=appResources/windows/mpv")
 }
 
 tasks.register<JavaExec>("runTestMpvPlayer") {

@@ -1,11 +1,16 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -51,9 +56,10 @@ fun EpisodeCard(ep: Episode, isLatest: Boolean, history: WatchHistory?, provider
             }
             .scale(scale)
             .clickable { navigateToPlay(provider, data, ep, onPlay) },
-        color = Color.Transparent,
+        color = Color.White.copy(alpha = 0.04f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(12.dp),
+        border = if (isHovered) androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else null,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
     ) {
@@ -171,6 +177,34 @@ fun EpisodeCard(ep: Episode, isLatest: Boolean, history: WatchHistory?, provider
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Play Button Overlay (Fades in on hover)
+                val overlayAlpha by animateFloatAsState(if (isHovered) 1f else 0f, tween(200))
+                if (overlayAlpha > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.4f * overlayAlpha)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f * overlayAlpha))
+                                .border(1.dp, Color.White.copy(alpha = 0.5f * overlayAlpha), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White.copy(alpha = overlayAlpha),
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }

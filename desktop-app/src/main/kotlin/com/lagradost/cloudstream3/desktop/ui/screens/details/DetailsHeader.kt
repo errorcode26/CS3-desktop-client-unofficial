@@ -35,6 +35,7 @@ import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import dev.chrisbanes.haze.HazeState
+import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import dev.chrisbanes.haze.haze
 
 @Composable
@@ -101,6 +102,7 @@ fun DetailsMetadata(
     hazeState: HazeState,
     heroAction: @Composable () -> Unit = {},
     enrichmentTrigger: Int,
+    isLoading: Boolean = false,
 ) {
     val trigger = enrichmentTrigger
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -129,77 +131,86 @@ fun DetailsMetadata(
                     Row(verticalAlignment = Alignment.Top) {
                         Column(modifier = Modifier.weight(1f)) {
                             // Logo or Text Title
-                            if (!data.logoUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = provider.fixUrlNull(data.logoUrl),
-                                    contentDescription = data.name,
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxWidth(0.6f).heightIn(max = 120.dp),
-                                    alignment = Alignment.CenterStart,
-                                )
+                            if (isLoading) {
+                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(56.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
                                 Spacer(modifier = Modifier.height(16.dp))
                             } else {
-                                Text(
-                                    text = data.name,
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    lineHeight = 48.sp,
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
+                                if (!data.logoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = provider.fixUrlNull(data.logoUrl),
+                                        contentDescription = data.name,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxWidth(0.6f).heightIn(max = 120.dp),
+                                        alignment = Alignment.CenterStart,
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                } else {
+                                    Text(
+                                        text = data.name,
+                                        style = MaterialTheme.typography.displayMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 48.sp,
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
                             }
 
                             // Rating & Year
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                data.score?.let {
-                                    androidx.compose.material3.Icon(
-                                        androidx.compose.material.icons.Icons.Default.Star,
-                                        contentDescription = "Rating",
-                                        tint = Color(0xFFFFD700), // Gold
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = it.toString(10),
-                                        color = Color.White,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                }
-                                data.year?.let {
-                                    Text(
-                                        text = it.toString(),
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                }
-                                data.duration?.let {
-                                    Text(
-                                        text = "${it}m",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                }
-                                data.contentRating?.let { rating ->
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color.White.copy(alpha = 0.2f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    ) {
+                                if (isLoading) {
+                                    Box(modifier = Modifier.width(180.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                                } else {
+                                    data.score?.let {
+                                        androidx.compose.material3.Icon(
+                                            androidx.compose.material.icons.Icons.Default.Star,
+                                            contentDescription = "Rating",
+                                            tint = Color(0xFFFFD700), // Gold
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                        Spacer(Modifier.width(6.dp))
                                         Text(
-                                            text = rating,
+                                            text = it.toString(10),
                                             color = Color.White,
-                                            fontSize = 13.sp,
+                                            fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                         )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                    }
+                                    data.year?.let {
+                                        Text(
+                                            text = it.toString(),
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                    }
+                                    data.duration?.let {
+                                        Text(
+                                            text = "${it}m",
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                    }
+                                    data.contentRating?.let { rating ->
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color.White.copy(alpha = 0.2f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        ) {
+                                            Text(
+                                                text = rating,
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -253,7 +264,14 @@ fun DetailsMetadata(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Tags
-                    if (!data.tags.isNullOrEmpty()) {
+                    // Tags
+                    if (isLoading) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            repeat(3) {
+                                Box(modifier = Modifier.width(60.dp).height(28.dp).clip(RoundedCornerShape(20.dp)).shimmerBackground())
+                            }
+                        }
+                    } else if (!data.tags.isNullOrEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             data.tags!!.take(6).forEach { tag ->
                                 Box(
@@ -269,23 +287,50 @@ fun DetailsMetadata(
                     }
 
                     // Plot
-                    data.plot?.let {
+                    if (isLoading) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = it,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 14.sp,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 22.sp,
-                            modifier = Modifier.fillMaxWidth(0.9f),
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                            Box(modifier = Modifier.fillMaxWidth(0.85f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                        }
+                    } else {
+                        data.plot?.let {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = it,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 14.sp,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = 22.sp,
+                                modifier = Modifier.fillMaxWidth(0.9f),
+                            )
+                        }
                     }
                 }
             }
 
             // Cast
-            if (!data.actors.isNullOrEmpty()) {
+            if (isLoading) {
+                Spacer(modifier = Modifier.height(48.dp))
+                Box(modifier = Modifier.width(100.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) {
+                    items(5) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(110.dp)) {
+                            Box(modifier = Modifier.size(96.dp).clip(CircleShape).shimmerBackground())
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.8f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.6f).height(12.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                        }
+                    }
+                }
+            } else if (!data.actors.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(48.dp))
                 Text("Cast", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(16.dp))
