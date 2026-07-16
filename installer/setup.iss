@@ -2,9 +2,9 @@
 AppName=CloudStream
 AppVersion=0.1.2-pre-alpha
 AppPublisher=CloudStream
-AppPublisherURL=https://github.com/recloudstream/cloudstream
-AppSupportURL=https://github.com/recloudstream/cloudstream
-AppUpdatesURL=https://github.com/recloudstream/cloudstream
+AppPublisherURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
+AppSupportURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
+AppUpdatesURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
 DefaultDirName={autopf}\CloudStream
 DefaultGroupName=CloudStream
 AllowNoIcons=yes
