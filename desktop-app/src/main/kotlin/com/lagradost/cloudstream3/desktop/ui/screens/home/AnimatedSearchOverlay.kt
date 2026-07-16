@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,24 +11,18 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.DesktopUiState
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
@@ -41,6 +34,8 @@ fun AnimatedSearchOverlay(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onSearch: androidx.compose.foundation.text.KeyboardActionScope.() -> Unit,
+    onClose: () -> Unit,
+    isSearchActive: Boolean = false,
     providers: List<MainAPI>,
     selectedProvider: MainAPI?,
     onProviderSelected: (String) -> Unit,
@@ -50,16 +45,18 @@ fun AnimatedSearchOverlay(
 
     val focusRequester = remember { FocusRequester() }
     val searchTrigger by DesktopUiState.searchFocusTrigger.collectAsState()
-    
+
     val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
     val isForced by DesktopUiState.forceShowSearchBar.collectAsState()
-    
-    val isVisible = searchBarMode == "Always Visible" || isForced
+
+    val isVisible = searchBarMode == "Always Visible" || isForced || isSearchActive
 
     LaunchedEffect(searchTrigger) {
         if (searchTrigger > 0) {
             delay(100) // allow animation to start
-            try { focusRequester.requestFocus() } catch (e: Exception) {}
+            try {
+                focusRequester.requestFocus()
+            } catch (e: Exception) {}
             DesktopUiState.searchFocusTrigger.value = 0
         }
     }
@@ -77,8 +74,8 @@ fun AnimatedSearchOverlay(
         mutableStateOf(
             androidx.compose.ui.text.input.TextFieldValue(
                 text = searchQuery,
-                selection = androidx.compose.ui.text.TextRange(searchQuery.length)
-            )
+                selection = androidx.compose.ui.text.TextRange(searchQuery.length),
+            ),
         )
     }
 
@@ -86,7 +83,7 @@ fun AnimatedSearchOverlay(
         if (searchQuery != textFieldValue.text) {
             textFieldValue = textFieldValue.copy(
                 text = searchQuery,
-                selection = androidx.compose.ui.text.TextRange(searchQuery.length)
+                selection = androidx.compose.ui.text.TextRange(searchQuery.length),
             )
         }
     }
@@ -96,7 +93,7 @@ fun AnimatedSearchOverlay(
 
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = topPadding),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.TopCenter,
     ) {
         AnimatedVisibility(
             visible = isVisible,
@@ -153,37 +150,37 @@ fun AnimatedSearchOverlay(
                         )
                     }
 
-                    if (textFieldValue.text.isNotEmpty()) {
-                        IconButton(
-                            onClick = { onSearchQueryChange("") },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = DesktopUi.TextMuted,
-                            )
-                        }
-                    }
-
                     if (searchBarMode != "Always Visible") {
-                        IconButton(
-                            onClick = { DesktopUiState.forceShowSearchBar.value = false },
-                            modifier = Modifier.size(28.dp).background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close Search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+                        if (textFieldValue.text.isNotEmpty()) {
+                            // Text is present — clear it
+                            IconButton(
+                                onClick = { onSearchQueryChange("") },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = DesktopUi.TextMuted,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        } else {
+                            // Field is empty — close the search entirely
+                            IconButton(
+                                onClick = onClose,
+                                modifier = Modifier.size(28.dp).background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close Search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
                     }
-
                 }
             }
         }
     }
 }
-
-
