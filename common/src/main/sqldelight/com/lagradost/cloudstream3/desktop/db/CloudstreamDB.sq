@@ -1,0 +1,85 @@
+CREATE TABLE IF NOT EXISTS KeyValueStore (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+insertKeyValue:
+INSERT OR REPLACE INTO KeyValueStore(key, value) VALUES (?, ?);
+
+selectKeyValue:
+SELECT value FROM KeyValueStore WHERE key = ?;
+
+deleteKeyValue:
+DELETE FROM KeyValueStore WHERE key = ?;
+
+selectAllKeyValues:
+SELECT * FROM KeyValueStore;
+
+
+CREATE TABLE IF NOT EXISTS Bookmarks (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    apiName TEXT NOT NULL,
+    posterUrl TEXT
+);
+
+insertBookmark:
+INSERT OR REPLACE INTO Bookmarks(id, name, url, apiName, posterUrl) VALUES (?, ?, ?, ?, ?);
+
+deleteBookmark:
+DELETE FROM Bookmarks WHERE id = ?;
+
+selectAllBookmarks:
+SELECT * FROM Bookmarks;
+
+selectBookmarkById:
+SELECT * FROM Bookmarks WHERE id = ?;
+
+
+CREATE TABLE IF NOT EXISTS WatchHistory (
+    parentId TEXT NOT NULL,
+    episodeId TEXT NOT NULL,
+    showName TEXT NOT NULL,
+    showUrl TEXT NOT NULL,
+    apiName TEXT NOT NULL,
+    posterUrl TEXT,
+    episode INTEGER,
+    season INTEGER,
+    position INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    updateTime INTEGER NOT NULL,
+    PRIMARY KEY(parentId, episodeId)
+);
+
+insertWatchHistory:
+INSERT OR REPLACE INTO WatchHistory(parentId, episodeId, showName, showUrl, apiName, posterUrl, episode, season, position, duration, updateTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteWatchHistoryByParent:
+DELETE FROM WatchHistory WHERE parentId = ?;
+
+deleteAllWatchHistory:
+DELETE FROM WatchHistory;
+
+selectAllWatchHistory:
+SELECT * FROM WatchHistory ORDER BY updateTime DESC;
+
+
+CREATE TABLE IF NOT EXISTS PluginUpdates (
+    pluginName TEXT NOT NULL PRIMARY KEY,
+    version INTEGER NOT NULL,
+    iconUrl TEXT,
+    timestamp INTEGER NOT NULL
+);
+
+insertPluginUpdate:
+INSERT OR REPLACE INTO PluginUpdates(pluginName, version, iconUrl, timestamp) VALUES (?, ?, ?, ?);
+
+selectAllPluginUpdates:
+SELECT * FROM PluginUpdates ORDER BY timestamp DESC;
+
+deleteOldPluginUpdates:
+DELETE FROM PluginUpdates WHERE pluginName NOT IN (SELECT pluginName FROM PluginUpdates ORDER BY timestamp DESC LIMIT 50);
+
+deletePluginUpdate:
+DELETE FROM PluginUpdates WHERE pluginName = ?;

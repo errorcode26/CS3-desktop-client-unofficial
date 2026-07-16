@@ -1,0 +1,57 @@
+package com.lagradost.cloudstream3.desktop.ui.theme
+
+import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.flow.MutableStateFlow
+
+object AppearanceConfig {
+    private const val PREF_THEME_ACCENT = "pref_theme_accent"
+    private const val PREF_AMOLED_MODE = "pref_amoled_mode"
+    private const val PREF_LIGHT_MODE = "pref_light_mode"
+    private const val PREF_GRID_SCALE = "pref_grid_scale"
+    private const val PREF_LAYOUT_WIDTH = "pref_layout_width"
+    private const val PREF_SEARCH_BAR_MODE = "pref_search_bar_mode"
+    private const val PREF_AMBIENT_GLOW = "pref_ambient_glow"
+
+    val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
+    val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
+    val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
+    val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
+    val layoutWidth = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_LAYOUT_WIDTH) ?: "Modern")
+    val searchBarMode = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_SEARCH_BAR_MODE) ?: "Always Visible")
+    val ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
+
+    fun setThemeAccent(colorName: String) {
+        themeAccent.value = colorName
+        DesktopDataStore.setKey(PREF_THEME_ACCENT, colorName)
+    }
+
+    fun setAmoledMode(enabled: Boolean) {
+        amoledMode.value = enabled
+        DesktopDataStore.setKey(PREF_AMOLED_MODE, enabled)
+    }
+
+    fun setLightMode(enabled: Boolean) {
+        isLightMode.value = enabled
+        DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
+    }
+
+    fun setGridScale(scale: String) {
+        gridScale.value = scale
+        DesktopDataStore.setKey(PREF_GRID_SCALE, scale)
+    }
+
+    fun setLayoutWidth(width: String) {
+        layoutWidth.value = width
+        DesktopDataStore.setKey(PREF_LAYOUT_WIDTH, width)
+    }
+
+    fun setSearchBarMode(mode: String) {
+        searchBarMode.value = mode
+        DesktopDataStore.setKey(PREF_SEARCH_BAR_MODE, mode)
+    }
+
+    fun setAmbientGlowEnabled(enabled: Boolean) {
+        ambientGlowEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_AMBIENT_GLOW, enabled)
+    }
+}

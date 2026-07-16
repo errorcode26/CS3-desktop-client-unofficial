@@ -1,0 +1,12 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+indent_style = space
+ktlint_standard_filename = disabled
+ktlint_standard_value-parameter-comment = disabled
+max_line_length = off
+ktlint_standard_max-line-length = disabled
+ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_function-naming = disabled
+ktlint_standard_value-argument-comment = disabled

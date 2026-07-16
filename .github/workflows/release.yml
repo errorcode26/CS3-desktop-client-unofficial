@@ -1,0 +1,43 @@
+name: Build and Release MSI
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v0.1.0, v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Download and inject libmpv-2.dll
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path "desktop-app/appResources/windows/mpv"
+        Write-Host "Downloading libmpv-2.dll..."
+        Invoke-WebRequest -Uri "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20231224/mpv-dev-x86_64-20231224-git-0edcfd8.7z" -OutFile "mpv-dev.7z"
+        7z e mpv-dev.7z "libmpv-2.dll" -o"desktop-app/appResources/windows/mpv" -r
+
+    - name: Build MSI Installer
+      run: ./gradlew desktop-app:packageMsi
+
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: desktop-app/build/compose/binaries/main/msi/*.msi
+        generate_release_notes: true

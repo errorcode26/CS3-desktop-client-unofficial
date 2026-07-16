@@ -1,0 +1,75 @@
+# Gradle & Builds
+.gradle
+build/
+**/build/
+**/bin/
+**/out/
+
+# IDEs
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# Desktop App specific
+desktop-app/mpv/
+desktop-app/appResources/windows/mpv/portable_config/watch_later/
+*.jar
+*.cs3
+
+# Exceptions
+!gradle/wrapper/gradle-wrapper.jar
+!desktop-app/appResources/**/*.dll
+
+# Executables and Native Binaries
+*.exe
+*.msi
+*.dll
+*.so
+*.dylib
+*.7z
+*.zip
+*.tar.gz
+*.rar
+ms-playwright/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+.kotlin_module
+
+# Local Configs
+local.properties
+
+# Logs
+logs/
+*.log
+
+# Scratch Test Files
+test_*.kt
+test_*.kts
+cloudstream_mpv_url_*
+test-repos/
+.gemini/
+
+# Generated Logs
+spotless_*.log
+spotless_*.txt
+*.bak
+*.tmp
+*.orig
+.env
+secrets.properties
+
+# Build/Dev logs and output
+dev_err.txt
+dev_out.txt
+exe_err.txt
+exe_out.txt
+
+# Installer Outputs
+Output/
+*.iss.bak
+
