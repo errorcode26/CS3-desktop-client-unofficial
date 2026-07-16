@@ -6,10 +6,22 @@ object NativePlayerBridge {
 
     init {
         try {
-            System.loadLibrary("WebView2Loader")
-            System.loadLibrary("player_bridge")
+            val resourcesDir = System.getProperty("compose.application.resources.dir")
+            
+            // Try absolute paths first (Release mode / AppImage)
+            val webviewDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/WebView2Loader.dll") else null
+            val playerDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/player_bridge.dll") else null
+            
+            if (webviewDll?.exists() == true && playerDll?.exists() == true) {
+                System.load(webviewDll.absolutePath)
+                System.load(playerDll.absolutePath)
+            } else {
+                // Fallback to java.library.path (Dev mode)
+                System.loadLibrary("WebView2Loader")
+                System.loadLibrary("player_bridge")
+            }
             AppLogger.i("Successfully loaded player_bridge native library")
-        } catch (e: UnsatisfiedLinkError) {
+        } catch (e: Throwable) {
             AppLogger.e("Failed to load player_bridge native library: ${e.message}")
         }
     }
