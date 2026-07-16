@@ -130,50 +130,6 @@ typedef HRESULT(STDAPICALLTYPE *CreateCoreWebView2EnvironmentWithOptionsFunc)(
     ICoreWebView2EnvironmentOptions* environmentOptions,
     ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler* environmentCreatedHandler);
 
-// ─── Minimal ICoreWebView2EnvironmentOptions implementation ───────────────────
-// Needed to pass --allow-file-access-from-files so the file:// hosted controls.html
-// can fetch external https:// backdrop/logo images without CORS blocking them.
-class SimpleEnvironmentOptions : public ICoreWebView2EnvironmentOptions {
-    ULONG m_refCount = 1;
-    // We pass both flags: allow-file-access-from-files lets the file:// origin
-    // load external network resources; disable-web-security removes CORS entirely.
-    static constexpr LPCWSTR kAdditionalArgs =
-        L"--allow-file-access-from-files --disable-web-security --allow-running-insecure-content"
-        L" --disk-cache-size=1 --disable-application-cache --aggressive-cache-discard";
-public:
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
-        if (riid == IID_IUnknown || riid == IID_ICoreWebView2EnvironmentOptions) {
-            *ppv = this; AddRef(); return S_OK;
-        }
-        return E_NOINTERFACE;
-    }
-    ULONG STDMETHODCALLTYPE AddRef()  override { return ++m_refCount; }
-    ULONG STDMETHODCALLTYPE Release() override {
-        ULONG c = --m_refCount; if (c == 0) delete this; return c;
-    }
-    HRESULT STDMETHODCALLTYPE get_AdditionalBrowserArguments(LPWSTR* value) override {
-        size_t len = wcslen(kAdditionalArgs) + 1;
-        *value = (LPWSTR)CoTaskMemAlloc(len * sizeof(wchar_t));
-        if (!*value) return E_OUTOFMEMORY;
-        wcscpy_s(*value, len, kAdditionalArgs);
-        return S_OK;
-    }
-    HRESULT STDMETHODCALLTYPE put_AdditionalBrowserArguments(LPCWSTR) override { return S_OK; }
-    HRESULT STDMETHODCALLTYPE get_Language(LPWSTR* value) override {
-        *value = nullptr;
-        return S_OK;
-    }
-    HRESULT STDMETHODCALLTYPE put_Language(LPCWSTR) override { return S_OK; }
-    HRESULT STDMETHODCALLTYPE get_TargetCompatibleBrowserVersion(LPWSTR* value) override {
-        *value = nullptr;
-        return S_OK;
-    }
-    HRESULT STDMETHODCALLTYPE put_TargetCompatibleBrowserVersion(LPCWSTR) override { return S_OK; }
-    HRESULT STDMETHODCALLTYPE get_AllowSingleSignOnUsingOSPrimaryAccount(BOOL* value) override {
-        *value = FALSE; return S_OK;
-    }
-    HRESULT STDMETHODCALLTYPE put_AllowSingleSignOnUsingOSPrimaryAccount(BOOL) override { return S_OK; }
-};
 
 // ─── WebView2 Event Handlers ───────────────────────────────────────────────
 class WebMessageReceivedHandler : public ICoreWebView2WebMessageReceivedEventHandler {
@@ -504,7 +460,10 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     GetTempPathW(MAX_PATH, tempPath);
     std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
 
-    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), new SimpleEnvironmentOptions(), new EnvironmentCompletedHandler());
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", 
+        L"--allow-file-access-from-files --disable-web-security --allow-running-insecure-content --disk-cache-size=1 --disable-application-cache --aggressive-cache-discard");
+
+    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
     std::cout << "[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec << std::endl;
 
     // Signal Kotlin that the container HWND is ready (MPV wid can now be set)
