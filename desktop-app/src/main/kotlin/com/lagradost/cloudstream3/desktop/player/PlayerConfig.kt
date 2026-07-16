@@ -18,7 +18,7 @@ object PlayerConfig {
         // Do NOT set vo, gpu-api, gpu-context, d3d11-flip, etc. here.
         // MPV's auto-detection is battle-tested; our overrides have caused
         // repeated regressions. The VO is set in ComposeMpvPlayer before init.
-        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-safe"
+        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-copy"
         lib.mpv_set_option_string(handle, "hwdec", hwdec)
 
         // Subtitles Size (Default: 45)
