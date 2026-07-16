@@ -402,7 +402,7 @@ private fun setWindowsDarkMode(window: java.awt.Window) {
             borderColorRgb = WindowBackgroundRgb,
             textColorRgb = WindowTextRgb,
         )
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         e.printStackTrace()
     }
 }
