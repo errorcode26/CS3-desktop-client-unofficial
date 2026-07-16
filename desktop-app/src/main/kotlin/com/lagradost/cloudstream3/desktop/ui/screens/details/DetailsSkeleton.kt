@@ -20,19 +20,19 @@ import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 fun DetailsSkeletonPlaceholder(
     onBack: () -> Unit,
     preloadedPoster: String? = null,
-    preloadedBg: String? = null
+    preloadedBg: String? = null,
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF07070E))
+            .background(Color(0xFF07070E)),
     ) {
         // Backdrop
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(480.dp)
-                .shimmerBackground()
+                .shimmerBackground(),
         ) {
             if (!preloadedBg.isNullOrEmpty()) {
                 coil3.compose.AsyncImage(
@@ -43,7 +43,7 @@ fun DetailsSkeletonPlaceholder(
                 )
             }
         }
-        
+
         // Dark vertical scrim overlay matching actual backdrop
         Box(
             modifier = Modifier
@@ -51,17 +51,17 @@ fun DetailsSkeletonPlaceholder(
                 .height(480.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color(0xFF07070E))
-                    )
-                )
+                        colors = listOf(Color.Transparent, Color(0xFF07070E)),
+                    ),
+                ),
         )
-        
+
         // Metadata alignment
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(
                 modifier = Modifier
                     .widthIn(max = 1200.dp)
-                    .padding(start = 32.dp, end = 32.dp, top = 100.dp, bottom = 32.dp)
+                    .padding(start = 32.dp, end = 32.dp, top = 100.dp, bottom = 32.dp),
             ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     // Poster
@@ -70,7 +70,7 @@ fun DetailsSkeletonPlaceholder(
                             .width(220.dp)
                             .aspectRatio(2f / 3f)
                             .clip(RoundedCornerShape(16.dp))
-                            .shimmerBackground()
+                            .shimmerBackground(),
                     ) {
                         if (!preloadedPoster.isNullOrEmpty()) {
                             coil3.compose.AsyncImage(
@@ -82,7 +82,7 @@ fun DetailsSkeletonPlaceholder(
                         }
                     }
                     Spacer(modifier = Modifier.width(48.dp))
-                    
+
                     // Shimmering Text Lines
                     Column(modifier = Modifier.weight(1f)) {
                         // Title line
@@ -91,10 +91,10 @@ fun DetailsSkeletonPlaceholder(
                                 .fillMaxWidth(0.6f)
                                 .height(64.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .shimmerBackground()
+                                .shimmerBackground(),
                         )
                         Spacer(modifier = Modifier.height(24.dp))
-                        
+
                         // Metadata badges row
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             repeat(3) {
@@ -103,12 +103,12 @@ fun DetailsSkeletonPlaceholder(
                                         .width(60.dp)
                                         .height(24.dp)
                                         .clip(RoundedCornerShape(4.dp))
-                                        .shimmerBackground()
+                                        .shimmerBackground(),
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.height(24.dp))
-                        
+
                         // Plot lines
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Box(
@@ -116,26 +116,26 @@ fun DetailsSkeletonPlaceholder(
                                     .fillMaxWidth(0.9f)
                                     .height(16.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.85f)
                                     .height(16.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.5f)
                                     .height(16.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(32.dp))
-                        
+
                         // Play button row
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Box(
@@ -143,27 +143,27 @@ fun DetailsSkeletonPlaceholder(
                                     .width(180.dp)
                                     .height(48.dp)
                                     .clip(RoundedCornerShape(24.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(48.dp))
-                
+
                 // Cast Section
                 Box(
                     modifier = Modifier
                         .width(60.dp)
                         .height(24.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .shimmerBackground()
+                        .shimmerBackground(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -179,17 +179,17 @@ fun DetailsSkeletonPlaceholder(
                 }
 
                 Spacer(modifier = Modifier.height(48.dp))
-                
+
                 // Content/episodes section title
                 Box(
                     modifier = Modifier
                         .width(140.dp)
                         .height(28.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .shimmerBackground()
+                        .shimmerBackground(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Shimmering Episode Grid
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
                     repeat(3) {
@@ -199,7 +199,7 @@ fun DetailsSkeletonPlaceholder(
                                     .fillMaxWidth()
                                     .aspectRatio(16f / 9f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Box(
@@ -207,7 +207,7 @@ fun DetailsSkeletonPlaceholder(
                                     .fillMaxWidth(0.8f)
                                     .height(14.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(
@@ -215,7 +215,7 @@ fun DetailsSkeletonPlaceholder(
                                     .fillMaxWidth(0.4f)
                                     .height(12.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .shimmerBackground()
+                                    .shimmerBackground(),
                             )
                         }
                     }
@@ -230,12 +230,12 @@ fun DetailsSkeletonPlaceholder(
                 .padding(16.dp)
                 .size(48.dp)
                 .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                .align(Alignment.TopStart)
+                .align(Alignment.TopStart),
         ) {
             Icon(
                 Icons.Default.ArrowBack,
                 contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
 

@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -13,16 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
-import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
@@ -98,13 +97,13 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box {
                 FilledTonalButton(
                     onClick = { showLangDropdown = true },
                     modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                 ) {
                     if (languageFilter == "All") {
                         Text("Language: All", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -143,12 +142,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 FilledTonalButton(
                     onClick = { showCatDropdown = true },
                     modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                 ) {
                     Text(
                         if (categoryFilter == "All") "Category: All" else categoryFilter,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -170,12 +169,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },
                     modifier = Modifier.height(44.dp).widthIn(max = 200.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                 ) {
                     Text(
                         if (repoFilter == "All") "Repo: All" else repoFilter,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -202,7 +201,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                                                 text = initial,
                                                 color = androidx.compose.ui.graphics.Color.White,
                                                 style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
                                             )
                                         }
                                     }

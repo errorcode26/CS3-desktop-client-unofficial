@@ -3,8 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cast
-import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,12 +23,12 @@ fun TopBarOverlay(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(24.dp)
+            .padding(24.dp),
     ) {
         // Back Button
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.align(Alignment.CenterStart)
+            modifier = Modifier.align(Alignment.CenterStart),
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
@@ -38,7 +36,7 @@ fun TopBarOverlay(
         // Centered Titles
         Column(
             modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = mainTitle,
@@ -57,6 +55,5 @@ fun TopBarOverlay(
                 )
             }
         }
-
     }
 }

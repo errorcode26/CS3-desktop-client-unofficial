@@ -66,7 +66,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
                     }
                     _nextEpisodeLinks.value = emptyList()
                     _nextEpisodeSubtitles.value = adjustedData.subtitles
-                    
+
                     var hasStartedPlaying = false
 
                     loadLinksJob = coroutineScope.launch(Dispatchers.IO) {
@@ -144,7 +144,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
 
         val apiName = currentData.loadResponse?.apiName
         val provider = APIHolder.getApiFromNameNull(apiName ?: "")
-        
+
         var hasStartedPlaying = false
 
         if (provider != null && episode.data.isNotBlank()) {
@@ -223,7 +223,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
 
         val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
             parentId = currentData.history.parentId,
-            episodeId = epData.data
+            episodeId = epData.data,
         )
 
         val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {

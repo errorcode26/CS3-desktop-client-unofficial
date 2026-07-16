@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,20 +17,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.AnimeLoadResponse
 import com.lagradost.cloudstream3.DubStatus
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
-import androidx.compose.ui.zIndex
 
 @Composable
 fun EpisodesOverlay(
@@ -107,13 +106,13 @@ fun EpisodesOverlay(
                             .fillMaxWidth()
                             .height(140.dp)
                             .padding(bottom = 16.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp)),
                     ) {
                         coil3.compose.AsyncImage(
                             model = headerImg,
                             contentDescription = "Show Backdrop",
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
@@ -181,13 +180,17 @@ fun EpisodesOverlay(
                             seasons.indexOf(selectedSeason) > 0
                         } else if (loadResponse is AnimeLoadResponse) {
                             dubs.indexOf(selectedDub) > 0
-                        } else false
+                        } else {
+                            false
+                        }
 
                         val hasNext = if (loadResponse is TvSeriesLoadResponse) {
                             seasons.indexOf(selectedSeason) < seasons.size - 1
                         } else if (loadResponse is AnimeLoadResponse) {
                             dubs.indexOf(selectedDub) < dubs.size - 1
-                        } else false
+                        } else {
+                            false
+                        }
 
                         Text(
                             text = "< Prev",
@@ -216,17 +219,17 @@ fun EpisodesOverlay(
                                 )
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.White)
                             }
-                            
+
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = expanded,
-                                modifier = Modifier.align(Alignment.TopCenter).offset(y = 32.dp)
+                                modifier = Modifier.align(Alignment.TopCenter).offset(y = 32.dp),
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = Color(0xFF1E1E28),
                                     tonalElevation = 8.dp,
                                     shadowElevation = 8.dp,
-                                    modifier = Modifier.widthIn(min = 120.dp).heightIn(max = 300.dp)
+                                    modifier = Modifier.widthIn(min = 120.dp).heightIn(max = 300.dp),
                                 ) {
                                     LazyColumn {
                                         if (loadResponse is TvSeriesLoadResponse) {
@@ -242,7 +245,7 @@ fun EpisodesOverlay(
                                                             selectedSeason = season
                                                             expanded = false
                                                         }
-                                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                                 )
                                             }
                                         } else if (loadResponse is AnimeLoadResponse) {
@@ -258,7 +261,7 @@ fun EpisodesOverlay(
                                                             selectedDub = dub
                                                             expanded = false
                                                         }
-                                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                                 )
                                             }
                                         }

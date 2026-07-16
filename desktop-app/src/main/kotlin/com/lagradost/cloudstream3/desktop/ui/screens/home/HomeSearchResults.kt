@@ -37,16 +37,14 @@ fun HomeSearchResults(
             ) {
                 items(searchResultsGrouped.size) { index ->
                     val (provider, items) = searchResultsGrouped[index]
-                    val isLoop = items.size >= 4
                     CategoryRowWithHeader(
                         title = provider.name,
                         itemCount = items.size,
-                        isInfinite = isLoop,
+                        isInfinite = false,
                         onViewAll = { onViewAll(provider, provider.name, items) },
                     ) {
-                        items(if (isLoop) Int.MAX_VALUE else items.size) { index ->
-                            val itemIndex = if (isLoop) index % items.size else index
-                            val item = items[itemIndex]
+                        items(items.size) { index ->
+                            val item = items[index]
                             val heroMeta = HeroCache.cache["${provider.name}_${item.url}"]
                             PosterCard(item, provider) {
                                 onItemClick(provider, item, heroMeta?.backdropUrl)

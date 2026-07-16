@@ -49,7 +49,7 @@ fun UpdatesNotificationBell(
             shape = androidx.compose.foundation.shape.CircleShape,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
             ),
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -92,19 +92,19 @@ fun UpdatesNotificationBell(
                                     androidx.compose.material3.TextButton(
                                         onClick = { onMarkUpdatesRead() },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        modifier = Modifier.height(28.dp)
+                                        modifier = Modifier.height(28.dp),
                                     ) {
                                         Text("Mark as read", fontSize = 12.sp)
                                     }
                                 }
                                 androidx.compose.material3.IconButton(
                                     onClick = { isUpdatesDialogExpanded = false },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = "Close",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -182,18 +182,21 @@ fun DockItem(
     val scale by animateFloatAsState(
         targetValue = if (isHovered) 1.15f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "dockItemScale"
+        label = "dockItemScale",
     )
 
     Box(
         modifier = Modifier
             .then(
-                if (isHorizontal) Modifier.size(56.dp)
-                else Modifier.fillMaxWidth().height(56.dp)
+                if (isHorizontal) {
+                    Modifier.size(56.dp)
+                } else {
+                    Modifier.fillMaxWidth().height(56.dp)
+                },
             )
             .clip(RoundedCornerShape(14.dp))
             .hoverable(itemInteraction)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
     ) {
         // Hover Background layer (using graphicsLayer to avoid Compose Desktop alpha blending bugs)
         if (bgAlpha > 0f) {
@@ -202,7 +205,7 @@ fun DockItem(
                     .matchParentSize()
                     .graphicsLayer { alpha = bgAlpha }
                     .clip(RoundedCornerShape(14.dp))
-                    .background(theme.SurfaceElevated)
+                    .background(theme.SurfaceElevated),
             )
         }
 
@@ -219,11 +222,13 @@ fun DockItem(
                 isHorizontal -> slideOutHorizontally { it / 2 }
                 else -> slideOutVertically { it / 2 }
             },
-            modifier = Modifier.align(when {
-                indicatorAtTop -> Alignment.TopCenter
-                isHorizontal -> Alignment.BottomCenter
-                else -> Alignment.CenterStart
-            })
+            modifier = Modifier.align(
+                when {
+                    indicatorAtTop -> Alignment.TopCenter
+                    isHorizontal -> Alignment.BottomCenter
+                    else -> Alignment.CenterStart
+                },
+            ),
         ) {
             Box(
                 modifier = Modifier
@@ -237,7 +242,7 @@ fun DockItem(
                                 .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
                         }
                     }
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(MaterialTheme.colorScheme.primary),
             )
         }
 
@@ -253,7 +258,7 @@ fun DockItem(
                     tint = iconTint,
                     modifier = Modifier
                         .size(22.dp)
-                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                        .graphicsLayer(scaleX = scale, scaleY = scale),
                 )
 
                 if (badge != null) {
@@ -262,7 +267,7 @@ fun DockItem(
                             .align(Alignment.TopEnd)
                             .offset(x = 2.dp, y = (-2).dp)
                             .size(8.dp)
-                            .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape)
+                            .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
                     )
                 }
             }
@@ -271,7 +276,7 @@ fun DockItem(
                 AnimatedVisibility(
                     visible = isHovered,
                     enter = fadeIn() + expandVertically() + slideInVertically { it / 2 },
-                    exit = fadeOut() + shrinkVertically() + slideOutVertically { it / 2 }
+                    exit = fadeOut() + shrinkVertically() + slideOutVertically { it / 2 },
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Spacer(Modifier.height(4.dp))

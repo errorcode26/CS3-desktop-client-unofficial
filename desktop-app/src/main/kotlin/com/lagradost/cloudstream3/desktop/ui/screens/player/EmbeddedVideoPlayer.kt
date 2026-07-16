@@ -6,20 +6,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
-import com.lagradost.cloudstream3.desktop.ui.screens.player.components.PlayerLoadingOverlay
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -212,150 +209,148 @@ fun EmbeddedVideoPlayer(
                         failedLinks = failedLinks,
                         backdropUrl = backdropUrl,
                         logoUrl = logoUrl,
-                            onLinkChange = { index ->
-                                playerState.pause()
-                                currentLinkIndex = index
-                                isLoading = true
-                                isProbingOverlay = true  // Show overlay again while switching to a new link
-                            },
-                            onEpisodeChange = { epId ->
-                                playerState.pause()
-                                val targetEp = episodes.find { it.data == epId }
-                                if (targetEp != null) {
-                                    viewModel.loadEpisode(targetEp)
-                                }
-                            },
-                            onNextEpisode = {
-                                viewModel.loadNextEpisode()
-                            },
-                            onReplayEpisode = {
-                                val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
-                                if (currentEp != null) {
-                                    viewModel.loadEpisode(currentEp)
-                                }
-                            },
-                            onPlaybackReady = {
-                                isLoading = false
-                                isInitialLoad = false
-                                isProbingOverlay = false  // Video is playing — dismiss the overlay
-                            },
-                            onPositionChange = { posMs, durMs ->
-                                val currentPosSec = posMs / 1000L
-                                val currentDurSec = durMs / 1000L
-                                lastPositionSec = currentPosSec
-                                lastDurationSec = currentDurSec
+                        onLinkChange = { index ->
+                            playerState.pause()
+                            currentLinkIndex = index
+                            isLoading = true
+                            isProbingOverlay = true // Show overlay again while switching to a new link
+                        },
+                        onEpisodeChange = { epId ->
+                            playerState.pause()
+                            val targetEp = episodes.find { it.data == epId }
+                            if (targetEp != null) {
+                                viewModel.loadEpisode(targetEp)
+                            }
+                        },
+                        onNextEpisode = {
+                            viewModel.loadNextEpisode()
+                        },
+                        onReplayEpisode = {
+                            val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
+                            if (currentEp != null) {
+                                viewModel.loadEpisode(currentEp)
+                            }
+                        },
+                        onPlaybackReady = {
+                            isLoading = false
+                            isInitialLoad = false
+                            isProbingOverlay = false // Video is playing — dismiss the overlay
+                        },
+                        onPositionChange = { posMs, durMs ->
+                            val currentPosSec = posMs / 1000L
+                            val currentDurSec = durMs / 1000L
+                            lastPositionSec = currentPosSec
+                            lastDurationSec = currentDurSec
 
-                                playerState.updatePositionFromPlayer(posMs)
-                                playerState.updateDurationFromPlayer(durMs)
+                            playerState.updatePositionFromPlayer(posMs)
+                            playerState.updateDurationFromPlayer(durMs)
 
-                                if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
-                                    lastSavedPositionSec = currentPosSec
-                                    val updatedHistory = actualLaunchData.history.copy(
-                                        position = currentPosSec,
-                                        duration = currentDurSec,
-                                        updateTime = System.currentTimeMillis(),
-                                    )
-                                    saveJob?.cancel()
-                                    saveJob = coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        delay(2000)
-                                        val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
-                                        if (percentage >= 0.90f) {
-                                            val hasNext = viewModel.hasNextEpisode()
-                                            if (hasNext) {
-                                                val nextEp = viewModel.getNextEpisode()
-                                                if (nextEp != null) {
-                                                    // Save current episode
-                                                    DesktopDataStore.setLastWatched(updatedHistory)
-                                                    // Queue next episode
-                                                    val nextEpHistory = com.lagradost.common.storage.WatchHistory(
-                                                        parentId = actualLaunchData.history.parentId,
-                                                        showName = actualLaunchData.history.showName,
-                                                        showUrl = actualLaunchData.history.showUrl,
-                                                        apiName = actualLaunchData.history.apiName,
-                                                        posterUrl = actualLaunchData.history.posterUrl,
-                                                        episode = nextEp.episode,
-                                                        season = nextEp.season,
-                                                        episodeId = nextEp.data,
-                                                        position = 0,
-                                                        duration = 0,
-                                                        updateTime = System.currentTimeMillis() + 1000 // Ensure it stays most recent
-                                                    )
-                                                    DesktopDataStore.setLastWatched(nextEpHistory)
-                                                } else {
-                                                    DesktopDataStore.setLastWatched(updatedHistory)
-                                                }
+                            if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
+                                lastSavedPositionSec = currentPosSec
+                                val updatedHistory = actualLaunchData.history.copy(
+                                    position = currentPosSec,
+                                    duration = currentDurSec,
+                                    updateTime = System.currentTimeMillis(),
+                                )
+                                saveJob?.cancel()
+                                saveJob = coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    delay(2000)
+                                    val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
+                                    if (percentage >= 0.90f) {
+                                        val hasNext = viewModel.hasNextEpisode()
+                                        if (hasNext) {
+                                            val nextEp = viewModel.getNextEpisode()
+                                            if (nextEp != null) {
+                                                // Save current episode
+                                                DesktopDataStore.setLastWatched(updatedHistory)
+                                                // Queue next episode
+                                                val nextEpHistory = com.lagradost.common.storage.WatchHistory(
+                                                    parentId = actualLaunchData.history.parentId,
+                                                    showName = actualLaunchData.history.showName,
+                                                    showUrl = actualLaunchData.history.showUrl,
+                                                    apiName = actualLaunchData.history.apiName,
+                                                    posterUrl = actualLaunchData.history.posterUrl,
+                                                    episode = nextEp.episode,
+                                                    season = nextEp.season,
+                                                    episodeId = nextEp.data,
+                                                    position = 0,
+                                                    duration = 0,
+                                                    updateTime = System.currentTimeMillis() + 1000, // Ensure it stays most recent
+                                                )
+                                                DesktopDataStore.setLastWatched(nextEpHistory)
                                             } else {
                                                 DesktopDataStore.setLastWatched(updatedHistory)
                                             }
                                         } else {
                                             DesktopDataStore.setLastWatched(updatedHistory)
                                         }
+                                    } else {
+                                        DesktopDataStore.setLastWatched(updatedHistory)
                                     }
                                 }
-                            },
-                            onCloseRequest = {
-                                actualLaunchData.onClosed?.invoke()
-                                onClose()
-                            },
-                            onSkipScraping = {
-                                userSkippedScraping = true
-                            },
-                            onFinished = {
-                                val hasNext = viewModel.hasNextEpisode()
-                                com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext);")
-                            },
-                            onPlaybackError = { err ->
-                                val newFailed = failedLinks + currentLinkIndex
-                                failedLinks = newFailed
+                            }
+                        },
+                        onCloseRequest = {
+                            actualLaunchData.onClosed?.invoke()
+                            onClose()
+                        },
+                        onSkipScraping = {
+                            userSkippedScraping = true
+                        },
+                        onFinished = {
+                            val hasNext = viewModel.hasNextEpisode()
+                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext);")
+                        },
+                        onPlaybackError = { err ->
+                            val newFailed = failedLinks + currentLinkIndex
+                            failedLinks = newFailed
 
-                                val nextIndex = (0 until actualLaunchData.links.size)
-                                    .firstOrNull { it > currentLinkIndex && it !in newFailed }
+                            val nextIndex = (0 until actualLaunchData.links.size)
+                                .firstOrNull { it > currentLinkIndex && it !in newFailed }
 
-                                when {
-                                    nextIndex != null -> {
-                                        currentLinkIndex = nextIndex
+                            when {
+                                nextIndex != null -> {
+                                    currentLinkIndex = nextIndex
+                                    isLoading = true
+                                }
+                                newFailed.size >= actualLaunchData.links.size -> {
+                                    if (isScrapingLinks) {
+                                        // Wait for more links to arrive (Player stays active, overlay shows waiting)
                                         isLoading = true
+                                    } else {
+                                        // All sources failed — dismiss overlay and show error
+                                        isProbingOverlay = false
+                                        actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
+                                        onClose()
                                     }
-                                    newFailed.size >= actualLaunchData.links.size -> {
+                                }
+                                else -> {
+                                    val anyUntried = (0 until actualLaunchData.links.size)
+                                        .firstOrNull { it !in newFailed }
+                                    if (anyUntried != null) {
+                                        currentLinkIndex = anyUntried
+                                        isLoading = true
+                                    } else {
                                         if (isScrapingLinks) {
-                                            // Wait for more links to arrive (Player stays active, overlay shows waiting)
                                             isLoading = true
+                                            // Wait for more links to arrive
                                         } else {
-                                            // All sources failed — dismiss overlay and show error
+                                            // All sources exhausted — dismiss overlay and show error
                                             isProbingOverlay = false
                                             actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
                                             onClose()
                                         }
                                     }
-                                    else -> {
-                                        val anyUntried = (0 until actualLaunchData.links.size)
-                                            .firstOrNull { it !in newFailed }
-                                        if (anyUntried != null) {
-                                            currentLinkIndex = anyUntried
-                                            isLoading = true
-                                        } else {
-                                            if (isScrapingLinks) {
-                                                isLoading = true
-                                                // Wait for more links to arrive
-                                            } else {
-                                                // All sources exhausted — dismiss overlay and show error
-                                                isProbingOverlay = false
-                                                actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
-                                                onClose()
-                                            }
-                                        }
-                                    }
                                 }
-                            },
-                            onFullscreenToggle = {
-                                fullscreenController?.toggle?.invoke()
-                            },
-                            playerState = playerState,
-                        )
+                            }
+                        },
+                        onFullscreenToggle = {
+                            fullscreenController?.toggle?.invoke()
+                        },
+                        playerState = playerState,
+                    )
                 } // end outer Box
             } // end if (!error && !finished)
-
-
 
             // --- Finished State ---
             if (isFinished) {

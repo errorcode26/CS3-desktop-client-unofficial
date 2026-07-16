@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 
 class NewPipeDownloader private constructor(builder: OkHttpClient.Builder) : Downloader() {
     private val client: OkHttpClient = builder.readTimeout(30, TimeUnit.SECONDS).build()
-    
+
     override fun execute(request: Request): Response {
         val httpMethod: String = request.httpMethod()
         val url: String = request.url()
@@ -45,8 +45,11 @@ class NewPipeDownloader private constructor(builder: OkHttpClient.Builder) : Dow
         val responseBodyToReturn: String = body?.string() ?: ""
         val latestUrl = response.request.url.toString()
         return Response(
-            response.code, response.message, response.headers.toMultimap(),
-            responseBodyToReturn, latestUrl
+            response.code,
+            response.message,
+            response.headers.toMultimap(),
+            responseBodyToReturn,
+            latestUrl,
         )
     }
 

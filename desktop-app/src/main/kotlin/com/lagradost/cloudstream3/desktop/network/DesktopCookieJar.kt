@@ -27,10 +27,10 @@ class DesktopCookieJar : CookieJar {
     @Synchronized
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         if (cookies.isEmpty()) return
-        
+
         var changed = false
         val domainCookies = cookieCache.getOrPut(url.host) { mutableMapOf() }
-        
+
         for (cookie in cookies) {
             if (cookie.expiresAt <= System.currentTimeMillis()) {
                 if (domainCookies.remove(cookie.name) != null) {
@@ -41,7 +41,7 @@ class DesktopCookieJar : CookieJar {
                 changed = true
             }
         }
-        
+
         if (changed) {
             saveToDisk()
         }
@@ -51,7 +51,7 @@ class DesktopCookieJar : CookieJar {
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val validCookies = mutableListOf<Cookie>()
         val expiredCookies = mutableListOf<String>()
-        
+
         // Load exact host match and parent domain matches
         val hosts = buildList {
             add(url.host)
@@ -90,7 +90,7 @@ class DesktopCookieJar : CookieJar {
         try {
             val json = cacheFile.readText()
             val serialized: Map<String, List<SerializedCookie>> = mapper.readValue(json)
-            
+
             for ((host, cookies) in serialized) {
                 val map = mutableMapOf<String, Cookie>()
                 for (sc in cookies) {
@@ -124,7 +124,7 @@ class DesktopCookieJar : CookieJar {
                         expiresAt = it.expiresAt,
                         secure = it.secure,
                         httpOnly = it.httpOnly,
-                        hostOnly = it.hostOnly
+                        hostOnly = it.hostOnly,
                     )
                 }
             }
@@ -142,6 +142,6 @@ class DesktopCookieJar : CookieJar {
         val expiresAt: Long,
         val secure: Boolean,
         val httpOnly: Boolean,
-        val hostOnly: Boolean
+        val hostOnly: Boolean,
     )
 }

@@ -15,14 +15,13 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -171,9 +170,9 @@ object LocalStreamProxy {
             try {
                 val requestBuilder = okhttp3.Request.Builder().url(url)
                 val mergedHeaders = session.headers.toMutableMap()
-                val keysToRemove = mergedHeaders.keys.filter { 
-                    it.equals("Accept-Encoding", ignoreCase = true) || 
-                    it.equals("Host", ignoreCase = true) 
+                val keysToRemove = mergedHeaders.keys.filter {
+                    it.equals("Accept-Encoding", ignoreCase = true) ||
+                        it.equals("Host", ignoreCase = true)
                 }
                 keysToRemove.forEach { mergedHeaders.remove(it) }
                 mergedHeaders["Accept-Encoding"] = "identity"
@@ -264,12 +263,12 @@ object LocalStreamProxy {
 
             val mergedHeaders = session.headers.toMutableMap()
 
-            val keysToRemove = mergedHeaders.keys.filter { 
-                it.equals("Accept-Encoding", ignoreCase = true) || 
-                it.equals("Host", ignoreCase = true) 
+            val keysToRemove = mergedHeaders.keys.filter {
+                it.equals("Accept-Encoding", ignoreCase = true) ||
+                    it.equals("Host", ignoreCase = true)
             }
             keysToRemove.forEach { mergedHeaders.remove(it) }
-            
+
             // Removed explicitly requesting identity encoding. OkHttp will handle gzip natively.
             // Chunked transfer encoding is fine since we close the connection anyway.
 
@@ -381,7 +380,9 @@ object LocalStreamProxy {
                         if (s != null && s.request(32)) {
                             val peeked = s.peek().readUtf8(32).trimStart('\uFEFF', ' ', '\t', '\r', '\n')
                             peeked.startsWith("#EXTM3U", ignoreCase = true) || peeked.startsWith("#EXT-X-", ignoreCase = true)
-                        } else false
+                        } else {
+                            false
+                        }
                     } catch (e: Exception) {
                         false
                     }
@@ -426,7 +427,7 @@ object LocalStreamProxy {
                                             if (response.isSuccessful) break
                                         } catch (e: Exception) { }
                                     }
-                                    
+
                                     if (result.isNotBlank()) {
                                         // Edge Case 2: Strip BOM (\uFEFF) which breaks header trimming
                                         val segmentLines = result.trimStart('\uFEFF').lines()
@@ -439,7 +440,7 @@ object LocalStreamProxy {
                                     }
                                     // Edge Case 3: Stream the chunks to MPV instantly rather than waiting for all of them!
                                     flush()
-                                    
+
                                     // Completely eliminate bandwidth starvation by adding a tiny delay
                                     kotlinx.coroutines.delay(20)
                                 }
@@ -451,7 +452,7 @@ object LocalStreamProxy {
                     val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
 
                     val bytes = rewritten.toByteArray(Charsets.UTF_8)
-                    
+
                     // Cache it for subsequent FFmpeg probes to prevent network hit,
                     // BUT ONLY if it's a MASTER playlist. Media playlists MUST NOT be cached,
                     // otherwise mpv will never discover new segments for live streams.
@@ -463,7 +464,9 @@ object LocalStreamProxy {
                     call.respondBytes(bytes, status = HttpStatusCode.OK)
                 } finally {
                     withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try { response.body?.close() } catch (ignored: Exception) {}
+                        try {
+                            response.body?.close()
+                        } catch (ignored: Exception) {}
                     }
                 }
                 return
@@ -494,14 +497,14 @@ object LocalStreamProxy {
                 } else {
                     response.header("Content-Range")?.let { call.response.header("Content-Range", it) }
                 }
-                
+
                 response.header("Accept-Ranges")?.let { call.response.header("Accept-Ranges", it) }
 
-                // Since OkHttp's readTimeout is robust (60s), we no longer need the unbounded 
-                // channel buffer. Stream directly to Ktor to avoid GC allocation churn from 
+                // Since OkHttp's readTimeout is robust (60s), we no longer need the unbounded
+                // channel buffer. Stream directly to Ktor to avoid GC allocation churn from
                 // array copies.
                 call.response.header("Connection", "close")
-                
+
                 var streamStarted = false
                 try {
                     call.respondBytesWriter(
@@ -512,7 +515,7 @@ object LocalStreamProxy {
                         streamStarted = true
                         var currentResponse: okhttp3.Response? = response
                         var streamSource = currentResponse?.body?.source() ?: throw Exception("No body")
-                        
+
                         if (skipBytes > 0) {
                             withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 streamSource.skip(skipBytes)
@@ -524,7 +527,7 @@ object LocalStreamProxy {
                         val buffer = ByteArray(65536)
                         // Clear loading popup since we are now streaming data directly to MPV!
                         LocalStreamProxyState.loadingStatus.value = null
-                        
+
                         var isFirstChunk = (skipBytes == 0L)
 
                         try {
@@ -557,9 +560,9 @@ object LocalStreamProxy {
                                                     // ExoPlayer on Android naturally ignores these by scanning for TS sync bytes (0x47).
                                                     // We corrupt the fake signature so FFmpeg's image probe fails, forcing it to fallback to scanning for TS sync bytes!
                                                     val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte()) || // PNG
-                                                                      (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte()) || // JPG
-                                                                      (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte()) || // GIF
-                                                                      (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte())    // WEBP (RIFF)
+                                                        (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte()) || // JPG
+                                                        (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte()) || // GIF
+                                                        (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte()) // WEBP (RIFF)
                                                     if (isFakeImage) {
                                                         for (i in 0..7) buffer[i] = 0x00.toByte()
                                                         AppLogger.i("Corrupted fake image signature to force FFmpeg MPEG-TS fallback")
@@ -649,7 +652,9 @@ object LocalStreamProxy {
                 } catch (e: Exception) {
                     if (!streamStarted) {
                         withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            try { response.body?.close() } catch (ignored: Exception) {
+                            try {
+                                response.body?.close()
+                            } catch (ignored: Exception) {
                                 com.lagradost.common.logging.AppLogger.w("Failed to close response body on early error: ${ignored.message}", ignored)
                             }
                         }
@@ -783,7 +788,7 @@ object LocalStreamProxy {
                             // We do not add them to lazyVideoTracks, because native track switching via `vid` is much more optimized than `video-add`.
                             appendLine(pendingVariantLine)
                             appendLine(proxied)
-                            
+
                             // Expose to Compose UI so we can use `hls-bitrate` property
                             val bwMatch = BW_REGEX.find(pendingVariantLine!!)
                             val resMatch = RES_REGEX.find(pendingVariantLine!!)
@@ -859,7 +864,7 @@ object LocalStreamProxy {
         val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { resolveUrl(baseUrl, it.trim()) }
 
         val vttSegments = mutableListOf<String>()
-        
+
         // Chunk to avoid flooding OkHttp's Dispatcher queue (max 5 per host),
         // which would starve the main video stream and cause FFmpeg to drop connections!
         for (chunk in vttUrls.chunked(3)) {

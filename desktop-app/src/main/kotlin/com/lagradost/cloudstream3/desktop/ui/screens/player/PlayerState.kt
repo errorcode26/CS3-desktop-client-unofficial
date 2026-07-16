@@ -141,7 +141,7 @@ class PlayerState {
                 targetSeekMs = -1L
             }
         }
-        
+
         this.positionMs.value = posMs
     }
 
@@ -250,7 +250,7 @@ class PlayerState {
             // MPV command: audio-add <url> select <title> <lang>
             val cmd = "audio-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
             MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
-            
+
             // Remove from proxy state to prevent TrackRevealer from adding it again and to hide it from UI
             val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
             proxyState.lazyAudioTracks.value = proxyState.lazyAudioTracks.value.filter { it.url != track.url }

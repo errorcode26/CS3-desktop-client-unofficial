@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
 import com.lagradost.cloudstream3.desktop.network.DohProvider
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu

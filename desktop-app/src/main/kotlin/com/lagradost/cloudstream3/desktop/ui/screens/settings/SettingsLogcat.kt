@@ -39,10 +39,10 @@ fun SettingsLogcat() {
                         } else {
                             lines.joinToString("\n")
                         }
-                        
+
                         val isAtBottom = scrollState.value >= scrollState.maxValue - 50
                         logText = newText
-                        
+
                         if (isAtBottom && logText.isNotEmpty()) {
                             delay(50)
                             scrollState.scrollTo(scrollState.maxValue)
@@ -60,7 +60,7 @@ fun SettingsLogcat() {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("App Logcat", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             Row {
@@ -85,17 +85,17 @@ fun SettingsLogcat() {
                 }
             }
         }
-        
+
         Card(
             modifier = Modifier.fillMaxSize(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         ) {
             Box(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(scrollState)) {
                 SelectionContainer {
                     Text(
                         text = logText,
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

@@ -1,27 +1,25 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
 
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
@@ -114,9 +112,12 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                     .filter { it.first == repo.name }
                     .map { it.second }
                     .filter {
-                        if (repoSearchQuery.isBlank()) true
-                        else it.name.contains(repoSearchQuery, ignoreCase = true) ||
-                             it.description?.contains(repoSearchQuery, ignoreCase = true) == true
+                        if (repoSearchQuery.isBlank()) {
+                            true
+                        } else {
+                            it.name.contains(repoSearchQuery, ignoreCase = true) ||
+                                it.description?.contains(repoSearchQuery, ignoreCase = true) == true
+                        }
                     }
             }
 
@@ -133,7 +134,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                                 Text(repo.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
@@ -146,7 +147,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
+                                        modifier = Modifier.weight(1f, fill = false),
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Surface(
@@ -157,24 +158,24 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                             copied = true
                                         },
                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Icon(
                                                 Icons.Default.ContentCopy,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(14.dp),
-                                                tint = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer
+                                                tint = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
                                             Spacer(Modifier.width(6.dp))
                                             Text(
                                                 if (copied) "Copied JSON URL!" else "Copy JSON URL",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer
+                                                color = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
                                         }
                                     }
@@ -182,7 +183,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             }
                             Surface(
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
+                                color = MaterialTheme.colorScheme.primaryContainer,
                             ) {
                                 Text(
                                     "${repoPlugins.size} Plugins",
@@ -190,7 +191,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                    maxLines = 1
+                                    maxLines = 1,
                                 )
                             }
                         }
@@ -200,7 +201,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             onValueChange = { repoSearchQuery = it },
                             placeholder = { Text("Search inside ${repo.name}...") },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
                         )
                     }
                 },
@@ -210,14 +211,14 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             Text(
                                 "No plugins found matching search.",
                                 modifier = Modifier.align(Alignment.Center),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Adaptive(minSize = 380.dp),
                                 modifier = Modifier.fillMaxSize(),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
                                 items(repoPlugins, key = { it.internalName }) { plugin ->
                                     val iconUrl = plugin.iconUrl
@@ -228,8 +229,8 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         val ext = DesktopRepositoryManager.getExtensionsDir()
                                         val subDir = java.io.File(ext, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                                         java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
-                                        java.io.File(ext, "${plugin.internalName}.jar").exists() ||
-                                        installedPlugins.any { it.internalName == plugin.internalName || it.name.equals(plugin.name, ignoreCase = true) }
+                                            java.io.File(ext, "${plugin.internalName}.jar").exists() ||
+                                            installedPlugins.any { it.internalName == plugin.internalName || it.name.equals(plugin.name, ignoreCase = true) }
                                     }
                                     var isInstalling by remember(plugin.internalName) { mutableStateOf(false) }
                                     var installStatus by remember(plugin.internalName, isInstalled) {
@@ -282,11 +283,11 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             DesktopRepositoryManager.removeRepository(repo.url)
                             selectedRepoForDetail = null
                             viewModel.inspectRepository("")
-                        }
+                        },
                     ) {
                         Text("Remove Repository", color = MaterialTheme.colorScheme.error)
                     }
-                }
+                },
             )
         }
 
@@ -327,7 +328,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     error = {
                                         DesktopRepositoryManager.failedIconUrls.add(repo.iconUrl)
                                         RepoAvatarBox(repo.name)
-                                    }
+                                    },
                                 )
                             } else {
                                 RepoAvatarBox(repo.name)
@@ -340,20 +341,20 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     "$pluginCount plugins available • Click to inspect",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
                         }
                         Column(
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             var cardCopied by remember(repo.url) { mutableStateOf(false) }
                             TextButton(
@@ -364,19 +365,19 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     cardCopied = true
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
+                                modifier = Modifier.height(28.dp),
                             ) {
                                 Icon(
                                     Icons.Default.ContentCopy,
                                     contentDescription = null,
                                     modifier = Modifier.size(13.dp),
-                                    tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary
+                                    tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary,
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     if (cardCopied) "Copied!" else "Copy URL",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary
+                                    color = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary,
                                 )
                             }
                             TextButton(
@@ -384,7 +385,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     DesktopRepositoryManager.removeRepository(repo.url)
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
+                                modifier = Modifier.height(28.dp),
                             ) {
                                 Text("Remove", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                             }
@@ -415,7 +416,7 @@ fun RepoAvatarBox(name: String) {
             text = initial,
             color = androidx.compose.ui.graphics.Color.White,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }

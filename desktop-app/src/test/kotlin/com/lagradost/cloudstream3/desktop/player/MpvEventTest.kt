@@ -13,7 +13,7 @@ class MpvEventTest {
         if (mpv == null) {
             throw RuntimeException("mpv_create failed! Returning null.")
         }
-        
+
         val initRes = MpvLibrary.INSTANCE.mpv_initialize(mpv)
         assertTrue(initRes >= 0, "mpv_initialize failed")
 
@@ -27,10 +27,10 @@ class MpvEventTest {
         for (i in 0..10) {
             val eventPtr = MpvLibrary.INSTANCE.mpv_wait_event(mpv, 1.0)
             if (eventPtr == null) break
-            
+
             val event = MpvLibrary.MpvEvent(eventPtr)
             println("Received Event ID: ${event.event_id}, userdata: ${event.reply_userdata}")
-            
+
             // MPV_EVENT_PROPERTY_CHANGE = 22
             if (event.event_id == 22 && event.reply_userdata == 42L) {
                 val propPtr = event.data
@@ -49,7 +49,7 @@ class MpvEventTest {
                 }
             }
         }
-        
+
         MpvLibrary.INSTANCE.mpv_terminate_destroy(mpv)
         assertTrue(foundVolumeEvent, "Failed to catch MPV_EVENT_PROPERTY_CHANGE for volume")
     }

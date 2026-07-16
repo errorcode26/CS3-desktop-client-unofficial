@@ -4,24 +4,21 @@ package com.lagradost.cloudstream3.desktop
 
 // TODO: Yeah I know this is a big ball of mud, but let's refactor this later.
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import coil3.compose.setSingletonImageLoaderFactory
@@ -37,13 +34,11 @@ import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
 private interface Kernel32 : com.sun.jna.Library {
     fun SetEnvironmentVariableW(name: com.sun.jna.WString, value: com.sun.jna.WString): Boolean
@@ -61,24 +56,24 @@ fun main() {
             val crashDir = PlatformPaths.appDataDir
             crashDir.mkdirs()
             val crashFile = File(crashDir, "crash.log")
-            
+
             val stackTrace = java.io.StringWriter().also { e.printStackTrace(java.io.PrintWriter(it)) }.toString()
             val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())
-            
+
             crashFile.appendText("\n\n--- CRASH LOG: $time ---\n")
             crashFile.appendText(stackTrace)
-            
+
             try {
                 java.awt.Desktop.getDesktop().open(crashDir)
             } catch (t: Throwable) {
                 // Ignore if opening folder fails
             }
-            
+
             javax.swing.JOptionPane.showMessageDialog(
                 null,
                 "CloudStream encountered a fatal error and crashed.\n\nA crash log has been saved to:\n${crashFile.absolutePath}\n\nPlease share this file with the developers.",
                 "CloudStream Crash Reporter",
-                javax.swing.JOptionPane.ERROR_MESSAGE
+                javax.swing.JOptionPane.ERROR_MESSAGE,
             )
         } catch (t: Throwable) {
             // Failsafe, don't crash the crash handler itself
@@ -91,14 +86,14 @@ fun main() {
         try {
             Kernel32.INSTANCE.SetEnvironmentVariableW(
                 com.sun.jna.WString("WEBVIEW2_DEFAULT_BACKGROUND_COLOR"),
-                com.sun.jna.WString("00000000")
+                com.sun.jna.WString("00000000"),
             )
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    // Removed the default black background. Setting it globally forces popups and tooltips 
+    // Removed the default black background. Setting it globally forces popups and tooltips
     // to render as black boxes if they fail to paint or get stuck.
     // val black = java.awt.Color.BLACK
     // javax.swing.UIManager.put("Window.background", black)
@@ -123,6 +118,7 @@ fun main() {
                         .build()
                 }
                 .components {
+                    add(coil3.svg.SvgDecoder.Factory())
                     add(
                         coil3.network.okhttp.OkHttpNetworkFetcherFactory(
                             callFactory = { request ->
@@ -142,7 +138,7 @@ fun main() {
             width = windowWidth,
             height = windowHeight,
             position = androidx.compose.ui.window.WindowPosition.Aligned(androidx.compose.ui.Alignment.Center),
-            placement = androidx.compose.ui.window.WindowPlacement.Maximized
+            placement = androidx.compose.ui.window.WindowPlacement.Maximized,
         )
 
         val isFullscreenState = androidx.compose.runtime.mutableStateOf(false)
@@ -194,11 +190,11 @@ fun main() {
                 } else {
                     false
                 }
-            }
+            },
         ) {
             windowRef.set(window)
             window.minimumSize = java.awt.Dimension(1000, 700)
-            
+
             androidx.compose.runtime.SideEffect {
                 val black = java.awt.Color.BLACK
                 window.background = black
@@ -293,11 +289,11 @@ fun main() {
                 }
 
                 androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.fillMaxSize().background(Color.Black)
+                    modifier = Modifier.fillMaxSize().background(Color.Black),
                 ) {
                     androidx.compose.animation.Crossfade<Boolean>(
                         targetState = isAppReady,
-                        animationSpec = androidx.compose.animation.core.tween(500)
+                        animationSpec = androidx.compose.animation.core.tween(500),
                     ) { ready ->
                         if (ready) {
                             CloudstreamApp()
@@ -308,21 +304,21 @@ fun main() {
                                 targetValue = 1.05f,
                                 animationSpec = androidx.compose.animation.core.infiniteRepeatable(
                                     animation = androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                                )
+                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+                                ),
                             )
                             val alpha by infiniteTransition.animateFloat(
                                 initialValue = 0.6f,
                                 targetValue = 1.0f,
                                 animationSpec = androidx.compose.animation.core.infiniteRepeatable(
                                     animation = androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                                )
+                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+                                ),
                             )
 
                             androidx.compose.foundation.layout.Box(
                                 modifier = Modifier.fillMaxSize(),
-                                contentAlignment = androidx.compose.ui.Alignment.Center
+                                contentAlignment = androidx.compose.ui.Alignment.Center,
                             ) {
                                 androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                                     androidx.compose.foundation.Image(
@@ -331,7 +327,7 @@ fun main() {
                                         modifier = Modifier
                                             .size(200.dp)
                                             .scale(scale)
-                                            .alpha(alpha)
+                                            .alpha(alpha),
                                     )
                                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(32.dp))
                                     androidx.compose.material3.Text(
@@ -339,31 +335,31 @@ fun main() {
                                         color = Color.White.copy(alpha = alpha), // Matches the logo breathing
                                         style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Medium,
-                                        letterSpacing = 12.sp
+                                        letterSpacing = 12.sp,
                                     )
                                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
-                                    
+
                                     var bananaProgress by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0f) }
                                     androidx.compose.runtime.LaunchedEffect(Unit) {
                                         androidx.compose.animation.core.animate(
                                             initialValue = 0f,
                                             targetValue = 1f,
-                                            animationSpec = androidx.compose.animation.core.tween(5000, easing = androidx.compose.animation.core.LinearEasing)
+                                            animationSpec = androidx.compose.animation.core.tween(5000, easing = androidx.compose.animation.core.LinearEasing),
                                         ) { value, _ -> bananaProgress = value }
                                     }
 
                                     val totalBananas = 5
                                     val currentBananas = (bananaProgress * totalBananas).toInt().coerceIn(0, totalBananas)
-                                    
+
                                     androidx.compose.foundation.layout.Row(
                                         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
                                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                        modifier = Modifier.height(32.dp) // Keep height consistent
+                                        modifier = Modifier.height(32.dp), // Keep height consistent
                                     ) {
                                         for (i in 0 until currentBananas) {
                                             androidx.compose.material3.Text(
                                                 text = "🍌",
-                                                fontSize = 28.sp
+                                                fontSize = 28.sp,
                                             )
                                         }
                                     }
@@ -390,7 +386,10 @@ private fun enterWindowsFullscreen(frame: javax.swing.JFrame) {
         com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
             hwnd = hwnd,
             fullscreen = true,
-            x = 0, y = 0, width = 0, height = 0,
+            x = 0,
+            y = 0,
+            width = 0,
+            height = 0,
         )
         AppLogger.i("Entered borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
     } catch (e: Exception) {
@@ -412,7 +411,10 @@ private fun exitWindowsFullscreen(frame: javax.swing.JFrame) {
         com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
             hwnd = hwnd,
             fullscreen = false,
-            x = 0, y = 0, width = 0, height = 0,
+            x = 0,
+            y = 0,
+            width = 0,
+            height = 0,
         )
         AppLogger.i("Exited borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
     } catch (e: Exception) {
@@ -425,8 +427,8 @@ private fun exitWindowsFullscreen(frame: javax.swing.JFrame) {
 }
 
 // DWM Dark mode title bar + caption colour (via C++ bridge)
-private const val WindowBackgroundRgb = 0x0D0D0D
-private const val WindowTextRgb = 0xF5F7F8
+private const val WINDOW_BACKGROUND_RGB = 0x0D0D0D
+private const val WINDOW_TEXT_RGB = 0xF5F7F8
 
 private fun setWindowsDarkMode(window: java.awt.Window) {
     if (!System.getProperty("os.name").lowercase().contains("win")) return
@@ -435,9 +437,9 @@ private fun setWindowsDarkMode(window: java.awt.Window) {
         com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.applyWindowChrome(
             hwnd = hwnd,
             darkMode = true,
-            captionColorRgb = WindowBackgroundRgb,
-            borderColorRgb = WindowBackgroundRgb,
-            textColorRgb = WindowTextRgb,
+            captionColorRgb = WINDOW_BACKGROUND_RGB,
+            borderColorRgb = WINDOW_BACKGROUND_RGB,
+            textColorRgb = WINDOW_TEXT_RGB,
         )
     } catch (e: Throwable) {
         e.printStackTrace()

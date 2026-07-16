@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import java.awt.Canvas
 
 @Composable
 fun ComposeMpvPlayer(
@@ -36,7 +35,7 @@ fun ComposeMpvPlayer(
         isExiting = isExiting,
         onFullscreenToggle = onFullscreenToggle,
         playerState = playerState,
-        modifier = modifier
+        modifier = modifier,
     ) { videoCanvas, _ ->
         SwingPanel(
             background = androidx.compose.ui.graphics.Color.Black,

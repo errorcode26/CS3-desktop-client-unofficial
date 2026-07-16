@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:property-naming")
+
 package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.ui.graphics.Color
@@ -14,7 +16,7 @@ object PremiumIcons {
         defaultWidth = 24.dp,
         defaultHeight = 24.dp,
         viewportWidth = 24f,
-        viewportHeight = 24f
+        viewportHeight = 24f,
     )
 
     private val strokeColor = SolidColor(Color.Black)
@@ -26,7 +28,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(3f, 9f)
                 lineTo(12f, 2f)
@@ -41,7 +43,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(9f, 22f)
                 verticalLineTo(12f)
@@ -57,7 +59,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(11f, 19f)
                 arcToRelative(8f, 8f, 0f, isMoreThanHalf = true, isPositiveArc = false, dx1 = 0f, dy1 = -16f)
@@ -68,7 +70,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(21f, 21f)
                 lineTo(16.65f, 16.65f)
@@ -82,7 +84,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(19f, 21f)
                 lineTo(12f, 16f)
@@ -102,7 +104,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(16.5f, 9.4f)
                 lineTo(7.5f, 4.21f)
@@ -111,7 +113,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(21f, 16f)
                 verticalLineTo(8f)
@@ -132,7 +134,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(3.27f, 6.96f)
                 lineTo(12f, 12.01f)
@@ -142,7 +144,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(12f, 22.08f)
                 verticalLineTo(12f)
@@ -156,7 +158,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(15f, 12f)
                 arcToRelative(3f, 3f, 0f, isMoreThanHalf = true, isPositiveArc = false, dx1 = -6f, dy1 = 0f)
@@ -167,7 +169,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(19.4f, 15f)
                 arcToRelative(1.65f, 1.65f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 0.33f, dy1 = 1.82f)
@@ -231,7 +233,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(18f, 8f)
                 arcToRelative(6f, 6f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -12f, dy1 = 0f)
@@ -244,7 +246,7 @@ object PremiumIcons {
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round
+                strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(13.73f, 21f)
                 arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -3.46f, dy1 = 0f)

@@ -461,7 +461,15 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
                     buildString {
                         append(link.quality.toString())
                         append(" · ")
-                        append(if (link.isM3u8) "HLS (Best for Streaming)" else if (link.isDash) "DASH (Best for Streaming)" else "Direct (Best for Download)")
+                        append(
+                            if (link.isM3u8) {
+                                "HLS (Best for Streaming)"
+                            } else if (link.isDash) {
+                                "DASH (Best for Streaming)"
+                            } else {
+                                "Direct (Best for Download)"
+                            },
+                        )
                     },
                     color = DesktopUi.Accent,
                     style = MaterialTheme.typography.bodySmall,

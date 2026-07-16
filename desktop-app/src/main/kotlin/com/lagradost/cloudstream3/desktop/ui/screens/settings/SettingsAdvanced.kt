@@ -25,7 +25,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // --- Group 1: Search Settings ---
         SettingsGroupCard(title = "Search Settings") {
@@ -37,7 +37,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
                 onCheckedChange = {
                     isGlobalSearch = it
                     com.lagradost.common.storage.DesktopDataStore.setKey("global_search_enabled", it)
-                }
+                },
             )
         }
 
@@ -45,7 +45,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
         SettingsGroupCard(title = "Storage Directories") {
             Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
-            
+
             @Composable
             fun PathRow(title: String, file: java.io.File) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -96,7 +96,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
                             imageCacheSize = "$newSize MB"
                         }
                     },
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
                 ) {
                     Text("Clear")
                 }

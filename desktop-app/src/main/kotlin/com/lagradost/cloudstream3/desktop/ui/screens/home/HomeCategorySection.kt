@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -107,7 +106,7 @@ fun HomeCategorySection(
                 CategoryRowPlaceholder(
                     title = pageData.name,
                     maxWidthConstraint = maxWidthConstraint,
-                    showLargeHeader = !isFirstPage
+                    showLargeHeader = !isFirstPage,
                 )
             }
         } else if (homePage != null && homePage!!.items.isNotEmpty()) {
@@ -159,9 +158,6 @@ fun HomeCategorySection(
                     // extends full-width with BoxWithConstraints-derived padding so items align.
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
-                            // Compute how much horizontal inset the list needs so that when
-                            // the window is wider than maxWidthConstraint, items still start
-                            // at the same x as the header text.
                             val availableWidth = this.maxWidth
                             val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
                             val baseWidth = when (gridScale) {
@@ -169,19 +165,30 @@ fun HomeCategorySection(
                                 "Large" -> 220.dp
                                 else -> 190.dp
                             }
-                            
-                            val netWidth = availableWidth - 8.dp
+
+                            // Subtract 20.dp from availableWidth so we have 10.dp padding on left and right inside the centered container.
+                            // Because 10.dp is less than the 12.dp item spacing, adjacent cards start outside the bounds (no peeking!),
+                            // while still giving 10.dp buffer for the 5% hover scale (no clipping!).
+                            val netWidth = availableWidth - 20.dp
                             val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
                             val columns = exactColumns.toInt().coerceAtLeast(1)
                             val optimalItemWidth = ((netWidth + 12.dp) / columns) - 12.dp
-                            
+
                             CategoryRowWithHeader(
                                 title = titleStr,
                                 itemCount = section.list.size,
                                 isInfinite = isLoop,
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
-                                rowContentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                                headerPadding = androidx.compose.foundation.layout.PaddingValues(start = 4.dp, top = 12.dp, bottom = 8.dp, end = 4.dp),
+                                rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                    horizontal = 10.dp,
+                                    vertical = 16.dp,
+                                ),
+                                headerPadding = androidx.compose.foundation.layout.PaddingValues(
+                                    start = 10.dp,
+                                    end = 10.dp,
+                                    top = 12.dp,
+                                    bottom = 8.dp,
+                                ),
                             ) {
                                 items(
                                     count = if (isLoop) Int.MAX_VALUE else section.list.size,

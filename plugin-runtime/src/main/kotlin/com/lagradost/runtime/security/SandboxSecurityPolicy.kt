@@ -16,7 +16,7 @@ object SandboxSecurityPolicy {
         "java.math.",
         "java.security.",
         "javax.crypto.",
-        "javax.net.ssl."
+        "javax.net.ssl.",
     )
 
     private val CLOUDSTREAM_ECOSYSTEM = setOf(
@@ -29,7 +29,7 @@ object SandboxSecurityPolicy {
         "android.",
         "androidx.",
         "okhttp3.",
-        "okio."
+        "okio.",
     )
 
     private val NETWORK_SAFE_SUBSET = setOf(
@@ -45,7 +45,7 @@ object SandboxSecurityPolicy {
         "java.net.UnknownHostException",
         "java.net.SocketTimeoutException",
         "java.net.ConnectException",
-        "java.net.ProtocolException"
+        "java.net.ProtocolException",
     )
 
     private val SAFE_INVOKE = setOf(
@@ -58,7 +58,7 @@ object SandboxSecurityPolicy {
         "java.lang.invoke.StringConcatFactory",
         "java.lang.invoke.TypeDescriptor",
         "java.lang.invoke.TypeDescriptor\$OfField",
-        "java.lang.invoke.TypeDescriptor\$OfMethod"
+        "java.lang.invoke.TypeDescriptor\$OfMethod",
     )
 
     private val SAFE_IO = setOf(
@@ -89,7 +89,7 @@ object SandboxSecurityPolicy {
         "java.io.Closeable",
         "java.io.PrintStream",
         "java.io.PrintWriter",
-        "java.io.ObjectStreamException"
+        "java.io.ObjectStreamException",
     )
 
     private val EXPLICIT_DENY = setOf(
@@ -102,7 +102,7 @@ object SandboxSecurityPolicy {
         "java.lang.Compiler",
         "java.lang.Runtime",
         "java.net.InetAddress",
-        "java.net.NetworkInterface"
+        "java.net.NetworkInterface",
     )
 
     private val RAW_SOCKET_CLASSES = setOf(
@@ -111,22 +111,28 @@ object SandboxSecurityPolicy {
         "java.net.DatagramSocket",
         "java.net.HttpURLConnection",
         "java.net.URLConnection",
-        "javax.net.ssl.HttpsURLConnection"
+        "javax.net.ssl.HttpsURLConnection",
     )
 
     /**
      * Determines whether a class is permitted to be loaded by a sandboxed plugin.
      * Enforces explicit denies first, then checks against whitelisted sets.
      */
-    fun isClassAllowed(className: String, hasSocketPermission: Boolean = false): Boolean {
+    fun isClassAllowed(className: String, hasSocketPermission: Boolean = false, isTrusted: Boolean = false): Boolean {
         // 1. Explicit deny override
-        if (EXPLICIT_DENY.contains(className)) return false
-        if (className.startsWith("javax.script.") || className.startsWith("javax.naming.") || 
+        if (EXPLICIT_DENY.contains(className)) {
+            if (isTrusted && className == "java.lang.Runtime") {
+                return true
+            }
+            return false
+        }
+        if (className.startsWith("javax.script.") || className.startsWith("javax.naming.") ||
             className.startsWith("sun.") || className.startsWith("jdk.") ||
             className.startsWith("com.sun.") || className.startsWith("com.oracle.") ||
             className.startsWith("org.apache.") || className.startsWith("org.w3c.") ||
             className.startsWith("org.xml.") || className.startsWith("org.ietf.") ||
-            className.startsWith("org.omg.")) {
+            className.startsWith("org.omg.")
+        ) {
             return false
         }
 
@@ -168,8 +174,8 @@ object SandboxSecurityPolicy {
      * Determines whether an ASM internal class owner (using slashes instead of dots)
      * is permitted in plugin bytecode.
      */
-    fun isAsmOwnerAllowed(internalOwner: String): Boolean {
+    fun isAsmOwnerAllowed(internalOwner: String, isTrusted: Boolean = false): Boolean {
         val className = internalOwner.replace('/', '.')
-        return isClassAllowed(className, hasSocketPermission = true)
+        return isClassAllowed(className, hasSocketPermission = true, isTrusted = isTrusted)
     }
 }

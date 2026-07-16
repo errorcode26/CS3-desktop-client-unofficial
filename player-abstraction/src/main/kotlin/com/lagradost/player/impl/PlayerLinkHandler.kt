@@ -3,8 +3,8 @@ package com.lagradost.player.impl
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkPlayList
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import java.io.File
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.io.File
 
 /**
  * Normalizes ExtractorLink data for external players (MPV / VLC).
@@ -82,11 +82,11 @@ object PlayerLinkHandler {
                 clearKeyHex = try {
                     val decoded = java.util.Base64.getUrlDecoder().decode(link.key!!)
                     decoded.joinToString("") { "%02x".format(it) }
-                } catch(e: Exception) {
+                } catch (e: Exception) {
                     try {
                         val decoded = java.util.Base64.getDecoder().decode(link.key!!)
                         decoded.joinToString("") { "%02x".format(it) }
-                    } catch(e2: Exception) {
+                    } catch (e2: Exception) {
                         null
                     }
                 }
@@ -104,7 +104,7 @@ object PlayerLinkHandler {
             StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
             StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
         }
-        
+
         var finalSessionId: String? = null
         val finalUrl = if (useProxy) {
             val sessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
@@ -141,7 +141,6 @@ object PlayerLinkHandler {
             link.audioTracks
         }
 
-
         return Result.success(
             ValidatedLink(
                 url = finalUrl,
@@ -165,7 +164,7 @@ object PlayerLinkHandler {
                 merged[key] = cleaned
             }
         }
-        
+
         // Parse trailing headers from the URL (e.g., |Referer=...&User-Agent=...)
         val url = link.url.trim()
         if (url.contains("|")) {
@@ -178,7 +177,7 @@ object PlayerLinkHandler {
                 }
             }
         }
-        
+
         // Inject cookies from the global app OkHttp cookie jar
         try {
             val urlObj = try {

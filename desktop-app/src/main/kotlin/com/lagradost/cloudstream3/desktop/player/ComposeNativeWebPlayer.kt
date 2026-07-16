@@ -4,27 +4,22 @@ package com.lagradost.cloudstream3.desktop.player
 // It is an absolute copy-paste crime scene. But it works, and if we touch it, JNI will probably explode and spit out a garbage memory pointer.
 // Do NOT touch it. Let future-us suffer.
 
-
-import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.background
+import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.Color
 import java.awt.event.*
 import java.io.File
-import kotlinx.coroutines.launch
-
 
 /**
  * Extract a string-typed value from a flat JSON object.
@@ -139,14 +134,14 @@ fun ComposeNativeWebPlayer(
                 },
                 "episodes" to episodes.map {
                     mapOf(
-                        "id" to it.data, 
-                        "title" to (it.name ?: "Episode ${it.episode}"), 
-                        "season" to it.season, 
-                        "episode" to it.episode, 
+                        "id" to it.data,
+                        "title" to (it.name ?: "Episode ${it.episode}"),
+                        "season" to it.season,
+                        "episode" to it.episode,
                         "isActive" to (it.data == currentEpisodeId),
                         "posterUrl" to (it.posterUrl ?: seriesPosterUrl),
                         "description" to it.description,
-                        "runTime" to it.runTime
+                        "runTime" to it.runTime,
                     )
                 },
                 "audioTracks" to audioTracks.map {
@@ -165,7 +160,7 @@ fun ComposeNativeWebPlayer(
                     mapOf("url" to it.url, "name" to it.name, "language" to it.language)
                 },
                 "startPositionMs" to startPositionMs,
-                "title" to (title ?: "CloudStream")
+                "title" to (title ?: "CloudStream"),
             )
             NativePlayerBridge.postMessage(mapper.writeValueAsString(payload))
         }
@@ -176,7 +171,7 @@ fun ComposeNativeWebPlayer(
             val vol = playerState?.volume?.value ?: 100f
             val isMuted = playerState?.isMuted?.value ?: false
             val isBuf = playerState?.isBuffering?.value == true
-            
+
             var currentlyLoading = isBuf
             var isAppScraping = false
             var escapedLoadingText: String? = null
@@ -189,11 +184,11 @@ fun ComposeNativeWebPlayer(
             } catch (e: Throwable) {
                 // Fallback if we can't read Compose state from this thread
             }
-            
+
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
-            
+
             NativePlayerBridge.postMessage(
-                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"debugWait\":$waitingForTimePosReset,\"debugHasEver\":$hasEverPlayed,\"debugPos\":0.0}"
+                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"debugWait\":$waitingForTimePosReset,\"debugHasEver\":$hasEverPlayed,\"debugPos\":0.0}",
             )
         } catch (e: Throwable) {
             com.lagradost.common.logging.AppLogger.e("pushMetadataToWebView error: ${e.message}")
@@ -231,7 +226,7 @@ fun ComposeNativeWebPlayer(
                 // If MPV crashes here because of some JNI pointer bullshit, I'm quitting my job.
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 1L, "time-pos", 5) // MPV_FORMAT_DOUBLE
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 2L, "duration", 5)
-                MpvLibrary.INSTANCE.mpv_observe_property(h, 3L, "pause", 3)    // MPV_FORMAT_FLAG
+                MpvLibrary.INSTANCE.mpv_observe_property(h, 3L, "pause", 3) // MPV_FORMAT_FLAG
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 4L, "eof-reached", 3)
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 5L, "volume", 5)
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 6L, "speed", 5)
@@ -246,11 +241,11 @@ fun ComposeNativeWebPlayer(
                 var playbackStartedAt = 0L
 
                 // Separate timers so heavy track-list polling never blocks position updates
-                var lastPositionPollMs = 0L       // 100ms cadence — governs seek-bar smoothness
-                var lastTrackPollMs = 0L          // 2000ms cadence — track list / stats are slow
-                var lastUiEmitMs = 0L             // prevents seek-bar spam to WebView
-                
-                var lastErrorLoadfileAt = -1L     // debounces error callbacks per link attempt
+                var lastPositionPollMs = 0L // 100ms cadence — governs seek-bar smoothness
+                var lastTrackPollMs = 0L // 2000ms cadence — track list / stats are slow
+                var lastUiEmitMs = 0L // prevents seek-bar spam to WebView
+
+                var lastErrorLoadfileAt = -1L // debounces error callbacks per link attempt
 
                 while (isActive) {
                     try {
@@ -329,21 +324,23 @@ fun ComposeNativeWebPlayer(
                                                             playerState?.isProbing?.value = false
                                                             currentOnPlaybackReady()
                                                             pushMetadataToWebView()
-                                                            com.lagradost.common.logging.AppLogger.i("MPV: playback started via time-pos event pos=${lastPos}")
+                                                            com.lagradost.common.logging.AppLogger.i("MPV: playback started via time-pos event pos=$lastPos")
                                                         }
 
                                                         // 30s one-shot diagnostic
                                                         if (!diagnosticLogged && playbackStartedAt > 0 &&
-                                                            System.currentTimeMillis() - playbackStartedAt > 30_000) {
+                                                            System.currentTimeMillis() - playbackStartedAt > 30_000
+                                                        ) {
                                                             diagnosticLogged = true
-                                                            val voInfo    = MpvLibrary.getPropertyString(h, "current-vo")
+                                                            val voInfo = MpvLibrary.getPropertyString(h, "current-vo")
                                                             val hwdecInfo = MpvLibrary.getPropertyString(h, "hwdec-current")
                                                             val codecInfo = MpvLibrary.getPropertyString(h, "video-codec")
-                                                            val fpsInfo   = MpvLibrary.getPropertyString(h, "estimated-vf-fps")
+                                                            val fpsInfo = MpvLibrary.getPropertyString(h, "estimated-vf-fps")
                                                             val widthInfo = MpvLibrary.getPropertyString(h, "width")
                                                             val heightInfo = MpvLibrary.getPropertyString(h, "height")
                                                             com.lagradost.common.logging.AppLogger.i(
-                                                                "MPV 30s Diag -> VO: $voInfo, HWDEC: $hwdecInfo, Codec: $codecInfo, FPS: $fpsInfo, Res: ${widthInfo}x${heightInfo}")
+                                                                "MPV 30s Diag -> VO: $voInfo, HWDEC: $hwdecInfo, Codec: $codecInfo, FPS: $fpsInfo, Res: ${widthInfo}x$heightInfo",
+                                                            )
                                                         }
 
                                                         // Push to Kotlin state + WebView (throttled to 100ms)
@@ -385,8 +382,9 @@ fun ComposeNativeWebPlayer(
                                                     }
                                                 }
                                                 "speed" -> {
-                                                    if (prop.format == 5)
+                                                    if (prop.format == 5) {
                                                         playerState?.playbackSpeed?.value = prop.data!!.getDouble(0).toFloat()
+                                                    }
                                                 }
                                                 "paused-for-cache" -> {
                                                     if (prop.format == 3) {
@@ -443,7 +441,7 @@ fun ComposeNativeWebPlayer(
                                     currentOnPlaybackReady()
                                     kotlinx.coroutines.delay(500)
                                     NativePlayerBridge.executeScript("window.__dismissProbingOverlay && window.__dismissProbingOverlay()")
-                                    com.lagradost.common.logging.AppLogger.i("MPV: playback started via fallback poll pos=${lastPos}")
+                                    com.lagradost.common.logging.AppLogger.i("MPV: playback started via fallback poll pos=$lastPos")
                                 }
                             }
 
@@ -487,7 +485,7 @@ fun ComposeNativeWebPlayer(
                                     }
                                     // else: live stream EOF — let mpv reconnect
                                 }
-    
+
                                 if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && now - currentLoad > 800) {
                                     if (MpvLibrary.getPropertyString(h, "idle-active") == "yes") {
                                         lastErrorLoadfileAt = currentLoad
@@ -495,7 +493,7 @@ fun ComposeNativeWebPlayer(
                                         currentOnPlaybackError("Stream failed to load (connection rejected or forbidden).")
                                     }
                                 }
-    
+
                                 val timeoutStr = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT)
                                 val userTimeoutMs = timeoutStr?.toLongOrNull() ?: 20_000L
                                 val timeoutMs = maxOf(userTimeoutMs, 90_000L)
@@ -515,15 +513,15 @@ fun ComposeNativeWebPlayer(
 
                             val trackCount = MpvLibrary.getPropertyString(h, "track-list/count")?.toIntOrNull() ?: 0
                             val audioTracks = mutableListOf<PlayerState.VideoTrack>()
-                            val subTracks   = mutableListOf<PlayerState.VideoTrack>()
+                            val subTracks = mutableListOf<PlayerState.VideoTrack>()
                             val videoTracks = mutableListOf<PlayerState.VideoTrack>()
 
                             for (i in 0 until trackCount) {
-                                val id   = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
+                                val id = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
                                 val type = MpvLibrary.getPropertyString(h, "track-list/$i/type") ?: continue
                                 val lang = MpvLibrary.getPropertyString(h, "track-list/$i/lang")
-                                val ttl  = MpvLibrary.getPropertyString(h, "track-list/$i/title")
-                                val sel  = MpvLibrary.getPropertyString(h, "track-list/$i/selected") == "yes"
+                                val ttl = MpvLibrary.getPropertyString(h, "track-list/$i/title")
+                                val sel = MpvLibrary.getPropertyString(h, "track-list/$i/selected") == "yes"
 
                                 val trackName = buildString {
                                     if (!lang.isNullOrBlank()) append(lang.uppercase())
@@ -531,45 +529,50 @@ fun ComposeNativeWebPlayer(
                                         if (isNotEmpty()) append(" - ")
                                         append(ttl)
                                     }
-                                    if (isEmpty()) append(when (type) {
-                                        "audio" -> "Audio $id"
-                                        "video" -> "Video $id"
-                                        else    -> "Subtitle $id"
-                                    })
+                                    if (isEmpty()) {
+                                        append(
+                                            when (type) {
+                                                "audio" -> "Audio $id"
+                                                "video" -> "Video $id"
+                                                else -> "Subtitle $id"
+                                            },
+                                        )
+                                    }
                                 }
 
                                 when (type) {
                                     "audio" -> audioTracks.add(PlayerState.VideoTrack(id, trackName, sel))
-                                    "sub"   -> subTracks.add(PlayerState.VideoTrack(id, trackName, sel))
+                                    "sub" -> subTracks.add(PlayerState.VideoTrack(id, trackName, sel))
                                     "video" -> {
-                                        val res    = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
+                                        val res = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
                                         val fpsVal = MpvLibrary.getPropertyString(h, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
                                         val fn = if (res.isNotEmpty()) {
                                             if (fpsVal > 30.0) "${res}p ${fpsVal.toInt()}fps" else "${res}p"
-                                        } else trackName
+                                        } else {
+                                            trackName
+                                        }
                                         videoTracks.add(PlayerState.VideoTrack(id, fn, sel))
                                     }
                                 }
                             }
 
-                            playerState?.audioTracks?.value    = audioTracks
+                            playerState?.audioTracks?.value = audioTracks
                             playerState?.subtitleTracks?.value = subTracks
-                            playerState?.videoTracks?.value    = videoTracks
+                            playerState?.videoTracks?.value = videoTracks
 
                             if (playerState != null && playerState.showStats.value) {
-                                playerState.videoCodec.value   = MpvLibrary.getPropertyString(h, "video-codec")            ?: "Unknown"
-                                playerState.audioCodec.value   = MpvLibrary.getPropertyString(h, "audio-codec")            ?: "Unknown"
-                                playerState.hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current")          ?: "Unknown"
-                                playerState.droppedFrames.value= MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
-                                playerState.fps.value          = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
-                                val w  = MpvLibrary.getPropertyString(h, "width")  ?: "0"
+                                playerState.videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
+                                playerState.audioCodec.value = MpvLibrary.getPropertyString(h, "audio-codec") ?: "Unknown"
+                                playerState.hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current") ?: "Unknown"
+                                playerState.droppedFrames.value = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
+                                playerState.fps.value = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
+                                val w = MpvLibrary.getPropertyString(h, "width") ?: "0"
                                 val hw = MpvLibrary.getPropertyString(h, "height") ?: "0"
-                                playerState.resolution.value   = "${w}x$hw"
+                                playerState.resolution.value = "${w}x$hw"
                                 playerState.videoBitrate.value = MpvLibrary.getPropertyString(h, "video-bitrate")?.toLongOrNull() ?: 0L
                                 playerState.audioBitrate.value = MpvLibrary.getPropertyString(h, "audio-bitrate")?.toLongOrNull() ?: 0L
                             }
                         }
-
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         break
                     } catch (e: Throwable) {
@@ -623,8 +626,8 @@ fun ComposeNativeWebPlayer(
                 // 200MB forward is plenty for most 1080p HLS streams (segments are typically 2-6MB each).
                 // 400MB was causing CDN rate-limiting: MPV/FFmpeg would burst-request many segments
                 // at once to fill the cache, hitting 429 errors from Cloudflare/Akamai/Fastly after 20-30s.
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "200000000")      // 200MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "30000000")  // 30MB back
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "200000000") // 200MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "30000000") // 30MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 // 30s lookahead is aggressive but won't overwhelm CDNs the way 60s did.
                 lib.mpv_set_property_string(handle, "cache-secs", "30")
@@ -662,11 +665,11 @@ fun ComposeNativeWebPlayer(
                 lib.mpv_set_property_string(handle, "demuxer-lavf-o", lavfDashOpts)
                 // DASH: 30MB forward buffer is plenty for 1080p segments (~4MB each)
                 // Back-buffer: 5MB for live, could be more for VOD but keep conservative
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "30000000")       // 30MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "5000000")   // 5MB back
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "30000000") // 30MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "5000000") // 5MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
             }
-        PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
+            PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
                 // Raw MPEG-TS / progressive HTTP live streams need reconnect too.
                 // Without this, FFmpeg treats the end of an HTTP chunk as permanent EOF.
                 lib.mpv_set_property_string(
@@ -684,7 +687,7 @@ fun ComposeNativeWebPlayer(
                 // MKV/MP4 files from CDNs like Pixeldrain often use one-time download links.
                 // Seeking forces MPV to open a new HTTP connection with a Range header, which returns 404.
                 // By massively increasing the buffer and forcing seekable-cache, MPV can seek entirely in memory!
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000")      // 400MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000") // 400MB forward
                 lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "100000000") // 100MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
@@ -698,10 +701,10 @@ fun ComposeNativeWebPlayer(
         lib.mpv_set_property_string(handle, "sub-auto", "no")
         lib.mpv_set_property_string(handle, "sid", "no")
         lib.mpv_set_property_string(handle, "aid", "auto")
-        
+
         // Boost volume up to 200%
         lib.mpv_set_property_string(handle, "volume-max", "200")
-        
+
         // Force MPV to override stylized SSA/ASS subtitles (e.g. anime) so our UI settings apply
         lib.mpv_set_property_string(handle, "sub-ass-override", "force")
 
@@ -741,7 +744,9 @@ fun ComposeNativeWebPlayer(
             try {
                 val pos = MpvLibrary.getPropertyDouble(handle, "time-pos", 0.0)
                 if (pos <= 0.0) break
-            } catch (_: Exception) { break }
+            } catch (_: Exception) {
+                break
+            }
             kotlinx.coroutines.delay(50)
             waitAttempts++
         }
@@ -851,8 +856,8 @@ fun ComposeNativeWebPlayer(
                 }
                 val mpvDir = mpvExe.parentFile
                 System.setProperty("jna.library.path", mpvDir.absolutePath)
-                
-                // CRITICAL: JNA caches jna.library.path on initialization. 
+
+                // CRITICAL: JNA caches jna.library.path on initialization.
                 // We MUST use addSearchPath to inject our bundled DLL path dynamically.
                 val targets = listOf("libmpv-2", "mpv-2", "mpv-1", "mpv", "libmpv", "mpv-3.dll")
                 targets.forEach { target ->
@@ -967,17 +972,17 @@ fun ComposeNativeWebPlayer(
                                         val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
                                         val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
                                         val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
-                                        
-                                        val query   = parsed["query"]?.asText() ?: ""
-                                        val lang    = parsed["lang"]?.asText()?.takeIf { it.isNotBlank() }
-                                        val season  = parsed["season"]?.asText()?.toIntOrNull()
+
+                                        val query = parsed["query"]?.asText() ?: ""
+                                        val lang = parsed["lang"]?.asText()?.takeIf { it.isNotBlank() }
+                                        val season = parsed["season"]?.asText()?.toIntOrNull()
                                         val episode = parsed["episode"]?.asText()?.toIntOrNull()
 
                                         val search = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleSearch(
-                                            query        = query,
-                                            lang         = lang,
+                                            query = query,
+                                            lang = lang,
                                             seasonNumber = season,
-                                            epNumber     = episode,
+                                            epNumber = episode,
                                         )
 
                                         val allResults = mutableListOf<Map<String, Any?>>()
@@ -985,15 +990,17 @@ fun ComposeNativeWebPlayer(
                                             val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
                                             try {
                                                 provider.search(auth, search)?.forEach { sub ->
-                                                    allResults.add(mapOf(
-                                                        "idPrefix"     to sub.idPrefix,
-                                                        "name"         to sub.name,
-                                                        "lang"         to sub.lang,
-                                                        "data"         to sub.data,
-                                                        "source"       to sub.source,
-                                                        "seasonNumber" to sub.seasonNumber,
-                                                        "epNumber"     to sub.epNumber,
-                                                    ))
+                                                    allResults.add(
+                                                        mapOf(
+                                                            "idPrefix" to sub.idPrefix,
+                                                            "name" to sub.name,
+                                                            "lang" to sub.lang,
+                                                            "data" to sub.data,
+                                                            "source" to sub.source,
+                                                            "seasonNumber" to sub.seasonNumber,
+                                                            "epNumber" to sub.epNumber,
+                                                        ),
+                                                    )
                                                 }
                                             } catch (e: Exception) {
                                                 com.lagradost.common.logging.AppLogger.e("SubSearch[${provider.name}]: ${e.message}")
@@ -1001,7 +1008,7 @@ fun ComposeNativeWebPlayer(
                                         }
 
                                         val json = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
-                                            mapOf("type" to "subtitle_search_results", "results" to allResults)
+                                            mapOf("type" to "subtitle_search_results", "results" to allResults),
                                         )
                                         NativePlayerBridge.postMessage(json)
                                     } catch (e: Exception) {
@@ -1016,24 +1023,24 @@ fun ComposeNativeWebPlayer(
                                         val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
                                         val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
                                         val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
-                                        
+
                                         val idPrefix = parsed["idPrefix"]?.asText() ?: return@launch
-                                        val data     = parsed["data"]?.asText() ?: return@launch
-                                        val name     = parsed["name"]?.asText() ?: "subtitle"
+                                        val data = parsed["data"]?.asText() ?: return@launch
+                                        val name = parsed["name"]?.asText() ?: "subtitle"
 
                                         val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.firstOrNull { it.idPrefix == idPrefix }
                                         if (provider != null) {
                                             val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[idPrefix]?.firstOrNull()
-                                            
+
                                             // Subtitle data object
                                             val sub = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleEntity(
                                                 idPrefix = idPrefix,
                                                 name = name,
                                                 data = data,
                                                 lang = parsed["lang"]?.asText() ?: "",
-                                                source = parsed["source"]?.asText() ?: ""
+                                                source = parsed["source"]?.asText() ?: "",
                                             )
-                                            
+
                                             val fileUrl = provider.load(auth, sub)
                                             if (fileUrl != null) {
                                                 var finalUrl: String = fileUrl
@@ -1046,7 +1053,9 @@ fun ComposeNativeWebPlayer(
                                                         if (bytes != null) {
                                                             tmp.writeBytes(bytes)
                                                             tmp
-                                                        } else null
+                                                        } else {
+                                                            null
+                                                        }
                                                     } else if (fileUrl.startsWith("file://", ignoreCase = true)) {
                                                         java.io.File(java.net.URI(fileUrl))
                                                     } else {
@@ -1055,7 +1064,7 @@ fun ComposeNativeWebPlayer(
 
                                                     if (zipFile != null && zipFile.exists()) {
                                                         java.util.zip.ZipFile(zipFile).use { zip ->
-                                                            val entry = zip.entries().toList().firstOrNull { 
+                                                            val entry = zip.entries().toList().firstOrNull {
                                                                 it.name.endsWith(".srt", true) || it.name.endsWith(".vtt", true) || it.name.endsWith(".ass", true)
                                                             }
                                                             if (entry != null) {
@@ -1077,12 +1086,12 @@ fun ComposeNativeWebPlayer(
                                                     persistentSubtitles.add(safeUrl)
                                                 }
                                                 MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
-                                                
+
                                                 val toastJson = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
-                                                    mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle")
+                                                    mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle"),
                                                 )
                                                 NativePlayerBridge.postMessage(toastJson)
-                                                
+
                                                 com.lagradost.common.logging.AppLogger.i("Loaded subtitle from $provider: $finalUrl")
                                             }
                                         }
@@ -1159,7 +1168,7 @@ fun ComposeNativeWebPlayer(
                                 if (track != null) {
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                         playerState?.loadLazyAudioTrack(
-                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language)
+                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language),
                                         )
                                     }
                                 }
@@ -1170,7 +1179,7 @@ fun ComposeNativeWebPlayer(
                                 if (track != null) {
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                         playerState?.loadLazySubtitleTrack(
-                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language)
+                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language),
                                         )
                                     }
                                 }
@@ -1181,7 +1190,7 @@ fun ComposeNativeWebPlayer(
                                 if (track != null) {
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                         playerState?.loadLazyVideoTrack(
-                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language)
+                                            com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language),
                                         )
                                     }
                                 }
@@ -1241,7 +1250,7 @@ fun ComposeNativeWebPlayer(
                 this.isVisible = false
                 this.bounds = java.awt.Rectangle(0, 0, 0, 0)
                 NativePlayerBridge.resizeWebView(0, 0)
-                
+
                 // Find and remove the dispatcher to prevent memory leaks
                 val focusManager = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 this.keyDispatcher?.let {
@@ -1251,7 +1260,7 @@ fun ComposeNativeWebPlayer(
                 val h = mpvHandle
                 mpvHandle = null
                 playerState?.detachMpv()
-                
+
                 // DEFERRED CLEANUP: Wait 150ms for Compose/Skia to draw the DetailsScreen
                 // over the empty space before actually destroying the native window.
                 Thread {
@@ -1261,7 +1270,7 @@ fun ComposeNativeWebPlayer(
                         MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
                     }
                 }.start()
-                
+
                 super.removeNotify()
             }
         }.apply {

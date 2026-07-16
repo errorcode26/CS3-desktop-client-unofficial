@@ -38,7 +38,7 @@ fun PluginSettingsDialog(
     val settings = remember(schemaUpdates, activePrefName) {
         PluginSettingsSchemaRegistry.getSettingsForPlugin(activePrefName, pluginName).sortedWith(
             compareBy<com.lagradost.common.storage.PluginSettingSchema> { getCategoryPriority(it.key) }
-                .thenBy { getFriendlyName(it.key) }
+                .thenBy { getFriendlyName(it.key) },
         )
     }
 
@@ -60,7 +60,7 @@ fun PluginSettingsDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Card(
             modifier = Modifier
@@ -69,7 +69,7 @@ fun PluginSettingsDialog(
                 .clip(RoundedCornerShape(24.dp))
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header Banner
@@ -78,13 +78,13 @@ fun PluginSettingsDialog(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                         .padding(horizontal = 24.dp, vertical = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -92,24 +92,24 @@ fun PluginSettingsDialog(
                             text = "$pluginName Settings",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = "Configure sub-providers, accounts, and scraper channels",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -121,23 +121,23 @@ fun PluginSettingsDialog(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                         contentPadding = PaddingValues(vertical = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         if (hasChanged) {
                             item {
                                 Card(
                                     colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                                     ),
                                     shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
                                         text = "ℹ️ Changes saved. Reload the plugin or close this settings box to apply new provider configurations in real-time.",
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         style = MaterialTheme.typography.bodySmall,
                                         modifier = Modifier.padding(14.dp),
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Medium,
                                     )
                                 }
                             }
@@ -147,18 +147,18 @@ fun PluginSettingsDialog(
                             item {
                                 Box(
                                     modifier = Modifier.fillMaxWidth().padding(40.dp),
-                                    contentAlignment = Alignment.Center
+                                    contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
                                         text = "No configurable options or sub-providers found.",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
                         } else {
                             val grouped = settings.groupBy { getCategory(it.key) }
-                            
+
                             // Sort categories so General settings show first, then Stremio, then APIs, then Providers
                             val sortedCategories = grouped.keys.sortedBy { category ->
                                 when (category) {
@@ -178,7 +178,7 @@ fun PluginSettingsDialog(
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary,
-                                            letterSpacing = 1.sp
+                                            letterSpacing = 1.sp,
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), thickness = 2.dp)
@@ -195,32 +195,32 @@ fun PluginSettingsDialog(
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                            .padding(16.dp)
+                                            .padding(16.dp),
                                     ) {
                                         val strVal = currentValue?.toString()
                                         val isBooleanLike = schema.type == "Boolean" ||
-                                                strVal == "true" || strVal == "false" ||
-                                                schema.defaultValue == "true" || schema.defaultValue == "false" ||
-                                                schema.key.startsWith("Provider") || schema.key.endsWith("Enable")
+                                            strVal == "true" || strVal == "false" ||
+                                            schema.defaultValue == "true" || schema.defaultValue == "false" ||
+                                            schema.key.startsWith("Provider") || schema.key.endsWith("Enable")
 
                                         if (isBooleanLike) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                                                     Text(
                                                         text = getFriendlyName(schema.key),
                                                         style = MaterialTheme.typography.titleMedium,
                                                         fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.onSurface
+                                                        color = MaterialTheme.colorScheme.onSurface,
                                                     )
                                                     val desc = getDescription(schema.key)
                                                     if (desc.isNotEmpty()) {
                                                         Text(
                                                             text = desc,
                                                             style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         )
                                                     }
                                                 }
@@ -235,7 +235,7 @@ fun PluginSettingsDialog(
                                                         } else {
                                                             com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, finalValue)
                                                         }
-                                                    }
+                                                    },
                                                 )
                                             }
                                         } else {
@@ -244,7 +244,7 @@ fun PluginSettingsDialog(
                                                     text = getFriendlyName(schema.key),
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = MaterialTheme.colorScheme.onSurface,
                                                 )
                                                 val desc = getDescription(schema.key)
                                                 if (desc.isNotEmpty()) {
@@ -252,10 +252,10 @@ fun PluginSettingsDialog(
                                                         text = desc,
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.padding(bottom = 12.dp)
+                                                        modifier = Modifier.padding(bottom = 12.dp),
                                                     )
                                                 }
-                                                
+
                                                 when (schema.type) {
                                                     "Int", "Long", "Float" -> {
                                                         OutlinedTextField(
@@ -287,10 +287,10 @@ fun PluginSettingsDialog(
                                                             },
                                                             colors = OutlinedTextFieldDefaults.colors(
                                                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                                                             ),
                                                             singleLine = true,
-                                                            modifier = Modifier.fillMaxWidth()
+                                                            modifier = Modifier.fillMaxWidth(),
                                                         )
                                                     }
                                                     "StringSet" -> {
@@ -302,7 +302,9 @@ fun PluginSettingsDialog(
                                                                     val loadedJarFile = if (jarFile != null) {
                                                                         val jvmJar = java.io.File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
                                                                         if (jvmJar.exists()) jvmJar else jarFile
-                                                                    } else null
+                                                                    } else {
+                                                                        null
+                                                                    }
                                                                     if (classLoader != null && loadedJarFile != null) {
                                                                         var foundList: List<String>? = null
                                                                         java.util.zip.ZipFile(loadedJarFile).use { zip ->
@@ -313,10 +315,10 @@ fun PluginSettingsDialog(
                                                                                     val className = entry.name.removeSuffix(".class").replace("/", ".")
                                                                                     try {
                                                                                         val clazz = classLoader.loadClass(className)
-                                                                                        val method = clazz.methods.firstOrNull { 
-                                                                                            (it.name == "buildProviders" || it.name == "getProviders" || it.name == "getSources" || it.name == "buildSources" || it.name == "listProviders" || it.name == "listSources") && 
-                                                                                            it.parameterCount == 0 && 
-                                                                                            java.lang.reflect.Modifier.isStatic(it.modifiers) 
+                                                                                        val method = clazz.methods.firstOrNull {
+                                                                                            (it.name == "buildProviders" || it.name == "getProviders" || it.name == "getSources" || it.name == "buildSources" || it.name == "listProviders" || it.name == "listSources") &&
+                                                                                                it.parameterCount == 0 &&
+                                                                                                java.lang.reflect.Modifier.isStatic(it.modifiers)
                                                                                         }
                                                                                         if (method != null) {
                                                                                             val list = method.invoke(null) as? List<*>
@@ -359,11 +361,15 @@ fun PluginSettingsDialog(
                                                                             }
                                                                         }
                                                                         foundList
-                                                                    } else null
+                                                                    } else {
+                                                                        null
+                                                                    }
                                                                 } catch (e: Exception) {
                                                                     null
                                                                 }
-                                                            } else null
+                                                            } else {
+                                                                null
+                                                            }
                                                         }
 
                                                         val defaultSet = (schema.defaultValue as? Set<*>)?.map { it.toString() }?.toSet() ?: emptySet()
@@ -373,19 +379,23 @@ fun PluginSettingsDialog(
                                                         if (optionsList.isNotEmpty()) {
                                                             val disabledSet = if (schema.key.lowercase().contains("disabled")) {
                                                                 currentSet
-                                                            } else null
-                                                            
+                                                            } else {
+                                                                null
+                                                            }
+
                                                             val enabledSet = if (schema.key.lowercase().contains("disabled")) {
                                                                 null
-                                                            } else currentSet
+                                                            } else {
+                                                                currentSet
+                                                            }
 
                                                             Column(
                                                                 modifier = Modifier.fillMaxWidth(),
-                                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                                verticalArrangement = Arrangement.spacedBy(8.dp),
                                                             ) {
                                                                 Row(
                                                                     modifier = Modifier.fillMaxWidth(),
-                                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                                                                 ) {
                                                                     OutlinedButton(
                                                                         onClick = {
@@ -398,7 +408,7 @@ fun PluginSettingsDialog(
                                                                                 com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, nextSet)
                                                                             }
                                                                         },
-                                                                        modifier = Modifier.weight(1f)
+                                                                        modifier = Modifier.weight(1f),
                                                                     ) {
                                                                         Text(if (disabledSet != null) "Enable All" else "Select All", style = MaterialTheme.typography.labelMedium)
                                                                     }
@@ -413,7 +423,7 @@ fun PluginSettingsDialog(
                                                                                 com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, nextSet)
                                                                             }
                                                                         },
-                                                                        modifier = Modifier.weight(1f)
+                                                                        modifier = Modifier.weight(1f),
                                                                     ) {
                                                                         Text(if (disabledSet != null) "Disable All" else "Deselect All", style = MaterialTheme.typography.labelMedium)
                                                                     }
@@ -424,7 +434,7 @@ fun PluginSettingsDialog(
                                                                 optionsList.chunked(2).forEach { rowSources ->
                                                                     Row(
                                                                         modifier = Modifier.fillMaxWidth(),
-                                                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                                                                     ) {
                                                                         rowSources.forEach { source ->
                                                                             val isChecked = if (disabledSet != null) {
@@ -434,7 +444,7 @@ fun PluginSettingsDialog(
                                                                             }
                                                                             Row(
                                                                                 modifier = Modifier.weight(1f),
-                                                                                verticalAlignment = Alignment.CenterVertically
+                                                                                verticalAlignment = Alignment.CenterVertically,
                                                                             ) {
                                                                                 Checkbox(
                                                                                     checked = isChecked,
@@ -452,12 +462,12 @@ fun PluginSettingsDialog(
                                                                                         } else {
                                                                                             com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, nextSet)
                                                                                         }
-                                                                                    }
+                                                                                    },
                                                                                 )
                                                                                 Text(
                                                                                     text = source.replace("API", "").replace("Api", ""),
                                                                                     style = MaterialTheme.typography.bodyMedium,
-                                                                                    color = MaterialTheme.colorScheme.onSurface
+                                                                                    color = MaterialTheme.colorScheme.onSurface,
                                                                                 )
                                                                             }
                                                                         }
@@ -490,9 +500,9 @@ fun PluginSettingsDialog(
                                                                 },
                                                                 colors = OutlinedTextFieldDefaults.colors(
                                                                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                                                                 ),
-                                                                modifier = Modifier.fillMaxWidth()
+                                                                modifier = Modifier.fillMaxWidth(),
                                                             )
                                                         }
                                                     }
@@ -518,9 +528,9 @@ fun PluginSettingsDialog(
                                                             },
                                                             colors = OutlinedTextFieldDefaults.colors(
                                                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                                                             ),
-                                                            modifier = Modifier.fillMaxWidth()
+                                                            modifier = Modifier.fillMaxWidth(),
                                                         )
                                                     }
                                                 }
@@ -541,12 +551,12 @@ fun PluginSettingsDialog(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                         .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     Button(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     ) {
                         Text("Apply & Close", fontWeight = FontWeight.Bold)
                     }
@@ -582,13 +592,13 @@ private fun getFriendlyName(key: String): String {
     if (clean.startsWith("Provider")) {
         clean = clean.removePrefix("Provider")
     }
-    
+
     val friendly = clean.replace("_", " ")
         .replace(Regex("([a-z])([A-Z])"), "$1 $2")
         .trim()
         .split(" ")
         .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
-        
+
     return friendly
         .replace(" Saved Links", " Links Cache")
         .replace(" Concurrency", " Simultaneous Connections")

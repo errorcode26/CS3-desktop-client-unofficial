@@ -174,7 +174,7 @@ fun NativePlayerControls(
                     launchData = launchData,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(top = 80.dp) // Push it below the top bar
+                        .padding(top = 80.dp), // Push it below the top bar
                 )
 
                 TimelineBar(
@@ -209,7 +209,7 @@ fun NativePlayerControls(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.3f))
-                    .pointerInput(Unit) { detectTapGestures(onTap = { showEpisodes = false }) }
+                    .pointerInput(Unit) { detectTapGestures(onTap = { showEpisodes = false }) },
             )
         }
 
@@ -248,7 +248,7 @@ fun NativePlayerControls(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.3f))
-                    .pointerInput(Unit) { detectTapGestures(onTap = { onShowSourcesChange(false) }) }
+                    .pointerInput(Unit) { detectTapGestures(onTap = { onShowSourcesChange(false) }) },
             )
         }
 

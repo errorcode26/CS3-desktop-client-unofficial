@@ -15,7 +15,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 fun SettingsGroupCard(
     title: String,
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -23,22 +23,22 @@ fun SettingsGroupCard(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
         )
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             border = androidx.compose.foundation.BorderStroke(
-                1.dp, 
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             ),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 content()
             }
@@ -51,7 +51,7 @@ fun SettingsToggleItem(
     label: String,
     subtitle: String? = null,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -60,16 +60,16 @@ fun SettingsToggleItem(
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
             Text(
-                text = label, 
-                style = MaterialTheme.typography.bodyLarge, 
-                color = MaterialTheme.colorScheme.onSurface, 
-                fontWeight = FontWeight.Medium
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
             )
             if (subtitle != null) {
                 Text(
-                    text = subtitle, 
-                    style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -77,8 +77,8 @@ fun SettingsToggleItem(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary, 
-                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             ),
         )
     }
@@ -90,27 +90,27 @@ fun SettingsDropdownItem(
     subtitle: String? = null,
     options: List<Pair<String, String>>,
     currentValue: String,
-    onSelectionChanged: (String) -> Unit
+    onSelectionChanged: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
             Text(
-                text = label, 
-                style = MaterialTheme.typography.bodyLarge, 
-                color = MaterialTheme.colorScheme.onSurface, 
-                fontWeight = FontWeight.Medium
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
             )
             if (subtitle != null) {
                 Text(
-                    text = subtitle, 
-                    style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -141,26 +141,26 @@ fun SettingsSliderItem(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                 Text(
-                    text = label, 
-                    style = MaterialTheme.typography.bodyLarge, 
-                    color = MaterialTheme.colorScheme.onSurface, 
-                    fontWeight = FontWeight.Medium
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium,
                 )
                 if (subtitle != null) {
                     Text(
-                        text = subtitle, 
-                        style = MaterialTheme.typography.bodySmall, 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -174,8 +174,8 @@ fun SettingsSliderItem(
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-            )
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+            ),
         )
     }
 }
@@ -186,30 +186,30 @@ fun SettingsChipGroupItem(
     subtitle: String? = null,
     options: List<Pair<String, String>>,
     selectedValue: String,
-    onSelectionChanged: (String) -> Unit
+    onSelectionChanged: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             Text(
-                text = label, 
-                style = MaterialTheme.typography.bodyLarge, 
-                color = MaterialTheme.colorScheme.onSurface, 
-                fontWeight = FontWeight.Medium
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
             )
             if (subtitle != null) {
                 Text(
-                    text = subtitle, 
-                    style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        
+
         @OptIn(ExperimentalLayoutApi::class)
         FlowRow(
-            modifier = Modifier.fillMaxWidth(), 
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             options.forEach { (id, title) ->
                 FilterChip(

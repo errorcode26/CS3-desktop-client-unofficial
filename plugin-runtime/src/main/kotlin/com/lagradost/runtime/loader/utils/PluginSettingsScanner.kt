@@ -10,4 +10,3 @@ object PluginSettingsScanner {
         // preventing sub-plugins from auto-registering by default.
     }
 }
-

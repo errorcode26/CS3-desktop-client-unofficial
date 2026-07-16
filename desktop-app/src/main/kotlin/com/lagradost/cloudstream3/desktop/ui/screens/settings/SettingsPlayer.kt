@@ -1,10 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.verticalScroll
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.common.storage.DesktopDataStore
 
@@ -20,7 +20,7 @@ fun SettingsPlayer() {
 
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // --- Group 1: Playback Engine ---
         SettingsGroupCard(title = "Playback Engine") {
@@ -32,9 +32,9 @@ fun SettingsPlayer() {
                 onSelectionChanged = {
                     hwdec = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_HWDEC, it)
-                }
+                },
             )
-            
+
             SettingsDropdownItem(
                 label = "Default Quality",
                 subtitle = "Preferred video resolution when streaming",
@@ -48,7 +48,7 @@ fun SettingsPlayer() {
                 onSelectionChanged = {
                     ytdlFormat = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_YTDL_FORMAT, it)
-                }
+                },
             )
         }
 
@@ -61,9 +61,9 @@ fun SettingsPlayer() {
                 onCheckedChange = {
                     autoPlay = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY, it)
-                }
+                },
             )
-            
+
             if (autoPlay) {
                 SettingsDropdownItem(
                     label = "Playback Timeout",
@@ -78,7 +78,7 @@ fun SettingsPlayer() {
                     onSelectionChanged = {
                         autoPlayTimeout = it
                         DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT, it)
-                    }
+                    },
                 )
             }
         }
@@ -93,9 +93,9 @@ fun SettingsPlayer() {
                 onSelectionChanged = {
                     subSize = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SIZE, it)
-                }
+                },
             )
-            
+
             SettingsDropdownItem(
                 label = "Text Color",
                 options = listOf("#FFFFFF" to "White", "#FFFF00" to "Yellow", "#00FFFF" to "Cyan"),
@@ -103,9 +103,9 @@ fun SettingsPlayer() {
                 onSelectionChanged = {
                     subColor = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_SUB_COLOR, it)
-                }
+                },
             )
-            
+
             SettingsDropdownItem(
                 label = "Background Style",
                 subtitle = "Add a dark background box to subtitles for better readability",
@@ -114,7 +114,7 @@ fun SettingsPlayer() {
                 onSelectionChanged = {
                     subBg = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BG, it)
-                }
+                },
             )
         }
     }
