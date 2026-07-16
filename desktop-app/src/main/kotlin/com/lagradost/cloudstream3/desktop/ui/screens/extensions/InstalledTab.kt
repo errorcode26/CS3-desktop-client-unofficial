@@ -127,8 +127,8 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 val instance = remember(plugin) {
                     ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
                 }
-                val hasSchemaSettings = com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName)
-                val showSettings = true // Fully unlocked: always allow adding custom settings
+                val hasSchemaSettings = com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)
+                val showSettings = hasSchemaSettings || instance?.openSettings != null
 
                 ExtensionCard(
                     name = plugin.name,
@@ -154,7 +154,14 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     showSettings = showSettings,
                     onSettingsClick = {
                         showDynamicSettings = true
-                        if (!hasSchemaSettings) {
+                        if (instance?.openSettings != null) {
+                            try {
+                                instance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                            } catch (e: Throwable) {
+                                com.lagradost.common.logging.AppLogger.i("Executed openSettings fallback: ${e.message}")
+                            }
+                        }
+                        if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name) && instance?.openSettings == null) {
                             showUnsupportedWarning = true
                         }
                     },
@@ -165,7 +172,18 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         pluginName = plugin.name,
                         prefName = prefName,
                         jarFile = plugin.file,
-                        onDismiss = { showDynamicSettings = false },
+                        onDismiss = {
+                            showDynamicSettings = false
+                            kotlin.concurrent.thread {
+                                try {
+                                    ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
+                                    ExtensionLoader.loadAndInit(plugin.file, forceBypassSecurity = true)
+                                    com.lagradost.common.logging.AppLogger.i("Reloaded plugin ${plugin.name} after settings update")
+                                } catch (e: Throwable) {
+                                    com.lagradost.common.logging.AppLogger.e("Failed to reload plugin ${plugin.name}", e)
+                                }
+                            }
+                        },
                     )
                 }
             }

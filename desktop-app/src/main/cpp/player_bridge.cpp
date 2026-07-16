@@ -44,7 +44,11 @@ typedef enum mpv_format {
     MPV_FORMAT_NODE_MAP         = 8,
     MPV_FORMAT_BYTE_ARRAY       = 9
 } mpv_format;
-typedef int (*mpv_get_property_fn)(mpv_handle *ctx, const char *name, mpv_format format, void *data);
+typedef int  (*mpv_get_property_fn)(mpv_handle *ctx, const char *name, mpv_format format, void *data);
+typedef char*(*mpv_get_property_string_fn)(mpv_handle *ctx, const char *name);
+typedef void (*mpv_free_fn)(void *data);
+typedef int  (*mpv_command_string_fn)(mpv_handle *ctx, const char *args);
+typedef int  (*mpv_set_property_string_fn)(mpv_handle *ctx, const char *name, const char *data);
 }
 
 // Global state
@@ -57,8 +61,18 @@ bool                     g_webviewReady      = false;
 std::wstring             g_pendingUrl        = L"";
 
 mpv_handle* g_mpvHandle = nullptr;
-std::mutex g_mpvMutex;
-UINT_PTR g_syncTimer = 0;
+std::mutex  g_mpvMutex;
+UINT_PTR    g_syncTimer = 0;
+
+// MPV function pointers (lazily resolved from the loaded DLL)
+static mpv_get_property_fn        g_mpv_get_property        = nullptr;
+static mpv_get_property_string_fn g_mpv_get_property_string = nullptr;
+static mpv_free_fn                g_mpv_free                = nullptr;
+static mpv_command_string_fn      g_mpv_command_string      = nullptr;
+static mpv_set_property_string_fn g_mpv_set_property_string = nullptr;
+
+// Whether the JS stats panel is open — gating the extra property poll each tick.
+static bool g_statsVisible = false;
 
 std::mutex   g_pendingUrlMutex;
 
@@ -160,8 +174,104 @@ public:
                                      ICoreWebView2WebMessageReceivedEventArgs* args) override {
         PWSTR messageJson = nullptr;
         if (SUCCEEDED(args->get_WebMessageAsJson(&messageJson)) && messageJson) {
-            dispatchPlayerEvent(std::wstring(messageJson));
+            std::wstring wjson(messageJson);
             CoTaskMemFree(messageJson);
+
+            // ── Fast-path: handle latency-sensitive MPV commands directly in C++ ──
+            // This completely bypasses the JNI → Kotlin coroutine round-trip (~10–50ms)
+            // which caused the seek bar to rubber-band (old time-pos arrived before seek).
+            //
+            // We do a lightweight string scan — no full JSON parser needed here.
+            // Format is always: {"type":"seekTo","value":"123456"} or numeric value.
+            auto extractStr = [&](const std::wstring& key) -> std::wstring {
+                std::wstring needle = L"\"" + key + L"\":\"";
+                auto pos = wjson.find(needle);
+                if (pos == std::wstring::npos) return L"";
+                pos += needle.size();
+                auto end = wjson.find(L'"', pos);
+                return (end != std::wstring::npos) ? wjson.substr(pos, end - pos) : L"";
+            };
+            auto extractNum = [&](const std::wstring& key) -> std::wstring {
+                // Handles both "value":"123" and "value":123
+                std::wstring r = extractStr(key);
+                if (!r.empty()) return r;
+                std::wstring needle = L"\"" + key + L"\":";
+                auto pos = wjson.find(needle);
+                if (pos == std::wstring::npos) return L"";
+                pos += needle.size();
+                if (pos < wjson.size() && wjson[pos] == L'"') {
+                    pos++;
+                    auto end = wjson.find(L'"', pos);
+                    return (end != std::wstring::npos) ? wjson.substr(pos, end - pos) : L"";
+                }
+                auto end = pos;
+                while (end < wjson.size() && (iswdigit(wjson[end]) || wjson[end] == L'.' || wjson[end] == L'-')) end++;
+                return wjson.substr(pos, end - pos);
+            };
+
+            std::wstring evType = extractStr(L"type");
+            bool handled = false;
+
+            if ((evType == L"seekTo" || evType == L"seekBy") &&
+                    g_mpv_command_string && g_mpv_set_property_string) {
+                std::wstring wval = extractNum(L"value");
+                if (!wval.empty()) {
+                    // Convert ms → seconds
+                    double ms = _wtof(wval.c_str());
+                    double sec = ms / 1000.0;
+                    char buf[64];
+                    if (evType == L"seekTo") {
+                        // Also update 'start' so pending loadfile respects the seek
+                        char startBuf[32];
+                        snprintf(startBuf, sizeof(startBuf), "%.3f", sec);
+                        snprintf(buf, sizeof(buf), "seek %.3f absolute", sec);
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_set_property_string(g_mpvHandle, "start", startBuf);
+                            g_mpv_command_string(g_mpvHandle, buf);
+                            handled = true;
+                        }
+                    } else { // seekBy (relative)
+                        snprintf(buf, sizeof(buf), "seek %.3f relative", sec);
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_command_string(g_mpvHandle, buf);
+                            handled = true;
+                        }
+                    }
+                }
+            } else if (evType == L"togglePlay" && g_mpv_command_string) {
+                std::lock_guard<std::mutex> lk(g_mpvMutex);
+                if (g_mpvHandle) {
+                    g_mpv_command_string(g_mpvHandle, "cycle pause");
+                    handled = true;
+                }
+            } else if (evType == L"toggleMute" && g_mpv_command_string) {
+                std::lock_guard<std::mutex> lk(g_mpvMutex);
+                if (g_mpvHandle) {
+                    g_mpv_command_string(g_mpvHandle, "cycle mute");
+                    handled = true;
+                }
+            } else if (evType == L"toggleStats") {
+                // Flip the stats-visible flag — no MPV command needed, just controls
+                // whether the timer sends stats_update messages each tick.
+                g_statsVisible = !g_statsVisible;
+            } else if (evType == L"setVolume" && g_mpv_command_string) {
+                std::wstring wval = extractNum(L"value");
+                if (!wval.empty()) {
+                    char buf[64];
+                    snprintf(buf, sizeof(buf), "set volume %.1f", _wtof(wval.c_str()));
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_command_string(g_mpvHandle, buf);
+                        handled = true;
+                    }
+                }
+            }
+
+            // Always dispatch to Kotlin for non-fast-path events (ui_ready, episodes, links, etc.)
+            // For fast-path events also dispatch so Kotlin can update its own state tracking.
+            dispatchPlayerEvent(wjson);
         }
         return S_OK;
     }
@@ -334,7 +444,19 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         mpvDll = LoadLibraryA("libmpv-2.dll");
                         if (!mpvDll) mpvDll = LoadLibraryA("mpv-2.dll");
                         if (!mpvDll) mpvDll = LoadLibraryA("mpv.dll");
-                        if (mpvDll) get_prop = (mpv_get_property_fn)GetProcAddress(mpvDll, "mpv_get_property");
+                        if (mpvDll) {
+                            get_prop = (mpv_get_property_fn)GetProcAddress(mpvDll, "mpv_get_property");
+                            if (!g_mpv_get_property)
+                                g_mpv_get_property = get_prop;
+                            if (!g_mpv_get_property_string)
+                                g_mpv_get_property_string = (mpv_get_property_string_fn)GetProcAddress(mpvDll, "mpv_get_property_string");
+                            if (!g_mpv_free)
+                                g_mpv_free = (mpv_free_fn)GetProcAddress(mpvDll, "mpv_free");
+                            if (!g_mpv_command_string)
+                                g_mpv_command_string = (mpv_command_string_fn)GetProcAddress(mpvDll, "mpv_command_string");
+                            if (!g_mpv_set_property_string)
+                                g_mpv_set_property_string = (mpv_set_property_string_fn)GetProcAddress(mpvDll, "mpv_set_property_string");
+                        }
                     }
                     if (get_prop) {
                         double duration = 0.0;
@@ -345,10 +467,19 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         get_prop(g_mpvHandle, "pause", MPV_FORMAT_FLAG, &pause);
                         int core_idle = 0;
                         get_prop(g_mpvHandle, "core-idle", MPV_FORMAT_FLAG, &core_idle);
+                        // paused-for-cache=yes means MPV is mid-playback but stalled waiting for data.
+                        // core-idle alone misses this case (it goes false as soon as the stream starts,
+                        // even before the first decodable frame arrives).
+                        int paused_for_cache = 0;
+                        get_prop(g_mpvHandle, "paused-for-cache", MPV_FORMAT_FLAG, &paused_for_cache);
+                        
+                        // core-idle is true when the stream hasn't loaded OR when the user pauses.
+                        // We don't want to show a spinner on a manual pause unless it's genuinely buffering.
+                        bool is_buffering = (paused_for_cache != 0) || ((core_idle != 0) && (pause == 0));
                         
                         // DIRECT C++ HOOK: Force dismiss overlay exactly when frames start rendering.
                         static bool hasFiredDismiss = false;
-                        if (core_idle) {
+                        if (is_buffering) {
                             hasFiredDismiss = false; // Reset whenever player goes idle (buffering/loading new stream)
                         } else if (position > 0.1 && !hasFiredDismiss) {
                             hasFiredDismiss = true;
@@ -362,7 +493,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         std::string json = "{\"type\":\"state_update\",\"positionMs\":" + std::to_string((long long)(position * 1000)) +
                                            ",\"bufferMs\":" + std::to_string((long long)(bufferPos * 1000)) +
                                            ",\"durationMs\":" + std::to_string((long long)(duration * 1000)) +
-                                           ",\"isLoading\":" + (core_idle ? "true" : "false") +
+                                           ",\"isLoading\":" + (is_buffering ? "true" : "false") +
                                            ",\"isPlaying\":" + (pause ? "false" : "true") + "}";
 
                         int size = MultiByteToWideChar(CP_UTF8, 0, json.c_str(), -1, nullptr, 0);
@@ -370,6 +501,68 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             std::wstring wJson(size, 0);
                             MultiByteToWideChar(CP_UTF8, 0, json.c_str(), -1, &wJson[0], size);
                             g_webview->PostWebMessageAsJson(wJson.c_str());
+                        }
+
+                        // ── Stats for Nerds: only poll expensive string props when the panel is open ──
+                        if (g_statsVisible && g_mpv_get_property_string && g_mpv_free) {
+                            // Read a string property, JSON-escape it, then free the MPV-allocated buffer.
+                            auto readStrFree = [&](const char* prop) -> std::string {
+                                char* v = g_mpv_get_property_string(g_mpvHandle, prop);
+                                if (!v) return "\"N/A\"";
+                                std::string s(v);
+                                g_mpv_free(v);
+                                std::string r = "\"";
+                                for (char c : s) {
+                                    if (c == '"')  r += "\\\"";
+                                    else if (c == '\\') r += "\\\\";
+                                    else r += c;
+                                }
+                                r += "\"";
+                                return r;
+                            };
+
+                            double vbitrate = 0.0, abitrate = 0.0, vfps = 0.0;
+                            int64_t vw = 0, vh = 0, drop = 0, vodrop = 0;
+                            get_prop(g_mpvHandle, "width",              MPV_FORMAT_INT64,  &vw);
+                            get_prop(g_mpvHandle, "height",             MPV_FORMAT_INT64,  &vh);
+                            get_prop(g_mpvHandle, "video-bitrate",      MPV_FORMAT_DOUBLE, &vbitrate);
+                            get_prop(g_mpvHandle, "audio-bitrate",      MPV_FORMAT_DOUBLE, &abitrate);
+                            get_prop(g_mpvHandle, "estimated-vf-fps",   MPV_FORMAT_DOUBLE, &vfps);
+                            get_prop(g_mpvHandle, "drop-frame-count",   MPV_FORMAT_INT64,  &drop);
+                            get_prop(g_mpvHandle, "vo-drop-frame-count",MPV_FORMAT_INT64,  &vodrop);
+
+                            std::string vcodec   = readStrFree("video-codec");
+                            std::string acodec   = readStrFree("audio-codec");
+                            std::string hwdec    = readStrFree("hwdec-current");
+                            std::string achans   = readStrFree("audio-channels");
+                            std::string fmt      = readStrFree("file-format");
+                            std::string path     = readStrFree("path");
+
+                            char statsBuf[1024];
+                            snprintf(statsBuf, sizeof(statsBuf),
+                                "{\"type\":\"stats_update\""
+                                ",\"videoCodec\":%s,\"audioCodec\":%s"
+                                ",\"width\":%lld,\"height\":%lld"
+                                ",\"videoBitrate\":%.0f,\"audioBitrate\":%.0f"
+                                ",\"fps\":%.2f"
+                                ",\"droppedFrames\":%lld,\"voDroppedFrames\":%lld"
+                                ",\"hwdec\":%s,\"audioChannels\":%s"
+                                ",\"format\":%s,\"path\":%s}",
+                                vcodec.c_str(), acodec.c_str(),
+                                (long long)vw, (long long)vh,
+                                vbitrate, abitrate,
+                                vfps,
+                                (long long)drop, (long long)vodrop,
+                                hwdec.c_str(), achans.c_str(),
+                                fmt.c_str(), path.c_str()
+                            );
+
+                            int sz = MultiByteToWideChar(CP_UTF8, 0, statsBuf, -1, nullptr, 0);
+                            if (sz > 0) {
+                                std::wstring wStats(sz, 0);
+                                MultiByteToWideChar(CP_UTF8, 0, statsBuf, -1, &wStats[0], sz);
+                                g_webview->PostWebMessageAsJson(wStats.c_str());
+                            }
                         }
                     }
                 }

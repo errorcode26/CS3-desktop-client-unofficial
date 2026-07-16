@@ -1,5 +1,10 @@
 package com.lagradost.cloudstream3.desktop.player
 
+// TODO: Yes, I know this file shares like 40KB of JNA event loops, keyboard hacks, and copy-pasted canvas code with BaseMpvPlayer.kt.
+// It is an absolute copy-paste crime scene. But it works, and if we touch it, JNI will probably explode and spit out a garbage memory pointer.
+// Do NOT touch it. Let future-us suffer.
+
+
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -78,6 +83,7 @@ fun ComposeNativeWebPlayer(
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var hasEverPlayed by remember { mutableStateOf(false) }
+    var waitingForTimePosReset by remember { mutableStateOf(false) }
     var loadStartTime by remember { mutableStateOf(System.currentTimeMillis()) }
     // Tracks when the last loadfile command was sent. 0L = no loadfile issued yet.
     // Used to gate the idle-active fast-fail check — MPV starts in idle-active=yes
@@ -158,11 +164,13 @@ fun ComposeNativeWebPlayer(
             val isBuf = playerState?.isBuffering?.value == true
             
             var currentlyLoading = isBuf
+            var isAppScraping = false
             var escapedLoadingText: String? = null
             try {
                 // These are Compose rememberUpdatedState properties.
                 // Reading them from Dispatchers.IO can sometimes throw Snapshot exceptions.
-                currentlyLoading = (!hasEverPlayed && currentIsLoading) || isBuf
+                currentlyLoading = isBuf
+                isAppScraping = currentIsLoading
                 escapedLoadingText = currentLoadingStatusText?.replace("\"", "\\\"")?.replace("\n", "\\n")
             } catch (e: Throwable) {
                 // Fallback if we can't read Compose state from this thread
@@ -171,7 +179,7 @@ fun ComposeNativeWebPlayer(
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
             
             NativePlayerBridge.postMessage(
-                "{\"type\":\"state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isLoading\":$currentlyLoading,\"loadingStatusText\":$loadingTextJson}"
+                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"debugWait\":$waitingForTimePosReset,\"debugHasEver\":$hasEverPlayed,\"debugPos\":0.0}"
             )
         } catch (e: Throwable) {
             com.lagradost.common.logging.AppLogger.e("pushMetadataToWebView error: ${e.message}")
@@ -197,6 +205,7 @@ fun ComposeNativeWebPlayer(
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 // Register native property observers. These fire MPV_EVENT_PROPERTY_CHANGE (id=22)
                 // at video framerate for Double props, or instantly for Flag props.
+                // If MPV crashes here because of some JNI pointer bullshit, I'm quitting my job.
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 1L, "time-pos", 5) // MPV_FORMAT_DOUBLE
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 2L, "duration", 5)
                 MpvLibrary.INSTANCE.mpv_observe_property(h, 3L, "pause", 3)    // MPV_FORMAT_FLAG
@@ -235,6 +244,7 @@ fun ComposeNativeWebPlayer(
                                 2 -> break // MPV_EVENT_SHUTDOWN
 
                                 6 -> { // MPV_EVENT_START_FILE
+                                    waitingForTimePosReset = false
                                     hasEverPlayed = false
                                     playbackStartedAt = 0L
                                     diagnosticLogged = false
@@ -259,7 +269,7 @@ fun ComposeNativeWebPlayer(
                                 // MPV_EVENT_FILE_LOADED (8) or MPV_EVENT_PLAYBACK_RESTART (21)
                                 // These are the EARLIEST reliable signals that frames are rendering.
                                 8, 21 -> {
-                                    if (!hasEverPlayed) {
+                                    if (!hasEverPlayed && !waitingForTimePosReset) {
                                         hasEverPlayed = true
                                         playbackStartedAt = System.currentTimeMillis()
                                         playerState?.isBuffering?.value = false
@@ -289,7 +299,7 @@ fun ComposeNativeWebPlayer(
                                                         // The JS UI's isSeeking lock prevents erroneous snaps to 0.
                                                         if (newPos >= 0.0) lastPos = newPos
 
-                                                        if (!hasEverPlayed && lastPos > 0.1) {
+                                                        if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
                                                             hasEverPlayed = true
                                                             playbackStartedAt = System.currentTimeMillis()
                                                             playerState?.isBuffering?.value = false
@@ -390,7 +400,8 @@ fun ComposeNativeWebPlayer(
 
                             // Poll position
                             val pollPos = MpvLibrary.getPropertyDouble(h, "time-pos", -1.0)
-                            
+                            if (pollPos >= 0.0) lastPos = pollPos
+
                             // DEBUG LOG
                             if (now % 2000 < 100) {
                                 com.lagradost.common.logging.AppLogger.i("DEBUG_MPV: pollPos=$pollPos, currentDur=$currentDur")
@@ -400,7 +411,7 @@ fun ComposeNativeWebPlayer(
                                 lastPos = pollPos
 
                                 // Trigger playback-ready if native events haven't done so yet
-                                if (!hasEverPlayed && lastPos > 0.1) {
+                                if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
                                     hasEverPlayed = true
                                     playbackStartedAt = System.currentTimeMillis()
                                     playerState?.isBuffering?.value = false
@@ -549,6 +560,7 @@ fun ComposeNativeWebPlayer(
         // from the previous link attempt when event 8 fires for the new link.
         // This MUST happen before any delay or blocking work below.
         hasEverPlayed = false
+        waitingForTimePosReset = true
         loadfileIssuedAt = 0L
 
         val handle = mpvHandle ?: return@LaunchedEffect
@@ -659,6 +671,9 @@ fun ComposeNativeWebPlayer(
         lib.mpv_set_property_string(handle, "sub-auto", "no")
         lib.mpv_set_property_string(handle, "sid", "no")
         lib.mpv_set_property_string(handle, "aid", "auto")
+        
+        // Boost volume up to 200%
+        lib.mpv_set_property_string(handle, "volume-max", "200")
         
         // Force MPV to override stylized SSA/ASS subtitles (e.g. anime) so our UI settings apply
         lib.mpv_set_property_string(handle, "sub-ass-override", "force")
@@ -905,9 +920,9 @@ fun ComposeNativeWebPlayer(
                                 pushMetadataToWebView()
                             }
                             "togglePlay" -> {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
-                                }
+                                // Handled directly in C++ fast-path (cycle pause).
+                                // Kotlin must NOT also call cycle pause here — that would double-toggle
+                                // and cancel out the C++ command, making the button appear broken.
                             }
                             "seekTo" -> {
                                 val ms = eventValue.toDoubleOrNull() ?: 0.0
@@ -1019,9 +1034,8 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                             "toggleStats" -> {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_command_string(h, "script-binding stats/display-stats-toggle")
-                                }
+                                // Handled directly in C++ (flips g_statsVisible to gate stats_update messages).
+                                // No native MPV OSD command needed — our WebView panel replaces stats.lua.
                             }
                             "skipScraping" -> {
                                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {

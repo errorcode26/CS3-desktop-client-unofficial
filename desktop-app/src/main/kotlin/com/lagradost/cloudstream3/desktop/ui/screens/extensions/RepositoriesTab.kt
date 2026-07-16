@@ -18,6 +18,8 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
@@ -82,14 +84,14 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
         }
 
         val gridScale by AppearanceConfig.gridScale.collectAsState()
-        val extMinSize = when (gridScale) {
-            "Compact" -> 280.dp
-            "Large" -> 400.dp
-            else -> 340.dp
+        val repoMinSize = when (gridScale) {
+            "Compact" -> 200.dp
+            "Large" -> 300.dp
+            else -> 240.dp
         }
 
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = extMinSize),
+            columns = GridCells.Adaptive(minSize = repoMinSize),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -113,18 +115,28 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 AsyncImage(
                                     model = repo.iconUrl,
                                     contentDescription = null,
-                                    modifier = Modifier.size(48.dp).padding(end = 12.dp),
+                                    modifier = Modifier.padding(end = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                 )
                             } else {
+                                val colorHash = kotlin.math.abs(repo.name.hashCode())
+                                val hue = (colorHash % 360).toFloat()
+                                val avatarColor = androidx.compose.ui.graphics.Color.hsv(hue, 0.6f, 0.8f)
+                                val initial = repo.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                                
                                 Box(
-                                    modifier = Modifier.size(48.dp).padding(end = 12.dp),
+                                    modifier = Modifier
+                                        .padding(end = 12.dp)
+                                        .size(36.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(avatarColor),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Folder,
-                                        contentDescription = "Repository",
-                                        modifier = Modifier.size(32.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    Text(
+                                        text = initial,
+                                        color = androidx.compose.ui.graphics.Color.White,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }

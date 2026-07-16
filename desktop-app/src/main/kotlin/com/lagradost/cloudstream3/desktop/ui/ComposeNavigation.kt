@@ -95,25 +95,31 @@ fun CloudstreamApp() {
                             val isPop = initialState is Screen.Details || initialState is Screen.CategoryGrid
 
                             if (isPush) {
-                                slideIntoContainer(
+                                (slideIntoContainer(
                                     towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) togetherWith
-                                slideOutOfContainer(
-                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = androidx.compose.animation.core.tween(300),
-                                    targetOffset = { it / 3 } // Parallax effect
-                                ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
+                                    animationSpec = androidx.compose.animation.core.tween(350)
+                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350))).togetherWith(
+                                    slideOutOfContainer(
+                                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
+                                        animationSpec = androidx.compose.animation.core.tween(350),
+                                        targetOffset = { it / 3 } // Parallax effect
+                                    ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(350))
+                                ).apply {
+                                    targetContentZIndex = 1f // New screen slides in ON TOP
+                                }
                             } else if (isPop) {
-                                slideIntoContainer(
+                                (slideIntoContainer(
                                     towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
-                                    animationSpec = androidx.compose.animation.core.tween(300),
+                                    animationSpec = androidx.compose.animation.core.tween(350),
                                     initialOffset = { it / 3 } // Parallax effect
-                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) togetherWith
-                                slideOutOfContainer(
-                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
-                                    animationSpec = androidx.compose.animation.core.tween(300)
-                                ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
+                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350))).togetherWith(
+                                    slideOutOfContainer(
+                                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
+                                        animationSpec = androidx.compose.animation.core.tween(350)
+                                    ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(350))
+                                ).apply {
+                                    targetContentZIndex = -1f // New screen (Home) slides in UNDERNEATH the old screen (Details)
+                                }
                             } else {
                                 androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
                                 androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
@@ -123,7 +129,7 @@ fun CloudstreamApp() {
                     ) { targetScreen ->
                         saveableStateHolder.SaveableStateProvider(targetScreen) {
                             when (targetScreen) {
-                                is Screen.Details -> ComposeDetailsScreen(navController, targetScreen.provider, targetScreen.url, targetScreen.preloadedName, targetScreen.preloadedPoster, targetScreen.preloadedBg)
+                                is Screen.Details -> ComposeDetailsScreen(navController, targetScreen.provider, targetScreen.url, targetScreen.preloadedName, targetScreen.preloadedPoster, targetScreen.preloadedBg, targetScreen.autoPlay)
 
                                 is Screen.Home -> DesktopAppShell(
                                     navController = navController,

@@ -43,6 +43,7 @@ class PlayerState {
 
     private var mpvHandle: com.sun.jna.Pointer? = null
     private var lastSeekTime = 0L
+    private var targetSeekMs = -1L
 
     fun attachMpv(handle: com.sun.jna.Pointer) {
         mpvHandle = handle
@@ -65,6 +66,7 @@ class PlayerState {
         isProbing.value = false
         isMuted.value = false
         lastSeekTime = 0L
+        targetSeekMs = -1L
     }
 
     fun togglePlayPause() {
@@ -94,6 +96,7 @@ class PlayerState {
     fun seekTo(positionMs: Long) {
         mpvHandle?.let {
             lastSeekTime = System.currentTimeMillis()
+            targetSeekMs = positionMs
             val posSec = positionMs / 1000.0
             // Use the seek command instead of setting time-pos directly.
             // For HLS with force-seekable=yes, mpv_set_property_string(time-pos) silently
@@ -108,18 +111,36 @@ class PlayerState {
     fun seekBy(offsetMs: Long) {
         mpvHandle?.let {
             lastSeekTime = System.currentTimeMillis()
+            targetSeekMs = this.positionMs.value + offsetMs
             val offsetSec = offsetMs / 1000.0
             MpvLibrary.INSTANCE.mpv_command_string(it, "seek $offsetSec relative")
+            this.positionMs.value = targetSeekMs
         }
     }
 
     // Called by the native event observer loop
-    // Debounced to prevent stale time-pos events in the MPV queue from reverting the slider visually right after a seek.
-    // HLS seek round-trips commonly take 500-800ms on real CDNs, so we use a 1000ms window.
+    // Smart debounced to prevent stale time-pos events from reverting the slider visually right after a seek.
     fun updatePositionFromPlayer(posMs: Long) {
-        if (System.currentTimeMillis() - lastSeekTime > 1000L) {
-            this.positionMs.value = posMs
+        val now = System.currentTimeMillis()
+        if (targetSeekMs != -1L) {
+            // We recently sought to targetSeekMs.
+            // If the player's reported posMs is within 2 seconds of targetSeekMs,
+            // we consider the seek "completed" and resume normal updates.
+            if (kotlin.math.abs(posMs - targetSeekMs) < 2000L) {
+                targetSeekMs = -1L
+            } else if (now - lastSeekTime < 5000L) {
+                // If it's not close to the target, AND we are within a 5-second grace period,
+                // it means the player is still reporting the OLD time or is still buffering.
+                // IGNORE this update to prevent rubber-banding.
+                return
+            } else {
+                // 5 seconds have passed and it's STILL not close to the target.
+                // The seek probably failed, was queued behind another, or we hit EOF. Reset and accept.
+                targetSeekMs = -1L
+            }
         }
+        
+        this.positionMs.value = posMs
     }
 
     fun updateDurationFromPlayer(durMs: Long) {

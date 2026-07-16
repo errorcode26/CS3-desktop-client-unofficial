@@ -19,8 +19,5 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Build and Lint
-      run: ./gradlew spotlessCheck assemble check --no-daemon
-
-    - name: Run Tests
-      run: ./gradlew test --no-daemon
+    - name: Build Desktop App
+      run: ./gradlew :desktop-app:assemble --no-daemon

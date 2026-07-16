@@ -11,6 +11,8 @@ object AppearanceConfig {
     private const val PREF_LAYOUT_WIDTH = "pref_layout_width"
     private const val PREF_SEARCH_BAR_MODE = "pref_search_bar_mode"
     private const val PREF_AMBIENT_GLOW = "pref_ambient_glow"
+    private const val PREF_AMBIENT_GLOW_INTENSITY = "pref_ambient_glow_intensity"
+    private const val PREF_AMBIENT_GLOW_POSITION = "pref_ambient_glow_position"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -19,6 +21,8 @@ object AppearanceConfig {
     val layoutWidth = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_LAYOUT_WIDTH) ?: "Modern")
     val searchBarMode = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_SEARCH_BAR_MODE) ?: "Always Visible")
     val ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
+    val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
+    val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
 
     fun setThemeAccent(colorName: String) {
         themeAccent.value = colorName
@@ -53,5 +57,22 @@ object AppearanceConfig {
     fun setAmbientGlowEnabled(enabled: Boolean) {
         ambientGlowEnabled.value = enabled
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW, enabled)
+    }
+
+    fun setAmbientGlowIntensity(intensity: Float) {
+        ambientGlowIntensity.value = intensity
+        DesktopDataStore.setKey(PREF_AMBIENT_GLOW_INTENSITY, intensity)
+    }
+
+    fun toggleAmbientGlowPosition(position: String) {
+        val current = ambientGlowPositions.value.toMutableSet()
+        if (current.contains(position)) {
+            current.remove(position)
+        } else {
+            current.add(position)
+        }
+        if (current.isEmpty()) current.add("Center")
+        ambientGlowPositions.value = current
+        DesktopDataStore.setKey(PREF_AMBIENT_GLOW_POSITION, current.joinToString(","))
     }
 }

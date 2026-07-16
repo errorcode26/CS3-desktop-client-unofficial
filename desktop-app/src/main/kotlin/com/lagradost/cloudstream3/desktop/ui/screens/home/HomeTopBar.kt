@@ -310,7 +310,16 @@ fun ProviderSelectionOverlay(
                     ) {
                         items(filteredProviders.size) { index ->
                             val provider = filteredProviders[index]
-                            val iconUrl = mergedPluginIcons[provider.name] // Fix: Use correct fuzzy match if needed, but passing mergedPluginIcons is enough
+                            
+                            // Fuzzy match function reused for the selector list
+                            val pName = provider.name.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+                            val iconUrl = mergedPluginIcons[provider.name] ?: mergedPluginIcons.entries.firstOrNull { (k, _) ->
+                                val kName = k.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+                                if (kName.length >= 3) {
+                                    pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
+                                } else false
+                            }?.value
+
                             val isProviderSelected = provider.name == selectedProvider?.name
 
                             Row(

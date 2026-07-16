@@ -70,7 +70,7 @@ object PluginBytecodeTransformer {
                                         descriptor: String,
                                         isInterface: Boolean,
                                     ) {
-                                        if (methodName != "<init>" && isUIClass(owner)) {
+                                        if (methodName != "<init>" && isUIClass(owner) && methodName != "getSharedPreferences") {
                                             val argTypes = Type.getArgumentTypes(descriptor)
                                             val retType = Type.getReturnType(descriptor)
 

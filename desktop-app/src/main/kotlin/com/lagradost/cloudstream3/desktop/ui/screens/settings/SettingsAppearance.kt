@@ -12,6 +12,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun SettingsAppearance() {
@@ -19,7 +21,11 @@ fun SettingsAppearance() {
     val amoledMode by AppearanceConfig.amoledMode.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
+    val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
+    val layoutWidth by AppearanceConfig.layoutWidth.collectAsState()
+    val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
 
     val accentColors = listOf(
         "Purple" to Color(0xFF7C6BFF),
@@ -29,170 +35,143 @@ fun SettingsAppearance() {
         "Orange" to Color(0xFFF59E0B),
     )
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Text("Appearance Settings", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Theme Color Picker
-        Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            accentColors.forEach { (name, color) ->
-                val isSelected = themeAccent == name
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                        .clickable { AppearanceConfig.setThemeAccent(name) },
-                ) {
-                    if (isSelected) {
+    Column(
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // --- Group 1: Theme & Colors ---
+        SettingsGroupCard(title = "Theme & Colors") {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    accentColors.forEach { (name, color) ->
+                        val isSelected = themeAccent == name
                         Box(
                             modifier = Modifier
-                                .size(16.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
-                                .align(Alignment.Center),
-                        )
+                                .background(color)
+                                .clickable { AppearanceConfig.setThemeAccent(name) },
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                        .align(Alignment.Center),
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Light Theme Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Light Theme", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                Text("Use a bright white interface", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            SettingsToggleItem(
+                label = "Light Theme",
+                subtitle = "Use a bright white interface",
                 checked = isLightMode,
                 onCheckedChange = {
                     AppearanceConfig.setLightMode(it)
                     if (it) AppearanceConfig.setAmoledMode(false)
-                },
-                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                }
             )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // AMOLED Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("AMOLED Mode", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                Text("Pure black background for OLED screens", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(
+            
+            SettingsToggleItem(
+                label = "AMOLED Mode",
+                subtitle = "Pure black background for OLED screens",
                 checked = amoledMode,
                 onCheckedChange = {
                     AppearanceConfig.setAmoledMode(it)
                     if (it) AppearanceConfig.setLightMode(false)
-                },
-                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                }
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Ambient Glow Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Ambient Glow", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                Text("Adds a subtle, theme-colored gradient background", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(
+        // --- Group 2: Cinematic Aesthetics ---
+        SettingsGroupCard(title = "Cinematic Aesthetics") {
+            SettingsToggleItem(
+                label = "Ambient Glow",
+                subtitle = "Adds a subtle, theme-colored gradient background",
                 checked = ambientGlowEnabled,
-                onCheckedChange = {
-                    AppearanceConfig.setAmbientGlowEnabled(it)
-                },
-                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary, checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) }
             )
-        }
-
-
-        Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Grid Scale / Poster Size
-        Text("Poster Size", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-        Text("Adjust the size of posters on the home screen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf("Compact" to "Compact", "Normal" to "Normal", "Large" to "Large").forEach { (id, label) ->
-                FilterChip(
-                    selected = gridScale == id,
-                    onClick = { AppearanceConfig.setGridScale(id) },
-                    label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = Color.White,
-                    ),
+            
+            if (ambientGlowEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                
+                SettingsSliderItem(
+                    label = "Intensity",
+                    subtitle = "Adjust how bright the background ambient glow is",
+                    value = ambientGlowIntensity,
+                    valueRange = 0.0f..0.5f,
+                    steps = 100,
+                    onValueChange = { AppearanceConfig.setAmbientGlowIntensity(it) }
                 )
+                
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Position", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Center", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right").forEach { pos ->
+                            val isSelected = ambientGlowPositions.contains(pos)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { AppearanceConfig.toggleAmbientGlowPosition(pos) },
+                                label = { Text(pos) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                    enabled = true,
+                                    selected = isSelected
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Layout Width
-        val layoutWidth by AppearanceConfig.layoutWidth.collectAsState()
-        Text("Layout Width", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-        Text("Restrict maximum content width on large monitors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf("Fluid" to "Edge-to-Edge", "Modern" to "Centered", "Compact" to "Narrow").forEach { (id, label) ->
-                FilterChip(
-                    selected = layoutWidth == id,
-                    onClick = { AppearanceConfig.setLayoutWidth(id) },
-                    label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = Color.White,
-                    ),
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Search Bar Mode
-        val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
-        Text("Search Bar Visibility", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-        Text("Control how the search bar appears on the home screen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf("Always Visible" to "Always Visible", "Auto-hide" to "Auto-hide").forEach { (id, label) ->
-                FilterChip(
-                    selected = searchBarMode == id,
-                    onClick = { AppearanceConfig.setSearchBarMode(id) },
-                    label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = Color.White,
-                    ),
-                )
-            }
+        // --- Group 3: Display & Layout ---
+        SettingsGroupCard(title = "Display & Layout") {
+            SettingsChipGroupItem(
+                label = "Poster Size",
+                subtitle = "Adjust the size of posters on the home screen",
+                options = listOf("Compact" to "Compact", "Normal" to "Normal", "Large" to "Large"),
+                selectedValue = gridScale,
+                onSelectionChanged = { AppearanceConfig.setGridScale(it) }
+            )
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            SettingsChipGroupItem(
+                label = "Layout Width",
+                subtitle = "Restrict maximum content width on large monitors",
+                options = listOf("Fluid" to "Edge-to-Edge", "Modern" to "Centered", "Compact" to "Narrow"),
+                selectedValue = layoutWidth,
+                onSelectionChanged = { AppearanceConfig.setLayoutWidth(it) }
+            )
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            SettingsChipGroupItem(
+                label = "Search Bar Visibility",
+                subtitle = "Control how the search bar appears on the home screen",
+                options = listOf("Always Visible" to "Always Visible", "Auto-hide" to "Auto-hide"),
+                selectedValue = searchBarMode,
+                onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) }
+            )
         }
     }
 }

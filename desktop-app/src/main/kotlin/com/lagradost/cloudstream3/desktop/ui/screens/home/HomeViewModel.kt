@@ -209,12 +209,23 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                 }
 
                 // SLOW PATH
-                kotlinx.coroutines.delay(1500)
                 if (provider != null) {
-                    val details = if (!com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache.containsKey(item.url)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.fetchRaw(provider, item.url)
-                    } else {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache[item.url]
+                    var details: com.lagradost.cloudstream3.LoadResponse? = null
+                    var attempt = 0
+                    while (attempt < 3 && details == null) {
+                        try {
+                            kotlinx.coroutines.delay(if (attempt == 0) 1500L else 2000L)
+                            details = if (!com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache.containsKey(item.url)) {
+                                com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.fetchRaw(provider, item.url)
+                            } else {
+                                com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache[item.url]
+                            }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            attempt++
+                            if (attempt >= 3) throw e
+                        }
                     }
 
                     if (details != null) {
@@ -238,7 +249,9 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Ignore background errors
+                // If all retries fail, clear the dummy cache so we can attempt fetching again next time they swipe here
+                HeroCache.cache.remove(cacheKey)
+                heroMetaMap.update { it - item.url }
             }
         }
     }

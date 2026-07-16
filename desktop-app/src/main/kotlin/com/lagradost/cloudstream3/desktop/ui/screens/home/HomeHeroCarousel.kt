@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -38,6 +39,7 @@ import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -85,7 +87,7 @@ fun cleanHeroTitle(raw: String): String {
     androidx.compose.ui.ExperimentalComposeUiApi::class
 )
 @Composable
-fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel: HomeViewModel, onItemClick: (SearchResponse, String?) -> Unit) {
+fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel: HomeViewModel, onItemClick: (SearchResponse, String?, Boolean) -> Unit) {
     if (items.isEmpty()) return
 
     val displayItems = items.take(10)
@@ -150,7 +152,27 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
             .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false }
             .graphicsLayer { clip = false },
     ) {
-        // External bottom bleed removed as it's unnecessary with distinct rounded coverflow cards
+        val currentRealPage = if (displayItems.isNotEmpty()) pagerState.currentPage % displayItems.size else 0
+        val currentItem = displayItems.getOrNull(currentRealPage)
+        val currentMeta = currentItem?.let { heroMetaMap[it.url] }
+        val ambientBg = currentMeta?.backdropUrl ?: provider?.fixUrlNull(currentItem?.posterUrl)
+        
+        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+        
+        // Ambient Glow behind the carousel (disabled in light mode)
+        if (ambientBg != null && !isLightMode) {
+            AsyncImage(
+                model = ambientBg,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = (-40).dp)
+                    .blur(140.dp)
+                    .graphicsLayer { alpha = 0.65f },
+                alignment = Alignment.TopCenter,
+            )
+        }
 
         HorizontalPager(
             state = pagerState,
@@ -224,22 +246,24 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     )
                 }
 
-                // Vertical gradient — darker at the bottom for text and indicators
+                val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+
+                // Vertical gradient — fade only needed in dark/AMOLED to blend into dark bg; none in light mode
                 Box(
                     modifier = Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
                             0.0f to Color.Transparent,
                             0.40f to Color.Transparent,
-                            1.0f to heroFade.copy(alpha = 0.9f),
+                            1.0f to if (isLightMode) Color.Transparent else heroFade.copy(alpha = 0.9f),
                         ),
                     ),
                 )
-                // Horizontal vignette — stronger darkening for text legibility
+                // Horizontal vignette — only in dark/AMOLED for text legibility
                 Box(
                     modifier = Modifier.fillMaxSize().background(
                         Brush.horizontalGradient(
-                            0.0f to heroFade.copy(alpha = 0.85f),
-                            0.35f to heroFade.copy(alpha = 0.5f),
+                            0.0f to if (isLightMode) Color.Transparent else heroFade.copy(alpha = 0.85f),
+                            0.35f to if (isLightMode) Color.Transparent else heroFade.copy(alpha = 0.5f),
                             0.60f to Color.Transparent,
                         ),
                     ),
@@ -271,46 +295,51 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     Column(
                         modifier = Modifier.weight(1f), // Take up remaining space comfortably
                     ) {
-                        // Content-type badge
-                        val displayType = meta?.type ?: item.type
-                        displayType?.let { tvType ->
-                            val typeLabel = when (tvType) {
-                                com.lagradost.cloudstream3.TvType.Movie -> "MOVIE"
-                                com.lagradost.cloudstream3.TvType.TvSeries -> "SERIES"
-                                com.lagradost.cloudstream3.TvType.Anime -> "ANIME"
-                                com.lagradost.cloudstream3.TvType.AnimeMovie -> "ANIME FILM"
-                                com.lagradost.cloudstream3.TvType.Live -> "LIVE"
-                                else -> tvType.name.uppercase()
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.White.copy(alpha = 0.15f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                            ) {
-                                Text(
-                                    typeLabel,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp,
-                                )
-                            }
-                            Spacer(Modifier.height(12.dp))
-                        }
+
 
                         // Title or Logo
+                        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
                         if (!meta?.logoUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = meta!!.logoUrl,
-                                contentDescription = "Logo",
+                            val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.5f)
-                                    .heightIn(max = 120.dp),
-                                contentScale = ContentScale.Fit,
-                                alignment = Alignment.BottomStart
-                            )
+                                    .heightIn(max = 120.dp)
+                                    .then(
+                                        if (isLightMode) {
+                                            Modifier.background(
+                                                Brush.radialGradient(
+                                                    colors = listOf(Color.Black.copy(alpha = 0.25f), Color.Transparent),
+                                                    radius = 300f
+                                                )
+                                            )
+                                        } else Modifier
+                                    ),
+                                contentAlignment = Alignment.BottomStart
+                            ) {
+                                coil3.compose.SubcomposeAsyncImage(
+                                    model = meta!!.logoUrl,
+                                    contentDescription = "Logo",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 120.dp),
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.BottomStart,
+                                    error = {
+                                        if (displayTitle.isNotBlank()) {
+                                            Text(
+                                                text = displayTitle,
+                                                style = MaterialTheme.typography.displayMedium,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                lineHeight = 48.sp,
+                                            )
+                                        }
+                                    }
+                                )
+                            }
                         } else {
                             val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
                             if (displayTitle.isNotBlank()) {
@@ -329,7 +358,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         // Rating & Year
                         Spacer(Modifier.height(10.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (meta?.score != null) {
+                            if (meta?.score != null && meta.score.toDoubleOrNull()?.let { it > 0.0 } == true) {
                                 Icon(
                                     Icons.Default.Star,
                                     contentDescription = "Rating",
@@ -389,15 +418,35 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Button(
-                                onClick = { onItemClick(item, meta?.backdropUrl) },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f), contentColor = Color.White),
+                                onClick = { onItemClick(item, meta?.backdropUrl, true) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isLightMode) MaterialTheme.colorScheme.primary else Color.White,
+                                    contentColor = if (isLightMode) Color.White else Color.Black
+                                ),
                                 shape = RoundedCornerShape(24.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
                                 contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp),
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play / View Details", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("Play Now", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                            
+                            Button(
+                                onClick = { onItemClick(item, meta?.backdropUrl, false) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f),
+                                    contentColor = if (isLightMode) MaterialTheme.colorScheme.onSurface else Color.White
+                                ),
+                                shape = RoundedCornerShape(24.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.5f)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("More Info", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
 
                             val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
@@ -423,13 +472,20 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                 },
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
-                                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                                    .background(
+                                        if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f),
+                                        CircleShape
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.5f),
+                                        CircleShape
+                                    ),
                             ) {
                                 Icon(
-                                    imageVector = if (isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
                                     contentDescription = "Bookmark",
-                                    tint = if (isBookmarked) Color.Red else Color.White,
+                                    tint = if (isBookmarked) MaterialTheme.colorScheme.primary else if (isLightMode) MaterialTheme.colorScheme.onSurface else Color.White,
                                     modifier = Modifier.size(24.dp),
                                 )
                             }
@@ -450,7 +506,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     )
                 }
             },
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape),
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 104.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape),
         ) {
             Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(32.dp))
         }

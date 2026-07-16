@@ -18,6 +18,10 @@ object PluginSettingsSchemaRegistry {
     // Observable flow to trigger UI updates when new settings are detected
     val schemaUpdates = MutableStateFlow(0)
 
+    fun registerPrefName(pluginPrefName: String) {
+        schemas.getOrPut(pluginPrefName) { ConcurrentHashMap() }
+    }
+
     fun register(pluginPrefName: String, key: String, type: String, defaultValue: Any?, isGlobal: Boolean = false) {
         val pluginMap = schemas.getOrPut(pluginPrefName) { ConcurrentHashMap() }
 
@@ -30,11 +34,35 @@ object PluginSettingsSchemaRegistry {
         }
     }
 
-    fun getSettingsForPlugin(pluginPrefName: String): List<PluginSettingSchema> {
-        return schemas[pluginPrefName]?.values?.toList() ?: emptyList()
+    fun resolvePrefName(prefName: String, pluginName: String? = null): String {
+        if (schemas.containsKey(prefName) && schemas[prefName]!!.isNotEmpty()) {
+            return prefName
+        }
+        val withUnderscore = if (prefName.endsWith("_")) prefName else "${prefName}_"
+        if (schemas.containsKey(withUnderscore) && schemas[withUnderscore]!!.isNotEmpty()) {
+            return withUnderscore
+        }
+
+        val cleanPref = prefName.removeSuffix("_")
+        val cleanName = pluginName?.removeSuffix("_") ?: ""
+
+        val allKeys = schemas.keys
+        val match = allKeys.firstOrNull { cleanName.isNotEmpty() && schemas[it]?.isNotEmpty() == true && cleanName.contains(it.removeSuffix("_"), ignoreCase = true) }
+            ?: allKeys.firstOrNull { schemas[it]?.isNotEmpty() == true && cleanPref.contains(it.removeSuffix("_"), ignoreCase = true) }
+            ?: allKeys.firstOrNull { schemas[it]?.isNotEmpty() == true && it.removeSuffix("_").contains(cleanPref, ignoreCase = true) }
+            ?: allKeys.firstOrNull { cleanName.isNotEmpty() && cleanName.contains(it.removeSuffix("_"), ignoreCase = true) }
+            ?: allKeys.firstOrNull { cleanPref.contains(it.removeSuffix("_"), ignoreCase = true) }
+            ?: prefName
+        return match
     }
 
-    fun hasSettings(pluginPrefName: String): Boolean {
-        return schemas.containsKey(pluginPrefName) && schemas[pluginPrefName]!!.isNotEmpty()
+    fun getSettingsForPlugin(pluginPrefName: String, pluginName: String? = null): List<PluginSettingSchema> {
+        val resolved = resolvePrefName(pluginPrefName, pluginName)
+        return schemas[resolved]?.values?.toList() ?: emptyList()
+    }
+
+    fun hasSettings(pluginPrefName: String, pluginName: String? = null): Boolean {
+        val resolved = resolvePrefName(pluginPrefName, pluginName)
+        return schemas.containsKey(resolved) && schemas[resolved]!!.isNotEmpty()
     }
 }

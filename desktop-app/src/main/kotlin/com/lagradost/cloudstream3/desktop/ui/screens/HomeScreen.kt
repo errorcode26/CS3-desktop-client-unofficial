@@ -116,8 +116,8 @@ fun ComposeHomeScreen(
                                     onViewAll = { provider, title, items ->
                                         navController.navigate(Screen.CategoryGrid(provider, title, items))
                                     },
-                                    onItemClick = { provider, item, backdrop ->
-                                        navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop))
+                                    onItemClick = { provider, item, backdrop, autoPlay ->
+                                        navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop, autoPlay))
                                     },
                                 )
                         }
@@ -135,8 +135,8 @@ fun ComposeHomeScreen(
                                     onViewAll = { provider, title, items ->
                                         navController.navigate(Screen.CategoryGrid(provider, title, items))
                                     },
-                                    onItemClick = { provider, item, backdrop ->
-                                        navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop))
+                                    onItemClick = { provider, item, backdrop, autoPlay ->
+                                        navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop, autoPlay))
                                     },
                                 )
                             }

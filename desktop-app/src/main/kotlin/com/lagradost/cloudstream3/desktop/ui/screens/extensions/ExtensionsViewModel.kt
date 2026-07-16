@@ -169,10 +169,18 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
             for (plugin in plugins) {
                 try {
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
+                    
+                    // Windows file lock release workaround
+                    System.gc()
+                    kotlinx.coroutines.delay(100)
+                    
                     val parentDir = plugin.file.parentFile
-                    plugin.file.delete()
-                    File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar").delete()
-                    File(parentDir, plugin.file.nameWithoutExtension + ".dex").delete()
+                    val cs3Deleted = plugin.file.delete()
+                    val jvmDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar").delete()
+                    val dexDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + ".dex").delete()
+                    
+                    com.lagradost.common.logging.AppLogger.i("Uninstalled ${plugin.name}: cs3=$cs3Deleted, jvm=$jvmDeleted, dex=$dexDeleted")
+                    
                     if (parentDir != null && parentDir.listFiles()?.isEmpty() == true) {
                         parentDir.delete()
                     }

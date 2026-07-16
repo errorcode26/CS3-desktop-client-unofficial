@@ -37,48 +37,60 @@ import com.lagradost.player.impl.PlayerLinkHandler
 @Composable
 fun EpisodeCard(ep: Episode, isLatest: Boolean, history: WatchHistory?, provider: MainAPI, data: LoadResponse, onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit) {
     var isHovered by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(200))
-    val elevation by animateDpAsState(if (isHovered) 8.dp else 2.dp, animationSpec = tween(200))
+    val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
+    val overlayAlpha by animateFloatAsState(if (isHovered) 1f else 0f, tween(180))
 
-    Surface(
-        modifier = Modifier
+    val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
+    val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
+
+    val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
+    val titleCleaned = rawTitle
+        .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
+        .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
+        .trim()
+    val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
+
+    val progress = if (history != null && history.duration > 0) {
+        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
+        else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    val epRunTime = ep.runTime ?: data.duration
+    val runTimeStr = epRunTime?.let { if (it > 300) "${it / 60}m" else "${it}m" }
+
+    Box(
+        modifier = androidx.compose.ui.Modifier
             .fillMaxWidth()
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        isHovered = event.type == androidx.compose.ui.input.pointer.PointerEventType.Enter
-                        if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Exit) {
-                            isHovered = false
+                        when (event.type) {
+                            androidx.compose.ui.input.pointer.PointerEventType.Enter -> isHovered = true
+                            androidx.compose.ui.input.pointer.PointerEventType.Exit -> isHovered = false
                         }
                     }
                 }
             }
             .scale(scale)
+            .clip(RoundedCornerShape(12.dp))
             .clickable { navigateToPlay(provider, data, ep, onPlay) },
-        color = Color.White.copy(alpha = 0.04f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = if (isHovered) androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)) else null,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-        ) {
-            val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
-            val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
-
-            Box {
+        Column {
+            // ── 16:9 Thumbnail ──────────────────────────────────────────────────────
+            Box(
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f),
+            ) {
+                // Background image
                 if (epImg != null || fallbackImg != null) {
                     SubcomposeAsyncImage(
                         model = epImg ?: fallbackImg,
                         contentDescription = ep.name,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(8.dp))
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxSize()
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         loading = {
                             if (fallbackImg != null) {
@@ -86,7 +98,7 @@ fun EpisodeCard(ep: Episode, isLatest: Boolean, history: WatchHistory?, provider
                                     model = fallbackImg,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize().blur(8.dp)
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(8.dp)
                                 )
                             }
                         },
@@ -96,163 +108,174 @@ fun EpisodeCard(ep: Episode, isLatest: Boolean, history: WatchHistory?, provider
                                     model = fallbackImg,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize()
                                 )
                             } else {
                                 Box(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = androidx.compose.ui.Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = androidx.compose.ui.Modifier.size(40.dp))
                                 }
                             }
                         }
                     )
                 } else {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(8.dp))
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxSize()
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = androidx.compose.ui.Modifier.size(40.dp))
                     }
                 }
 
-                // Top Left: Episode Number Badge
+                // Bottom gradient scrim for readability
+                Box(
+                    modifier = androidx.compose.ui.Modifier
+                        .fillMaxSize()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0.0f to Color.Transparent,
+                                0.5f to Color.Transparent,
+                                1.0f to Color.Black.copy(alpha = 0.65f),
+                            )
+                        )
+                )
+
+                // Top-left: Episode number badge
                 ep.episode?.let { epNum ->
                     Box(
-                        modifier = Modifier
+                        modifier = androidx.compose.ui.Modifier
                             .align(Alignment.TopStart)
                             .padding(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.7f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                if (isLatest) MaterialTheme.colorScheme.primary
+                                else Color.Black.copy(alpha = 0.72f)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
                             text = "E$epNum",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold,
                         )
                     }
                 }
 
-                // Bottom Right: Runtime & Rating
+                // Top-right: runtime + rating
                 Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                    modifier = androidx.compose.ui.Modifier
+                        .align(Alignment.TopEnd)
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    ep.score?.let { score ->
-                        val ratingText = "⭐ %.1f".format(score.toFloat(10))
+                    ep.score?.takeIf { it.toFloat(10) > 0f }?.let { score ->
                         Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = 0.7f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = androidx.compose.ui.Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.Black.copy(alpha = 0.72f))
+                                .padding(horizontal = 7.dp, vertical = 3.dp)
                         ) {
-                            Text(
-                                text = ratingText,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text("⭐ %.1f".format(score.toFloat(10)), style = MaterialTheme.typography.labelMedium, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
-                    val epRunTime = ep.runTime ?: data.duration
-                    epRunTime?.let { rt ->
-                        val runTimeStr = if (rt > 300) "${rt / 60}m" else "${rt}m"
+                    runTimeStr?.let {
                         Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = 0.7f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = androidx.compose.ui.Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.Black.copy(alpha = 0.72f))
+                                .padding(horizontal = 7.dp, vertical = 3.dp)
                         ) {
-                            Text(
-                                text = runTimeStr,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text(it, style = MaterialTheme.typography.labelMedium, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                // Play Button Overlay (Fades in on hover)
-                val overlayAlpha by animateFloatAsState(if (isHovered) 1f else 0f, tween(200))
-                if (overlayAlpha > 0f) {
+                // Hover play button (matches WatchHistoryCard exactly)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isHovered,
+                    modifier = androidx.compose.ui.Modifier.matchParentSize(),
+                    enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)),
+                    exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+                ) {
                     Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black.copy(alpha = 0.4f * overlayAlpha)),
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.35f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.2f * overlayAlpha))
-                                .border(1.dp, Color.White.copy(alpha = 0.5f * overlayAlpha), CircleShape),
-                            contentAlignment = Alignment.Center
+                            modifier = androidx.compose.ui.Modifier
+                                .size(56.dp)
+                                .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                                .border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Icon(
                                 Icons.Default.PlayArrow,
                                 contentDescription = "Play",
-                                tint = Color.White.copy(alpha = overlayAlpha),
-                                modifier = Modifier.size(32.dp)
+                                tint = Color.White,
+                                modifier = androidx.compose.ui.Modifier.size(32.dp),
                             )
                         }
                     }
                 }
+
+                // Bottom progress bar (inline, at very bottom of thumbnail)
+                if (progress > 0f) {
+                    Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.2f))
+                    ) {
+                        Box(
+                            modifier = androidx.compose.ui.Modifier
+                                .fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
-
-            // Clean up titles that have generic prefixes like "E1 - ", "Episode 1: ", etc.
-            val titleCleaned = rawTitle
-                .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
-                .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
-                .trim()
-            val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
-
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+            // ── Text block below thumbnail ───────────────────────────────────────
+            Column(
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.0f))
+                    .padding(horizontal = 2.dp, vertical = 10.dp),
+            ) {
                 Text(
                     text = finalTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = if (isLatest) FontWeight.ExtraBold else FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (isLatest) FontWeight.ExtraBold else FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    color = if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
-            }
-            ep.description?.let {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (history != null && history.duration > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                com.lagradost.cloudstream3.desktop.ui.components.WatchProgressIndicator(
-                    position = history.position,
-                    duration = history.duration,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                ep.description?.let {
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(3.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
 }
+
 
 fun navigateToPlay(provider: MainAPI, data: LoadResponse, ep: Episode, onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit) {
     val parentId = DesktopDataStore.watchHistoryId(

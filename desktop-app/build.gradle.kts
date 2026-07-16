@@ -96,7 +96,7 @@ compose.desktop {
 
         nativeDistributions {
             // Windows only — no Mac or Linux targets
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.AppImage)
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "CloudStream-Desktop"
             packageVersion = "0.1.2"
             description = "CloudStream Desktop Client"

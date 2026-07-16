@@ -150,3 +150,6 @@ temp_ext/
 .agents/
 exe_test_err.txt
 exe_test_out.txt
+
+# Documentation
+docs/

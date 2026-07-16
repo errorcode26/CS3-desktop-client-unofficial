@@ -24,18 +24,41 @@ object ExtensionLoader {
 
     // Map class loader to plugin name
     val classLoaders: MutableMap<ClassLoader, String> = java.util.concurrent.ConcurrentHashMap()
+    
+    // Map class loader to jar file
+    val classLoaderToJar: MutableMap<ClassLoader, File> = java.util.concurrent.ConcurrentHashMap()
+
+    // Map class loader to class names loaded from its jar
+    val classLoaderToClassNames: MutableMap<ClassLoader, Set<String>> = java.util.concurrent.ConcurrentHashMap()
 
     fun getCallingPluginName(): String? {
+        try {
+            val walker = java.lang.StackWalker.getInstance(java.lang.StackWalker.Option.RETAIN_CLASS_REFERENCE)
+            val name = walker.walk { stream ->
+                stream.map { it.declaringClass }
+                    .filter { clazz ->
+                        val loader = clazz.classLoader
+                        loader != null && classLoaders.containsKey(loader)
+                    }
+                    .map { clazz -> classLoaders[clazz.classLoader] }
+                    .findFirst()
+                    .orElse(null)
+            }
+            if (name != null) return name
+        } catch (e: Throwable) {
+            // Ignored, fallback below
+        }
+
         val stackTrace = Thread.currentThread().stackTrace
         for (element in stackTrace) {
             val className = element.className
             if (className.startsWith("com.lagradost.") || className.startsWith("java.") || className.startsWith("kotlin.")) continue
 
             for ((loader, name) in classLoaders) {
-                try {
-                    val clazz = Class.forName(className, false, loader)
-                    if (clazz.classLoader == loader) return name
-                } catch (e: ClassNotFoundException) {}
+                val classes = classLoaderToClassNames[loader]
+                if (classes != null && classes.contains(className)) {
+                    return name
+                }
             }
         }
         return null
@@ -136,6 +159,132 @@ object ExtensionLoader {
 
             val instance = pluginClass.getDeclaredConstructor().newInstance() as BasePlugin
             classLoaders[classLoader] = finalInternalName
+            classLoaderToJar[classLoader] = jarFile
+
+            val classNames = mutableSetOf<String>()
+            try {
+                ZipFile(jarToLoad).use { zip ->
+                    val entries = zip.entries()
+                    while (entries.hasMoreElements()) {
+                        val entry = entries.nextElement()
+                        if (entry.name.endsWith(".class")) {
+                            val cName = entry.name.removeSuffix(".class").replace("/", ".")
+                            classNames.add(cName)
+                        }
+                    }
+                }
+            } catch (t: Throwable) {
+                // Ignore zip errors
+            }
+            classLoaderToClassNames[classLoader] = classNames
+            
+            // Proactively scan for any Android XML preferences and populate schema registry
+            scanAllXmlPreferences(jarToLoad, finalInternalName)
+
+            if (finalInternalName == "CineStream") {
+                try {
+                    val registryClass = classLoader.loadClass("com.megix.ProviderRegistry")
+                    val instanceField = registryClass.getField("INSTANCE")
+                    val registryInstance = instanceField.get(null)
+                    val getBuiltInProvidersMethod = registryClass.getMethod("getBuiltInProviders")
+                    val providers = getBuiltInProvidersMethod.invoke(registryInstance) as List<*>
+
+                    for (provider in providers) {
+                        val getKeyMethod = provider!!.javaClass.getMethod("getKey")
+                        val key = getKeyMethod.invoke(provider) as String
+
+                        com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                            pluginPrefName = "CineStream_",
+                            key = key,
+                            type = "String",
+                            defaultValue = "false",
+                            isGlobal = false
+                        )
+                    }
+                    AppLogger.i("CineStream: Proactively registered ${providers.size} sub-providers in settings registry.")
+                } catch (e: Exception) {
+                    AppLogger.e("CineStream: Failed to proactively register sub-providers", e)
+                }
+            }
+
+            if (finalInternalName == "StreamPlay") {
+                try {
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "use_trakt_source",
+                        type = "Boolean",
+                        defaultValue = false,
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "provider_concurrency",
+                        type = "Int",
+                        defaultValue = -1,
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "enabled_plugins_saved",
+                        type = "StringSet",
+                        defaultValue = setOf("StreamPlay", "StreamPlay-Anime"),
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "streamplay_stremio_saved_links",
+                        type = "String",
+                        defaultValue = "",
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "streamplay_stremio_addon_saved_links",
+                        type = "String",
+                        defaultValue = "",
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "wyzie_key",
+                        type = "String",
+                        defaultValue = "",
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "tmdb_language_code",
+                        type = "String",
+                        defaultValue = "en-US",
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "token",
+                        type = "String",
+                        defaultValue = "",
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "disabled_providers",
+                        type = "StringSet",
+                        defaultValue = emptySet<String>(),
+                        isGlobal = false
+                    )
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "StreamPlay_",
+                        key = "provider_profiles",
+                        type = "String",
+                        defaultValue = "",
+                        isGlobal = false
+                    )
+                    AppLogger.i("StreamPlay: Proactively registered settings keys.")
+                } catch (e: Exception) {
+                    AppLogger.e("StreamPlay: Failed to proactively register settings keys", e)
+                }
+            }
+            
             instance
         }
 
@@ -201,6 +350,8 @@ object ExtensionLoader {
         val classLoader = plugin.javaClass.classLoader
         if (classLoader != null) {
             classLoaders.remove(classLoader) // Fix Metaspace Leak!
+            classLoaderToJar.remove(classLoader)
+            classLoaderToClassNames.remove(classLoader)
             if (classLoader is URLClassLoader) {
                 try {
                     classLoader.close()
@@ -270,6 +421,107 @@ object ExtensionLoader {
                 }
             }
         return loaded
+    }
+
+    @JvmStatic
+    fun parsePluginPreferences(fragment: Any, resId: Int) {
+        try {
+            val classLoader = fragment.javaClass.classLoader
+            val jarFile = classLoaderToJar[classLoader] ?: return
+            val pluginPrefName = classLoaders[classLoader] ?: return
+            
+            scanAllXmlPreferences(jarFile, pluginPrefName)
+        } catch (e: Exception) {
+            AppLogger.e("Failed to parse plugin preferences", e)
+        }
+    }
+
+    @JvmStatic
+    fun scanAllXmlPreferences(jarFile: java.io.File, pluginPrefName: String) {
+        val finalPrefName = pluginPrefName + "_"
+        try {
+            val jvmJar = java.io.File(jarFile.parentFile, jarFile.nameWithoutExtension.removeSuffix("-jvm") + "-jvm.jar")
+            val scanTarget = if (jvmJar.exists()) jvmJar else jarFile
+            com.lagradost.runtime.loader.utils.PluginSettingsScanner.scanJarForSettings(pluginPrefName, scanTarget)
+            AppLogger.i("Scanning all XML preferences for $finalPrefName from ${scanTarget.absolutePath}")
+
+            var apkFileLazy: net.dongliu.apk.parser.ApkFile? = null
+
+            java.util.zip.ZipFile(jarFile).use { zip ->
+                val xmlEntries = zip.entries().toList().filter { it.name.startsWith("res/xml/") && it.name.endsWith(".xml") }
+                for (entry in xmlEntries) {
+                    val path = entry.name
+                    AppLogger.i("Found XML path: $path")
+                    
+                    try {
+                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+                        var xmlString = String(bytes, Charsets.UTF_8)
+                        
+                        // Check if it's likely a binary XML (binary XML typically doesn't start with human-readable '<')
+                        if (!xmlString.trimStart().startsWith("<")) {
+                            if (apkFileLazy == null) {
+                                try {
+                                    apkFileLazy = net.dongliu.apk.parser.ApkFile(jarFile)
+                                } catch (e: Exception) {
+                                    AppLogger.i("Failed to init ApkFile for binary XML decoding: ${e.message}")
+                                }
+                            }
+                            if (apkFileLazy != null) {
+                                xmlString = apkFileLazy!!.transBinaryXml(path) ?: ""
+                            }
+                        }
+
+                        if (xmlString.isNullOrEmpty()) continue
+            
+                        val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+                        val builder = factory.newDocumentBuilder()
+                        val document = builder.parse(org.xml.sax.InputSource(java.io.StringReader(xmlString)))
+                        
+                        val nodeList = document.getElementsByTagName("*")
+                        for (i in 0 until nodeList.length) {
+                            val node = nodeList.item(i)
+                            if (node.nodeType == org.w3c.dom.Node.ELEMENT_NODE) {
+                                val element = node as org.w3c.dom.Element
+                                val key = element.getAttribute("android:key")
+                                if (key.isNotEmpty()) {
+                                    val defValueStr = element.getAttribute("android:defaultValue")
+                                    var type = "String"
+                                    var defValue: Any = defValueStr
+
+                                    when (element.tagName) {
+                                        "CheckBoxPreference", "SwitchPreference", "SwitchPreferenceCompat" -> {
+                                            type = "Boolean"
+                                            defValue = defValueStr.equals("true", ignoreCase = true)
+                                        }
+                                        "EditTextPreference", "ListPreference" -> {
+                                            type = "String"
+                                        }
+                                        else -> {
+                                            if (defValueStr.equals("true", ignoreCase = true) || defValueStr.equals("false", ignoreCase = true)) {
+                                                type = "Boolean"
+                                                defValue = defValueStr.equals("true", ignoreCase = true)
+                                            } else if (defValueStr.toIntOrNull() != null) {
+                                                type = "Int"
+                                                defValue = defValueStr.toInt()
+                                            }
+                                        }
+                                    }
+                                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                                        finalPrefName, key, type, defValue, false
+                                    )
+                                    AppLogger.i("Registered XML plugin setting: $finalPrefName -> $key ($type = $defValue)")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e("Failed to parse XML path $path", e)
+                    }
+                }
+            }
+            apkFileLazy?.close()
+        } catch (e: Exception) {
+            AppLogger.e("Failed to parse plugin preferences", e)
+        }
     }
 }
 

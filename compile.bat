@@ -22,7 +22,7 @@ IF NOT EXIST "android-reference\settings.gradle.kts" (
     )
 )
 
-call gradlew :desktop-app:createDistributable
+call gradlew clean :desktop-app:createDistributable
 
 if %errorlevel% neq 0 (
     echo.

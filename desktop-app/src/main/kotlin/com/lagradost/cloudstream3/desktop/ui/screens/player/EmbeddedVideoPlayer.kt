@@ -51,7 +51,7 @@ fun EmbeddedVideoPlayer(
         mutableIntStateOf(actualLaunchData.initialIndex)
     }
 
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var failedLinks by remember { mutableStateOf(setOf<Int>()) }
     var showSources by remember { mutableStateOf(false) }
     var isFinished by remember { mutableStateOf(false) }
@@ -70,18 +70,19 @@ fun EmbeddedVideoPlayer(
     var lastSavedHistory by remember { mutableStateOf(actualLaunchData.history) }
 
     // Reset all playback state when a new episode loads
-    LaunchedEffect(actualLaunchData) {
+    LaunchedEffect(actualLaunchData.history.episodeId) {
         if (lastDurationSec > 0 && lastPositionSec > 0) {
             val updatedHistory = lastSavedHistory.copy(
                 position = lastPositionSec,
                 duration = lastDurationSec,
                 updateTime = System.currentTimeMillis(),
             )
-            DesktopDataStore.setLastWatched(updatedHistory)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                DesktopDataStore.setLastWatched(updatedHistory)
+            }
         }
         lastSavedHistory = actualLaunchData.history
 
-        isLoading = true
         lastPositionSec = actualLaunchData.startPositionMs / 1000L
         lastDurationSec = actualLaunchData.history.duration
         lastSavedPositionSec = actualLaunchData.startPositionMs / 1000L
@@ -98,7 +99,6 @@ fun EmbeddedVideoPlayer(
 
     // Reset loading spinner + player state when switching between sources
     LaunchedEffect(currentLinkIndex) {
-        isLoading = true
         playerState.reset()
     }
 
@@ -110,8 +110,11 @@ fun EmbeddedVideoPlayer(
                     duration = lastDurationSec,
                     updateTime = System.currentTimeMillis(),
                 )
-                DesktopDataStore.setLastWatched(updatedHistory)
+                com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    DesktopDataStore.setLastWatched(updatedHistory)
+                }
             }
+            playerState.detachMpv()
         }
     }
 
@@ -204,7 +207,7 @@ fun EmbeddedVideoPlayer(
                         currentLinkIndex = currentLinkIndex,
                         episodes = episodes,
                         currentEpisodeId = actualLaunchData.history.episodeId,
-                        isLoading = isLoading || viewModel.isLoadingNextEpisode.value,
+                        isLoading = isLoading || isLoadingNextEpisode,
                         isProbing = !isExiting && isProbingOverlay,
                         failedLinks = failedLinks,
                         backdropUrl = backdropUrl,
@@ -221,6 +224,9 @@ fun EmbeddedVideoPlayer(
                                 if (targetEp != null) {
                                     viewModel.loadEpisode(targetEp)
                                 }
+                            },
+                            onNextEpisode = {
+                                viewModel.loadNextEpisode()
                             },
                             onPlaybackReady = {
                                 isLoading = false

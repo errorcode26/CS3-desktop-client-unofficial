@@ -38,7 +38,7 @@ fun HomeCategorySection(
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.HomeViewModel,
     afterHeroContent: @Composable () -> Unit = {},
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
-    onItemClick: (MainAPI, SearchResponse, String?) -> Unit,
+    onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
 ) {
     val cacheKey = "${provider.name}_${pageData.name}"
     var homePage by remember(cacheKey) { mutableStateOf<HomePageResponse?>(categoryCache[cacheKey]) }
@@ -117,7 +117,7 @@ fun HomeCategorySection(
                         items = section.list,
                         provider = provider,
                         viewModel = viewModel,
-                        onItemClick = { item, backdrop -> onItemClick(provider, item, backdrop) },
+                        onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
                     )
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Box(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
@@ -128,9 +128,20 @@ fun HomeCategorySection(
                     val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
                     val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
 
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Column(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
-                            if (showLargeHeader) {
+                    // Calculate horizontal padding so items align with the constrained header.
+                    // The LazyRow itself fills full width (no clipping), using contentPadding
+                    // to indent items. This way edge cards are never cut off.
+                    val rowPadding = if (maxWidthConstraint == androidx.compose.ui.unit.Dp.Unspecified) {
+                        androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                    } else {
+                        // Let Compose compute the side insets reactively
+                        androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                    }
+
+                    // Header row — constrained to maxWidthConstraint and centered
+                    if (showLargeHeader) {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Column(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
                                 Text(
                                     text = pageData.name,
                                     style = MaterialTheme.typography.headlineSmall,
@@ -139,13 +150,25 @@ fun HomeCategorySection(
                                     modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 0.dp),
                                 )
                             }
+                        }
+                    }
 
-                            val isLoop = section.list.size >= 4
+                    val isLoop = section.list.size >= 4
+
+                    // The category row header (title + chevrons) is constrained; the LazyRow
+                    // extends full-width with BoxWithConstraints-derived padding so items align.
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
+                            // Compute how much horizontal inset the list needs so that when
+                            // the window is wider than maxWidthConstraint, items still start
+                            // at the same x as the header text.
+                            val constrainedWidth = this.maxWidth
                             CategoryRowWithHeader(
                                 title = titleStr,
                                 itemCount = section.list.size,
                                 isInfinite = isLoop,
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
+                                rowContentPadding = PaddingValues(horizontal = 4.dp),
                             ) {
                                 items(
                                     count = if (isLoop) Int.MAX_VALUE else section.list.size,
@@ -159,7 +182,7 @@ fun HomeCategorySection(
                                     PosterCard(
                                         item = posterItem,
                                         provider = provider,
-                                        onClick = { onItemClick(provider, posterItem, null) },
+                                        onClick = { onItemClick(provider, posterItem, null, false) },
                                     )
                                 }
                             }

@@ -37,9 +37,9 @@ fun ExtensionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth().heightIn(min = 100.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
     ) {
         Row(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -57,7 +57,7 @@ fun ExtensionCard(
                 AsyncImage(
                     model = iconUrl,
                     contentDescription = null,
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).padding(end = 16.dp),
+                    modifier = Modifier.padding(end = 16.dp).size(56.dp).clip(RoundedCornerShape(14.dp)),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 )
             } else {
@@ -70,8 +70,8 @@ fun ExtensionCard(
                 Box(
                     modifier = Modifier
                         .padding(end = 16.dp)
-                        .size(40.dp) // Match the visual size of the image minus padding
-                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(avatarColor),
                     contentAlignment = Alignment.Center,
                 ) {

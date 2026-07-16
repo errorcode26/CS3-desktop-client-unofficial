@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -74,27 +76,11 @@ fun PosterCard(
                 .aspectRatio(2f / 3f),
         ) {
             if (imgUrl != null) {
-                // Blurred background fill — same image, blurred and desaturated
-                // so the letterbox area matches the poster colours, not black
-                AsyncImage(
-                    model = imgUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .blur(24.dp),
-                )
-                // Dark overlay to tone down the blur
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.55f)),
-                )
-                // Actual poster — Fit so the full image is visible, no cropping
+                // Actual poster — Crop to fill the entire box
                 AsyncImage(
                     model = imgUrl,
                     contentDescription = item.name,
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -110,6 +96,31 @@ fun PosterCard(
                         color = DesktopUi.Accent,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isHovered,
+                enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) + 
+                        androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) + 
+                       androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp).padding(start = 2.dp)
                     )
                 }
             }
@@ -148,10 +159,11 @@ fun PosterCard(
                         .size(32.dp),
                 ) {
                     Icon(
-                        imageVector = if (isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
                         contentDescription = "Bookmark",
-                        tint = if (isBookmarked) Color.Red else Color.White,
-                        modifier = Modifier.size(18.dp),
+                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.White,
+                        modifier = Modifier
+                            .size(24.dp)
                     )
                 }
             }
@@ -229,181 +241,194 @@ fun WatchHistoryCard(
     onRemove: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    
-    val gridScale by AppearanceConfig.gridScale.collectAsState()
-    val baseWidth = when (gridScale) {
-        "Compact" -> 150.dp
-        "Large" -> 220.dp
-        else -> 190.dp
-    }
-    
-    // Adjusted dimensions to match the exact height of standard posters
-    val cardHeight = baseWidth * 1.5f
-    val cardWidth = baseWidth * 2.2f
+    val shape = RoundedCornerShape(16.dp)
 
-    Surface(
+    val gridScale by AppearanceConfig.gridScale.collectAsState()
+    // Landscape card configuration
+    val cardWidth = when (gridScale) {
+        "Compact" -> 240.dp
+        "Large" -> 340.dp
+        else -> 280.dp
+    }
+    val cardHeight = cardWidth * 0.65f
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isHovered) 1.03f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "scale",
+    )
+
+    val progress = if (history.duration > 0) {
+        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
+        else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    val isSeries = history.season != null || history.episode != null
+    val seText = if (isSeries) {
+        listOf(
+            history.season?.let { "S$it" } ?: "",
+            history.episode?.let { "E$it" } ?: "",
+        ).filter { it.isNotBlank() }.joinToString(" ")
+    } else ""
+
+    Box(
         modifier = modifier
             .width(cardWidth)
             .height(cardHeight)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
+            .hoverable(interactionSource)
             .clickable(onClick = onClick),
-        shape = shape,
-        color = DesktopUi.SurfaceCard, // Use theme surface color
-        tonalElevation = 2.dp,
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Left side: Poster Image
-                val imgUrl = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .aspectRatio(2f / 3f), // standard poster aspect
-                ) {
-                    if (imgUrl != null) {
-                        AsyncImage(
-                            model = imgUrl,
-                            contentDescription = history.showName,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(DesktopUi.SurfaceElevated),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("No Image", color = DesktopUi.TextMuted, fontSize = 11.sp)
-                        }
-                    }
-                }
+        val imgUrl = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
 
-                // Right side: Content
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f)
-                        .padding(start = 16.dp, top = 16.dp, end = 32.dp, bottom = 16.dp)
-                ) {
-                    // Title
-                    Text(
-                        text = history.showName,
-                        color = DesktopUi.TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Tags row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Provider Tag
-                        if (provider != null) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = DesktopUi.Accent.copy(alpha = 0.8f) // Theme accent for provider
-                            ) {
-                                Text(
-                                    text = provider.name,
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                        
-                        // Type Tag (SERIES/MOVIE)
-                        val isSeries = history.season != null || history.episode != null
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = DesktopUi.SurfaceElevated
-                        ) {
-                            Text(
-                                text = if (isSeries) "SERIES" else "MOVIE",
-                                color = DesktopUi.TextPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.weight(1f))
-                    
-                    // Episode Text
-                    val isSeriesFinal = history.season != null || history.episode != null
-                    if (isSeriesFinal) {
-                        val s = history.season?.let { "S$it" } ?: ""
-                        val e = history.episode?.let { "E$it" } ?: ""
-                        val seText = listOf(s, e).filter { it.isNotBlank() }.joinToString(" ")
-                        if (seText.isNotBlank()) {
-                            Text(
-                                text = seText,
-                                color = DesktopUi.TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.height(18.dp))
-                    }
-                    
-                    // Progress Bar
-                    val progress = if (history.duration > 0) {
-                        if (com.lagradost.player.impl.PlayerLinkHandler.isCompleted(history.position, history.duration)) {
-                            1f
-                        } else {
-                            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-                        }
-                    } else 0f
-                    
-                    // Always show progress bar even if 0
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = DesktopUi.Accent,
-                        trackColor = DesktopUi.Divider
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "${(progress * 100).toInt()}% watched",
-                        color = DesktopUi.TextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            
-            // Close Button over the top right
-            IconButton(
-                onClick = onRemove,
+        // Full-bleed background image
+        if (imgUrl != null) {
+            AsyncImage(
+                model = imgUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(DesktopUi.SurfaceElevated))
+        }
+
+        // Dark gradient scrim
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0.0f to Color.Black.copy(alpha = 0.05f),
+                    0.45f to Color.Black.copy(alpha = 0.2f),
+                    1.0f to Color.Black.copy(alpha = 0.85f),
+                ),
+            ),
+        )
+
+        // Play button overlay on hover
+        AnimatedVisibility(
+            visible = isHovered,
+            modifier = Modifier.align(Alignment.Center),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+        ) {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-                    .background(DesktopUi.SurfaceElevated.copy(alpha = 0.9f), CircleShape),
+                    .size(56.dp)
+                    .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                    .border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    androidx.compose.material.icons.Icons.Default.Close,
-                    contentDescription = "Remove from history",
-                    tint = DesktopUi.TextMuted,
-                    modifier = Modifier.size(16.dp),
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp),
                 )
             }
+        }
+
+        // Bottom content: title + episode + progress bar
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 40.dp, bottom = 12.dp),
+        ) {
+            // Provider badge + episode tag
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp),
+            ) {
+                if (provider != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(DesktopUi.Accent.copy(alpha = 0.9f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = provider.name,
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                if (seText.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = seText,
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
+            // Show title
+            Text(
+                text = history.showName,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Progress bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.25f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(DesktopUi.Accent),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = if (progress >= 1f) "Completed" else "${(progress * 100).toInt()}% watched",
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+
+        // Dismiss X — top-right corner
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(6.dp)
+                .size(26.dp)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+        ) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = "Remove",
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(14.dp),
+            )
         }
     }
 }

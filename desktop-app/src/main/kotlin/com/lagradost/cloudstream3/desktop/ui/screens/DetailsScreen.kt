@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
+// TODO: Yeah I know this is a big ball of mud, but let's refactor this later.
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
@@ -41,10 +42,11 @@ import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeState
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: String, preloadedName: String? = null, preloadedPoster: String? = null, preloadedBg: String? = null) {
+fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: String, preloadedName: String? = null, preloadedPoster: String? = null, preloadedBg: String? = null, autoPlay: Boolean = false) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember(url) { DetailsViewModel(coroutineScope, provider, url, preloadedName, preloadedPoster, preloadedBg) }
 
@@ -107,7 +109,31 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        var hasAutoPlayed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(response) {
+        if (autoPlay && !hasAutoPlayed && response != null) {
+            val resp = response!!
+            val firstEp = if (resp is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                resp.episodes.firstOrNull()
+            } else if (resp is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                resp.episodes.values.firstOrNull()?.firstOrNull()
+            } else null
+            if (firstEp != null) {
+                com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, resp, firstEp, handlePlay)
+                hasAutoPlayed = true
+            } else if (resp is com.lagradost.cloudstream3.MovieLoadResponse) {
+                val ep = provider.newEpisode(resp.dataUrl) {
+                    this.name = resp.name
+                    this.posterUrl = resp.posterUrl
+                }
+                com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, resp, ep, handlePlay)
+                hasAutoPlayed = true
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
             // 1. Details Content
             if (isLoading) {
                 if (fakeData != null) {
@@ -252,28 +278,40 @@ fun DetailsContent(navController: NavController, provider: MainAPI, data: LoadRe
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        val remoteIcons by com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.remotePluginIcons.collectAsState()
+
+        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
         val heroAction: @Composable () -> Unit = {
             // Instead of the awkward Play/Resume button, display a beautiful Provider Badge!
             Box(
                 modifier = Modifier
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.15f))
-                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                    .background(if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.15f))
+                    .border(1.dp, if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Default.Info,
-                        contentDescription = "Provider",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White.copy(alpha = 0.9f),
-                    )
+                    val iconUrl = remoteIcons[provider.name]
+                    if (iconUrl != null) {
+                        coil3.compose.AsyncImage(
+                            model = iconUrl,
+                            contentDescription = "Provider Icon",
+                            modifier = Modifier.size(20.dp).clip(CircleShape).background(Color.White),
+                        )
+                    } else {
+                        androidx.compose.material3.Icon(
+                            androidx.compose.material.icons.Icons.Default.Info,
+                            contentDescription = "Provider",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.9f),
+                        )
+                    }
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = provider.name,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                     )
@@ -362,17 +400,20 @@ fun DetailsContent(navController: NavController, provider: MainAPI, data: LoadRe
                                     val chunkedEpisodes = allFilteredEpisodes.chunked(chunkSize)
 
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                             if (seasons.isNotEmpty()) {
                                                 var expanded by remember { mutableStateOf(false) }
                                                 Box {
-                                                    OutlinedButton(
+                                                    Button(
                                                         onClick = { expanded = true },
-                                                        shape = RoundedCornerShape(8.dp),
-                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                                        ),
+                                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                                                     ) {
-                                                        Text("Season $selectedSeason", fontWeight = FontWeight.SemiBold)
+                                                        Text("Season $selectedSeason", fontWeight = FontWeight.Bold)
                                                         Spacer(Modifier.width(8.dp))
                                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
                                                     }
@@ -397,15 +438,18 @@ fun DetailsContent(navController: NavController, provider: MainAPI, data: LoadRe
                                             if (chunkedEpisodes.size > 1) {
                                                 var expandedChunk by remember { mutableStateOf(false) }
                                                 Box {
-                                                    OutlinedButton(
+                                                    Button(
                                                         onClick = { expandedChunk = true },
-                                                        shape = RoundedCornerShape(8.dp),
-                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                                        ),
+                                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                                                     ) {
                                                         val startEp = selectedChunkTv * chunkSize + 1
                                                         val endEp = minOf((selectedChunkTv + 1) * chunkSize, allFilteredEpisodes.size)
-                                                        Text("Episodes $startEp - $endEp", fontWeight = FontWeight.SemiBold)
+                                                        Text("Episodes $startEp - $endEp", fontWeight = FontWeight.Bold)
                                                         Spacer(Modifier.width(8.dp))
                                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Episodes")
                                                     }

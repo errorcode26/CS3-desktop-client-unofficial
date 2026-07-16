@@ -46,10 +46,12 @@
         /* ── Center: Loading / Buffering ───────────────────────────────── */
         #loadingContainer {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: none; flex-direction: column; align-items: center; gap: 14px;
-            z-index: 50; pointer-events: none; transition: opacity 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            z-index: 50; pointer-events: none; 
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
         }
-        #loadingContainer.show { display: flex; opacity: 1; }
+        #loadingContainer.show { opacity: 1; visibility: visible; }
         #loadingSpinner {
             width: 52px; height: 52px;
             border: 3px solid rgba(255,255,255,0.15);
@@ -245,6 +247,21 @@
         }
         .action-icon-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
         .action-icon-wrap svg { width: 100%; height: 100%; }
+
+        /* ── Volume OSD ─────────────────────────────────────────────────── */
+        .volume-osd {
+            position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            background: rgba(20,20,20,0.9); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+            padding: 10px 20px; color: white;
+            z-index: 100; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .volume-osd.show { opacity: 1; transform: translateX(-50%) scale(1.1); }
+        .volume-osd-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+        .volume-osd-icon svg { width: 100%; height: 100%; }
+        .volume-osd-text { font-size: 20px; font-weight: 600; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
 
         /* ── Floating Panels ────────────────────────────────────────────── */
         .panel {
@@ -569,6 +586,102 @@
             0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
             40%            { transform: scale(1);   opacity: 1;   }
         }
+
+        /* ── Stats for Nerds Overlay ────────────────────────────────────── */
+        #statsOverlay {
+            position: fixed;
+            top: 72px; left: 20px;
+            z-index: 200;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        #statsOverlay.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .stats-panel {
+            background: rgba(8, 8, 12, 0.82);
+            backdrop-filter: blur(18px) saturate(1.4);
+            -webkit-backdrop-filter: blur(18px) saturate(1.4);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 14px 18px;
+            min-width: 320px;
+            max-width: 420px;
+            font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 11.5px;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.85);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .stats-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .stats-header-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #E50914;
+            animation: statsPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes statsPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(229,9,20,0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(229,9,20,0); }
+        }
+        .stats-header-title {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            flex: 1;
+        }
+        .stats-badge {
+            font-size: 9.5px; padding: 1px 7px;
+            border-radius: 4px;
+            background: rgba(229,9,20,0.18);
+            border: 1px solid rgba(229,9,20,0.35);
+            color: #E50914;
+            font-weight: 700; letter-spacing: 0.05em;
+        }
+        .stats-section { margin-bottom: 10px; }
+        .stats-section:last-child { margin-bottom: 0; }
+        .stats-section-title {
+            font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 4px;
+        }
+        .stats-row {
+            display: flex; justify-content: space-between;
+            padding: 1px 0;
+        }
+        .stats-key {
+            color: rgba(255,255,255,0.4);
+            min-width: 110px;
+        }
+        .stats-val {
+            color: rgba(255,255,255,0.9);
+            text-align: right;
+            font-weight: 500;
+        }
+        .stats-val.warn { color: #f59e0b; }
+        .stats-val.good { color: #22c55e; }
+        .stats-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 8px 0;
+        }
+        .stats-path {
+            font-size: 9.5px;
+            color: rgba(255,255,255,0.25);
+            word-break: break-all;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -801,6 +914,46 @@
     </div>
 </div>
 
+<!-- ── Stats for Nerds Overlay ───────────────────────────────────────── -->
+<div id="statsOverlay">
+    <div class="stats-panel">
+        <div class="stats-header">
+            <div class="stats-header-dot"></div>
+            <span class="stats-header-title">Stats for Nerds</span>
+            <span class="stats-badge" id="statsBadgeFps">-- fps</span>
+        </div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Video</div>
+            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sVideoCodec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Resolution</span><span class="stats-val" id="sResolution">--</span></div>
+            <div class="stats-row"><span class="stats-key">Framerate</span><span class="stats-val" id="sFps">--</span></div>
+            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sVideoBitrate">--</span></div>
+            <div class="stats-row"><span class="stats-key">HW Decode</span><span class="stats-val" id="sHwdec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Dropped Frames</span><span class="stats-val" id="sDropped">--</span></div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Audio</div>
+            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sAudioCodec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Channels</span><span class="stats-val" id="sAudioChannels">--</span></div>
+            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sAudioBitrate">--</span></div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Stream</div>
+            <div class="stats-row"><span class="stats-key">Container</span><span class="stats-val" id="sFormat">--</span></div>
+            <div class="stats-row"><span class="stats-key">Buffer</span><span class="stats-val" id="sBuffer">--</span></div>
+        </div>
+
+        <div class="stats-path" id="sPath">--</div>
+    </div>
+</div>
+
 <!-- ── Main Overlay ───────────────────────────────────────────────────── -->
 <div id="overlay">
     <!-- Click Zones -->
@@ -813,6 +966,12 @@
     <!-- Action Feedback Overlay -->
     <div id="actionFeedback" class="action-feedback">
         <div class="action-icon-wrap" id="actionFeedbackIcon"></div>
+    </div>
+
+    <!-- Volume OSD Overlay -->
+    <div id="volumeOsd" class="volume-osd">
+        <div id="volumeOsdIcon" class="volume-osd-icon"></div>
+        <div id="volumeOsdText" class="volume-osd-text">100%</div>
     </div>
 
     <!-- Top Bar -->
@@ -870,7 +1029,7 @@
                         </svg>
                     </button>
                     <div class="vol-slider-wrap">
-                        <input type="range" id="volumeBar" class="vol-slider" min="0" max="100" value="100">
+                        <input type="range" id="volumeBar" class="vol-slider" min="0" max="200" value="100">
                     </div>
                 </div>
                 <!-- Time Display -->
@@ -995,6 +1154,22 @@
         check:  `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`,
     };
 
+    // ── Volume OSD ───────────────────────────────────────────────────────
+    let volumeOsdTimer = null;
+    const showVolumeOsd = (vol) => {
+        const osd = document.getElementById('volumeOsd');
+        const txt = document.getElementById('volumeOsdText');
+        const icon = document.getElementById('volumeOsdIcon');
+        if (!osd || !txt || !icon) return;
+        
+        txt.innerText = `${Math.round(vol)}%`;
+        icon.innerHTML = vol > 100 ? SVGS.volHigh : (vol > 0 && !isMuted ? SVGS.volLow : SVGS.volMute);
+        
+        osd.classList.add('show');
+        clearTimeout(volumeOsdTimer);
+        volumeOsdTimer = setTimeout(() => { osd.classList.remove('show'); }, 1500);
+    };
+
     // ── Action Feedback ──────────────────────────────────────────────────
     let feedbackTimer;
     const triggerActionFeedback = (svgHtml, align = 'center') => {
@@ -1106,6 +1281,7 @@
         const targetMs = Math.round((pct / 100) * durationMs);
         currentPosMs = targetMs;
         send('seekTo', targetMs);
+        forceShowLoading();
         // Hold the lock — release via incoming state update, not a timer
         clearTimeout(seekLockTimer);
         seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
@@ -1120,13 +1296,35 @@
 
     // ── Volume ───────────────────────────────────────────────────────────
     const updateVolumeTrack = (val) => {
-        volumeBar.style.background = `linear-gradient(to right, #E50914 ${val}%, rgba(255,255,255,0.35) ${val}%)`;
+        const pct = (val / 200) * 100;
+        volumeBar.style.background = `linear-gradient(to right, #E50914 ${pct}%, rgba(255,255,255,0.35) ${pct}%)`;
     };
     updateVolumeTrack(100); // Initialize
 
     volumeBar.addEventListener('input', e => {
         updateVolumeTrack(e.target.value);
         send('setVolume', e.target.value);
+    });
+
+    document.addEventListener('wheel', e => {
+        if (isMenuOpen) return; // Don't scroll volume if a settings menu is open
+        
+        let newVol = currentVolume;
+        // Scroll up (negative deltaY) increases volume, scroll down decreases
+        if (e.deltaY < 0) {
+            newVol = Math.min(200, newVol + 5);
+        } else if (e.deltaY > 0) {
+            newVol = Math.max(0, newVol - 5);
+        }
+        
+        if (newVol !== currentVolume) {
+            currentVolume = newVol;
+            volumeBar.value = newVol;
+            updateVolumeTrack(newVol);
+            send('setVolume', newVol);
+            showControls(); // Wake up controls so user can see the volume change
+            showVolumeOsd(newVol);
+        }
     });
 
     // ── Mute Icon ────────────────────────────────────────────────────────
@@ -1172,11 +1370,25 @@
         }
         timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
         send('seekBy', deltaMs);
+        forceShowLoading();
         clearTimeout(seekLockTimer);
         seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
     };
 
     // ── Backend Messages ─────────────────────────────────────────────────
+    let loadingTimer = null;
+    let isCurrentlyLoading = false;
+    let isAppLoading = false;      // set by Kotlin via app_state_update
+    let globalIsLoading = false;   // set by C++ via state_update (core_idle || paused-for-cache)
+
+    const forceShowLoading = () => {
+        if (globalIsPlaying) {
+            isCurrentlyLoading = true;
+            clearTimeout(loadingTimer);
+            loadingContainer.classList.add('show');
+        }
+    };
+
     const handleStateUpdate = (s) => {
         if (typeof s.durationMs === 'number') durationMs = s.durationMs;
         const incomingPos = (typeof s.positionMs === 'number') ? s.positionMs : currentPosMs;
@@ -1241,13 +1453,27 @@
         if (s.isMuted !== undefined) isMuted = s.isMuted;
         updateMuteIcon();
         if (s.isLoading !== undefined) {
-            // Only show the loading spinner if we are trying to play.
-            // If the user explicitly pauses, hide the spinner for a cleaner UI.
-            if (s.isLoading && globalIsPlaying) {
-                loadingContainer.classList.add('show');
-                loadingStatus.innerText = s.loadingStatusText || '';
-            } else {
-                loadingContainer.classList.remove('show');
+            // isLoading from C++ = (core_idle OR paused-for-cache), true whenever MPV is buffering.
+            // isAppLoading is set separately by Kotlin via app_state_update.
+            globalIsLoading = s.isLoading;
+            const isNativeBuffering = s.isLoading || isSeeking;
+            const shouldBeLoading = isNativeBuffering || isAppLoading;
+
+            if (shouldBeLoading !== isCurrentlyLoading) {
+                isCurrentlyLoading = shouldBeLoading;
+                clearTimeout(loadingTimer);
+                if (shouldBeLoading) {
+                    const delay = isSeeking ? 0 : 150;
+                    loadingTimer = setTimeout(() => {
+                        loadingContainer.classList.add('show');
+                        loadingStatus.innerText = `C++:${s.isLoading} Seek:${isSeeking} App:${isAppLoading} | Wait:${window.debugWait} Ever:${window.debugHasEver} Pos:${window.debugPos}`;
+                    }, delay);
+                } else {
+                    loadingContainer.classList.remove('show');
+                    loadingStatus.innerText = '';
+                }
+            } else if (shouldBeLoading) {
+                 loadingStatus.innerText = `C++:${s.isLoading} Seek:${isSeeking} App:${isAppLoading} | Wait:${window.debugWait} Ever:${window.debugHasEver} Pos:${window.debugPos}`;
             }
         }
     };
@@ -1524,6 +1750,80 @@
     // Expose globally so Kotlin can call via executeScript("window.__dismissProbingOverlay()")
     window.__dismissProbingOverlay = dismissProbingOverlay;
 
+    // Handles volume/mute/app-loading-status sent by Kotlin (separate from C++ state_update)
+    const handleAppStateUpdate = (s) => {
+        if (s.debugWait !== undefined) window.debugWait = s.debugWait;
+        if (s.debugHasEver !== undefined) window.debugHasEver = s.debugHasEver;
+        if (s.debugPos !== undefined) window.debugPos = s.debugPos;
+
+        if (typeof s.volume === 'number') {
+            currentVolume = s.volume;
+            volumeBar.value = s.volume;
+            updateVolumeTrack(s.volume);
+        }
+        if (s.isMuted !== undefined) {
+            isMuted = s.isMuted === true;
+        }
+        updateMuteIcon();
+        
+        if (s.isAppLoading !== undefined) {
+            isAppLoading = s.isAppLoading === true;
+        }
+        if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
+            document.getElementById('loadingStatus').innerText = s.loadingStatusText;
+        }
+        // Re-evaluate spinner after app-loading state changes
+        const isNativeBuffering = globalIsLoading || isSeeking;
+        const shouldBeLoading = isNativeBuffering || isAppLoading;
+        if (shouldBeLoading) {
+            loadingContainer.classList.add('show');
+        } else {
+            loadingContainer.classList.remove('show');
+        }
+    };
+
+    // Handles live MPV stats sent by C++ when stats panel is open
+    const handleStatsUpdate = (s) => {
+        const fmtBitrate = (bps) => {
+            if (!bps || bps <= 0) return 'N/A';
+            if (bps >= 1e6) return (bps / 1e6).toFixed(2) + ' Mbps';
+            return (bps / 1e3).toFixed(0) + ' kbps';
+        };
+        const fps = s.fps || 0;
+        const dropped = (s.droppedFrames || 0) + (s.voDroppedFrames || 0);
+
+        const badge = document.getElementById('statsBadgeFps');
+        if (badge) badge.innerText = fps > 0 ? fps.toFixed(1) + ' fps' : '-- fps';
+
+        const setVal = (id, v, cls) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerText = (v !== undefined && v !== null && v !== 'N/A') ? v : 'N/A';
+            el.className = 'stats-val' + (cls ? ' ' + cls : '');
+        };
+
+        setVal('sVideoCodec', s.videoCodec);
+        setVal('sResolution', (s.width && s.height) ? `${s.width}×${s.height}` : 'N/A');
+        setVal('sFps', fps > 0 ? fps.toFixed(2) + ' fps' : 'N/A',
+            fps > 0 && fps < 20 ? 'warn' : (fps >= 50 ? 'good' : ''));
+        setVal('sVideoBitrate', fmtBitrate(s.videoBitrate));
+
+        const hwdec = (s.hwdec && s.hwdec !== 'no' && s.hwdec !== 'N/A') ? s.hwdec : 'CPU';
+        setVal('sHwdec', hwdec, hwdec !== 'CPU' ? 'good' : '');
+        setVal('sDropped', dropped.toString(), dropped > 0 ? 'warn' : 'good');
+
+        setVal('sAudioCodec', s.audioCodec);
+        setVal('sAudioChannels', s.audioChannels);
+        setVal('sAudioBitrate', fmtBitrate(s.audioBitrate));
+
+        setVal('sFormat', s.format);
+        const bufAhead = durationMs > 0 ? ((s.bufferMs || 0) - currentPosMs) / 1000 : null;
+        setVal('sBuffer', bufAhead !== null && bufAhead >= 0 ? bufAhead.toFixed(1) + 's ahead' : 'N/A');
+
+        const pathEl = document.getElementById('sPath');
+        if (pathEl) pathEl.innerText = s.path || '--';
+    };
+
     const handleMessage = (data) => {
         try {
             // WebView2 PostWebMessageAsJson delivers the message as EITHER:
@@ -1535,6 +1835,8 @@
                       JSON.parse(String(data));
             if (!p || !p.type) return;
             if (p.type === 'state_update') handleStateUpdate(p);
+            else if (p.type === 'app_state_update') handleAppStateUpdate(p);
+            else if (p.type === 'stats_update') handleStatsUpdate(p);
             else if (p.type === 'metadata_update') handleMetadataUpdate(p);
             else if (p.type === 'dismiss_probing') dismissProbingOverlay();
         } catch(e) {
@@ -1738,6 +2040,7 @@
 
     // Stats for Nerds toggle
     let statsVisible = false;
+    const statsOverlay = document.getElementById('statsOverlay');
     document.getElementById('btnToggleStats').addEventListener('click', e => {
         e.stopPropagation();
         statsVisible = !statsVisible;
@@ -1745,9 +2048,11 @@
         if (statsVisible) {
             btn.classList.add('active');
             btn.innerText = 'On';
+            statsOverlay.classList.add('show');
         } else {
             btn.classList.remove('active');
             btn.innerText = 'Off';
+            statsOverlay.classList.remove('show');
         }
         send('toggleStats');
     });

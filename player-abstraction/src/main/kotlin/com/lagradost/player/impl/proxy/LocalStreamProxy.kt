@@ -33,6 +33,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+    // Converting callbacks to coroutines is always a nightmare. If OkHttp hangs here, good luck debugging it.
     continuation.invokeOnCancellation {
         try {
             cancel()
@@ -403,6 +404,8 @@ object LocalStreamProxy {
                         val buffer = ByteArray(65536)
                         // Clear loading popup since we are now streaming data directly to MPV!
                         LocalStreamProxyState.loadingStatus.value = null
+                        
+                        var isFirstChunk = (skipBytes == 0L)
 
                         try {
                             while (true) {
@@ -424,6 +427,24 @@ object LocalStreamProxy {
                                                     throw Exception("CDN_ERROR_PREMATURE_EOF")
                                                 }
                                                 break
+                                            }
+
+                                            if (isFirstChunk) {
+                                                isFirstChunk = false
+                                                if (readBytes > 8) {
+                                                    // CDNs often prepend fake image signatures (PNG/JPG/GIF/WEBP) to bypass hotlink protection.
+                                                    // FFmpeg's format prober will mistakenly identify the stream as an image and fail to demux the HLS TS chunks.
+                                                    // ExoPlayer on Android naturally ignores these by scanning for TS sync bytes (0x47).
+                                                    // We corrupt the fake signature so FFmpeg's image probe fails, forcing it to fallback to scanning for TS sync bytes!
+                                                    val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte()) || // PNG
+                                                                      (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte()) || // JPG
+                                                                      (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte()) || // GIF
+                                                                      (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte())    // WEBP (RIFF)
+                                                    if (isFakeImage) {
+                                                        for (i in 0..7) buffer[i] = 0x00.toByte()
+                                                        AppLogger.i("Corrupted fake image signature to force FFmpeg MPEG-TS fallback")
+                                                    }
+                                                }
                                             }
 
                                             try {

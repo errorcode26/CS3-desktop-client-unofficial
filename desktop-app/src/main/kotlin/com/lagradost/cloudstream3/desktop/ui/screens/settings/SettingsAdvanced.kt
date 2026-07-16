@@ -23,87 +23,71 @@ import kotlinx.coroutines.launch
 fun SettingsAdvanced(onErrorLogs: () -> Unit) {
     val scope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Search Settings", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("When enabled, searching will query all available providers simultaneously instead of just your selected provider.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Enable Advanced Global Search", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                    var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
-                    Switch(
-                        checked = isGlobalSearch,
-                        onCheckedChange = {
-                            isGlobalSearch = it
-                            com.lagradost.common.storage.DesktopDataStore.setKey("global_search_enabled", it)
-                        },
-                    )
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // --- Group 1: Search Settings ---
+        SettingsGroupCard(title = "Search Settings") {
+            var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
+            SettingsToggleItem(
+                label = "Enable Advanced Global Search",
+                subtitle = "Query all available providers simultaneously instead of just your selected provider.",
+                checked = isGlobalSearch,
+                onCheckedChange = {
+                    isGlobalSearch = it
+                    com.lagradost.common.storage.DesktopDataStore.setKey("global_search_enabled", it)
                 }
-            }
+            )
         }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Storage Directories", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(16.dp))
 
-                @Composable
-                fun PathRow(title: String, file: java.io.File) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            Text(file.absolutePath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Button(onClick = {
-                            try {
-                                java.awt.Desktop.getDesktop().open(file)
-                            } catch (e: Exception) {}
-                        }) {
-                            Text("Open")
-                        }
-                    }
-                }
-
-                PathRow("App Data & Config", com.lagradost.common.platform.PlatformPaths.appDataDir)
-                PathRow("Extensions", com.lagradost.common.platform.PlatformPaths.extensionsDir)
-                PathRow("Cache Data", com.lagradost.common.platform.PlatformPaths.cacheDir)
-                PathRow("System Logs", com.lagradost.common.platform.PlatformPaths.logsDir)
-            }
-        }
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Data Management", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                var imageCacheSize by remember { mutableStateOf("Calculating...") }
-                val imageCacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache")
-
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        val size = if (imageCacheDir.exists()) imageCacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum() / (1024 * 1024) else 0
-                        imageCacheSize = "$size MB"
-                    }
-                }
-
+        // --- Group 2: Storage Directories ---
+        SettingsGroupCard(title = "Storage Directories") {
+            Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            @Composable
+            fun PathRow(title: String, file: java.io.File) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Clear Image Cache", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                        Text(imageCacheSize, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(file.absolutePath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Button(onClick = {
+                    OutlinedButton(onClick = {
+                        try {
+                            java.awt.Desktop.getDesktop().open(file)
+                        } catch (e: Exception) {}
+                    }) {
+                        Text("Open")
+                    }
+                }
+            }
+
+            PathRow("App Data & Config", com.lagradost.common.platform.PlatformPaths.appDataDir)
+            PathRow("Extensions", com.lagradost.common.platform.PlatformPaths.extensionsDir)
+            PathRow("Cache Data", com.lagradost.common.platform.PlatformPaths.cacheDir)
+            PathRow("System Logs", com.lagradost.common.platform.PlatformPaths.logsDir)
+        }
+
+        // --- Group 3: Data Management ---
+        SettingsGroupCard(title = "Data Management") {
+            var imageCacheSize by remember { mutableStateOf("Calculating...") }
+            val imageCacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache")
+
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val size = if (imageCacheDir.exists()) imageCacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum() / (1024 * 1024) else 0
+                    imageCacheSize = "$size MB"
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Clear Image Cache", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(imageCacheSize, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FilledTonalButton(
+                    onClick = {
                         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             if (imageCacheDir.exists()) {
                                 imageCacheDir.listFiles()?.forEach { it.deleteRecursively() }
@@ -111,12 +95,15 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
                             val newSize = if (imageCacheDir.exists()) imageCacheDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum() / (1024 * 1024) else 0
                             imageCacheSize = "$newSize MB"
                         }
-                    }) {
-                        Text("Clear")
-                    }
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                ) {
+                    Text("Clear")
                 }
             }
         }
+
+        // Clone Dialog State
         var showAddCloneDialog by remember { mutableStateOf(false) }
         var clonedSites by remember {
             mutableStateOf(
@@ -137,12 +124,53 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
             )
         }
 
+        // --- Group 4: Cloned Sites ---
+        SettingsGroupCard(title = "Cloned Sites & Custom URLs") {
+            Text("You can clone an existing provider and override its URL. This is useful if a site changes its domain.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            clonedSites.forEach { site ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(site.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(site.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = {
+                        val newList = clonedSites.filter { it != site }
+                        clonedSites = newList
+                        val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                        com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
+                    }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+
+            Button(onClick = { showAddCloneDialog = true }) {
+                Text("Add Cloned Site")
+            }
+        }
+
+        // --- Group 5: System Logs ---
+        SettingsGroupCard(title = "System Logs") {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Application Logs", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Text("View internal application logs for troubleshooting and bug reporting.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedButton(onClick = onErrorLogs) {
+                    Text("View Logs")
+                }
+            }
+        }
+
+        // --- Clone Dialog Implementation ---
         if (showAddCloneDialog) {
             var selectedProvider by remember { mutableStateOf<com.lagradost.cloudstream3.MainAPI?>(null) }
             var nameInput by remember { mutableStateOf("") }
             var urlInput by remember { mutableStateOf("") }
             var langInput by remember { mutableStateOf("") }
-            var expanded by remember { mutableStateOf(false) }
 
             val availableProviders = remember {
                 com.lagradost.cloudstream3.APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
@@ -277,60 +305,6 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
                             }
                         }
                     }
-                }
-            }
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Cloned Sites / Custom URLs", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "You can clone an existing provider and override its URL. This is useful if a site changes its domain.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                clonedSites.forEach { site ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(site.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            Text(site.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = {
-                            val newList = clonedSites.filter { it != site }
-                            clonedSites = newList
-                            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-                            com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
-                            // Instruct user to restart to remove completely
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { showAddCloneDialog = true }) {
-                    Text("Add Cloned Site")
-                }
-            }
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("System Logs", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("View internal application logs for troubleshooting and bug reporting.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onErrorLogs) {
-                    Text("View Application Logs")
                 }
             }
         }

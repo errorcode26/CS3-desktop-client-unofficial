@@ -1,54 +1,71 @@
 # CloudStream Desktop (Unofficial Client)
 
-> "This is a development branch. Fixes are actively being made, and this branch may contain unstable duct-tape code."
+> [!IMPORTANT]
+> **Pre-Alpha / Closed Testing Phase**  
+> This project is in active pre-alpha development. We are not distributing pre-compiled setup executables or installers yet. All development, testing, and debugging are currently run directly from the source code.
 
-Welcome to the CloudStream Desktop project. This is a native Compose for Desktop application designed to run CloudStream Android plugins natively on a desktop JVM environment.
-
-## Recent Updates
-- Experimental Sandbox: Basic bytecode sandboxing is in place to try and restrict plugins from accessing local files, though it is still a work in progress and not guaranteed to be fully secure.
-- UI Adjustments: Minor UI layout fixes and loading screen adjustments.
-- JVM Packaging: Setup JLink for bundling the JVM to help reduce the final build size.
-
-## Test Coverage (Or Lack Thereof)
-If you are looking for extensive unit tests or a robust CI/CD pipeline, you have come to the wrong place. We currently have exactly three test files. Why? Because this entire architecture was forged in the fires of rushed development, AI-assisted coding, and late-night vibecoding sessions. We traded test coverage for pure vibes, and frankly, it works on our machines.
-
-## Disclaimer
-This repository acts purely as a blank-slate media shell. The application does not ship with any plugins, media files, or pre-configured content sources. The developers hold no responsibility or liability for how users choose to utilize this software.
-
-## Setup 
+Welcome to the CloudStream Desktop project. This is a native **Compose for Desktop** application designed to run CloudStream Android plugins natively in a desktop JVM environment.
 
 ---
 
-### For Developers (Building from Source)
+## 🏗️ Multi-Module Architecture
 
-1. Prerequisites:
-- JDK 21 or higher
-- Git (Required for submodule cloning)
-- Inno Setup (Required if you want to generate the Windows .exe installer)
+The project is structured into modular layers to cleanly separate concerns and allow the Android-specific plugin code to execute on the desktop:
 
-2. Cloning the Repository:
+*   **`:library` (android-reference)**: A submodule copy of the core Android CloudStream library. It contains the primary data models, scrapers, and extension interfaces.
+*   **`:android-stubs`**: Compatibility mock stubs for Android platform APIs (e.g., `Context`, `SharedPreferences`, `ActivityThread`). This allows standard JVM compilation of Android-targeted plugin code.
+*   **`:common`**: The persistence and settings layer. It uses **SQLDelight** for local database management and Jackson-based file serialization, remaining completely decoupled from the UI.
+*   **`:player-abstraction`**: Abstracts media playback. It hosts native wrappers for **MPV** (JNA bindings) and **VLC** (process wrappers), and embeds a local Ktor Netty proxy (`LocalStreamProxy`) to rewrite HLS segment headers for CDN requests.
+*   **`:desktop-app`**: The main entry point. It hosts the Compose for Desktop UI, navigation, theme controls, and window chrome.
+*   **`:plugin-runtime` / `:plugin-sandbox`**: Handles isolated plugin loading and basic bytecode sandboxing to protect local files.
+
+---
+
+## 🛠️ Setup & Development Workflow
+
+### Prerequisites
+*   **JDK 21** or higher.
+*   **Git** (needed for cloning submodules).
+
+### 1. Clone the Repository
+You **must** use Git clone with recursive submodules so the Android core library references are pulled correctly:
 ```bash
 git clone --recursive https://github.com/errorcode26/cloudstream-desktop-unofficial.git
 cd cloudstream-desktop-unofficial
 ```
 > [!WARNING]  
-> DO NOT DOWNLOAD THIS REPOSITORY AS A ZIP FILE. You must use git clone --recursive to pull the android-reference submodule properly.
+> Do not download this repository as a zip file from GitHub, as submodules will be missing.
 
-3. The Video Engine:
-Download the latest mpv-dev Windows build (from SourceForge) and place libmpv-2.dll directly inside desktop-app/appResources/windows/mpv/.
+### 2. Download Native Binaries
+Before running, you need a local copy of the `libmpv` shared library for video decoding:
+1. Download the latest `mpv-dev` Windows build (e.g., from SourceForge).
+2. Extract and place `libmpv-2.dll` (or `mpv-2.dll`) directly inside the following folder:
+   `desktop-app/appResources/windows/mpv/`
 
-4. Building for Local Testing:
-To compile and launch the application locally, run:
+### 3. Run Locally
+To compile the codebase and launch the application locally in developer mode:
 ```bash
-./gradlew desktop-app:run
+./gradlew.bat :desktop-app:run
 ```
 
-5. Packaging the Release:
-First, build the optimized AppImage release folder using Gradle:
-```bash
-./gradlew desktop-app:packageReleaseAppImage
-```
-Next, to generate the final .exe installer, open installer/setup.iss in Inno Setup and compile it. The generated installer will be output to desktop-app/build/outputs/.
+### 4. Build Installer (Optional)
+If you need to generate a standalone Windows `.exe` setup installer for testing:
+1. Run `compile.bat` to clean and compile the latest executable binaries.
+2. Open Inno Setup Compiler and compile [installer/setup.iss](file:///c:/Users/user/Desktop/CS3%20DESKTOP/cloudstream-windows-workspace/installer/setup.iss).
 
-## Acknowledgements
-Significant acknowledgement is given to the original CloudStream developers and contributors. This project utilizes their core scraping engine and extension architecture as a foundation.
+The compiled setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.
+
+---
+
+## 🧪 Testing & Code Quality
+This architecture is built for rapid iteration. We have a lightweight test harness, but our focus is on active developer validation:
+*   Use isolated experimental/feature branches for development to keep the `dev` branch clean.
+*   To test changes on the video player directly, use:
+    ```bash
+    .\run_test_player.bat
+    ```
+
+---
+
+## Disclaimer
+This repository acts purely as a blank-slate media shell. The application does not ship with any plugins, media files, or pre-configured content sources. The developers hold no responsibility or liability for how users choose to utilize this software.

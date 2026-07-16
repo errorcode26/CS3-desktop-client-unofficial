@@ -2,6 +2,8 @@
 
 package com.lagradost.cloudstream3.desktop
 
+// TODO: Yeah I know this is a big ball of mud, but let's refactor this later.
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,9 +98,11 @@ fun main() {
         }
     }
 
-    val black = java.awt.Color.BLACK
-    javax.swing.UIManager.put("Window.background", black)
-    javax.swing.UIManager.put("Canvas.background", black)
+    // Removed the default black background. Setting it globally forces popups and tooltips 
+    // to render as black boxes if they fail to paint or get stuck.
+    // val black = java.awt.Color.BLACK
+    // javax.swing.UIManager.put("Window.background", black)
+    // javax.swing.UIManager.put("Canvas.background", black)
 
     AppLogger.i("Launching CloudStream Desktop Client...")
     AppLogger.i("Platform: ${PlatformPaths.currentOS}")
@@ -203,6 +207,7 @@ fun main() {
                 (window.contentPane as? javax.swing.JComponent)?.isOpaque = true
 
                 // Deep-dive fix: Compose 1.7+ internal SkiaLayers often default to white.
+                // This absolute nightmare causes awful white flashes during rendering.
                 // We recursively traverse the entire Swing component tree and force everything black.
                 fun forceBlackBackground(container: java.awt.Container) {
                     for (c in container.components) {
@@ -234,6 +239,7 @@ fun main() {
 
             // Track content-pane size so EmbeddedVideoPlayer can size its overlay
             // correctly even when BoxWithConstraints has stale fullscreen dimensions.
+            // (Yes, BoxWithConstraints frequently fails to update its size correctly here, which is incredibly annoying).
             // The contentPane ComponentListener fires on the AWT EDT AFTER the window
             // resize has settled (e.g. after ShowWindow SW_MAXIMIZE completes), making
             // it the ground truth for the drawable area in physical pixels.

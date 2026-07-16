@@ -20,6 +20,9 @@ import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
@@ -78,14 +81,15 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             Box {
                 FilledTonalButton(
                     onClick = { showLangDropdown = true },
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
                     if (languageFilter == "All") {
-                        Text("All Languages")
+                        Text("All Languages", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
                             FlagImage(languageFilter, modifier = Modifier.padding(end = 6.dp))
-                            Text(languageFilter.uppercase())
+                            Text(languageFilter.uppercase(), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -117,9 +121,15 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             Box {
                 FilledTonalButton(
                     onClick = { showCatDropdown = true },
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
-                    Text(if (categoryFilter == "All") "All Categories" else categoryFilter)
+                    Text(
+                        if (categoryFilter == "All") "All Categories" else categoryFilter,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
                 AppDropdownMenu(expanded = showCatDropdown, onDismissRequest = { showCatDropdown = false }) {
@@ -140,15 +150,46 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             Box {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
-                    Text(if (repoFilter == "All") "All Repos" else repoFilter)
+                    Text(
+                        if (repoFilter == "All") "All Repos" else repoFilter,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
                 AppDropdownMenu(expanded = showRepoDropdown, onDismissRequest = { showRepoDropdown = false }) {
                     reposList.forEach { r ->
                         DropdownMenuItem(
-                            text = { Text(if (r == "All") "All Repos" else r) },
+                            text = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (r != "All") {
+                                        val colorHash = kotlin.math.abs(r.hashCode())
+                                        val hue = (colorHash % 360).toFloat()
+                                        val avatarColor = androidx.compose.ui.graphics.Color.hsv(hue, 0.6f, 0.8f)
+                                        val initial = r.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(end = 8.dp)
+                                                .size(24.dp)
+                                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                                .background(avatarColor),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = initial,
+                                                color = androidx.compose.ui.graphics.Color.White,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    Text(if (r == "All") "All Repos" else r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) 
+                                }
+                            },
                             onClick = {
                                 repoFilter = r
                                 showRepoDropdown = false

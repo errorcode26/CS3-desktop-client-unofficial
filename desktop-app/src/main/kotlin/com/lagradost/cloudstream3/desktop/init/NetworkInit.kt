@@ -23,6 +23,8 @@ fun initNetwork() {
     // Patch Jackson mapper for dex2jar Kotlin reflection bugs
     val mapper = mapper
 
+    // God help us, this frequently crashes because Kotlin reflection throws KotlinReflectionInternalError on dex2jar'd inner data classes.
+    // So here is this monstrosity of a custom deserializer to bypass it.
     // We register a custom deserializer for VerifiedRepo to bypass Jackson's
     // KotlinReflectionInternalError on dex2jar'd inner data classes.
     val fallbackModule = object : com.fasterxml.jackson.databind.module.SimpleModule() {

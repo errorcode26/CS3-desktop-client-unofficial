@@ -138,6 +138,10 @@ object DesktopDataStore {
         }
     }
 
+    fun containsKey(key: String): Boolean {
+        return DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() != null
+    }
+
     fun removeKey(key: String) {
         DatabaseFactory.database.cloudstreamDBQueries.deleteKeyValue(key)
     }

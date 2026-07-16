@@ -84,45 +84,20 @@ class CloudflareKiller : Interceptor {
         val serverHeader = response.header("Server") ?: ""
         val contentType = response.header("Content-Type") ?: ""
 
-        // Only trigger Cloudflare bypass if ALL conditions are met:
-        // 1. Response code is 403 or 503
-        // 2. Server header contains "cloudflare"
-        // 3. Content-Type is HTML (Cloudflare challenges are HTML pages, not JSON APIs)
         val isCloudflareChallenge = response.code in ERROR_CODES &&
             CLOUDFLARE_SERVERS.any { serverHeader.contains(it, ignoreCase = true) } &&
             contentType.contains("text/html", ignoreCase = true)
 
-        if (!isCloudflareChallenge) {
-            return response
+        if (isCloudflareChallenge) {
+            AppLogger.w("$TAG: Cloudflare challenge detected for $host. Browser invoke is disabled.")
+            // TODO: We will implement the actual popup windows for CF later when we are able to.
+            // For now, the automated headless browser bypass is completely disabled because 
+            // it is unnecessary, buggy, and fails against modern Turnstile checks.
+            failedHosts.add(host)
         }
 
-        response.close()
-
-        // Don't launch Playwright if another thread is already resolving this host
-        if (!resolvingHosts.add(host)) {
-            AppLogger.d("$TAG: Already resolving $host, skipping duplicate")
-            // Make a fresh request instead of returning closed response
-            return chain.proceed(request)
-        }
-
-        // Only use runBlocking for the actual Cloudflare bypass (rare path)
-        try {
-            val bypassed = runBlocking {
-                bypassCloudflare(chain, request)
-            }
-            if (bypassed != null) {
-                return bypassed
-            }
-        } finally {
-            resolvingHosts.remove(host)
-        }
-
-        // Bypass failed — remember this host to avoid retrying
-        failedHosts.add(host)
-        AppLogger.w("$TAG: Failed to bypass Cloudflare for $host (will not retry this session)")
-
-        // Make a FRESH request since the original response was closed
-        return chain.proceed(request)
+        // Return the response directly. Do NOT close it, so the caller can read the 403 body if needed.
+        return response
     }
 
     private fun proceed(chain: Interceptor.Chain, request: Request, cookies: Map<String, String>, userAgent: String?): Response {

@@ -20,8 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -36,32 +38,70 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import dev.chrisbanes.haze.HazeState
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import dev.chrisbanes.haze.haze
 
 @Composable
 fun DetailsBackdrop(provider: MainAPI, data: LoadResponse, scrollState: LazyListState, hazeState: HazeState, enrichmentTrigger: Int, modifier: Modifier = Modifier) {
-    val trigger = enrichmentTrigger
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    
     Box(
         modifier = modifier
+            .background(MaterialTheme.colorScheme.surface) // Base surface
             .haze(state = hazeState),
     ) {
-        // Full backdrop image
         val bgUrl = provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
-        if (bgUrl != null) {
+
+        // 1. Ambient Glow
+        // I swear to god if this ambient glow breaks one more time or starts getting cut off at the bottom because of some random layout box size constraint I will lose my mind.
+        if (bgUrl != null && !isLightMode) {
             AsyncImage(
                 model = bgUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop, // Crop to fill the height beautifully
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .run { if (data.backgroundPosterUrl == null) this.blur(40.dp) else this },
+                    .fillMaxSize()
+                    .blur(140.dp)
+                    .graphicsLayer { alpha = 0.6f }, // Glow intensity
                 alignment = Alignment.TopCenter,
             )
         }
 
-        // Gradient: transparent top -> solid background bottom
+        // 2. Sharp Backdrop
+        if (bgUrl != null) {
+            AsyncImage(
+                model = bgUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .fillMaxHeight(0.85f)
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithCache {
+                        val verticalFade = Brush.verticalGradient(
+                            0.0f to Color.Black,
+                            0.6f to Color.Black,
+                            1.0f to Color.Transparent
+                        )
+                        val horizontalFade = Brush.horizontalGradient(
+                            0.0f to Color.Transparent,
+                            0.4f to Color.Black,
+                            1.0f to Color.Black
+                        )
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(verticalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                            drawRect(horizontalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                        }
+                    }
+                    .then(if (data.backgroundPosterUrl == null) Modifier.blur(40.dp) else Modifier),
+                alignment = Alignment.TopEnd,
+            )
+        }
+
+        // 3. Vertical Gradient
         val bgColor = MaterialTheme.colorScheme.surface
+        val targetAlpha = if (isLightMode) 1.0f else 0.85f // Let glow bleed in dark mode
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -69,24 +109,25 @@ fun DetailsBackdrop(provider: MainAPI, data: LoadResponse, scrollState: LazyList
                     Brush.verticalGradient(
                         colorStops = arrayOf(
                             0.00f to Color.Transparent,
-                            0.50f to Color.Transparent,
-                            0.85f to bgColor.copy(alpha = 0.80f),
+                            0.30f to Color.Transparent,
+                            0.70f to bgColor.copy(alpha = targetAlpha),
+                            0.90f to bgColor.copy(alpha = targetAlpha),
                             1.00f to bgColor,
                         ),
                     ),
                 ),
         )
 
-        // Left vignette so text pops
+        // 4. Left Vignette
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
                         colorStops = arrayOf(
-                            0.00f to bgColor.copy(alpha = 0.95f),
-                            0.35f to bgColor.copy(alpha = 0.75f),
-                            0.60f to Color.Transparent,
+                            0.00f to bgColor.copy(alpha = targetAlpha),
+                            0.40f to bgColor.copy(alpha = targetAlpha * 0.8f),
+                            0.70f to Color.Transparent,
                         ),
                     ),
                 ),
@@ -105,6 +146,7 @@ fun DetailsMetadata(
     isLoading: Boolean = false,
 ) {
     val trigger = enrichmentTrigger
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
@@ -136,20 +178,48 @@ fun DetailsMetadata(
                                 Spacer(modifier = Modifier.height(16.dp))
                             } else {
                                 if (!data.logoUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = provider.fixUrlNull(data.logoUrl),
-                                        contentDescription = data.name,
-                                        contentScale = ContentScale.Fit,
-                                        modifier = Modifier.fillMaxWidth(0.6f).heightIn(max = 120.dp),
-                                        alignment = Alignment.CenterStart,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.6f)
+                                            .heightIn(max = 120.dp)
+                                            .then(
+                                                if (isLightMode) {
+                                                    Modifier.background(
+                                                        Brush.radialGradient(
+                                                            colors = listOf(Color.Black.copy(alpha = 0.25f), Color.Transparent),
+                                                            radius = 300f
+                                                        )
+                                                    )
+                                                } else Modifier
+                                            ),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        coil3.compose.SubcomposeAsyncImage(
+                                            model = provider.fixUrlNull(data.logoUrl),
+                                            contentDescription = data.name,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
+                                            alignment = Alignment.CenterStart,
+                                            error = {
+                                                Text(
+                                                    text = data.name,
+                                                    style = MaterialTheme.typography.displayMedium,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    lineHeight = 48.sp,
+                                                )
+                                            }
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(16.dp))
                                 } else {
                                     Text(
                                         text = data.name,
                                         style = MaterialTheme.typography.displayMedium,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
                                         lineHeight = 48.sp,
@@ -163,7 +233,7 @@ fun DetailsMetadata(
                                 if (isLoading) {
                                     Box(modifier = Modifier.width(180.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
                                 } else {
-                                    data.score?.let {
+                                    data.score?.takeIf { it.toFloat(10) > 0f }?.let {
                                         androidx.compose.material3.Icon(
                                             androidx.compose.material.icons.Icons.Default.Star,
                                             contentDescription = "Rating",
@@ -173,7 +243,7 @@ fun DetailsMetadata(
                                         Spacer(Modifier.width(6.dp))
                                         Text(
                                             text = it.toString(10),
-                                            color = Color.White,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                         )
@@ -182,16 +252,16 @@ fun DetailsMetadata(
                                     data.year?.let {
                                         Text(
                                             text = it.toString(),
-                                            color = Color.White.copy(alpha = 0.7f),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
                                         )
                                         Spacer(modifier = Modifier.width(16.dp))
                                     }
-                                    data.duration?.let {
+                                    data.duration?.takeIf { it > 0 }?.let {
                                         Text(
                                             text = "${it}m",
-                                            color = Color.White.copy(alpha = 0.7f),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
                                         )
@@ -201,12 +271,12 @@ fun DetailsMetadata(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(4.dp))
-                                                .background(Color.White.copy(alpha = 0.2f))
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                                                 .padding(horizontal = 6.dp, vertical = 2.dp),
                                         ) {
                                             Text(
                                                 text = rating,
-                                                color = Color.White,
+                                                color = MaterialTheme.colorScheme.onSurface,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold,
                                             )
@@ -249,13 +319,20 @@ fun DetailsMetadata(
                             },
                             modifier = Modifier
                                 .size(48.dp)
-                                .background(Color.White.copy(alpha = 0.15f), CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
+                                .background(
+                                    if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.15f),
+                                    CircleShape
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.3f),
+                                    CircleShape
+                                ),
                         ) {
-                            androidx.compose.material3.Icon(
-                                if (isBookmarked) androidx.compose.material.icons.Icons.Default.Favorite else androidx.compose.material.icons.Icons.Default.FavoriteBorder,
+                            Icon(
+                                imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
                                 contentDescription = "Bookmark",
-                                tint = if (isBookmarked) Color.Red else Color.White,
+                                tint = if (isBookmarked) MaterialTheme.colorScheme.primary else if (isLightMode) MaterialTheme.colorScheme.onSurface else Color.White,
                                 modifier = Modifier.size(24.dp),
                             )
                         }

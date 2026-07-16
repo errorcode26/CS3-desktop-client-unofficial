@@ -77,7 +77,7 @@ fun AppDropdownMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = modifier,
+        modifier = modifier.heightIn(max = 400.dp).widthIn(max = 350.dp),
         offset = offset,
         content = content
     )
@@ -142,6 +142,9 @@ fun CategoryRowWithHeader(
     isInfinite: Boolean = false,
     onViewAll: (() -> Unit)? = null,
     trailingHeaderExtra: @Composable (() -> Unit)? = null,
+    // Padding applied to the LazyRow's content — lets it extend full-width while items
+    // align with the constrained header above. PaddingValues.Absolute avoids RTL mirroring.
+    rowContentPadding: PaddingValues = PaddingValues(horizontal = 4.dp),
     content: LazyListScope.() -> Unit,
 ) {
     val initialIndex = remember(isInfinite, itemCount) {
@@ -209,12 +212,17 @@ fun CategoryRowWithHeader(
 
         LazyRow(
             state = listState,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            // fillMaxWidth() so the list extends edge-to-edge; contentPadding indents items
+            // to align with the header. clipToBounds=false lets the last card peek fully
+            // without being hard-cut by the container boundary.
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = rowContentPadding,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

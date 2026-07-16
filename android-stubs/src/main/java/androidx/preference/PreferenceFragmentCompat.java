@@ -30,4 +30,17 @@ public abstract class PreferenceFragmentCompat extends Fragment {
         String prefName = this.getClass().getSimpleName().replace("SettingsFragment", "").replace("Settings", "") + "_";
         preferenceScreen.setDesktopPrefName(prefName);
     }
+    public void addPreferencesFromResource(int preferencesResId) {
+        setPreferencesFromResource(preferencesResId, null);
+    }
+    
+    public void setPreferencesFromResource(int preferencesResId, String key) {
+        try {
+            Class<?> extLoader = Class.forName("com.lagradost.runtime.loader.ExtensionLoader");
+            java.lang.reflect.Method method = extLoader.getMethod("parsePluginPreferences", Object.class, int.class);
+            method.invoke(null, this, preferencesResId);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

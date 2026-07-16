@@ -29,7 +29,9 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
     override fun findClass(name: String): Class<*> {
         val path = name.replace('.', '/') + ".class"
         val url = findResource(path) ?: throw ClassNotFoundException(name)
-        val bytes = url.openStream().use { it.readBytes() }
+        val conn = url.openConnection()
+        conn.useCaches = false
+        val bytes = conn.getInputStream().use { it.readBytes() }
         val patched = applyCompatPatches(bytes)
         return defineClass(name, patched, 0, patched.size)
     }
