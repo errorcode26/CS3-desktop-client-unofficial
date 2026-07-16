@@ -160,16 +160,12 @@ public:
     }
     HRESULT STDMETHODCALLTYPE put_AdditionalBrowserArguments(LPCWSTR) override { return S_OK; }
     HRESULT STDMETHODCALLTYPE get_Language(LPWSTR* value) override {
-        *value = (LPWSTR)CoTaskMemAlloc(sizeof(wchar_t));
-        if (!*value) return E_OUTOFMEMORY;
-        (*value)[0] = L'\0';
+        *value = nullptr;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE put_Language(LPCWSTR) override { return S_OK; }
     HRESULT STDMETHODCALLTYPE get_TargetCompatibleBrowserVersion(LPWSTR* value) override {
-        *value = (LPWSTR)CoTaskMemAlloc(sizeof(wchar_t));
-        if (!*value) return E_OUTOFMEMORY;
-        (*value)[0] = L'\0';
+        *value = nullptr;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE put_TargetCompatibleBrowserVersion(LPCWSTR) override { return S_OK; }
@@ -508,7 +504,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     GetTempPathW(MAX_PATH, tempPath);
     std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
 
-    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
+    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), new SimpleEnvironmentOptions(), new EnvironmentCompletedHandler());
     std::cout << "[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec << std::endl;
 
     // Signal Kotlin that the container HWND is ready (MPV wid can now be set)
