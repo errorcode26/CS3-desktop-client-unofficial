@@ -508,7 +508,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     GetTempPathW(MAX_PATH, tempPath);
     std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
 
-    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), new SimpleEnvironmentOptions(), new EnvironmentCompletedHandler());
+    HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
     std::cout << "[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec << std::endl;
 
     // Signal Kotlin that the container HWND is ready (MPV wid can now be set)
