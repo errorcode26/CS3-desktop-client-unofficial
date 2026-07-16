@@ -45,12 +45,13 @@ fun PosterCard(
     item: SearchResponse,
     provider: MainAPI?,
     modifier: Modifier = Modifier,
+    itemWidth: androidx.compose.ui.unit.Dp? = null,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
     val gridScale by AppearanceConfig.gridScale.collectAsState()
-    val width = when (gridScale) {
+    val width = itemWidth ?: when (gridScale) {
         "Compact" -> 150.dp
         "Large" -> 220.dp
         else -> 190.dp

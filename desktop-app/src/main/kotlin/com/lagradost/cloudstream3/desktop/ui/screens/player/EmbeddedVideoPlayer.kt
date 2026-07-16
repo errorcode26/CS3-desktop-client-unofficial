@@ -228,6 +228,12 @@ fun EmbeddedVideoPlayer(
                             onNextEpisode = {
                                 viewModel.loadNextEpisode()
                             },
+                            onReplayEpisode = {
+                                val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
+                                if (currentEp != null) {
+                                    viewModel.loadEpisode(currentEp)
+                                }
+                            },
                             onPlaybackReady = {
                                 isLoading = false
                                 isInitialLoad = false
@@ -264,11 +270,8 @@ fun EmbeddedVideoPlayer(
                                 userSkippedScraping = true
                             },
                             onFinished = {
-                                if (viewModel.hasNextEpisode()) {
-                                    countdownToNextEpisode = 5
-                                } else {
-                                    isFinished = true
-                                }
+                                val hasNext = viewModel.hasNextEpisode()
+                                com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext);")
                             },
                             onPlaybackError = { err ->
                                 val newFailed = failedLinks + currentLinkIndex

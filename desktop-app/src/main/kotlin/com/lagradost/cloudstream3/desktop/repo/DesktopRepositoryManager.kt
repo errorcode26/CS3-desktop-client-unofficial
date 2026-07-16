@@ -59,6 +59,7 @@ object DesktopRepositoryManager {
 
     val remotePluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
     val syncGeneration = MutableStateFlow(0)
+    val failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     data class SyncReport(
         val reposRefreshed: Int,
@@ -76,6 +77,15 @@ object DesktopRepositoryManager {
     }
 
     fun getSavedRepositories(): List<RepositoryData> = _savedRepositories.value
+
+    fun getPluginsJsonUrl(repoUrl: String): String {
+        val cached = repoCache[repoUrl]?.pluginLists?.firstOrNull()
+        if (!cached.isNullOrBlank()) return cached
+        if (repoUrl.endsWith("repo.json", ignoreCase = true)) {
+            return repoUrl.replace("repo.json", "builds/plugins.json", ignoreCase = true)
+        }
+        return repoUrl
+    }
 
     private fun refreshSavedRepositoriesFromDisk() {
         _savedRepositories.value = readRepositoriesFromDisk()

@@ -24,6 +24,13 @@ fun ComposeExtensionScreen(navController: NavController) {
 
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { ExtensionsViewModel(coroutineScope) }
+    val inspectedRepoName by viewModel.inspectedRepoName.collectAsState()
+
+    LaunchedEffect(inspectedRepoName) {
+        if (!inspectedRepoName.isNullOrBlank()) {
+            selectedTab = 2
+        }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -35,7 +42,7 @@ fun ComposeExtensionScreen(navController: NavController) {
         modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 32.dp),
         horizontalArrangement = Arrangement.Center
     ) {
-        Row(modifier = Modifier.widthIn(max = 1200.dp).fillMaxSize()) {
+        Row(modifier = Modifier.widthIn(max = 1600.dp).fillMaxSize()) {
             
             // Left Pane: Sidebar Navigation
             Column(

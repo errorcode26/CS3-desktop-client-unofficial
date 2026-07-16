@@ -6,11 +6,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
 import androidx.compose.material.icons.Icons
@@ -41,11 +47,38 @@ fun ComposeHomeScreen(
         .map { DesktopDataStore.getUpdatesHistory() }
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
 
-    var isProviderDropdownExpanded by remember { mutableStateOf(false) }
 
 
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val heroColor by viewModel.heroExtractedColor.collectAsState()
+    val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val isDockTop = dockPosition == "Top"
+
+
+
+    val animatedHeroColor by animateColorAsState(
+        targetValue = if (dynamicColorEnabled && !isLightMode && heroColor != null)
+            heroColor!!.copy(alpha = 0.50f)
+        else Color.Transparent,
+        animationSpec = tween(durationMillis = 400),
+        label = "heroBgColor"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0.0f to animatedHeroColor,
+                    0.7f to animatedHeroColor,
+                    1.0f to Color.Transparent,
+                    startY = 0f,
+                    endY = with(androidx.compose.ui.platform.LocalDensity.current) { 800.dp.toPx() }
+                )
+            )
+    ) {
 
         if (searchQuery.isNotBlank() || searchResultsGrouped != null) {
             HomeSearchResults(
@@ -63,30 +96,6 @@ fun ComposeHomeScreen(
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
             val searchBarMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.searchBarMode.collectAsState()
-
-            var isSearchForced by remember { mutableStateOf(false) }
-            val searchTrigger by com.lagradost.cloudstream3.desktop.ui.DesktopUiState.searchFocusTrigger.collectAsState()
-
-            LaunchedEffect(searchTrigger) {
-                if (searchTrigger > 0) {
-                    isSearchForced = true
-                    listState.animateScrollToItem(0)
-                }
-            }
-
-            val currentScrollOffset by remember { derivedStateOf { listState.firstVisibleItemScrollOffset } }
-            val currentItemIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
-
-            LaunchedEffect(currentScrollOffset, currentItemIndex) {
-                if (isSearchForced && (currentItemIndex > 0 || currentScrollOffset > 50)) {
-                    isSearchForced = false
-                }
-            }
-
-            val isTopBarVisible = when {
-                searchBarMode == "Always Visible" -> true
-                else -> isSearchForced
-            }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
@@ -144,26 +153,18 @@ fun ComposeHomeScreen(
                     }
                 }
 
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isTopBarVisible,
-                    enter = androidx.compose.animation.slideInVertically(initialOffsetY = { -it }) + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }) + androidx.compose.animation.fadeOut(),
-                    modifier = Modifier.align(Alignment.TopCenter),
-                ) {
-                    HomeTopBar(
-                        searchQuery = searchQuery,
-                        onSearchQueryChange = { viewModel.searchQuery.value = it },
-                        onSearch = { viewModel.search() },
-                        providers = providers,
-                        selectedProvider = selectedProvider,
-                        onProviderSelected = {
-                            viewModel.selectedProviderName.value = it
-                            viewModel.searchResultsGrouped.value = null
-                        },
-                        mergedPluginIcons = mergedPluginIcons,
-                        onProviderSelectClick = { isProviderDropdownExpanded = true }
-                    )
-                }
+                AnimatedSearchOverlay(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { viewModel.searchQuery.value = it },
+                    onSearch = { viewModel.search() },
+                    providers = providers,
+                    selectedProvider = selectedProvider,
+                    onProviderSelected = {
+                        viewModel.selectedProviderName.value = it
+                        viewModel.searchResultsGrouped.value = null
+                    },
+                    mergedPluginIcons = mergedPluginIcons
+                )
             }
         } else if (providers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -193,7 +194,7 @@ fun ComposeHomeScreen(
                 }
             }
 
-            HomeTopBar(
+            AnimatedSearchOverlay(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { viewModel.searchQuery.value = it },
                 onSearch = { viewModel.search() },
@@ -203,8 +204,7 @@ fun ComposeHomeScreen(
                     viewModel.selectedProviderName.value = it
                     viewModel.searchResultsGrouped.value = null
                 },
-                mergedPluginIcons = mergedPluginIcons,
-                onProviderSelectClick = { isProviderDropdownExpanded = true }
+                mergedPluginIcons = mergedPluginIcons
             )
         } else {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -217,7 +217,7 @@ fun ComposeHomeScreen(
                 }
             }
 
-            HomeTopBar(
+            AnimatedSearchOverlay(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { viewModel.searchQuery.value = it },
                 onSearch = { viewModel.search() },
@@ -227,8 +227,7 @@ fun ComposeHomeScreen(
                     viewModel.selectedProviderName.value = it
                     viewModel.searchResultsGrouped.value = null
                 },
-                mergedPluginIcons = mergedPluginIcons,
-                onProviderSelectClick = { isProviderDropdownExpanded = true }
+                mergedPluginIcons = mergedPluginIcons
             )
         }
     }
@@ -236,7 +235,7 @@ fun ComposeHomeScreen(
     if (searchQuery.isNotBlank() || searchResultsGrouped != null) {
         // When searching, top bar is always visible overlaying everything
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            HomeTopBar(
+            AnimatedSearchOverlay(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { viewModel.searchQuery.value = it },
                 onSearch = { viewModel.search() },
@@ -246,23 +245,8 @@ fun ComposeHomeScreen(
                     viewModel.selectedProviderName.value = it
                     viewModel.searchResultsGrouped.value = null
                 },
-                mergedPluginIcons = mergedPluginIcons,
-                onProviderSelectClick = { isProviderDropdownExpanded = true }
+                mergedPluginIcons = mergedPluginIcons
             )
         }
-    }
-
-    if (isProviderDropdownExpanded) {
-        ProviderSelectionOverlay(
-            providers = providers,
-            selectedProvider = selectedProvider,
-            onProviderSelected = {
-                viewModel.selectedProviderName.value = it
-                viewModel.searchResultsGrouped.value = null
-                isProviderDropdownExpanded = false
-            },
-            mergedPluginIcons = mergedPluginIcons,
-            onDismiss = { isProviderDropdownExpanded = false }
-        )
     }
 }

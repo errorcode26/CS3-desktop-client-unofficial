@@ -1,10 +1,5 @@
 package com.lagradost.cloudstream3.desktop.player
 
-// TODO: Yes, I know this file shares like 40KB of JNA event loops, keyboard hacks, and copy-pasted canvas code with ComposeNativeWebPlayer.kt.
-// It is an absolute copy-paste crime scene. But it works, and if we touch it, JNI will probably explode and spit out a garbage memory pointer.
-// Do NOT touch it. Let future-us suffer.
-
-
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,14 +9,11 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.Color
 import java.awt.event.*
 import java.io.File
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.delay
-
 
 
 @Composable

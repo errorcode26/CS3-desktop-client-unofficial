@@ -58,6 +58,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Row 1: Search Bar & Fetch Actions
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -76,22 +77,44 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 ),
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
+            Button(
+                onClick = { viewModel.fetchPlugins() },
+                enabled = !isFetching,
+                modifier = Modifier.height(52.dp),
+            ) {
+                if (isFetching) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Fetch Repos")
+                }
+            }
+        }
+
+        // Row 2: Clean Filter Bar
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Box {
                 FilledTonalButton(
                     onClick = { showLangDropdown = true },
-                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
                     if (languageFilter == "All") {
-                        Text("All Languages", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text("Language: All", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             FlagImage(languageFilter, modifier = Modifier.padding(end = 6.dp))
                             Text(languageFilter.uppercase(), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
+                    Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
                 AppDropdownMenu(expanded = showLangDropdown, onDismissRequest = { showLangDropdown = false }) {
@@ -116,20 +139,18 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
             Box {
                 FilledTonalButton(
                     onClick = { showCatDropdown = true },
-                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
                     Text(
-                        if (categoryFilter == "All") "All Categories" else categoryFilter,
+                        if (categoryFilter == "All") "Category: All" else categoryFilter,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
+                    Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
                 AppDropdownMenu(expanded = showCatDropdown, onDismissRequest = { showCatDropdown = false }) {
@@ -145,26 +166,24 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
             Box {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },
-                    modifier = Modifier.height(56.dp).widthIn(max = 160.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    modifier = Modifier.height(44.dp).widthIn(max = 200.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
                     Text(
-                        if (repoFilter == "All") "All Repos" else repoFilter,
+                        if (repoFilter == "All") "Repo: All" else repoFilter,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
+                    Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
                 AppDropdownMenu(expanded = showRepoDropdown, onDismissRequest = { showRepoDropdown = false }) {
                     reposList.forEach { r ->
                         DropdownMenuItem(
-                            text = { 
+                            text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (r != "All") {
                                         val colorHash = kotlin.math.abs(r.hashCode())
@@ -187,7 +206,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                                             )
                                         }
                                     }
-                                    Text(if (r == "All") "All Repos" else r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) 
+                                    Text(if (r == "All") "All Repos" else r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 }
                             },
                             onClick = {
@@ -196,21 +215,6 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                             },
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-            Button(
-                onClick = { viewModel.fetchPlugins() },
-                enabled = !isFetching,
-                modifier = Modifier.height(56.dp),
-            ) {
-                if (isFetching) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Fetch Repos")
                 }
             }
         }
@@ -229,9 +233,9 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
 
         val gridScale by AppearanceConfig.gridScale.collectAsState()
         val extMinSize = when (gridScale) {
-            "Compact" -> 280.dp
-            "Large" -> 400.dp
-            else -> 340.dp
+            "Compact" -> 360.dp
+            "Large" -> 480.dp
+            else -> 420.dp
         }
 
         LazyVerticalGrid(
@@ -275,6 +279,13 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                             installStatus = result
                         }
                     },
+                    onUninstallClick = {
+                        viewModel.uninstallByInternalName(plugin.internalName)
+                        installStatus = ""
+                    },
+                    description = plugin.description,
+                    fileSize = plugin.fileSize,
+                    onRepoClick = { viewModel.inspectRepository(repoName) },
                 )
             }
         }
@@ -282,15 +293,15 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         pluginRequiringBypass?.let { (bypassRepo, bypassPlugin) ->
             AlertDialog(
                 onDismissRequest = { viewModel.clearBypass() },
-                title = { Text("Security Sandbox Warning") },
-                text = { Text("Potentially unsafe code was detected in ${bypassPlugin.name}.\n\nThis usually means the plugin uses dangerous operations (e.g., executing system commands or untracked network requests) that could compromise the app's stability or your privacy. Installing this is NOT recommended.\n\nAre you sure you want to bypass the sandbox and install it anyway?") },
+                title = { Text("Advanced Bytecode Detected") },
+                text = { Text("Advanced or unverified bytecode patterns were detected in ${bypassPlugin.name}.\n\nThis plugin uses reflection or APIs outside standard verified CloudStream templates. While this is common in complex or third-party plugins, our desktop runtime will continue to run it inside the secure sandbox.\n\nWould you like to trust and install this plugin?") },
                 confirmButton = {
                     TextButton(
                         onClick = {
                             viewModel.bypassSecurityAndInstall(bypassRepo, bypassPlugin)
                         },
                     ) {
-                        Text("Install Anyway", color = MaterialTheme.colorScheme.error)
+                        Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 dismissButton = {

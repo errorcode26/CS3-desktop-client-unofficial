@@ -20,6 +20,8 @@ data class LocalPlugin(
     val repoName: String,
     val language: String?,
     val tvTypes: List<String>?,
+    val description: String? = null,
+    val fileSize: Long = 0L,
 )
 
 class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
@@ -40,6 +42,12 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
 
     private val _pluginRequiringPermission = MutableStateFlow<Triple<String, SitePlugin, String>?>(null)
     val pluginRequiringPermission = _pluginRequiringPermission.asStateFlow()
+
+    val inspectedRepoName = MutableStateFlow<String?>(null)
+
+    fun inspectRepository(repoName: String) {
+        inspectedRepoName.value = repoName
+    }
 
     fun fetchPlugins() {
         _isFetching.value = true
@@ -90,7 +98,8 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                     }
                     val language = manifest?.get("language") as? String ?: remoteMatch?.second?.language
 
-                    list.add(LocalPlugin(jar, name, internalName, version, iconUrl, repoName, language, tvTypes))
+                    val description = manifest?.get("description") as? String ?: remoteMatch?.second?.description
+                    list.add(LocalPlugin(jar, name, internalName, version, iconUrl, repoName, language, tvTypes, description, jar.length()))
                 }
         }
         _installedPlugins.value = list
@@ -155,8 +164,8 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
 
     fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
         _pluginRequiringPermission.value = null
-        com.lagradost.runtime.loader.PermissionManager.grantPermission(plugin.internalName, permissionName)
-        // Now that PluginSecurityVerifier checks PermissionManager, we can retry standard installation
+        com.lagradost.runtime.permission.PluginPermissionAPI.grantPermission(plugin.internalName, permissionName)
+        // Now that PluginSecurityVerifier checks PluginPermissionAPI, we can retry standard installation
         installPlugin(repoName, plugin) {}
     }
 
@@ -189,6 +198,15 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                 }
             }
             refreshInstalled()
+        }
+    }
+
+    fun uninstallByInternalName(internalName: String) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val installedMatch = _installedPlugins.value.find { it.internalName == internalName }
+            if (installedMatch != null) {
+                uninstallPlugins(listOf(installedMatch))
+            }
         }
     }
 

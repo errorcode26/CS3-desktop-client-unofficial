@@ -25,25 +25,9 @@ object PluginSecurityVerifier {
                                 if (insn is MethodInsnNode) {
                                     val owner = insn.owner // internal name e.g. java/lang/Runtime
 
-                                    // Block dangerous class owners outright
-                                    if (owner == "java/lang/ProcessBuilder" ||
-                                        owner == "java/io/File" ||
-                                        owner == "java/io/FileInputStream" ||
-                                        owner == "java/io/FileOutputStream" ||
-                                        owner == "java/io/RandomAccessFile" ||
-                                        owner == "java/io/FileReader" ||
-                                        owner == "java/io/FileWriter" ||
-                                        owner.startsWith("java/nio/file/") ||
-                                        owner.startsWith("java/lang/reflect/") ||
-                                        owner.startsWith("java/lang/invoke/") ||
-                                        owner.startsWith("kotlin/reflect/") ||
-                                        owner.startsWith("javax/script/") ||
-                                        owner.startsWith("javax/naming/") ||
-                                        owner.startsWith("javax/tools/") ||
-                                        owner.startsWith("sun/misc/") ||
-                                        owner.startsWith("jdk/internal/misc/")
-                                    ) {
-                                        throw SecurityException("Security Sandbox: Potentially unsafe code detected in class ${classNode.name} method ${method.name}. Illegal invocation: $owner.${insn.name}")
+                                    // Enforce Default Deny (Whitelist-Only) policy on ASM owner
+                                    if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isAsmOwnerAllowed(owner)) {
+                                        throw SecurityException("Security Sandbox: Unsafe class '$owner' detected in ${classNode.name} method ${method.name} by Default Deny policy.")
                                     }
 
                                     // Fallback block for dangerous Runtime calls (in case the bytecode transformer missed them)
@@ -82,23 +66,34 @@ object PluginSecurityVerifier {
                                         owner == "java/net/URLConnection" ||
                                         owner == "javax/net/ssl/HttpsURLConnection"
                                     ) {
-                                        if (!com.lagradost.runtime.loader.PermissionManager.hasPermission(pluginInternalName, "Network Sockets")) {
-                                            throw RequiresPermissionException("Network Sockets", "Security Sandbox: Illegal raw HTTP connection in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginInternalName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS)) {
+                                            throw RequiresPermissionException(com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS.displayName, "Security Sandbox: Illegal raw HTTP connection in ${classNode.name}. Plugin requires '${com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS.displayName}' permission.")
                                         }
                                     }
 
                                     // Detect raw Sockets (e.g. for proxy servers)
                                     if (owner == "java/net/Socket" || owner == "java/net/ServerSocket" || owner == "java/net/DatagramSocket") {
-                                        if (!com.lagradost.runtime.loader.PermissionManager.hasPermission(pluginInternalName, "Network Sockets")) {
-                                            throw RequiresPermissionException("Network Sockets", "Security Sandbox: Raw socket access detected in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginInternalName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS)) {
+                                            throw RequiresPermissionException(com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS.displayName, "Security Sandbox: Raw socket access detected in ${classNode.name}. Plugin requires '${com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS.displayName}' permission.")
                                         }
                                     }
 
                                     // Block specific dangerous System calls
                                     if (owner == "java/lang/System") {
-                                        if (insn.name == "exit" || insn.name == "loadLibrary" || insn.name == "load" || insn.name == "setSecurityManager") {
+                                        if (insn.name == "exit" || insn.name == "loadLibrary" || insn.name == "load" || insn.name == "setSecurityManager" || insn.name == "getProperty" || insn.name == "getProperties" || insn.name == "getenv") {
                                             throw SecurityException("Security Sandbox: Potentially unsafe code detected in class ${classNode.name}. Illegal System call: ${insn.name}")
                                         }
+                                    }
+
+                                    // Block TimeZone and Region (Locale) access
+                                    if (owner == "java/util/TimeZone" && insn.name == "getDefault") {
+                                        throw SecurityException("Security Sandbox: Access to TimeZone.getDefault() is blocked. Plugins do not need timezone data.")
+                                    }
+                                    if (owner == "java/time/ZoneId" && insn.name == "systemDefault") {
+                                        throw SecurityException("Security Sandbox: Access to ZoneId.systemDefault() is blocked. Plugins do not need timezone data.")
+                                    }
+                                    if (owner == "java/util/Locale" && insn.name == "getDefault") {
+                                        throw SecurityException("Security Sandbox: Access to Locale.getDefault() is blocked. Plugins do not need region data.")
                                     }
                                 }
                             }

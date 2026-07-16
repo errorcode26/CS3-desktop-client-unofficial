@@ -235,7 +235,7 @@ fun NativePlayerControls(
 
             SettingsDialog(
                 playerState = playerState,
-                subtitles = launchData.subtitles,
+                launchData = launchData,
                 lazyAudioTracks = proxyAudioTracks.map { PlayerState.LazyTrack(it.url, it.name, it.language) },
                 lazySubtitleTracks = proxySubtitleTracks.map { PlayerState.LazyTrack(it.url, it.name, it.language) },
                 initialTab = showSettingsTab,

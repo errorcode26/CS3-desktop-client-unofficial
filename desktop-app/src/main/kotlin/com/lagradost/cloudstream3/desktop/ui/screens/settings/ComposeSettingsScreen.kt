@@ -19,6 +19,7 @@ enum class SettingsTab(val title: String) {
     ADVANCED("Advanced"),
     LOGCAT("Logcat"),
     ABOUT("About"),
+    ACCOUNTS("Accounts"),
 }
 
 @Composable
@@ -26,16 +27,16 @@ fun ComposeSettingsScreen(navController: NavController, onErrorLogs: () -> Unit)
     var selectedTab by remember { mutableStateOf(SettingsTab.PLAYER) }
 
     Row(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 32.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 32.dp),
         horizontalArrangement = Arrangement.Center
     ) {
         // Container to keep max width reasonable on ultra-wide screens
-        Row(modifier = Modifier.widthIn(max = 1200.dp).fillMaxSize()) {
+        Row(modifier = Modifier.widthIn(max = 1600.dp).fillMaxSize()) {
             
             // Left Pane: Sidebar Navigation
             Column(
                 modifier = Modifier
-                    .width(220.dp)
+                    .widthIn(min = 160.dp, max = 220.dp)
                     .fillMaxHeight()
                     .padding(end = 24.dp)
             ) {
@@ -95,6 +96,7 @@ fun ComposeSettingsScreen(navController: NavController, onErrorLogs: () -> Unit)
                         SettingsTab.ADVANCED -> SettingsAdvanced(onErrorLogs)
                         SettingsTab.LOGCAT -> SettingsLogcat()
                         SettingsTab.ABOUT -> SettingsAbout()
+                        SettingsTab.ACCOUNTS -> SettingsAccounts()
                     }
                 }
             }

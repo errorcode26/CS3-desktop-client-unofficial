@@ -58,6 +58,9 @@ INSERT OR REPLACE INTO WatchHistory(parentId, episodeId, showName, showUrl, apiN
 deleteWatchHistoryByParent:
 DELETE FROM WatchHistory WHERE parentId = ?;
 
+deleteWatchHistoryByEpisode:
+DELETE FROM WatchHistory WHERE parentId = ? AND episodeId = ?;
+
 deleteAllWatchHistory:
 DELETE FROM WatchHistory;
 

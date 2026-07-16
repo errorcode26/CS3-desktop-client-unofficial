@@ -1,28 +1,41 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.player.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsDialog(
     playerState: PlayerState,
-    subtitles: List<com.lagradost.cloudstream3.SubtitleFile>,
+    launchData: com.lagradost.cloudstream3.desktop.ui.VideoLaunchData,
     lazyAudioTracks: List<PlayerState.LazyTrack> = emptyList(),
     lazySubtitleTracks: List<PlayerState.LazyTrack> = emptyList(),
     initialTab: Int = 0,
@@ -87,7 +100,7 @@ fun SettingsDialog(
 
                 when (currentTab) {
                     0 -> AudioTab(playerState, lazyAudioTracks)
-                    1 -> SubtitlesTab(playerState, subtitles, lazySubtitleTracks)
+                    1 -> SubtitlesTab(playerState, launchData, lazySubtitleTracks)
                     2 -> SpeedTab(playerState)
                     3 -> VideoTab(playerState)
                 }
@@ -279,12 +292,14 @@ private fun AudioTab(playerState: PlayerState, lazyTracks: List<PlayerState.Lazy
 @Composable
 private fun SubtitlesTab(
     playerState: PlayerState,
-    externalSubtitles: List<com.lagradost.cloudstream3.SubtitleFile>,
+    launchData: com.lagradost.cloudstream3.desktop.ui.VideoLaunchData,
     lazyTracks: List<PlayerState.LazyTrack> = emptyList(),
 ) {
+    val externalSubtitles = launchData.subtitles
     val subtitleDelay by playerState.subtitleDelayMs.collectAsState()
     val subtitleTracks by playerState.subtitleTracks.collectAsState()
     val isNoneSelected = subtitleTracks.none { it.isSelected }
+    var showDownloadDialog by remember { mutableStateOf(false) }
 
     Column {
         Text("Subtitle Track", color = Color.LightGray, style = MaterialTheme.typography.labelLarge)
@@ -352,6 +367,51 @@ private fun SubtitlesTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = {
+                    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Subtitle File", java.awt.FileDialog.LOAD)
+                    dialog.isVisible = true
+                    val file = dialog.file
+                    val dir = dialog.directory
+                    if (file != null && dir != null) {
+                        playerState.loadExternalSubtitle(java.io.File(dir, file).absolutePath)
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text("Local Sub", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+
+            Button(
+                onClick = { showDownloadDialog = true },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("Download", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (showDownloadDialog) {
+            SubtitleDownloadDialog(
+                playerState = playerState,
+                launchData = launchData,
+                onDismiss = { showDownloadDialog = false }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text("Subtitle Delay (Sync)", color = Color.LightGray, style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -399,20 +459,397 @@ private fun SubtitleItem(name: String, isSelected: Boolean, onClick: () -> Unit)
             .padding(vertical = 12.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = name,
-            color = if (isSelected) Color.White else Color.LightGray,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        )
+        val title = if (name.length > 30) name.take(27) + "..." else name
+        Text(title, color = if (isSelected) Color.White else Color.LightGray, style = MaterialTheme.typography.bodyMedium)
         if (isSelected) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(Color(0xFF1DB954), androidx.compose.foundation.shape.CircleShape), // Green dot indicator
-            )
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+fun SubtitleDownloadDialog(
+    playerState: PlayerState,
+    launchData: com.lagradost.cloudstream3.desktop.ui.VideoLaunchData,
+    onDismiss: () -> Unit
+) {
+    // ── State ────────────────────────────────────────────────────────────────
+    var searchQuery    by remember { mutableStateOf(launchData.title ?: "") }
+    var selectedLang   by remember { mutableStateOf("English") }
+    var seasonText     by remember { mutableStateOf("") }
+    var episodeText    by remember { mutableStateOf("") }
+    var isLoading      by remember { mutableStateOf(false) }
+    var hasSearched    by remember { mutableStateOf(false) }
+    var searchResults  by remember { mutableStateOf<List<com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleEntity>>(emptyList()) }
+    var downloadingIdx by remember { mutableStateOf<Int?>(null) }
+    var langDropdown   by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val langMap = linkedMapOf(
+        "All"        to null,
+        "English"    to "en",
+        "Spanish"    to "es",
+        "French"     to "fr",
+        "Portuguese" to "pt",
+        "German"     to "de",
+        "Italian"    to "it",
+        "Arabic"     to "ar",
+        "Hindi"      to "hi",
+        "Korean"     to "ko",
+        "Japanese"   to "ja",
+        "Chinese"    to "zh",
+    )
+
+    // ── Colours matching existing dialog ────────────────────────────────────
+    val bgColor        = Color(0xFF141414)
+    val inputBg        = Color(0xFF1E1E1E)
+    val accentRed      = Color(0xFFE53935)
+    val labelGray      = Color(0xFF888888)
+    val cardBg         = Color(0xFF1C1C1C)
+    val borderColor    = Color.White.copy(alpha = 0.08f)
+
+    // ── Search function ──────────────────────────────────────────────────────
+    fun performSearch() {
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            isLoading = true
+            hasSearched = true
+            val results = mutableListOf<com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleEntity>()
+
+            val query = searchQuery.trim()
+            val lang  = langMap[selectedLang]
+            val ep    = episodeText.trim().toIntOrNull()
+            val seas  = seasonText.trim().toIntOrNull()
+
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val search = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleSearch(
+                    query        = query,
+                    lang         = lang,
+                    epNumber     = ep,
+                    seasonNumber = seas,
+                )
+                for (provider in com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders) {
+                    val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
+                    try {
+                        val res = provider.search(auth, search)
+                        if (res != null) results.addAll(res)
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.e("SubtitleSearch [${provider.name}]: ${e.message}")
+                    }
+                }
+            }
+
+            // Back on Main — Compose will now see the state change and recompose
+            searchResults = results
+            isLoading = false
+        }
+    }
+
+    // Auto-search on first open
+    LaunchedEffect(Unit) { performSearch() }
+
+    // ── Dialog ───────────────────────────────────────────────────────────────
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape  = RoundedCornerShape(20.dp),
+            color  = bgColor,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 300.dp, max = 600.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+
+                // ── Header ───────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Search Subtitles",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = labelGray)
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Search Bar Row ────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Query field
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                        cursorBrush = SolidColor(Color.White),
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(inputBg, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        decorationBox = { inner ->
+                            if (searchQuery.isEmpty()) Text("Title...", color = labelGray, fontSize = 14.sp)
+                            inner()
+                        }
+                    )
+
+                    // Language dropdown
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .background(inputBg, RoundedCornerShape(10.dp))
+                                .clickable { langDropdown = true }
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(selectedLang, color = Color.White, fontSize = 13.sp)
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Remove,
+                                contentDescription = null,
+                                tint = labelGray,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = langDropdown,
+                            onDismissRequest = { langDropdown = false },
+                            modifier = Modifier.background(Color(0xFF1E1E1E)).heightIn(max = 300.dp)
+                        ) {
+                            langMap.keys.forEach { lang ->
+                                DropdownMenuItem(
+                                    text = { Text(lang, color = Color.White, fontSize = 13.sp) },
+                                    onClick = { selectedLang = lang; langDropdown = false },
+                                    modifier = if (lang == selectedLang)
+                                        Modifier.background(Color.White.copy(alpha = 0.08f))
+                                    else Modifier
+                                )
+                            }
+                        }
+                    }
+
+                    // Season
+                    BasicTextField(
+                        value = seasonText,
+                        onValueChange = { seasonText = it.filter { c -> c.isDigit() } },
+                        singleLine = true,
+                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                        cursorBrush = SolidColor(Color.White),
+                        modifier = Modifier
+                            .width(50.dp)
+                            .background(inputBg, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        decorationBox = { inner ->
+                            if (seasonText.isEmpty()) Text("S", color = labelGray, fontSize = 14.sp)
+                            inner()
+                        }
+                    )
+
+                    // Episode
+                    BasicTextField(
+                        value = episodeText,
+                        onValueChange = { episodeText = it.filter { c -> c.isDigit() } },
+                        singleLine = true,
+                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                        cursorBrush = SolidColor(Color.White),
+                        modifier = Modifier
+                            .width(50.dp)
+                            .background(inputBg, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        decorationBox = { inner ->
+                            if (episodeText.isEmpty()) Text("E", color = labelGray, fontSize = 14.sp)
+                            inner()
+                        }
+                    )
+
+                    // Search button
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(accentRed, RoundedCornerShape(10.dp))
+                            .clickable(enabled = !isLoading) { performSearch() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Results ───────────────────────────────────────────────────
+                when {
+                    isLoading -> {
+                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    hasSearched && searchResults.isEmpty() -> {
+                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("No subtitles found.", color = labelGray, fontSize = 14.sp)
+                                val loggedIn = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.any {
+                                    com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[it.idPrefix]?.isNotEmpty() == true
+                                }
+                                if (!loggedIn) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "Tip: Log in via Settings → Accounts to get more results.",
+                                        color = labelGray.copy(alpha = 0.6f),
+                                        fontSize = 12.sp,
+                                        fontStyle = FontStyle.Italic,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(searchResults.mapIndexed { i, s -> Pair(i, s) }, key = { it.first }) { (idx, sub) ->
+                                val isDownloading = downloadingIdx == idx
+                                // Language code badge (short 2-3 char uppercase)
+                                val langCode = sub.lang.take(3).uppercase().let {
+                                    if (it.length < 2) "??" else it
+                                }
+                                // Episode/season suffix
+                                val epSuffix = buildString {
+                                    sub.seasonNumber?.let { append(" S${it.toString().padStart(2,'0')}") }
+                                    sub.epNumber?.let    { append(" E${it.toString().padStart(2,'0')}") }
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(cardBg, RoundedCornerShape(12.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    // Lang badge
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFF2A2A2A), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 7.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            langCode,
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.5.sp,
+                                        )
+                                    }
+
+                                    // Name + source
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                sub.name.let { if (it.length > 40) it.take(37) + "..." else it },
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
+                                            if (epSuffix.isNotBlank()) {
+                                                Text(
+                                                    epSuffix.trim(),
+                                                    color = labelGray,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Normal,
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            sub.source,
+                                            color = labelGray,
+                                            fontSize = 11.sp,
+                                            fontStyle = FontStyle.Italic,
+                                        )
+                                    }
+
+                                    // Download button
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                if (isDownloading) labelGray.copy(alpha = 0.1f)
+                                                else Color.White.copy(alpha = 0.06f),
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable(enabled = !isDownloading && downloadingIdx == null) {
+                                                downloadingIdx = idx
+                                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                    try {
+                                                        val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders
+                                                            .find { it.idPrefix == sub.idPrefix }
+                                                        if (provider != null) {
+                                                            val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
+                                                            val url = provider.load(auth, sub)
+                                                            if (url != null) {
+                                                                playerState.loadExternalSubtitle(url)
+                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                                    onDismiss()
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        com.lagradost.common.logging.AppLogger.e("SubtitleLoad: ${e.message}")
+                                                    } finally {
+                                                        downloadingIdx = null
+                                                    }
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        if (isDownloading) {
+                                            CircularProgressIndicator(
+                                                color = Color.White,
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Default.Download,
+                                                contentDescription = "Download",
+                                                tint = Color.White.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

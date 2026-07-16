@@ -70,8 +70,8 @@ object PlayerLinkHandler {
         }
 
         val kind = when {
-            link.isM3u8 || link.type == ExtractorLinkType.M3U8 -> StreamKind.HLS
-            link.isDash || link.type == ExtractorLinkType.DASH -> StreamKind.DASH
+            link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8", ignoreCase = true) || url.contains(".m3u", ignoreCase = true) -> StreamKind.HLS
+            link.isDash || link.type == ExtractorLinkType.DASH || url.contains(".mpd", ignoreCase = true) -> StreamKind.DASH
             else -> StreamKind.PROGRESSIVE
         }
 
@@ -102,7 +102,7 @@ object PlayerLinkHandler {
         val useProxy = when (kind) {
             StreamKind.HLS -> true
             StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
-            StreamKind.PROGRESSIVE -> false
+            StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
         }
         
         var finalSessionId: String? = null

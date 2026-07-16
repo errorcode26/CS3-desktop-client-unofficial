@@ -198,6 +198,11 @@ object DesktopDataStore {
         historyUpdates.value++
     }
 
+    fun removeEpisodeWatched(parentId: String, episodeId: String) {
+        DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
+        historyUpdates.value++
+    }
+
     fun watchHistoryId(
         apiName: String,
         showUrl: String,

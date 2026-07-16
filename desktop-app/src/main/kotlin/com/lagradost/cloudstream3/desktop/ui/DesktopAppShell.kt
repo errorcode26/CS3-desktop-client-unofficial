@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
+import com.lagradost.cloudstream3.desktop.ui.screens.home.AnimatedSearchOverlay
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
@@ -42,11 +44,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 
 object DesktopUiState {
     val forceShowSearchBar = MutableStateFlow(false)
     val searchFocusTrigger = MutableStateFlow(0)
     val forceProviderRefresh = MutableStateFlow(0)
+    
+    // Global provider selection states (fed by HomeViewModel)
+    val homeProviders = MutableStateFlow<List<com.lagradost.cloudstream3.MainAPI>>(emptyList())
+    val selectedProviderName = MutableStateFlow<String?>(null)
+    val mergedPluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
+    val isProviderDropdownExpanded = MutableStateFlow(false)
 }
 
 @Composable
@@ -63,6 +78,13 @@ fun DesktopAppShell(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(current) {
+        if (current !is Screen.Home) {
+            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
+            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.searchFocusTrigger.value = 0
+        }
+    }
+
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
         .collectAsState(initial = DesktopDataStore.hasUnreadUpdates())
@@ -70,6 +92,9 @@ fun DesktopAppShell(
     val updatesHistory by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.getUpdatesHistory() }
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
+
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val isSearchForced by com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.collectAsState()
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -83,31 +108,33 @@ fun DesktopAppShell(
             val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
             val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
             val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+            val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
             val isLightMode by AppearanceConfig.isLightMode.collectAsState()
             val primaryColor = MaterialTheme.colorScheme.primary
 
-            // Main content Box
+            val surfaceColor = MaterialTheme.colorScheme.surface
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
                     .then(
                         if (ambientGlowEnabled && !isLightMode) {
                             Modifier.drawBehind {
+                                drawRect(color = surfaceColor)
                                 ambientGlowPositions.forEach { position ->
+                                    val yOffset = 0f
                                     val centerOffset = when (position) {
-                                        "Top" -> Offset(size.width / 2f, 0f)
+                                        "Top" -> Offset(size.width / 2f, yOffset)
                                         "Bottom" -> Offset(size.width / 2f, size.height)
                                         "Left" -> Offset(0f, size.height / 2f)
                                         "Right" -> Offset(size.width, size.height / 2f)
-                                        "Top Left" -> Offset(0f, 0f)
-                                        "Top Right" -> Offset(size.width, 0f)
+                                        "Top Left" -> Offset(0f, yOffset)
+                                        "Top Right" -> Offset(size.width, yOffset)
                                         "Bottom Left" -> Offset(0f, size.height)
                                         "Bottom Right" -> Offset(size.width, size.height)
-                                        else -> Offset(size.width / 2f, size.height / 2f) // Center
+                                        else -> Offset(size.width / 2f, size.height / 2f)
                                     }
                                     drawRect(
-                                        brush = Brush.radialGradient(
+                                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
                                             colorStops = arrayOf(
                                                 0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
                                                 0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
@@ -120,14 +147,22 @@ fun DesktopAppShell(
                                     )
                                 }
                             }
-                        } else Modifier
+                        } else {
+                            Modifier.background(surfaceColor)
+                        }
                     ),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val contentPadding = if (current is Screen.Home) {
                     PaddingValues(0.dp)
                 } else {
-                    PaddingValues(top = 66.dp, start = 88.dp, end = 20.dp, bottom = 12.dp)
+                    val hPadding = if (dockPosition == "Right" || dockPosition == "Left") 88.dp else 20.dp
+                    when (dockPosition) {
+                        "Right" -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
+                        "Bottom" -> PaddingValues(top = 66.dp, start = 20.dp, end = 20.dp, bottom = 88.dp)
+                        "Top" -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
+                        else -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
+                    }
                 }
 
                 val layoutWidthSetting by AppearanceConfig.layoutWidth.collectAsState()
@@ -151,13 +186,15 @@ fun DesktopAppShell(
                     ) {
                         content()
                     }
-
-                    TopBar(
-                        showBack = showBack,
-                        onBack = { navController.goBack() },
-                        isHome = current is Screen.Home,
-                    )
                 }
+
+                // Global TopBar (Back button + Window Controls)
+                // Positioned outside the width-constrained box so it always anchors to the absolute edges of the window
+                TopBar(
+                    showBack = showBack,
+                    onBack = { navController.goBack() },
+                    isHome = current is Screen.Home,
+                )
 
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -165,23 +202,36 @@ fun DesktopAppShell(
                 )
             }
             
-            // Navigation Dock (Floating on left)
+            // Navigation Dock
+            val dockAlignment = when (dockPosition) {
+                "Right" -> Alignment.CenterEnd
+                "Bottom" -> Alignment.BottomCenter
+                "Top" -> Alignment.TopCenter
+                else -> Alignment.CenterStart
+            }
             NavigationDock(
-                modifier = Modifier.align(Alignment.CenterStart),
+                modifier = Modifier.align(dockAlignment),
                 current = current,
+                dockPosition = dockPosition,
                 isSyncing = isSyncing,
-                hasUnreadUpdates = hasUnreadUpdates,
-                updatesHistory = updatesHistory,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = { navController.navigateRoot(it) },
                 onSearchClick = {
                     if (current !is Screen.Home) {
-                        navController.navigate(Screen.Home)
+                        navController.navigateRoot(Screen.Home)
                     }
-                    DesktopUiState.forceShowSearchBar.value = true
-                    DesktopUiState.searchFocusTrigger.value += 1
+                    com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = true
+                    com.lagradost.cloudstream3.desktop.ui.DesktopUiState.searchFocusTrigger.value += 1
                 },
+            )
+
+            // Updates Notification Bell (Always bottom left)
+            UpdatesNotificationBell(
+                modifier = Modifier.align(Alignment.BottomStart),
+                hasUnreadUpdates = hasUnreadUpdates,
+                updatesHistory = updatesHistory,
                 onMarkUpdatesRead = { DesktopDataStore.setUnreadUpdates(false) },
             )
+
         }
     }
 }
@@ -190,156 +240,202 @@ fun DesktopAppShell(
 private fun NavigationDock(
     modifier: Modifier = Modifier,
     current: Screen,
+    dockPosition: String,
     isSyncing: Boolean,
-    hasUnreadUpdates: Boolean,
-    updatesHistory: List<com.lagradost.common.storage.PluginUpdateRecord>,
     onNavigate: (Screen) -> Unit,
     onSearchClick: () -> Unit,
-    onMarkUpdatesRead: () -> Unit,
 ) {
     val savedRepos by DesktopRepositoryManager.savedRepositories.collectAsState()
-    var isUpdatesDialogExpanded by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier.fillMaxHeight(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Top spacer to push the main pill to the center
-        Spacer(modifier = Modifier.weight(1f))
+    val isBottom = dockPosition == "Bottom"
+    val isRight = dockPosition == "Right"
+    val isTop = dockPosition == "Top"
+    val isHorizontal = isBottom || isTop
 
+    val isSearchForced by com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.collectAsState()
+
+    val dockItems = @Composable {
+        DockItem(
+            icon = PremiumIcons.Home,
+            label = "Home",
+            selected = current is Screen.Home && !isSearchForced,
+            isHorizontal = isHorizontal,
+            indicatorAtTop = isTop,
+            onClick = {
+                com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
+                onNavigate(Screen.Home)
+            }
+        )
+        DockItem(
+            icon = PremiumIcons.Search,
+            label = "Search",
+            selected = current is Screen.Home && isSearchForced,
+            isHorizontal = isHorizontal,
+            indicatorAtTop = isTop,
+            onClick = onSearchClick
+        )
+        DockItem(icon = PremiumIcons.Library, label = "Library", selected = current is Screen.Library, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Library) })
+        DockItem(
+            icon = PremiumIcons.Extensions,
+            label = "Extensions",
+            selected = current is Screen.Extensions,
+            badge = savedRepos.size.takeIf { it > 0 }?.toString(),
+            isHorizontal = isHorizontal,
+            indicatorAtTop = isTop,
+            onClick = { onNavigate(Screen.Extensions) },
+        )
+        DockItem(icon = PremiumIcons.Settings, label = "Settings", selected = current is Screen.Settings, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Settings) })
+    }
+
+    val surfaceModifier = when {
+        isBottom -> Modifier.padding(bottom = 14.dp).height(54.dp).wrapContentWidth()
+        isTop -> Modifier.padding(top = 14.dp).height(54.dp).wrapContentWidth()
+        isRight -> Modifier.padding(end = 14.dp).width(54.dp).wrapContentHeight()
+        else -> Modifier.padding(start = 14.dp).width(54.dp).wrapContentHeight()
+    }
+
+    val paddingInsideSurface = if (isHorizontal) {
+        Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+    } else {
+        Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
+    }
+
+    val updatesBoxPadding = when {
+        isBottom -> Modifier.padding(bottom = 16.dp, end = 16.dp)
+        isTop -> Modifier.padding(top = 16.dp, end = 16.dp)
+        isRight -> Modifier.padding(end = 16.dp, bottom = 16.dp)
+        else -> Modifier.padding(start = 16.dp, bottom = 16.dp)
+    }
+
+    val mainDockSurface = @Composable {
         Surface(
-            modifier = Modifier
-                .padding(start = 16.dp)
-                .width(72.dp)
-                .wrapContentHeight(),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 8.dp,
-            shape = RoundedCornerShape(36.dp),
+            modifier = surfaceModifier,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f), // Stronger frosted glass opacity
+            shadowElevation = 4.dp, // Softer shadow for glass effect
+            shape = RoundedCornerShape(16.dp),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f) // Subtle light-catching border
             ),
         ) {
-            Column(
-                modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            if (isHorizontal) {
+                Row(
+                    modifier = paddingInsideSurface,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    dockItems()
+                }
+            } else {
+                Column(
+                    modifier = paddingInsideSurface,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    dockItems()
+                }
+            }
+        }
+    }
+
+    Box(modifier = modifier) {
+        mainDockSurface()
+    }
+}
+
+@Composable
+private fun UpdatesNotificationBell(
+    modifier: Modifier = Modifier,
+    hasUnreadUpdates: Boolean,
+    updatesHistory: List<com.lagradost.common.storage.PluginUpdateRecord>,
+    onMarkUpdatesRead: () -> Unit,
+) {
+    var isUpdatesDialogExpanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier.padding(start = 16.dp, bottom = 16.dp)) {
+        Surface(
+            modifier = Modifier
+                .width(48.dp)
+                .height(48.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+            shadowElevation = 4.dp,
+            shape = androidx.compose.foundation.shape.CircleShape,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
                 DockItem(
-                    icon = PremiumIcons.Home,
-                    label = "Home",
-                    selected = current is Screen.Home && !com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value,
+                    icon = PremiumIcons.Updates,
+                    label = "Updates",
+                    showLabel = false,
+                    selected = false,
+                    badge = if (hasUnreadUpdates) "!" else null,
                     onClick = {
-                        com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
-                        onNavigate(Screen.Home)
-                    }
+                        isUpdatesDialogExpanded = true
+                        if (hasUnreadUpdates) {
+                            onMarkUpdatesRead()
+                        }
+                    },
                 )
-                DockItem(
-                    icon = PremiumIcons.Search,
-                    label = "Search",
-                    selected = current is Screen.Home && com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value,
-                    onClick = onSearchClick
-                )
-                DockItem(icon = PremiumIcons.Library, label = "Library", selected = current is Screen.Library, onClick = { onNavigate(Screen.Library) })
-                DockItem(
-                    icon = PremiumIcons.Extensions,
-                    label = "Extensions",
-                    selected = current is Screen.Extensions,
-                    badge = savedRepos.size.takeIf { it > 0 }?.toString(),
-                    onClick = { onNavigate(Screen.Extensions) },
-                )
-                DockItem(icon = PremiumIcons.Settings, label = "Settings", selected = current is Screen.Settings, onClick = { onNavigate(Screen.Settings) })
             }
         }
 
-        // Bottom spacer to push the main pill to the center, and the updates button to the bottom
-        Spacer(modifier = Modifier.weight(1f))
-
-        Box(modifier = Modifier.padding(start = 16.dp, bottom = 16.dp)) {
-            Surface(
-                modifier = Modifier
-                    .width(48.dp)
-                    .height(48.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp,
-                shape = androidx.compose.foundation.shape.CircleShape,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                ),
+        if (isUpdatesDialogExpanded) {
+            androidx.compose.ui.window.Popup(
+                alignment = Alignment.BottomStart,
+                offset = androidx.compose.ui.unit.IntOffset(16, -16),
+                onDismissRequest = { isUpdatesDialogExpanded = false },
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    DockItem(
-                        icon = PremiumIcons.Updates,
-                        label = "Updates",
-                        showLabel = false,
-                        selected = false,
-                        badge = if (hasUnreadUpdates) "!" else null,
-                        onClick = {
-                            isUpdatesDialogExpanded = true
-                            if (hasUnreadUpdates) {
-                                onMarkUpdatesRead()
-                            }
-                        },
-                    )
-                }
-            }
-
-            if (isUpdatesDialogExpanded) {
-                androidx.compose.ui.window.Popup(
-                    alignment = Alignment.BottomEnd,
-                    offset = androidx.compose.ui.unit.IntOffset(16, -16),
-                    onDismissRequest = { isUpdatesDialogExpanded = false },
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = DesktopUi.SurfaceElevated.copy(alpha = 0.95f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                    modifier = Modifier.width(360.dp).heightIn(max = 500.dp),
+                    shadowElevation = 8.dp,
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = DesktopUi.SurfaceElevated.copy(alpha = 0.95f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                        modifier = Modifier.width(360.dp).heightIn(max = 500.dp),
-                        shadowElevation = 8.dp,
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-                            Text(
-                                "Plugin Updates",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+                    Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                        Text(
+                            "Plugin Updates",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                            if (updatesHistory.isEmpty()) {
-                                Text(
-                                    "No plugin updates recorded recently.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 14.sp,
-                                )
-                            } else {
-                                androidx.compose.foundation.lazy.LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    items(updatesHistory.size) { i ->
-                                        val update = updatesHistory[i]
-                                        val timeString = SimpleDateFormat("MMM dd, HH:mm").format(Date(update.timestamp))
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            AsyncImage(
-                                                model = update.iconUrl,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),
+                        if (updatesHistory.isEmpty()) {
+                            Text(
+                                "No plugin updates recorded recently.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                            )
+                        } else {
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                items(updatesHistory.size) { i ->
+                                    val update = updatesHistory[i]
+                                    val timeString = java.text.SimpleDateFormat("MMM dd, HH:mm").format(java.util.Date(update.timestamp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        coil3.compose.AsyncImage(
+                                            model = update.iconUrl,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                update.pluginName,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp,
                                             )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(
-                                                    update.pluginName,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    fontSize = 14.sp,
-                                                )
-                                                Text(
-                                                    "Updated to v${update.version} • $timeString",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    fontSize = 12.sp,
-                                                )
-                                            }
+                                            Text(
+                                                "Updated to v${update.version} • $timeString",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp,
+                                            )
                                         }
                                     }
                                 }
@@ -356,9 +452,11 @@ private fun NavigationDock(
 private fun DockItem(
     icon: ImageVector,
     label: String,
-    showLabel: Boolean = true,
+    showLabel: Boolean = false,
     selected: Boolean,
     badge: String? = null,
+    isHorizontal: Boolean = false,
+    indicatorAtTop: Boolean = false,
     onClick: () -> Unit,
 ) {
     val itemInteraction = remember { MutableInteractionSource() }
@@ -386,9 +484,11 @@ private fun DockItem(
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (isHorizontal) Modifier.fillMaxHeight().width(56.dp)
+                else Modifier.fillMaxWidth().height(56.dp)
+            )
+            .clip(RoundedCornerShape(14.dp))
             .background(bgColor)
             .hoverable(itemInteraction)
             .clickable(onClick = onClick)
@@ -396,15 +496,34 @@ private fun DockItem(
         // Active indicator pill
         AnimatedVisibility(
             visible = selected,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.CenterStart)
+            enter = fadeIn() + when {
+                indicatorAtTop -> slideInVertically { -it / 2 }
+                isHorizontal -> slideInHorizontally { it / 2 }
+                else -> slideInVertically { it / 2 }
+            },
+            exit = fadeOut() + when {
+                indicatorAtTop -> slideOutVertically { -it / 2 }
+                isHorizontal -> slideOutHorizontally { it / 2 }
+                else -> slideOutVertically { it / 2 }
+            },
+            modifier = Modifier.align(when {
+                indicatorAtTop -> Alignment.TopCenter
+                isHorizontal -> Alignment.BottomCenter
+                else -> Alignment.CenterStart
+            })
         ) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(24.dp)
-                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .run {
+                        when {
+                            indicatorAtTop -> width(20.dp).height(3.dp)
+                                .clip(RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
+                            isHorizontal -> width(20.dp).height(3.dp)
+                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                            else -> width(3.dp).height(20.dp)
+                                .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
+                        }
+                    }
                     .background(MaterialTheme.colorScheme.primary)
             )
         }
@@ -419,7 +538,7 @@ private fun DockItem(
                 contentDescription = label,
                 tint = iconTint,
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(22.dp)
                     .graphicsLayer(scaleX = scale, scaleY = scale)
             )
 
@@ -478,41 +597,14 @@ private fun TopBar(
             }
             Spacer(Modifier.weight(1f))
 
-            // Global Toggles
+            // Global Toggles & Window Controls
             val windowState = com.lagradost.cloudstream3.desktop.ui.LocalWindowState.current
             val fullscreenController = com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController.current
             val isFullscreen = fullscreenController?.isFullscreen?.value ?: (windowState?.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen)
 
             val theme = LocalDesktopTheme.current
-
-            IconButton(
-                onClick = { DesktopUiState.forceProviderRefresh.value += 1 },
-                modifier = Modifier.size(38.dp),
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(20.dp))
-            }
-
-            IconButton(
-                onClick = {
-                    if (fullscreenController != null) {
-                        fullscreenController.toggle()
-                    } else {
-                        windowState?.placement = if (isFullscreen) {
-                            androidx.compose.ui.window.WindowPlacement.Floating
-                        } else {
-                            androidx.compose.ui.window.WindowPlacement.Fullscreen
-                        }
-                    }
-                },
-                modifier = Modifier.size(38.dp),
-            ) {
-                Icon(
-                    if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                    contentDescription = "Fullscreen",
-                    tint = theme.TextPrimary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+            
+        WindowControlsPill(isHome = isHome)
         }
         if (!isHome) {
             HorizontalDivider(color = LocalDesktopTheme.current.Divider, thickness = 0.5.dp)

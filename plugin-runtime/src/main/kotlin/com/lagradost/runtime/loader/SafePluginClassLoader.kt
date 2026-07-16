@@ -4,11 +4,12 @@ class SafePluginClassLoader(parent: ClassLoader) : ClassLoader(parent) {
     private val ghostCache = java.util.concurrent.ConcurrentHashMap<String, Class<*>>()
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
-        // Prevent loading dangerous packages directly from the plugin bytecode
-        if (isBlocked(name)) {
-            val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
-            if (!PermissionManager.hasPermission(pluginName, name)) {
-                throw SecurityException("Security Sandbox: Access to class '$name' is blocked.")
+        // Enforce Default Deny (Whitelist-Only) security policy
+        val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
+        val hasSocketPerm = com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS) || com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)
+        if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isClassAllowed(name, hasSocketPerm)) {
+            if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)) {
+                throw SecurityException("Security Sandbox: Access to class '$name' is blocked by Default Deny policy.")
             }
         }
         return try {
@@ -103,138 +104,16 @@ class SafePluginClassLoader(parent: ClassLoader) : ClassLoader(parent) {
         ghostCache[name] = clazz
         return clazz
     }
-
-    private fun isBlocked(name: String): Boolean {
-        // Block file system access, but allow benign streams/readers/writers
-        if (name.startsWith("java.io.")) {
-            val safeIo = setOf(
-                "java.io.InputStream",
-                "java.io.OutputStream",
-                "java.io.ByteArrayInputStream",
-                "java.io.ByteArrayOutputStream",
-                "java.io.StringReader",
-                "java.io.StringWriter",
-                "java.io.InputStreamReader",
-                "java.io.OutputStreamWriter",
-                "java.io.BufferedReader",
-                "java.io.BufferedWriter",
-                "java.io.IOException",
-                "java.io.EOFException",
-                "java.io.FileNotFoundException",
-                "java.io.InterruptedIOException",
-                "java.io.UnsupportedEncodingException",
-                "java.io.FilterInputStream",
-                "java.io.FilterOutputStream",
-                "java.io.BufferedInputStream",
-                "java.io.BufferedOutputStream",
-                "java.io.DataInputStream",
-                "java.io.DataOutputStream",
-                "java.io.Reader",
-                "java.io.Writer",
-                "java.io.Serializable",
-                "java.io.Closeable",
-                "java.io.PrintStream",
-                "java.io.PrintWriter",
-                "java.io.ObjectStreamException",
-            )
-            if (!safeIo.contains(name)) {
-                return true
-            }
-        }
-
-        // Block unsafe NIO (channels, files) but allow buffers and charsets
-        if (name.startsWith("java.nio.")) {
-            if (!name.startsWith("java.nio.charset.") && !name.contains("Buffer")) {
-                return true
-            }
-        }
-
-        // Block OS command execution and sandbox escapes
-        if (name == "java.lang.ProcessBuilder" || name == "java.lang.Thread" || name == "java.lang.ClassLoader" || name == "java.net.URLClassLoader" || name == "java.security.SecureClassLoader") {
-            return true
-        }
-
-        // Block ScriptEngine (JavaScript/Nashorn bypasses bytecode sandboxing)
-        if (name.startsWith("javax.script.")) {
-            return true
-        }
-
-        // Block JNDI (Remote class loading bypasses)
-        if (name.startsWith("javax.naming.")) {
-            return true
-        }
-
-        // Reflection is allowed here so JSON parsers (Gson/Jackson) work.
-        // It is strictly sandboxed at the bytecode level in PluginBytecodeTransformer.kt
-
-        // Block method handles but ALLOW LambdaMetafactory and StringConcatFactory required for Java 8+ lambdas
-        if (name.startsWith("java.lang.invoke.")) {
-            val safeInvoke = setOf(
-                "java.lang.invoke.LambdaMetafactory",
-                "java.lang.invoke.MethodType",
-                "java.lang.invoke.CallSite",
-                "java.lang.invoke.ConstantCallSite",
-                "java.lang.invoke.MutableCallSite",
-                "java.lang.invoke.VolatileCallSite",
-                "java.lang.invoke.StringConcatFactory",
-                "java.lang.invoke.TypeDescriptor",
-                "java.lang.invoke.TypeDescriptor\$OfField",
-                "java.lang.invoke.TypeDescriptor\$OfMethod",
-            )
-            if (!safeInvoke.contains(name)) {
-                return true
-            }
-        }
-
-        // Block compiler and unsafe memory access
-        if (name.startsWith("sun.misc.") || name.startsWith("jdk.internal.") || name.startsWith("sun.reflect.")) {
-            return true
-        }
-
-        // Block raw sockets
-        if (name == "java.net.Socket" || name == "java.net.ServerSocket" || name == "java.net.DatagramSocket") {
-            return true
-        }
-
-        return false
-    }
 }
 
-object PermissionManager {
-    private val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-    private val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_permissions")
 
+@Deprecated("Use com.lagradost.runtime.permission.PluginPermissionAPI instead.")
+object PermissionManager {
     fun hasPermission(pluginName: String, className: String): Boolean {
-        val grantedMap = getGrantedPermissions()
-        val pluginPermissions = grantedMap[pluginName] ?: return false
-        return pluginPermissions.contains(className) || pluginPermissions.contains("Network Sockets")
+        return com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, className)
     }
 
     fun grantPermission(pluginName: String, permission: String) {
-        val grantedMap = getGrantedPermissions()
-        val pluginPermissions = grantedMap[pluginName] ?: mutableListOf()
-        if (!pluginPermissions.contains(permission)) {
-            pluginPermissions.add(permission)
-            grantedMap[pluginName] = pluginPermissions
-            saveGrantedPermissions(grantedMap)
-            println("[Security] User granted permission '$permission' to plugin $pluginName")
-        }
-    }
-
-    private fun getGrantedPermissions(): java.util.concurrent.ConcurrentHashMap<String, MutableList<String>> {
-        val json = prefs.get("granted", "{}")
-        return try {
-            mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<java.util.concurrent.ConcurrentHashMap<String, MutableList<String>>>() {})
-        } catch (e: Exception) {
-            java.util.concurrent.ConcurrentHashMap()
-        }
-    }
-
-    private fun saveGrantedPermissions(map: java.util.concurrent.ConcurrentHashMap<String, MutableList<String>>) {
-        try {
-            prefs.put("granted", mapper.writeValueAsString(map))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        com.lagradost.runtime.permission.PluginPermissionAPI.grantPermission(pluginName, permission)
     }
 }

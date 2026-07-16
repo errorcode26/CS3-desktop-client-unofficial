@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm")
     id("org.jetbrains.compose") version "1.7.3"
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.20"
+    alias(libs.plugins.kotlin.serialization)
 }
 
 java {
@@ -25,6 +26,7 @@ dependencies {
     // CloudStream Library (KMP, JVM target)
     // Contains: MainAPI, extractors, metaproviders, WebViewResolver (JVM actual), etc.
     implementation(project(":library"))
+    implementation(libs.kotlinx.serialization.json)
 
     // ASM Bytecode Scanner
     implementation("org.ow2.asm:asm:9.6")
@@ -88,7 +90,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
-        jvmArgs += listOf("-Djava.security.manager=allow", "-Djava.net.preferIPv4Stack=true", "-Djava.library.path=build/libs;\$APPDIR/resources/jni", "-Dfile.encoding=UTF-8")
+        jvmArgs += listOf("-Djava.security.manager=allow", "-Djava.net.preferIPv6Addresses=true", "-Djava.library.path=build/libs;\$APPDIR/resources/jni", "-Dfile.encoding=UTF-8")
 
         buildTypes.release.proguard {
             isEnabled.set(false)

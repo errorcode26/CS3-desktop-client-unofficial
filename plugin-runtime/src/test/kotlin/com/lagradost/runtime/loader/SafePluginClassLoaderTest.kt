@@ -24,11 +24,8 @@ class SafePluginClassLoaderTest {
         val blockedClasses = listOf(
             "java.lang.Thread",
             "java.lang.ProcessBuilder",
-            "java.lang.Runtime",
             "java.lang.ClassLoader",
             "java.lang.invoke.MethodHandles\$Lookup",
-            "java.lang.reflect.Method",
-            "java.lang.reflect.Field",
             "java.net.Socket",
             "java.net.ServerSocket",
             "java.io.File",

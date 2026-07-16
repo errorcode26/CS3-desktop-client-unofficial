@@ -3,8 +3,10 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +14,10 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.lagradost.cloudstream3.newMovieLoadResponse
+import com.lagradost.cloudstream3.fixUrlNull
+import java.awt.Color
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 const val PREF_GLOBAL_SEARCH = "global_search_enabled"
@@ -45,6 +51,85 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
     val mergedPluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
 
     val heroMetaMap = MutableStateFlow<Map<String, HeroMeta>>(emptyMap())
+
+    // The dominant vibrant color extracted from the currently featured hero image
+    val heroExtractedColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
+
+    // Cache to avoid re-extracting the same URL repeatedly
+    private val colorCache = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.Color>()
+
+    fun updateHeroColor(imageUrl: String?) {
+        if (imageUrl == null) {
+            heroExtractedColor.value = null
+            return
+        }
+        // Return cached result immediately if available
+        colorCache[imageUrl]?.let {
+            heroExtractedColor.value = it
+            return
+        }
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val bytes = app.get(imageUrl).body.bytes()
+                val img: BufferedImage = ImageIO.read(bytes.inputStream()) ?: return@launch
+                val dominant = sampleDominantColor(img)
+                if (dominant != null) {
+                    colorCache[imageUrl] = dominant
+                    heroExtractedColor.value = dominant
+                }
+            } catch (e: Exception) {
+                AppLogger.w("HeroColor: Failed to extract color from $imageUrl — ${e.message}")
+            }
+        }
+    }
+
+    private fun sampleDominantColor(img: BufferedImage): androidx.compose.ui.graphics.Color? {
+        val area = img.width * img.height
+        val step = maxOf(1, Math.sqrt(area / 300.0).toInt()) // Sample ~300 pixels evenly across the 2D grid
+        val colorBuckets = mutableMapOf<Int, Int>()
+
+        var x = 0
+        var pixelCount = 0
+        while (x < img.width) {
+            var y = 0
+            while (y < img.height) {
+                val argb = img.getRGB(x, y)
+                val r = (argb shr 16) and 0xFF
+                val g = (argb shr 8) and 0xFF
+                val b = argb and 0xFF
+
+                // Skip near-white, near-black, and near-gray pixels
+                val max = maxOf(r, g, b)
+                val min = minOf(r, g, b)
+                val saturation = if (max == 0) 0f else (max - min).toFloat() / max.toFloat()
+                val brightness = max / 255f
+                if (saturation < 0.25f || brightness < 0.15f || brightness > 0.95f) {
+                    y += step
+                    pixelCount++
+                    continue
+                }
+
+                // Quantize to reduce noise: bucket by dividing RGB into 32-step chunks
+                val qr = (r / 32) * 32
+                val qg = (g / 32) * 32
+                val qb = (b / 32) * 32
+                val key = (qr shl 16) or (qg shl 8) or qb
+                colorBuckets[key] = (colorBuckets[key] ?: 0) + 1
+                y += step
+                pixelCount++
+            }
+            x += step
+        }
+
+        if (colorBuckets.isEmpty()) return null
+
+        // Pick the most frequently occurring vibrant bucket
+        val dominant = colorBuckets.maxByOrNull { it.value }?.key ?: return null
+        val r = (dominant shr 16) and 0xFF
+        val g = (dominant shr 8) and 0xFF
+        val b = dominant and 0xFF
+        return androidx.compose.ui.graphics.Color(r, g, b)
+    }
 
     init {
         // Initialize providers
@@ -120,6 +205,26 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
             }
         }
 
+        // Sync provider data to DesktopUiState for global access
+        coroutineScope.launch {
+            providers.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.homeProviders.value = it }
+        }
+        coroutineScope.launch {
+            mergedPluginIcons.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.mergedPluginIcons.value = it }
+        }
+        // Bidirectional sync for selectedProviderName
+        coroutineScope.launch {
+            selectedProviderName.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.selectedProviderName.value = it }
+        }
+        coroutineScope.launch {
+            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.selectedProviderName.collect { globalName ->
+                if (globalName != null && selectedProviderName.value != globalName) {
+                    selectedProviderName.value = globalName
+                    searchResultsGrouped.value = null
+                }
+            }
+        }
+
         updateHistory()
         reloadIcons()
     }
@@ -156,7 +261,7 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                     try {
                         val raw = com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.fetchRaw(provider, history.showUrl)
                         if (raw != null) {
-                            com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(raw, history.showUrl) {}
+                            com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(raw, history.showUrl, onScreenshotsLoaded = {})
                         }
                     } catch (e: Exception) {
                         com.lagradost.common.logging.AppLogger.e("HomeScreen", "Failed to prefetch history item", e)
@@ -190,7 +295,7 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                         this.posterUrl = item.posterUrl
                     }
 
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(dummy, "dummy_${item.url}") {}
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(dummy, "dummy_${item.url}", onScreenshotsLoaded = {})
 
                     val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }
                     val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }
@@ -199,11 +304,14 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                     val plot = dummy.plot?.take(200)
                     val score = dummy.score?.toString() // Fallback if toStringNull isn't strictly available here
 
-                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type)
+                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
                     HeroCache.cache[cacheKey] = meta
                     heroMetaMap.update { it + (item.url to meta) }
+                    
+                    // Pre-calculate the dominant color in the background so it's ready instantly
+                    updateHeroColor(backdropUrl ?: provider.fixUrlNull(item.posterUrl))
                 } else {
-                    val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null)
+                    val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
                     HeroCache.cache[cacheKey] = meta
                     heroMetaMap.update { it + (item.url to meta) }
                 }
@@ -229,7 +337,7 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                     }
 
                     if (details != null) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(details, item.url) {}
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(details, item.url, onScreenshotsLoaded = {})
 
                         val currentMeta = heroMetaMap.value[item.url]
                         val newTitle = details.name.takeIf { it.isNotBlank() } ?: currentMeta?.title
@@ -240,8 +348,10 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                         val newScore = details.score?.toString() ?: currentMeta?.score
                         val newYear = details.year ?: currentMeta?.year
                         val newType = details.type ?: currentMeta?.type
+                        val newContentRating = details.contentRating?.takeIf { it.isNotBlank() } ?: currentMeta?.contentRating
+                        val newDuration = details.duration ?: currentMeta?.duration
 
-                        val finalMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType)
+                        val finalMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
                         HeroCache.cache[cacheKey] = finalMeta
                         heroMetaMap.update { it + (item.url to finalMeta) }
                     }

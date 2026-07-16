@@ -162,13 +162,26 @@ fun HomeCategorySection(
                             // Compute how much horizontal inset the list needs so that when
                             // the window is wider than maxWidthConstraint, items still start
                             // at the same x as the header text.
-                            val constrainedWidth = this.maxWidth
+                            val availableWidth = this.maxWidth
+                            val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
+                            val baseWidth = when (gridScale) {
+                                "Compact" -> 150.dp
+                                "Large" -> 220.dp
+                                else -> 190.dp
+                            }
+                            
+                            val netWidth = availableWidth - 8.dp
+                            val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
+                            val columns = exactColumns.toInt().coerceAtLeast(1)
+                            val optimalItemWidth = ((netWidth + 12.dp) / columns) - 12.dp
+                            
                             CategoryRowWithHeader(
                                 title = titleStr,
                                 itemCount = section.list.size,
                                 isInfinite = isLoop,
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
-                                rowContentPadding = PaddingValues(horizontal = 4.dp),
+                                rowContentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                                headerPadding = androidx.compose.foundation.layout.PaddingValues(start = 4.dp, top = 12.dp, bottom = 8.dp, end = 4.dp),
                             ) {
                                 items(
                                     count = if (isLoop) Int.MAX_VALUE else section.list.size,
@@ -182,6 +195,7 @@ fun HomeCategorySection(
                                     PosterCard(
                                         item = posterItem,
                                         provider = provider,
+                                        itemWidth = optimalItemWidth,
                                         onClick = { onItemClick(provider, posterItem, null, false) },
                                     )
                                 }

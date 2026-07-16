@@ -91,6 +91,7 @@ data class AuthLoginRequirement(
     val username: Boolean = false,
     val email: Boolean = false,
     val server: Boolean = false,
+    val apiKey: Boolean = false,
 )
 
 /** What the user responds to the AuthLoginRequirement */
@@ -103,6 +104,8 @@ data class AuthLoginResponse(
     val email: String?,
     @JsonProperty("server")
     val server: String?,
+    @JsonProperty("apiKey")
+    val apiKey: String? = null,
 )
 
 /** Stateless Authentication class used for all personalized content */

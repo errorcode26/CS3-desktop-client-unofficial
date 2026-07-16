@@ -58,4 +58,24 @@ object RuntimeStub {
     fun halt(runtime: Runtime, status: Int) {
         AppLogger.i("Security Sandbox: Blocked Runtime.halt($status)")
     }
+
+    @JvmStatic
+    fun availableProcessors(runtime: Runtime): Int {
+        return 16 // Ultra flagship hexadeca-core mock profile
+    }
+
+    @JvmStatic
+    fun maxMemory(runtime: Runtime): Long {
+        return 16L * 1024 * 1024 * 1024 // 16 GB heap mock
+    }
+
+    @JvmStatic
+    fun totalMemory(runtime: Runtime): Long {
+        return 16L * 1024 * 1024 * 1024 // 16 GB heap mock
+    }
+
+    @JvmStatic
+    fun freeMemory(runtime: Runtime): Long {
+        return 12L * 1024 * 1024 * 1024 // 12 GB free memory mock
+    }
 }

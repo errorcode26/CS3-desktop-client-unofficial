@@ -23,9 +23,12 @@ fun SettingsAppearance() {
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
     val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+    val heroDynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
     val layoutWidth by AppearanceConfig.layoutWidth.collectAsState()
     val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val selectedFont by AppearanceConfig.selectedFont.collectAsState()
 
     val accentColors = listOf(
         "Purple" to Color(0xFF7C6BFF),
@@ -91,6 +94,17 @@ fun SettingsAppearance() {
             )
         }
 
+        // --- Group 2: Typography ---
+        SettingsGroupCard(title = "Typography") {
+            SettingsDropdownItem(
+                label = "App Font",
+                subtitle = "Choose the font used throughout the app",
+                options = com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it },
+                currentValue = selectedFont,
+                onSelectionChanged = { AppearanceConfig.setSelectedFont(it) }
+            )
+        }
+
         // --- Group 2: Cinematic Aesthetics ---
         SettingsGroupCard(title = "Cinematic Aesthetics") {
             SettingsToggleItem(
@@ -141,35 +155,54 @@ fun SettingsAppearance() {
                     }
                 }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            SettingsToggleItem(
+                label = "Dynamic Hero Color",
+                subtitle = "Tints the home page background with colors sampled from the featured hero item",
+                checked = heroDynamicColorEnabled,
+                onCheckedChange = { AppearanceConfig.setHeroDynamicColorEnabled(it) }
+            )
         }
 
         // --- Group 3: Display & Layout ---
         SettingsGroupCard(title = "Display & Layout") {
-            SettingsChipGroupItem(
+            SettingsDropdownItem(
+                label = "Dock Position",
+                subtitle = "Choose where the main navigation dock is placed",
+                options = listOf("Left" to "Left", "Top" to "Top", "Bottom" to "Bottom", "Right" to "Right"),
+                currentValue = dockPosition,
+                onSelectionChanged = { AppearanceConfig.setDockPosition(it) }
+            )
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            SettingsDropdownItem(
                 label = "Poster Size",
                 subtitle = "Adjust the size of posters on the home screen",
                 options = listOf("Compact" to "Compact", "Normal" to "Normal", "Large" to "Large"),
-                selectedValue = gridScale,
+                currentValue = gridScale,
                 onSelectionChanged = { AppearanceConfig.setGridScale(it) }
             )
             
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             
-            SettingsChipGroupItem(
+            SettingsDropdownItem(
                 label = "Layout Width",
                 subtitle = "Restrict maximum content width on large monitors",
                 options = listOf("Fluid" to "Edge-to-Edge", "Modern" to "Centered", "Compact" to "Narrow"),
-                selectedValue = layoutWidth,
+                currentValue = layoutWidth,
                 onSelectionChanged = { AppearanceConfig.setLayoutWidth(it) }
             )
             
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             
-            SettingsChipGroupItem(
+            SettingsDropdownItem(
                 label = "Search Bar Visibility",
                 subtitle = "Control how the search bar appears on the home screen",
                 options = listOf("Always Visible" to "Always Visible", "Auto-hide" to "Auto-hide"),
-                selectedValue = searchBarMode,
+                currentValue = searchBarMode,
                 onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) }
             )
         }

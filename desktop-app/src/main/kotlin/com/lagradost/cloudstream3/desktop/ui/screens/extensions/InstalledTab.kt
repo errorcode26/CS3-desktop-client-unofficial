@@ -104,9 +104,9 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
 
         val gridScale by AppearanceConfig.gridScale.collectAsState()
         val extMinSize = when (gridScale) {
-            "Compact" -> 280.dp
-            "Large" -> 400.dp
-            else -> 340.dp
+            "Compact" -> 360.dp
+            "Large" -> 480.dp
+            else -> 420.dp
         }
 
         LazyVerticalGrid(
@@ -142,6 +142,10 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     installStatus = "Installed",
                     isInstalling = false,
                     onInstallClick = { },
+                    onUninstallClick = { viewModel.uninstallPlugins(listOf(plugin)) },
+                    description = plugin.description,
+                    fileSize = plugin.fileSize,
+                    onRepoClick = { viewModel.inspectRepository(plugin.repoName) },
                     showCheckbox = true,
                     isChecked = selectedPlugins.contains(plugin),
                     onCheckedChange = { isChecked ->

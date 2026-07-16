@@ -2,21 +2,32 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.ActorData
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -30,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
@@ -37,101 +49,72 @@ import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.launch
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import dev.chrisbanes.haze.haze
 
 @Composable
 fun DetailsBackdrop(provider: MainAPI, data: LoadResponse, scrollState: LazyListState, hazeState: HazeState, enrichmentTrigger: Int, modifier: Modifier = Modifier) {
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    
     Box(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surface) // Base surface
+            .background(Color.Black)
+            .graphicsLayer {
+                if (scrollState.firstVisibleItemIndex == 0) {
+                    val scrollOffset = scrollState.firstVisibleItemScrollOffset.toFloat()
+                    translationY = scrollOffset * 0.5f // Smooth 50% parallax
+                    alpha = 1f - (scrollOffset / (size.height * 0.8f)).coerceIn(0f, 1f) // Fade out
+                }
+            }
             .haze(state = hazeState),
     ) {
-        val bgUrl = provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
-
-        // 1. Ambient Glow
-        // I swear to god if this ambient glow breaks one more time or starts getting cut off at the bottom because of some random layout box size constraint I will lose my mind.
-        if (bgUrl != null && !isLightMode) {
-            AsyncImage(
-                model = bgUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(140.dp)
-                    .graphicsLayer { alpha = 0.6f }, // Glow intensity
-                alignment = Alignment.TopCenter,
-            )
+        val currentTrigger = enrichmentTrigger
+        val isFallback = data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
+        val bgUrl = remember(data, currentTrigger) {
+            provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
         }
 
-        // 2. Sharp Backdrop
         if (bgUrl != null) {
             AsyncImage(
                 model = bgUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .fillMaxHeight(0.85f)
+                    .fillMaxSize()
+                    .run { if (isFallback) this.blur(80.dp) else this }
                     .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
                     .drawWithCache {
                         val verticalFade = Brush.verticalGradient(
-                            0.0f to Color.Black,
-                            0.6f to Color.Black,
-                            1.0f to Color.Transparent
-                        )
-                        val horizontalFade = Brush.horizontalGradient(
                             0.0f to Color.Transparent,
-                            0.4f to Color.Black,
+                            0.5f to Color.Transparent,
                             1.0f to Color.Black
+                        )
+                        val logoVignette = Brush.radialGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.82f),
+                                Color.Black.copy(alpha = 0.40f),
+                                Color.Transparent
+                            ),
+                            center = androidx.compose.ui.geometry.Offset(size.width * 0.18f, size.height * 0.75f),
+                            radius = size.width * 0.42f
                         )
                         onDrawWithContent {
                             drawContent()
-                            drawRect(verticalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                            drawRect(horizontalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                            drawRect(logoVignette)
+                            drawRect(verticalFade)
                         }
-                    }
-                    .then(if (data.backgroundPosterUrl == null) Modifier.blur(40.dp) else Modifier),
-                alignment = Alignment.TopEnd,
+                    },
+                alignment = Alignment.TopCenter,
             )
         }
+    }
+}
 
-        // 3. Vertical Gradient
-        val bgColor = MaterialTheme.colorScheme.surface
-        val targetAlpha = if (isLightMode) 1.0f else 0.85f // Let glow bleed in dark mode
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.00f to Color.Transparent,
-                            0.30f to Color.Transparent,
-                            0.70f to bgColor.copy(alpha = targetAlpha),
-                            0.90f to bgColor.copy(alpha = targetAlpha),
-                            1.00f to bgColor,
-                        ),
-                    ),
-                ),
-        )
-
-        // 4. Left Vignette
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colorStops = arrayOf(
-                            0.00f to bgColor.copy(alpha = targetAlpha),
-                            0.40f to bgColor.copy(alpha = targetAlpha * 0.8f),
-                            0.70f to Color.Transparent,
-                        ),
-                    ),
-                ),
-        )
+@Composable
+fun InfoPanelRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = label, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(text = value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -145,348 +128,400 @@ fun DetailsMetadata(
     enrichmentTrigger: Int,
     isLoading: Boolean = false,
 ) {
-    val trigger = enrichmentTrigger
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-        Column(
+    var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomStart
+    ) {
+        Row(
             modifier = Modifier
-                .widthIn(max = 1200.dp)
-                .padding(start = 32.dp, end = 32.dp, top = 100.dp, bottom = 32.dp),
+                .fillMaxWidth()
+                .padding(start = 64.dp, end = 64.dp, bottom = 108.dp, top = 160.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                // Poster (Styled exactly like Home Hero)
-                AsyncImage(
-                    model = provider.fixUrlNull(data.posterUrl),
-                    contentDescription = data.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .width(220.dp)
-                        .aspectRatio(2f / 3f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                        .shadow(24.dp, RoundedCornerShape(16.dp)),
-                )
-                Spacer(modifier = Modifier.width(48.dp))
-
-                // Metadata Column
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            // Logo or Text Title
-                            if (isLoading) {
-                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(56.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
-                                Spacer(modifier = Modifier.height(16.dp))
-                            } else {
-                                if (!data.logoUrl.isNullOrBlank()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.6f)
-                                            .heightIn(max = 120.dp)
-                                            .then(
-                                                if (isLightMode) {
-                                                    Modifier.background(
-                                                        Brush.radialGradient(
-                                                            colors = listOf(Color.Black.copy(alpha = 0.25f), Color.Transparent),
-                                                            radius = 300f
-                                                        )
-                                                    )
-                                                } else Modifier
-                                            ),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        coil3.compose.SubcomposeAsyncImage(
-                                            model = provider.fixUrlNull(data.logoUrl),
-                                            contentDescription = data.name,
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
-                                            alignment = Alignment.CenterStart,
-                                            error = {
-                                                Text(
-                                                    text = data.name,
-                                                    style = MaterialTheme.typography.displayMedium,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    lineHeight = 48.sp,
-                                                )
-                                            }
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                } else {
-                                    Text(
-                                        text = data.name,
-                                        style = MaterialTheme.typography.displayMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        lineHeight = 48.sp,
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-                            }
-
-                            // Rating & Year
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isLoading) {
-                                    Box(modifier = Modifier.width(180.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                                } else {
-                                    data.score?.takeIf { it.toFloat(10) > 0f }?.let {
-                                        androidx.compose.material3.Icon(
-                                            androidx.compose.material.icons.Icons.Default.Star,
-                                            contentDescription = "Rating",
-                                            tint = Color(0xFFFFD700), // Gold
-                                            modifier = Modifier.size(22.dp),
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = it.toString(10),
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 17.sp,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                    }
-                                    data.year?.let {
-                                        Text(
-                                            text = it.toString(),
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                    }
-                                    data.duration?.takeIf { it > 0 }?.let {
-                                        Text(
-                                            text = "${it}m",
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                    }
-                                    data.contentRating?.let { rating ->
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        ) {
-                                            Text(
-                                                text = rating,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+            // Left Hero Content
+            Column(modifier = Modifier.weight(1f)) {
+                if (isLoading) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                            Box(modifier = Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                            Box(modifier = Modifier.width(64.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                        Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Action Row (Play Button + Bookmark)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        // Insert Hero Action (Play / Resume button)
-                        heroAction()
-
-                        // Bookmark button
-                        val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                        var isBookmarked by remember { mutableStateOf(DesktopDataStore.isBookmarked(bookmarkId)) }
-                        IconButton(
-                            onClick = {
-                                if (isBookmarked) {
-                                    DesktopDataStore.removeBookmark(bookmarkId)
-                                } else {
-                                    DesktopDataStore.addBookmark(
-                                        DesktopBookmark(
-                                            id = bookmarkId,
-                                            name = data.name,
-                                            url = data.url,
-                                            apiName = provider.name,
-                                            posterUrl = data.posterUrl,
-                                        ),
-                                    )
-                                }
-                                isBookmarked = !isBookmarked
-                            },
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(
-                                    if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.15f),
-                                    CircleShape
+                } else {
+                    val currentTrigger = enrichmentTrigger
+                    val activeLogoUrl = remember(data, currentTrigger) { provider.fixUrlNull(data.logoUrl) }
+                    if (!activeLogoUrl.isNullOrBlank()) {
+                        coil3.compose.SubcomposeAsyncImage(
+                            model = activeLogoUrl,
+                            contentDescription = data.name,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth(0.65f).heightIn(max = 200.dp),
+                            alignment = Alignment.BottomStart,
+                            error = {
+                                Text(
+                                    text = data.name,
+                                    style = MaterialTheme.typography.displayLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
                                 )
-                                .border(
-                                    1.dp,
-                                    if (isLightMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.3f),
-                                    CircleShape
-                                ),
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = data.name,
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (!isLoading && !data.tags.isNullOrEmpty()) {
+                    Text(
+                        text = data.tags!!.take(6).joinToString(" • "),
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                // ── Dedicated Source / Provider Row ──
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 18.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White.copy(alpha = 0.14f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                contentDescription = "Bookmark",
-                                tint = if (isBookmarked) MaterialTheme.colorScheme.primary else if (isLightMode) MaterialTheme.colorScheme.onSurface else Color.White,
-                                modifier = Modifier.size(24.dp),
+                                Icons.Default.Info,
+                                contentDescription = "Source",
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(16.dp)
                             )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Tags
-                    // Tags
-                    if (isLoading) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            repeat(3) {
-                                Box(modifier = Modifier.width(60.dp).height(28.dp).clip(RoundedCornerShape(20.dp)).shimmerBackground())
-                            }
-                        }
-                    } else if (!data.tags.isNullOrEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            data.tags!!.take(6).forEach { tag ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(Color.White.copy(alpha = 0.15f))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                ) {
-                                    Text(tag, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        }
-                    }
-
-                    // Plot
-                    if (isLoading) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                            Box(modifier = Modifier.fillMaxWidth(0.85f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                            Box(modifier = Modifier.fillMaxWidth(0.9f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                        }
-                    } else {
-                        data.plot?.let {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                text = it,
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 14.sp,
-                                maxLines = 4,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = 22.sp,
-                                modifier = Modifier.fillMaxWidth(0.9f),
+                                text = provider.name,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
                             )
+                        }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    heroAction()
+                    
+                    val bookmarkId = "${provider.name}_${data.url.hashCode()}"
+                    var isBookmarked by remember { mutableStateOf(DesktopDataStore.isBookmarked(bookmarkId)) }
+                    Box(
+                        modifier = Modifier
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isBookmarked) MaterialTheme.colorScheme.primary
+                                else Color.White.copy(alpha = 0.18f)
+                            )
+                            .border(
+                                1.5.dp,
+                                if (isBookmarked) MaterialTheme.colorScheme.primary
+                                else Color.White.copy(alpha = 0.4f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                if (isBookmarked) DesktopDataStore.removeBookmark(bookmarkId)
+                                else DesktopDataStore.addBookmark(DesktopBookmark(bookmarkId, data.name, data.url, provider.name, data.posterUrl))
+                                isBookmarked = !isBookmarked
+                            }
+                            .padding(horizontal = 28.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                                contentDescription = if (isBookmarked) "In Library" else "Add to Library",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = if (isBookmarked) "In Library" else "Add to Library",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                    
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                if (!isLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        data.year?.let {
+                            Text(text = it.toString(), color = Color.White.copy(alpha = 0.7f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(16.dp))
+                        }
+                        data.contentRating?.let { rating ->
+                            Box(modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                Text(text = rating, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                        }
+                        data.score?.takeIf { it.toFloat(10) > 0f }?.let {
+                            Icon(Icons.Default.Star, "Rating", tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(text = it.toString(10), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(16.dp))
+                        }
+                        val director = data.actors?.find { it.roleString?.equals("Director", ignoreCase = true) == true }?.actor?.name
+                        if (director != null) {
+                            Text(text = "Director: $director", color = Color.White.copy(alpha = 0.7f), fontSize = 15.sp)
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    data.plot?.let {
+                        Text(
+                            text = it,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 14.sp,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.widthIn(max = 600.dp),
+                        )
+                    }
+                }
+            }
+            
+            if (!isLoading) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 36.dp)
+                        .width(320.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                        .padding(24.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        val language = (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.episodes?.keys?.firstOrNull()?.name ?: "English"
+                        InfoPanelRow("LANGUAGE", language)
+                        
+                        val firstDate = when(data) {
+                            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes.firstOrNull()?.date
+                            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.firstOrNull()?.firstOrNull()?.date
+                            else -> null
+                        }
+                        if (firstDate != null) {
+                            val sdf = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+                            InfoPanelRow("FIRST AIRED", sdf.format(java.util.Date(firstDate)))
+                        } else if (data.year != null) {
+                            InfoPanelRow("FIRST AIRED", data.year.toString())
+                        }
+                        
+                        val seasonsCount = (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.episodes?.mapNotNull { it.season }?.distinct()?.size 
+                            ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.episodes?.values?.flatten()?.mapNotNull { it.season }?.distinct()?.size
+                        if (seasonsCount != null && seasonsCount > 0) {
+                            InfoPanelRow("SEASONS", seasonsCount.toString())
+                        }
+                        
+                        val episodesCount = (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.episodes?.size 
+                            ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.episodes?.values?.flatten()?.size
+                        if (episodesCount != null && episodesCount > 0) {
+                            InfoPanelRow("EPISODES", episodesCount.toString())
                         }
                     }
                 }
             }
+        }
+    }
+}
 
-            // Cast
-            if (isLoading) {
-                Spacer(modifier = Modifier.height(48.dp))
-                Box(modifier = Modifier.width(100.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                ) {
-                    items(5) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(110.dp)) {
-                            Box(modifier = Modifier.size(96.dp).clip(CircleShape).shimmerBackground())
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.8f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(modifier = Modifier.fillMaxWidth(0.6f).height(12.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+@Composable
+fun DetailsCastSection(data: LoadResponse, provider: MainAPI) {
+    val coroutineScope = rememberCoroutineScope()
+    var selectedActor by remember { mutableStateOf<ActorData?>(null) }
+    val actors = data.actors ?: emptyList()
+    
+    val cast = actors.filter { it.roleString?.equals("Director", ignoreCase = true) != true }
+    val directors = actors.filter { it.roleString?.equals("Director", ignoreCase = true) == true }
+
+    if (cast.isNotEmpty() || directors.isNotEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 16.dp)
+        ) {
+            if (cast.isNotEmpty()) {
+                CastRow(title = "Cast", actors = cast, provider = provider) { selectedActor = it }
+                if (directors.isNotEmpty()) Spacer(modifier = Modifier.height(32.dp))
+            }
+            
+            if (directors.isNotEmpty()) {
+                CastRow(title = "Directors", actors = directors, provider = provider) { selectedActor = it }
+            }
+        }
+    }
+
+    if (selectedActor != null) {
+        CastDetailsDialog(actor = selectedActor!!) {
+            selectedActor = null
+        }
+    }
+}
+
+@Composable
+fun CastRow(title: String, actors: List<ActorData>, provider: MainAPI, onActorClick: (ActorData) -> Unit) {
+    val coroutineScope = rememberCoroutineScope()
+    val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
+    
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(-500f) } }) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
+            }
+            IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(500f) } }) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(24.dp))
+    
+    val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
+    
+    androidx.compose.foundation.lazy.LazyRow(
+        state = scrollState,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 64.dp, vertical = 8.dp),
+        modifier = Modifier.pointerInput(Unit) {
+            detectHorizontalDragGestures { change, dragAmount ->
+                change.consume()
+                scrollState.dispatchRawDelta(-dragAmount)
+            }
+        },
+    ) {
+        items(actors) { actor ->
+            val isInverted = invertedMap[actor] == true
+            
+            val (mainImgRaw, cornerImgRaw) = if (!isInverted || actor.voiceActor?.image.isNullOrBlank()) {
+                Pair(actor.actor.image, actor.voiceActor?.image)
+            } else {
+                Pair(actor.voiceActor?.image, actor.actor.image)
+            }
+            
+            val (mainName, subName) = if (!isInverted || actor.voiceActor?.name.isNullOrBlank()) {
+                Pair(actor.actor.name, actor.voiceActor?.name)
+            } else {
+                Pair(actor.voiceActor?.name ?: "", actor.actor.name)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(110.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onActorClick(actor) }
+                    .padding(4.dp)
+            ) {
+                Box(modifier = Modifier.size(96.dp)) {
+                    val actorImg = provider.fixUrlNull(mainImgRaw)
+                    if (actorImg != null) {
+                        AsyncImage(
+                            model = actorImg,
+                            contentDescription = mainName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = mainName,
+                                modifier = Modifier.size(52.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        }
+                    }
+
+                    val voiceActorImg = cornerImgRaw?.let { provider.fixUrlNull(it) }
+                    if (voiceActorImg != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .align(Alignment.BottomEnd)
+                                .offset(x = 4.dp, y = 4.dp)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                .padding(3.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { invertedMap[actor] = !isInverted }
+                        ) {
+                            AsyncImage(
+                                model = voiceActorImg,
+                                contentDescription = subName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            )
                         }
                     }
                 }
-            } else if (!data.actors.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(48.dp))
-                Text("Cast", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(16.dp))
-                val castScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
-                androidx.compose.foundation.lazy.LazyRow(
-                    state = castScrollState,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    modifier = Modifier.pointerInput(Unit) {
-                        detectHorizontalDragGestures { change, dragAmount ->
-                            change.consume()
-                            castScrollState.dispatchRawDelta(-dragAmount)
-                        }
-                    },
-                ) {
-                    items(data.actors!!) { actor ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(110.dp)) {
-                            Box(modifier = Modifier.size(96.dp)) {
-                                val actorImg = provider.fixUrlNull(actor.actor.image)
-                                if (actorImg != null) {
-                                    AsyncImage(
-                                        model = actorImg,
-                                        contentDescription = actor.actor.name,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Person,
-                                            contentDescription = actor.actor.name,
-                                            modifier = Modifier.size(52.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        )
-                                    }
-                                }
-
-                                val voiceActorImg = actor.voiceActor?.image?.let { provider.fixUrlNull(it) }
-                                if (voiceActorImg != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .align(Alignment.BottomEnd)
-                                            .offset(x = 4.dp, y = 4.dp)
-                                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                                            .padding(3.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    ) {
-                                        AsyncImage(
-                                            model = voiceActorImg,
-                                            contentDescription = actor.voiceActor?.name,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize(),
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(actor.actor.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                            
-                            val subText = actor.voiceActor?.name ?: actor.roleString
-                            if (!subText.isNullOrBlank()) {
-                                Text(
-                                    subText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(mainName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                
+                if (!subName.isNullOrBlank()) {
+                    Text(
+                        subName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                
+                val roleStr = actor.role?.name ?: actor.roleString
+                if (!roleStr.isNullOrBlank()) {
+                    Text(
+                        roleStr,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             }
         }

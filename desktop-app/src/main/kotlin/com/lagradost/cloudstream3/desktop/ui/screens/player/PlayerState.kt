@@ -29,6 +29,7 @@ class PlayerState {
     val subtitleTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
     val audioTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
     val videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
+    val activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
 
     // Video Stats
     val videoCodec = MutableStateFlow("")
@@ -67,6 +68,7 @@ class PlayerState {
         isMuted.value = false
         lastSeekTime = 0L
         targetSeekMs = -1L
+        activeLazyVideoTrackUrl.value = null
     }
 
     fun togglePlayPause() {
@@ -274,6 +276,7 @@ class PlayerState {
             if (track.bitrate != null) {
                 // Native HLS bitrate switching (seamless!)
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "hls-bitrate", track.bitrate.toString())
+                activeLazyVideoTrackUrl.value = track.url
             } else {
                 val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
                 val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
@@ -284,14 +287,17 @@ class PlayerState {
 
                 val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
                 proxyState.lazyVideoTracks.value = proxyState.lazyVideoTracks.value.filter { t -> t.url != track.url }
+                activeLazyVideoTrackUrl.value = track.url
             }
         }
     }
 
     fun loadExternalSubtitle(url: String) {
         mpvHandle?.let {
-            val safeUrl = url.replace("\\", "\\\\").replace("\"", "\\\"")
-            val cmd = "sub-add \"$safeUrl\""
+            // Convert backslashes to forward slashes to avoid MPV string escape bugs,
+            // and append 'select' flag so the newly added sub is immediately enabled.
+            val safeUrl = url.replace("\\", "/").replace("\"", "\\\"")
+            val cmd = "sub-add \"$safeUrl\" select"
             MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
         }
     }

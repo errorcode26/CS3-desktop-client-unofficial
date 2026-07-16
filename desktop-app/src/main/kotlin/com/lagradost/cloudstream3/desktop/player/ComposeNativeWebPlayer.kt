@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -79,12 +83,14 @@ fun ComposeNativeWebPlayer(
     onLinkChange: ((Int) -> Unit)? = null,
     onEpisodeChange: ((String) -> Unit)? = null,
     onNextEpisode: (() -> Unit)? = null,
+    onReplayEpisode: (() -> Unit)? = null,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var hasEverPlayed by remember { mutableStateOf(false) }
     var waitingForTimePosReset by remember { mutableStateOf(false) }
     var loadStartTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     // Tracks when the last loadfile command was sent. 0L = no loadfile issued yet.
     // Used to gate the idle-active fast-fail check — MPV starts in idle-active=yes
     // and also returns to idle-active=yes after stop(), so we must not check until
@@ -196,6 +202,15 @@ fun ComposeNativeWebPlayer(
         val h = mpvHandle
         if (isUiReady && h != null) {
             NativePlayerBridge.startMpvSync(com.sun.jna.Pointer.nativeValue(h))
+        }
+    }
+
+    LaunchedEffect(hasEverPlayed) {
+        val h = mpvHandle
+        if (hasEverPlayed && h != null) {
+            persistentSubtitles.forEach { subUrl ->
+                MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$subUrl\"")
+            }
         }
     }
 
@@ -449,7 +464,11 @@ fun ComposeNativeWebPlayer(
                                             currentOnPlaybackError("Stream is empty or corrupt.")
                                         } else if (hasEverPlayed) {
                                             lastErrorLoadfileAt = currentLoad
-                                            currentOnFinished()
+                                            if (lastDur > 0.0 && (lastDur - lastPos > 10.0)) {
+                                                currentOnPlaybackError("Connection lost (Stream ended prematurely).")
+                                            } else {
+                                                currentOnFinished()
+                                            }
                                         } else {
                                             lastErrorLoadfileAt = currentLoad
                                             currentOnPlaybackError("Stream failed to load or instantly ended.")
@@ -919,6 +938,141 @@ fun ComposeNativeWebPlayer(
                                 val durMs = (MpvLibrary.getPropertyDouble(h, "duration", 0.0)).times(1000).toLong()
                                 pushMetadataToWebView()
                             }
+                            "openOnlineSubtitleSearch" -> {
+                                // Legacy no-op — search is now inside the HTML player Search tab
+                            }
+                            "searchSubtitles" -> {
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    try {
+                                        // Fix JSON escape bug: extract the inner value using Jackson instead of the broken regex
+                                        val cleanValue = value.replace(Regex("[\\x00-\\x1F]"), "")
+                                        val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
+                                        val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
+                                        val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
+                                        
+                                        val query   = parsed["query"]?.asText() ?: ""
+                                        val lang    = parsed["lang"]?.asText()?.takeIf { it.isNotBlank() }
+                                        val season  = parsed["season"]?.asText()?.toIntOrNull()
+                                        val episode = parsed["episode"]?.asText()?.toIntOrNull()
+
+                                        val search = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleSearch(
+                                            query        = query,
+                                            lang         = lang,
+                                            seasonNumber = season,
+                                            epNumber     = episode,
+                                        )
+
+                                        val allResults = mutableListOf<Map<String, Any?>>()
+                                        for (provider in com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders) {
+                                            val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
+                                            try {
+                                                provider.search(auth, search)?.forEach { sub ->
+                                                    allResults.add(mapOf(
+                                                        "idPrefix"     to sub.idPrefix,
+                                                        "name"         to sub.name,
+                                                        "lang"         to sub.lang,
+                                                        "data"         to sub.data,
+                                                        "source"       to sub.source,
+                                                        "seasonNumber" to sub.seasonNumber,
+                                                        "epNumber"     to sub.epNumber,
+                                                    ))
+                                                }
+                                            } catch (e: Exception) {
+                                                com.lagradost.common.logging.AppLogger.e("SubSearch[${provider.name}]: ${e.message}")
+                                            }
+                                        }
+
+                                        val json = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                                            mapOf("type" to "subtitle_search_results", "results" to allResults)
+                                        )
+                                        NativePlayerBridge.postMessage(json)
+                                    } catch (e: Exception) {
+                                        com.lagradost.common.logging.AppLogger.e("searchSubtitles: ${e.message}")
+                                    }
+                                }
+                            }
+                            "downloadSubtitle" -> {
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    try {
+                                        val cleanValue = value.replace(Regex("[\\x00-\\x1F]"), "")
+                                        val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
+                                        val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
+                                        val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
+                                        
+                                        val idPrefix = parsed["idPrefix"]?.asText() ?: return@launch
+                                        val data     = parsed["data"]?.asText() ?: return@launch
+                                        val name     = parsed["name"]?.asText() ?: "subtitle"
+
+                                        val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.firstOrNull { it.idPrefix == idPrefix }
+                                        if (provider != null) {
+                                            val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[idPrefix]?.firstOrNull()
+                                            
+                                            // Subtitle data object
+                                            val sub = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleEntity(
+                                                idPrefix = idPrefix,
+                                                name = name,
+                                                data = data,
+                                                lang = parsed["lang"]?.asText() ?: "",
+                                                source = parsed["source"]?.asText() ?: ""
+                                            )
+                                            
+                                            val fileUrl = provider.load(auth, sub)
+                                            if (fileUrl != null) {
+                                                var finalUrl: String = fileUrl
+                                                val cleanUrl = fileUrl.substringBefore("?")
+                                                if (cleanUrl.endsWith(".zip", ignoreCase = true)) {
+                                                    val zipFile = if (fileUrl.startsWith("http", ignoreCase = true)) {
+                                                        val tmp = java.io.File.createTempFile("sub", ".zip")
+                                                        val res = com.lagradost.cloudstream3.app.get(fileUrl).okhttpResponse
+                                                        val bytes = res.body?.bytes()
+                                                        if (bytes != null) {
+                                                            tmp.writeBytes(bytes)
+                                                            tmp
+                                                        } else null
+                                                    } else if (fileUrl.startsWith("file://", ignoreCase = true)) {
+                                                        java.io.File(java.net.URI(fileUrl))
+                                                    } else {
+                                                        java.io.File(fileUrl)
+                                                    }
+
+                                                    if (zipFile != null && zipFile.exists()) {
+                                                        java.util.zip.ZipFile(zipFile).use { zip ->
+                                                            val entry = zip.entries().toList().firstOrNull { 
+                                                                it.name.endsWith(".srt", true) || it.name.endsWith(".vtt", true) || it.name.endsWith(".ass", true)
+                                                            }
+                                                            if (entry != null) {
+                                                                val ext = "." + entry.name.substringAfterLast('.', "srt")
+                                                                val extracted = java.io.File.createTempFile("sub_ext", ext)
+                                                                zip.getInputStream(entry).use { input ->
+                                                                    extracted.outputStream().use { output ->
+                                                                        input.copyTo(output)
+                                                                    }
+                                                                }
+                                                                finalUrl = extracted.absolutePath
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                // Load it into MPV (replace backslashes for Windows path escaping)
+                                                val safeUrl = finalUrl.replace("\\", "/")
+                                                if (!persistentSubtitles.contains(safeUrl)) {
+                                                    persistentSubtitles.add(safeUrl)
+                                                }
+                                                MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
+                                                
+                                                val toastJson = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                                                    mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle")
+                                                )
+                                                NativePlayerBridge.postMessage(toastJson)
+                                                
+                                                com.lagradost.common.logging.AppLogger.i("Loaded subtitle from $provider: $finalUrl")
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        com.lagradost.common.logging.AppLogger.e("downloadSubtitle: ${e.message}")
+                                    }
+                                }
+                            }
                             "togglePlay" -> {
                                 // Handled directly in C++ fast-path (cycle pause).
                                 // Kotlin must NOT also call cycle pause here — that would double-toggle
@@ -1023,6 +1177,11 @@ fun ComposeNativeWebPlayer(
                             "loadNextEpisode" -> {
                                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                     onNextEpisode?.invoke()
+                                }
+                            }
+                            "replayEpisode" -> {
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                    onReplayEpisode?.invoke()
                                 }
                             }
                             "setMpvProperty" -> {

@@ -145,6 +145,7 @@ fun CategoryRowWithHeader(
     // Padding applied to the LazyRow's content — lets it extend full-width while items
     // align with the constrained header above. PaddingValues.Absolute avoids RTL mirroring.
     rowContentPadding: PaddingValues = PaddingValues(horizontal = 4.dp),
+    headerPadding: PaddingValues = PaddingValues(start = 4.dp, top = 12.dp, bottom = 8.dp, end = 4.dp),
     content: LazyListScope.() -> Unit,
 ) {
     val initialIndex = remember(isInfinite, itemCount) {
@@ -159,7 +160,7 @@ fun CategoryRowWithHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, top = 12.dp, bottom = 8.dp, end = 4.dp),
+                .padding(headerPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {

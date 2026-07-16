@@ -208,6 +208,60 @@
             border: none; border-radius: 7px; font-size: 14px; font-weight: 600;
             cursor: pointer; margin-bottom: 10px; transition: opacity 0.2s;
         }
+
+        /* ── Subtitle Search Overlay ────────────────────────────────────── */
+        #subSearchOverlay {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 3500; display: none; align-items: center; justify-content: center;
+            pointer-events: auto;
+        }
+        .subsearch-card {
+            background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px; padding: 28px; width: 680px; max-width: 90vw;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; max-height: 85vh;
+            backdrop-filter: blur(15px);
+        }
+        .subsearch-results-container {
+            display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+            flex: 1; padding-right: 12px; margin-right: -12px;
+        }
+        /* Custom scrollbar for search results */
+        .subsearch-results-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .subsearch-results-container::-webkit-scrollbar-track {
+            background: transparent; border-radius: 3px;
+        }
+        .subsearch-results-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.12); border-radius: 3px;
+        }
+        .subsearch-results-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.25);
+        }
+        
+        .sub-result-item:hover {
+            background: rgba(255,255,255,0.07) !important;
+        }
+        .sub-download-btn:hover {
+            background: rgba(229,57,53,0.9) !important;
+            transform: scale(1.05);
+        }
+        
+        #subSearchQuery:focus, #subSearchSeason:focus, #subSearchEpisode:focus, #subSearchLang:focus {
+            border-color: rgba(229,57,53,0.6) !important;
+            background: rgba(25,25,25,1) !important;
+        }
+        #subSearchBtn {
+            transition: all 0.2s ease;
+        }
+        #subSearchBtn:hover {
+            background: #f44336 !important;
+            box-shadow: 0 4px 15px rgba(229,57,53,0.4);
+            transform: translateY(-1px);
+        }
+
         .rbtn:hover { opacity: 0.85; }
         .rbtn.primary { background: white; color: #111; }
         .rbtn.secondary { background: rgba(255,255,255,0.1); color: white; margin-bottom: 0; }
@@ -280,6 +334,10 @@
         /* Episodes Panel */
         #episodesPanel {
             /* Handled by .panel base width */
+        }
+        
+        #subsPanel {
+            width: 440px;
         }
 
         /* Season Dropdown Selector */
@@ -713,6 +771,69 @@
     </div>
 </div>
 
+<!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
+<div id="videoEndedOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 4000; display: none; align-items: center; justify-content: center; pointer-events: auto;">
+    <div style="background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center;">
+        <h2 style="margin: 0 0 10px 0; color: white; font-size: 28px;">Video Ended</h2>
+        <div id="videoEndedSubtext" style="color: #aaa; font-size: 16px; margin-bottom: 30px;">Playing next episode in 5...</div>
+        
+        <div style="display: flex; gap: 16px;">
+            <button id="btnNextEpisode" class="rbtn primary" style="width: 160px; margin: 0; display: none;">Next Episode</button>
+            <button id="btnReplay" class="rbtn secondary" style="width: 120px; margin: 0; background: rgba(255,255,255,0.1);">Replay</button>
+            <button id="btnExitPlayer" class="rbtn secondary" style="width: 120px; margin: 0; background: rgba(255,255,255,0.1);">Exit Player</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ── Subtitle Search Dialog ─────────────────────────────────────────── -->
+<div id="subSearchOverlay">
+    <div class="subsearch-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600; color:white;">Search Subtitles</h3>
+            <button onclick="closeSubSearchModal()" style="background:transparent; border:none; color:#888; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        
+        <!-- Search bar rows -->
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+            <!-- Row 1: Title -->
+            <div style="display:flex;">
+                <input id="subSearchQuery" type="text" placeholder="Title..."
+                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 14px; color:#fff; font-size:14px; outline:none; transition:all 0.2s ease;"/>
+            </div>
+            <!-- Row 2: Filters and Search Button -->
+            <div style="display:flex; gap:10px; align-items:center;">
+                <select id="subSearchLang"
+                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 10px; color:#fff; font-size:13px; outline:none; cursor:pointer; transition:all 0.2s ease;">
+                    <option value="">All</option>
+                    <option value="en" selected>English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="ar">Arabic</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ko">Korean</option>
+                    <option value="ja">Japanese</option>
+                    <option value="zh">Chinese</option>
+                </select>
+                <input id="subSearchSeason" type="text" placeholder="S" maxlength="3"
+                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
+                <input id="subSearchEpisode" type="text" placeholder="E" maxlength="3"
+                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
+                <button id="subSearchBtn"
+                    style="background:#e53935; border:none; border-radius:8px; padding:12px 20px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center;"
+                    onclick="doSubSearch()">Search</button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="subSearchStatus" style="color:#888; font-size:13px; text-align:center; display:none; padding:20px;">Searching...</div>
+        <div id="subSearchResults" class="subsearch-results-container"></div>
+    </div>
+</div>
+
 <!-- ── Episodes Panel ─────────────────────────────────────────────────── -->
 <div id="episodesPanel" class="panel">
     <div class="panel-header">
@@ -1100,6 +1221,7 @@
     let isMenuOpen = false;
     let subDelaySec = 0, audioDelaySec = 0;
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false;
+    let currentLinkIndex = -1;
     let seekLockTimer = null;
     let episodesData = [];
 
@@ -1201,7 +1323,13 @@
     let hideTimer;
     let globalIsPlaying = false;
     const showControls = () => {
-        if (resumeOverlay.style.display === 'flex') return;
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+        if (resumeOverlay.style.display === 'flex' || isProbing) {
+            clearTimeout(hideTimer);
+            document.body.classList.remove('hidden-controls');
+            return;
+        }
         overlay.classList.remove('hidden-controls');
         document.body.classList.remove('hidden-controls');
         clearTimeout(hideTimer);
@@ -1459,6 +1587,12 @@
             const isNativeBuffering = s.isLoading || isSeeking;
             const shouldBeLoading = isNativeBuffering || isAppLoading;
 
+            const getCleanLoadingText = () => {
+                if (isAppLoading) return 'Loading source...';
+                if (isSeeking) return 'Seeking...';
+                return 'Buffering...';
+            };
+
             if (shouldBeLoading !== isCurrentlyLoading) {
                 isCurrentlyLoading = shouldBeLoading;
                 clearTimeout(loadingTimer);
@@ -1466,14 +1600,14 @@
                     const delay = isSeeking ? 0 : 150;
                     loadingTimer = setTimeout(() => {
                         loadingContainer.classList.add('show');
-                        loadingStatus.innerText = `C++:${s.isLoading} Seek:${isSeeking} App:${isAppLoading} | Wait:${window.debugWait} Ever:${window.debugHasEver} Pos:${window.debugPos}`;
+                        loadingStatus.innerText = getCleanLoadingText();
                     }, delay);
                 } else {
                     loadingContainer.classList.remove('show');
                     loadingStatus.innerText = '';
                 }
             } else if (shouldBeLoading) {
-                 loadingStatus.innerText = `C++:${s.isLoading} Seek:${isSeeking} App:${isAppLoading} | Wait:${window.debugWait} Ever:${window.debugHasEver} Pos:${window.debugPos}`;
+                 loadingStatus.innerText = getCleanLoadingText();
             }
         }
     };
@@ -1515,6 +1649,8 @@
         const pStatus = document.getElementById('linkProbingStatus');
 
         if (meta.isProbing === true && !userDismissedProbing) {
+            clearTimeout(hideTimer);
+            document.body.classList.remove('hidden-controls');
             pOverlay.classList.remove('dismissing');
             // Delay showing content slightly so the overlay fades in first
             requestAnimationFrame(() => pContent.classList.remove('dismissing'));
@@ -1608,9 +1744,10 @@
         const activeEp = (meta.episodes || []).find(e => e.isActive);
         const activeId = activeEp ? activeEp.id : '';
         if (meta.title) {
-            if (currentTitle !== meta.title || currentEpisodeId !== activeId) {
+            if (currentTitle !== meta.title || currentEpisodeId !== activeId || (meta.currentLinkIndex !== undefined && currentLinkIndex !== meta.currentLinkIndex)) {
                 currentTitle = meta.title;
                 currentEpisodeId = activeId;
+                if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
                 resumeHandled = false;
                 userDismissedProbing = false;
             }
@@ -1620,6 +1757,7 @@
         // Resume
         if (meta.startPositionMs > 0 && !resumeHandled) {
             document.getElementById('resumeTime').innerText = fmt(meta.startPositionMs);
+            clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls'); // Ensure mouse is visible
             resumeOverlay.style.display = 'flex';
             overlay.classList.add('hidden-controls');
@@ -1699,10 +1837,16 @@
             videoHtml += meta.lazyVideoTracks.map(t => {
                 const isHD = t.name.includes('1080') || t.name.includes('720');
                 const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+                
+                const height = meta.resolution ? meta.resolution.split('x')[1] : null;
+                const isActive = meta.activeLazyVideoTrackUrl 
+                    ? (t.url === meta.activeLazyVideoTrackUrl)
+                    : (height && t.name.includes(height));
+                    
                 return `
-                <div class="track-item" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
+                <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
                     <span class="track-name">${t.name} ${resBadge}</span>
-                    <span class="track-check"></span>
+                    <span class="track-check">${SVGS.check}</span>
                 </div>`;
             }).join('');
         }
@@ -1729,7 +1873,27 @@
                     <span class="check-icon"></span>
                 </div>`).join('');
         }
+
+        subHtml += `
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 5px;"></div>
+            <div class="sub-item" onclick="openSubSearchModal();closeAllPanels();">
+                <span class="sub-name" style="color: #64B5F6;">Search Online Subtitles...</span>
+                <span class="check-icon"></span>
+            </div>
+            <div class="sub-item" onclick="send('openLocalSubtitlePicker','');closeAllPanels();">
+                <span class="sub-name" style="color: #64B5F6;">Load Local Subtitle...</span>
+                <span class="check-icon"></span>
+            </div>
+        `;
+
         document.getElementById('subList').innerHTML = subHtml;
+
+        // Auto-populate search query with title whenever metadata arrives
+        const searchInput = document.getElementById('subSearchQuery');
+        if (searchInput && !searchInput._userEdited && meta.title) {
+            searchInput.value = meta.title;
+            searchInput._defaultTitle = meta.title;
+        }
     };
 
     const dismissProbingOverlay = (userInitiated = false) => {
@@ -1839,6 +2003,8 @@
             else if (p.type === 'stats_update') handleStatsUpdate(p);
             else if (p.type === 'metadata_update') handleMetadataUpdate(p);
             else if (p.type === 'dismiss_probing') dismissProbingOverlay();
+            else if (p.type === 'subtitle_search_results') handleSubtitleSearchResults(p);
+            else if (p.type === 'show_toast') showToast(p.message);
         } catch(e) {
             // If JSON.parse fails on raw string, try treating it as JSON directly
             try {
@@ -1859,6 +2025,127 @@
             handleMessage(e.data);
         });
     }
+
+    // ── Subtitle Search Modal ─────────────────────────────────────────────
+    window.openSubSearchModal = () => {
+        const overlay = document.getElementById('subSearchOverlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            // Also close other things if open, e.g. panel
+            closeAllPanels();
+        }
+    };
+
+    window.closeSubSearchModal = () => {
+        const overlay = document.getElementById('subSearchOverlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    window.showToast = (msg) => {
+        let overlay = document.getElementById('toastOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'toastOverlay';
+            overlay.style.cssText = 'position: absolute; bottom: 80px; left: 0; right: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 9999; gap: 8px; padding-bottom: 20px;';
+            document.body.appendChild(overlay);
+        }
+        const toast = document.createElement('div');
+        toast.style.cssText = 'background: rgba(0,0,0,0.85); color: white; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
+        toast.innerText = msg;
+        overlay.appendChild(toast);
+        
+        toast.offsetHeight; // trigger reflow
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+        
+        setTimeout(() => {
+            toast.style.transform = 'translateY(20px)';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    };
+
+    // ── Subtitle Search ───────────────────────────────────────────────────
+    window.doSubSearch = () => {
+        const query   = document.getElementById('subSearchQuery')?.value?.trim() || '';
+        const lang    = document.getElementById('subSearchLang')?.value || '';
+        const season  = document.getElementById('subSearchSeason')?.value?.trim() || '';
+        const episode = document.getElementById('subSearchEpisode')?.value?.trim() || '';
+        if (!query) return;
+
+        const resultsEl = document.getElementById('subSearchResults');
+        const statusEl  = document.getElementById('subSearchStatus');
+        if (resultsEl) resultsEl.innerHTML = '';
+        if (statusEl)  { statusEl.style.display = 'block'; statusEl.textContent = 'Searching...'; }
+
+        send('searchSubtitles', JSON.stringify({ query, lang, season, episode }));
+    };
+
+    const handleSubtitleSearchResults = (p) => {
+        const statusEl  = document.getElementById('subSearchStatus');
+        const resultsEl = document.getElementById('subSearchResults');
+        if (!resultsEl) return;
+
+        if (statusEl) statusEl.style.display = 'none';
+
+        const results = p.results || [];
+        if (results.length === 0) {
+            resultsEl.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:16px;">No subtitles found.</div>';
+            return;
+        }
+
+        resultsEl.innerHTML = results.map((r, i) => {
+            const lang    = (r.lang || '??').substring(0, 3).toUpperCase();
+            const name    = (r.name || 'Unknown');
+            const source  = r.source || '';
+            const epTag   = [
+                r.seasonNumber ? `S${String(r.seasonNumber).padStart(2,'0')}` : '',
+                r.epNumber     ? `E${String(r.epNumber).padStart(2,'0')}` : ''
+            ].filter(Boolean).join(' ');
+            return `
+            <div class="sub-result-item" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 16px;border:1px solid rgba(255,255,255,0.05);transition:all 0.2s ease;">
+                <div style="background:rgba(229,57,53,0.15);border:1px solid rgba(229,57,53,0.3);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:#ef9a9a;white-space:nowrap;box-shadow:inset 0 1px 3px rgba(0,0,0,0.2);">${lang}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="color:#eee;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+                        ${epTag ? `<span style="color:#aaa;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;">${epTag}</span>` : ''}
+                    </div>
+                    <div style="color:#888;font-size:12px;margin-top:4px;font-style:normal;display:flex;align-items:center;gap:4px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        ${source}
+                    </div>
+                </div>
+                <button class="sub-download-btn" onclick="downloadSubtitle(event, ${i})"
+                    style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s ease;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </button>
+            </div>`;
+        }).join('');
+
+        // Store results for download handler
+        window._subSearchResults = results;
+    };
+
+    window.downloadSubtitle = (e, index) => {
+        const results = window._subSearchResults;
+        if (!results || !results[index]) return;
+        const r = results[index];
+        
+        const btn = e.currentTarget;
+        btn.innerHTML = '...';
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+
+        send('downloadSubtitle', JSON.stringify({ idPrefix: r.idPrefix, data: r.data }));
+        
+        // Show loading state briefly then close
+        setTimeout(() => closeSubSearchModal(), 800);
+    };
+
+    // Mark query as user-edited so we stop auto-filling it
+    document.getElementById('subSearchQuery')?.addEventListener('input', function() {
+        this._userEdited = true;
+    });
 
     // ── Button Listeners ─────────────────────────────────────────────────
     playPauseBtn.addEventListener('click', e => { 
@@ -2095,6 +2382,69 @@
             case 'ArrowLeft': case 'KeyJ': e.preventDefault(); doRelativeSeek(-10000); break;
             case 'ArrowRight': case 'KeyL': e.preventDefault(); doRelativeSeek(10000); break;
             case 'Escape': closeAllPanels(); break;
+        }
+    });
+
+    // ── Video Ended Overlay Logic ──────────────────────────────────────────
+    const videoEndedOverlay = document.getElementById('videoEndedOverlay');
+    const videoEndedSubtext = document.getElementById('videoEndedSubtext');
+    const btnNextEpisode = document.getElementById('btnNextEpisode');
+    const btnReplay = document.getElementById('btnReplay');
+    const btnExitPlayer = document.getElementById('btnExitPlayer');
+    
+    let endCountdownTimer = null;
+    let currentEndCountdown = 5;
+
+    window.showVideoEnded = (hasNextEpisode) => {
+        closeAllPanels();
+        document.getElementById('overlay').style.opacity = '0';
+        videoEndedOverlay.style.display = 'flex';
+        
+        if (endCountdownTimer) clearInterval(endCountdownTimer);
+        
+        if (hasNextEpisode) {
+            btnNextEpisode.style.display = 'block';
+            currentEndCountdown = 5;
+            btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+            videoEndedSubtext.innerText = 'Playing next episode soon...';
+            
+            endCountdownTimer = setInterval(() => {
+                currentEndCountdown--;
+                if (currentEndCountdown <= 0) {
+                    clearInterval(endCountdownTimer);
+                    send('nextEpisode');
+                    videoEndedOverlay.style.display = 'none';
+                } else {
+                    btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+                }
+            }, 1000);
+            
+            btnNextEpisode.onclick = () => {
+                clearInterval(endCountdownTimer);
+                send('nextEpisode');
+                videoEndedOverlay.style.display = 'none';
+            };
+        } else {
+            btnNextEpisode.style.display = 'none';
+            videoEndedSubtext.innerText = 'All episodes watched.';
+        }
+        
+        btnReplay.onclick = () => {
+            if (endCountdownTimer) clearInterval(endCountdownTimer);
+            send('replayEpisode');
+            videoEndedOverlay.style.display = 'none';
+        };
+        
+        btnExitPlayer.onclick = () => {
+            if (endCountdownTimer) clearInterval(endCountdownTimer);
+            triggerExit();
+        };
+    };
+
+    // Close overlays when clicking outside
+    videoEndedOverlay.addEventListener('click', e => {
+        if (e.target === videoEndedOverlay) {
+            // Keep it open
         }
     });
 

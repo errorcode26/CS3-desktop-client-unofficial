@@ -26,11 +26,11 @@ fun Modifier.shimmerBackground(): Modifier = composed {
         label = "ShimmerTranslate"
     )
 
-    // Vibrant dark cinematic theme colors for the sweep gradient
+    // Translucent glassmorphic theme colors for clean modern shimmer sweep
     val shimmerColors = listOf(
-        Color(0xFF161622),
-        Color(0xFF262636),
-        Color(0xFF161622)
+        Color.White.copy(alpha = 0.05f),
+        Color.White.copy(alpha = 0.16f),
+        Color.White.copy(alpha = 0.05f)
     )
 
     val brush = Brush.linearGradient(

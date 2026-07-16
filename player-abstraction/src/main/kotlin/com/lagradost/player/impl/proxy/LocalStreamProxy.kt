@@ -174,15 +174,19 @@ object LocalStreamProxy {
                 }
                 keysToRemove.forEach { mergedHeaders.remove(it) }
                 mergedHeaders["Accept-Encoding"] = "identity"
+                if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                    mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                }
                 mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
 
                 var response: okhttp3.Response? = null
+                var lastError: Exception? = null
                 for (attempt in 1..4) {
                     try {
                         response = proxyClient.newCall(requestBuilder.build()).await()
-                        if (response.isSuccessful) break
+                        if (response.isSuccessful || response.code in 400..499) break
                     } catch (e: Exception) {
-                        com.lagradost.common.logging.AppLogger.w("Prefetch attempt failed: ${e.message}", e)
+                        lastError = e
                     }
                     if (attempt < 4) {
                         response?.body?.close()
@@ -191,8 +195,9 @@ object LocalStreamProxy {
                 }
 
                 if (response == null || !response.isSuccessful) {
+                    val code = response?.code
                     response?.body?.close()
-                    throw Exception("Prefetch HTTP failed")
+                    throw Exception("Prefetch HTTP failed. Code: $code Error: ${lastError?.message}")
                 }
 
                 val m3u8Content = response.body?.source()?.readUtf8() ?: ""
@@ -206,23 +211,19 @@ object LocalStreamProxy {
                 ByteArray(0)
             }
         }
-        // ONLY cache if this is a MASTER playlist (contains #EXT-X-STREAM-INF).
-        // Media playlists MUST NOT be cached because:
-        // 1. CDN segment URLs contain auth tokens that expire after ~30s
-        // 2. Live/EVENT streams need fresh segment lists
-        // The deferred is still awaited on first request (speeds up startup)
-        // but is NOT stored in masterCache for media playlists.
-        // We launch a coroutine to check the content type after fetch completes.
+        // Immediately store in masterCache to prevent race conditions when MPV requests it right away.
+        // If after analysis we find it is not a master playlist, we remove it.
+        session.masterCache[url] = deferred
         GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val bytes = deferred.await()
                 val content = String(bytes, Charsets.UTF_8)
-                if (content.contains("#EXT-X-STREAM-INF")) {
-                    // Master playlist — safe to cache indefinitely
-                    session.masterCache[url] = GlobalScope.async { bytes }
+                if (!content.contains("#EXT-X-STREAM-INF")) {
+                    // Media playlist — do NOT keep in masterCache, let handleRequest fetch fresh on subsequent refreshes
+                    session.masterCache.remove(url)
                 }
-                // Media playlist — do NOT cache, let handleRequest fetch fresh each time
             } catch (e: Exception) {
+                session.masterCache.remove(url)
                 com.lagradost.common.logging.AppLogger.w("Error analyzing prefetch payload for caching: ${e.message}", e)
             }
         }
@@ -231,6 +232,7 @@ object LocalStreamProxy {
         try {
             val sessionId = call.request.queryParameters["s"]
             val encodedUrl = call.request.queryParameters["u"]
+            val isFlatVtt = call.request.queryParameters["flatvtt"] == "true"
 
             if (sessionId == null || encodedUrl == null) {
                 call.respond(HttpStatusCode.NotFound)
@@ -268,8 +270,22 @@ object LocalStreamProxy {
             // Removed explicitly requesting identity encoding. OkHttp will handle gzip natively.
             // Chunked transfer encoding is fine since we close the connection anyway.
 
-            call.request.headers["Range"]?.let {
-                mergedHeaders["Range"] = it
+            val isM3u8Url = url.contains(".m3u8", ignoreCase = true) ||
+                url.contains(".m3u", ignoreCase = true) ||
+                url.contains("m3u8", ignoreCase = true) ||
+                url.contains("playlist", ignoreCase = true) ||
+                url.contains("manifest", ignoreCase = true)
+
+            if (!isM3u8Url) {
+                call.request.headers["Range"]?.let {
+                    mergedHeaders["Range"] = it
+                }
+            } else {
+                mergedHeaders.keys.filter { it.equals("Range", ignoreCase = true) }.forEach { mergedHeaders.remove(it) }
+            }
+
+            if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
 
             val requestBuilder = okhttp3.Request.Builder().url(url)
@@ -282,13 +298,46 @@ object LocalStreamProxy {
             for (attempt in 1..4) {
                 try {
                     response = proxyClient.newCall(requestBuilder.build()).await()
-                    if (response.isSuccessful) break
+                    if (response.isSuccessful || response.code in 400..499) break
                 } catch (e: Exception) {
                     lastError = e
                 }
                 if (attempt < 4) {
                     response?.body?.close()
                     kotlinx.coroutines.delay(200L * attempt)
+                }
+            }
+
+            // If the request had a Range header and failed with 403, 400, 416 or 405 (method/range not allowed),
+            // retry the request WITHOUT the Range header and let the proxy skip the bytes manually.
+            if (response != null && !response.isSuccessful && mergedHeaders.containsKey("Range")) {
+                val code = response.code
+                if (code == 403 || code == 400 || code == 416 || code == 405) {
+                    AppLogger.w("Range request failed with HTTP $code, retrying WITHOUT Range header for URL: $url")
+                    response.body?.close()
+                    val retryHeaders = mergedHeaders.toMutableMap()
+                    retryHeaders.remove("Range")
+                    val retryBuilder = okhttp3.Request.Builder().url(url)
+                    retryHeaders.forEach { (k, v) -> retryBuilder.header(k, v) }
+
+                    var retryResponse: okhttp3.Response? = null
+                    for (attempt in 1..3) {
+                        try {
+                            retryResponse = proxyClient.newCall(retryBuilder.build()).await()
+                            if (retryResponse.isSuccessful || retryResponse.code in 400..499) break
+                        } catch (e: Exception) {
+                            lastError = e
+                        }
+                        if (attempt < 3) {
+                            retryResponse?.body?.close()
+                            kotlinx.coroutines.delay(200L * attempt)
+                        }
+                    }
+                    if (retryResponse != null && retryResponse.isSuccessful) {
+                        response = retryResponse
+                    } else {
+                        retryResponse?.body?.close()
+                    }
                 }
             }
 
@@ -318,36 +367,102 @@ object LocalStreamProxy {
             val contentTypeStr = if (isNonMediaType) "application/octet-stream" else rawContentType
             val isM3u8 = url.contains(".m3u8", ignoreCase = true) ||
                 url.contains(".m3u", ignoreCase = true) ||
+                url.contains("m3u8", ignoreCase = true) ||
+                url.contains("playlist", ignoreCase = true) ||
+                url.contains("manifest", ignoreCase = true) ||
                 rawContentType.contains("mpegurl", ignoreCase = true) ||
                 rawContentType.contains("x-mpegURL", ignoreCase = true) ||
                 withContext(kotlinx.coroutines.Dispatchers.IO) {
                     try {
                         val s = response.body?.source()
-                        s != null && s.request(7) && s.peek().readUtf8(7) == "#EXTM3U"
+                        if (s != null && s.request(32)) {
+                            val peeked = s.peek().readUtf8(32).trimStart('\uFEFF', ' ', '\t', '\r', '\n')
+                            peeked.startsWith("#EXTM3U", ignoreCase = true) || peeked.startsWith("#EXT-X-", ignoreCase = true)
+                        } else false
                     } catch (e: Exception) {
                         false
                     }
                 }
 
             if (isM3u8) {
-                val m3u8Content = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    response.body?.source()?.readUtf8() ?: ""
+                try {
+                    val m3u8Content = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        response.body?.source()?.readUtf8() ?: ""
+                    }
+
+                    val finalUrl = response.request.url.toString()
+
+                    if (isFlatVtt) {
+                        if (m3u8Content.contains("#EXT-X-KEY") || m3u8Content.contains("#EXT-X-MAP")) {
+                            // Edge Case 1: Encrypted or fMP4 subtitles cannot be flattened to text!
+                            // Fallback to normal M3U8 proxying for these.
+                        } else {
+                            call.response.header("Content-Type", "text/vtt")
+                            call.respondBytesWriter(status = HttpStatusCode.OK) {
+                                writeFully("WEBVTT\n\n".toByteArray(Charsets.UTF_8))
+                                val lines = m3u8Content.lines()
+                                val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { resolveUrl(finalUrl, it.trim()) }
+
+                                for (url in vttUrls) {
+                                    val requestBuilder = okhttp3.Request.Builder().url(url)
+                                    session.headers.forEach { (k, v) ->
+                                        if (!k.equals("Accept-Encoding", true) && !k.equals("Host", true)) {
+                                            requestBuilder.header(k, v)
+                                        }
+                                    }
+                                    var result = ""
+                                    for (attempt in 1..3) {
+                                        try {
+                                            val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                proxyClient.newCall(requestBuilder.build()).await()
+                                            }
+                                            result = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                response.body?.source()?.readUtf8() ?: ""
+                                            }
+                                            withContext(kotlinx.coroutines.Dispatchers.IO) { response.body?.close() }
+                                            if (response.isSuccessful) break
+                                        } catch (e: Exception) { }
+                                    }
+                                    
+                                    if (result.isNotBlank()) {
+                                        // Edge Case 2: Strip BOM (\uFEFF) which breaks header trimming
+                                        val segmentLines = result.trimStart('\uFEFF').lines()
+                                        for (line in segmentLines) {
+                                            val trimmed = line.trim()
+                                            if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP")) continue
+                                            writeFully((line + "\n").toByteArray(Charsets.UTF_8))
+                                        }
+                                        writeFully("\n".toByteArray(Charsets.UTF_8))
+                                    }
+                                    // Edge Case 3: Stream the chunks to MPV instantly rather than waiting for all of them!
+                                    flush()
+                                    
+                                    // Completely eliminate bandwidth starvation by adding a tiny delay
+                                    kotlinx.coroutines.delay(20)
+                                }
+                            }
+                            return
+                        }
+                    }
+
+                    val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
+
+                    val bytes = rewritten.toByteArray(Charsets.UTF_8)
+                    
+                    // Cache it for subsequent FFmpeg probes to prevent network hit,
+                    // BUT ONLY if it's a MASTER playlist. Media playlists MUST NOT be cached,
+                    // otherwise mpv will never discover new segments for live streams.
+                    if (m3u8Content.contains("#EXT-X-STREAM-INF")) {
+                        session.masterCache[url] = kotlinx.coroutines.GlobalScope.async { bytes }
+                    }
+
+                    call.response.header("Content-Type", "application/vnd.apple.mpegurl")
+                    call.respondBytes(bytes, status = HttpStatusCode.OK)
+                } finally {
+                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try { response.body?.close() } catch (ignored: Exception) {}
+                    }
                 }
-                val finalUrl = response.request.url.toString()
-
-                val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
-
-                val bytes = rewritten.toByteArray(Charsets.UTF_8)
-                
-                // Cache it for subsequent FFmpeg probes to prevent network hit,
-                // BUT ONLY if it's a MASTER playlist. Media playlists MUST NOT be cached,
-                // otherwise mpv will never discover new segments for live streams.
-                if (m3u8Content.contains("#EXT-X-STREAM-INF")) {
-                    session.masterCache[url] = kotlinx.coroutines.GlobalScope.async { bytes }
-                }
-
-                call.response.header("Content-Type", "application/vnd.apple.mpegurl")
-                call.respondBytes(bytes, status = HttpStatusCode.OK)
                 return
             } else {
                 var finalCode = response.code
@@ -396,7 +511,9 @@ object LocalStreamProxy {
                         var streamSource = currentResponse?.body?.source() ?: throw Exception("No body")
                         
                         if (skipBytes > 0) {
-                            streamSource.skip(skipBytes)
+                            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                streamSource.skip(skipBytes)
+                            }
                         }
 
                         val ktorChannel = this
@@ -495,7 +612,9 @@ object LocalStreamProxy {
                                                 if (currentResponse!!.code == 200 && totalBytesRead > 0) {
                                                     // The CDN ignored our Range request and returned the full file.
                                                     // We MUST manually skip the bytes we've already streamed to MPV!
-                                                    streamSource.skip(totalBytesRead)
+                                                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                        streamSource.skip(totalBytesRead)
+                                                    }
                                                 }
                                                 retrySuccess = true
                                                 break
@@ -689,7 +808,13 @@ object LocalStreamProxy {
         }
 
         // --- Non-Master Playlist Processing ---
+        val isExplicitLive = content.contains("PLAYLIST-TYPE:EVENT", ignoreCase = true) ||
+            content.contains("PLAYLIST-TYPE:LIVE", ignoreCase = true)
+        val hasEndList = content.contains("#EXT-X-ENDLIST", ignoreCase = true)
+        val hasPlaylistType = content.contains("#EXT-X-PLAYLIST-TYPE", ignoreCase = true)
+
         val rewritten = buildString {
+            var addedPlaylistType = false
             for (line in lines) {
                 val trim = line.trim()
                 if (trim.isEmpty()) continue
@@ -706,6 +831,10 @@ object LocalStreamProxy {
                         appendLine(newLine)
                     } else {
                         appendLine(trim)
+                        if (!isExplicitLive && !hasPlaylistType && !addedPlaylistType && trim.startsWith("#EXTM3U", ignoreCase = true)) {
+                            appendLine("#EXT-X-PLAYLIST-TYPE:VOD")
+                            addedPlaylistType = true
+                        }
                     }
                 } else {
                     val absolute = resolveUrl(baseUrl, trim)
@@ -715,43 +844,111 @@ object LocalStreamProxy {
                     appendLine(proxied)
                 }
             }
+            if (!isExplicitLive && !hasEndList) {
+                appendLine("#EXT-X-ENDLIST")
+            }
         }
         return rewritten
     }
 
-    private fun resolveUrl(base: String, uri: String): String {
-        if (uri.startsWith("http://", ignoreCase = true) || uri.startsWith("https://", ignoreCase = true)) {
-            return uri
+    private suspend fun flattenVtt(content: String, baseUrl: String, session: ProxySession, sessionId: String): String {
+        val lines = content.lines()
+        val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { resolveUrl(baseUrl, it.trim()) }
+
+        val vttSegments = mutableListOf<String>()
+        
+        // Chunk to avoid flooding OkHttp's Dispatcher queue (max 5 per host),
+        // which would starve the main video stream and cause FFmpeg to drop connections!
+        for (chunk in vttUrls.chunked(3)) {
+            val batch = kotlinx.coroutines.coroutineScope {
+                chunk.map { url ->
+                    async(kotlinx.coroutines.Dispatchers.IO) {
+                        val requestBuilder = okhttp3.Request.Builder().url(url)
+                        session.headers.forEach { (k, v) ->
+                            if (!k.equals("Accept-Encoding", true) && !k.equals("Host", true)) {
+                                requestBuilder.header(k, v)
+                            }
+                        }
+                        var result = ""
+                        for (attempt in 1..3) {
+                            try {
+                                val response = proxyClient.newCall(requestBuilder.build()).await()
+                                result = response.body?.source()?.readUtf8() ?: ""
+                                response.body?.close()
+                                if (response.isSuccessful) break
+                            } catch (e: Exception) {
+                                // Retry
+                            }
+                        }
+                        result
+                    }
+                }.map { it.await() }
+            }
+            vttSegments.addAll(batch)
         }
 
-        val baseUrl = base.toHttpUrlOrNull()
-        if (baseUrl != null) {
-            val resolved = baseUrl.resolve(uri)
-            if (resolved != null) {
-                val resolvedStr = resolved.toString()
-                if (baseUrl.query != null && resolved.query == null) {
-                    return "$resolvedStr?${baseUrl.query}"
+        return buildString {
+            appendLine("WEBVTT")
+            appendLine()
+            for (segment in vttSegments) {
+                if (segment.isBlank()) continue
+                val segmentLines = segment.lines()
+                for (line in segmentLines) {
+                    val trimmed = line.trim()
+                    if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP")) continue
+                    appendLine(line)
                 }
-                return resolvedStr
+                appendLine()
             }
         }
+    }
 
-        return try {
-            val baseUri = URI(base)
-            val resolved = baseUri.resolve(uri).toString()
+    internal fun resolveUrl(base: String, uri: String): String {
+        val rawResolved = if (uri.startsWith("http://", ignoreCase = true) || uri.startsWith("https://", ignoreCase = true)) {
+            uri
+        } else {
+            val baseUrl = base.toHttpUrlOrNull()
+            if (baseUrl != null) {
+                baseUrl.resolve(uri)?.toString()
+            } else {
+                try {
+                    URI(base).resolve(uri).toString()
+                } catch (e: Exception) {
+                    if (base.contains("/")) {
+                        base.substringBeforeLast('/') + "/" + uri
+                    } else {
+                        uri
+                    }
+                }
+            }
+        } ?: uri
 
-            // Inherit query parameters from the base URL (for auth tokens like md5/expires)
-            if (baseUri.query != null && !resolved.contains("?")) {
-                "$resolved?${baseUri.query}"
-            } else {
-                resolved
-            }
-        } catch (e: Exception) {
-            if (base.contains("/")) {
-                base.substringBeforeLast('/') + "/" + uri
-            } else {
-                uri
-            }
+        val baseQuery = base.substringAfter('?', "")
+        if (baseQuery.isEmpty()) {
+            return rawResolved
         }
+
+        // Only inherit query parameters if hosts match (or if one couldn't be parsed as an HttpUrl)
+        val baseHost = base.toHttpUrlOrNull()?.host
+        val resolvedHost = rawResolved.toHttpUrlOrNull()?.host
+        if (baseHost != null && resolvedHost != null && !baseHost.equals(resolvedHost, ignoreCase = true)) {
+            return rawResolved
+        }
+
+        val baseParams = baseQuery.split("&").filter { it.isNotEmpty() }
+        val existingQuery = rawResolved.substringAfter('?', "")
+        val existingKeys = if (existingQuery.isEmpty()) emptySet() else existingQuery.split("&").map { it.substringBefore('=') }.toSet()
+
+        val missingParams = baseParams.filter { param ->
+            val key = param.substringBefore('=')
+            key !in existingKeys
+        }
+
+        if (missingParams.isEmpty()) {
+            return rawResolved
+        }
+
+        val separator = if (rawResolved.contains("?")) "&" else "?"
+        return rawResolved + separator + missingParams.joinToString("&")
     }
 }

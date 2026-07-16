@@ -94,6 +94,14 @@ object PluginBytecodeTransformer {
                                             newOpcode = Opcodes.INVOKESTATIC
                                             newOwner = "com/lagradost/runtime/loader/stubs/RuntimeStub"
                                             newDesc = descriptor.replace("(", "(Ljava/lang/Runtime;")
+                                        } else if (owner == "java/lang/Runtime" && methodName == "availableProcessors" && descriptor == "()I") {
+                                            newOpcode = Opcodes.INVOKESTATIC
+                                            newOwner = "com/lagradost/runtime/loader/stubs/RuntimeStub"
+                                            newDesc = "(Ljava/lang/Runtime;)I"
+                                        } else if (owner == "java/lang/Runtime" && (methodName == "maxMemory" || methodName == "totalMemory" || methodName == "freeMemory") && descriptor == "()J") {
+                                            newOpcode = Opcodes.INVOKESTATIC
+                                            newOwner = "com/lagradost/runtime/loader/stubs/RuntimeStub"
+                                            newDesc = "(Ljava/lang/Runtime;)J"
                                         } else if (owner == "java/lang/System" && (methodName == "exit" || methodName == "loadLibrary" || methodName == "load" || methodName == "setSecurityManager")) {
                                             newOwner = "com/lagradost/runtime/loader/stubs/SystemStub"
                                         } else if (owner == "java/lang/reflect/Method" && methodName == "invoke" && descriptor == "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;") {

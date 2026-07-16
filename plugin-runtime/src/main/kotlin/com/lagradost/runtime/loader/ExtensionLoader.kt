@@ -92,31 +92,37 @@ object ExtensionLoader {
                 }
             }
 
-            // Check if it's Dalvik bytecode
-            val dexEntry = zip.getEntry("classes.dex")
-            if (dexEntry != null) {
-                val dexFile = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".dex")
-                zip.getInputStream(dexEntry).use { input ->
-                    Files.copy(input, dexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                }
+            // Check if archive already contains compiled JVM .class bytecode
+            val hasJvmClasses = zip.entries().asSequence().any { it.name.endsWith(".class") }
 
+            val dexEntry = zip.getEntry("classes.dex")
+            if (hasJvmClasses) {
+                jarToLoad = jarFile
+                AppLogger.i("[PluginLoader] Native JVM JAR detected: ${jarFile.name}")
+            } else if (dexEntry != null) {
                 val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
-                if (!convertedJar.exists()) {
-                    AppLogger.i("Transpiling Dalvik classes.dex to JVM classes.jar...")
-                    // Try to avoid System.exit by calling doMain or just calling main
+                val isCacheValid = convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified()
+
+                if (!isCacheValid) {
+                    AppLogger.i("[PluginLoader] Transpiling Dalvik DEX -> JVM JAR for ${jarFile.name}...")
+                    val dexFile = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".dex")
+                    zip.getInputStream(dexEntry).use { input ->
+                        Files.copy(input, dexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    }
+
                     try {
                         Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
                     } catch (e: Exception) {
-                        // fallback to main if doMain is not public
                         Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
                     }
 
-                    // Structurally rewrite the JAR to fix dex2jar renaming Kotlin inline class methods
                     PluginBytecodeTransformer.transform(convertedJar)
+                    dexFile.delete()
+                } else {
+                    AppLogger.i("[PluginLoader] Using cached JVM JAR: ${convertedJar.name}")
                 }
 
                 jarToLoad = convertedJar
-                dexFile.delete() // Cleanup
             }
         }
 
@@ -126,7 +132,7 @@ object ExtensionLoader {
 
         val finalInternalName = internalNameFromManifest ?: nameFromManifest ?: pluginClassName?.split(".")?.lastOrNull() ?: jarFile.nameWithoutExtension.removeSuffix("-jvm")
 
-        AppLogger.i("Loading plugin class: $pluginClassName from ${jarToLoad.absolutePath}")
+        AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
         if (!forceBypassSecurity && !isTrusted(jarToLoad)) {
             AppLogger.i("Running static bytecode security verification on ${jarToLoad.name}...")

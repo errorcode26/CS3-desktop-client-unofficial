@@ -21,6 +21,10 @@ import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
 import com.lagradost.common.storage.WatchHistory
 
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerButton
+
 data class VideoLaunchData(
     val links: List<com.lagradost.cloudstream3.utils.ExtractorLink> = emptyList(),
     val initialIndex: Int,
@@ -59,6 +63,7 @@ data class FullscreenController(
 )
 val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalOf<FullscreenController?> { null }
 
+@androidx.compose.ui.ExperimentalComposeUiApi
 @Composable
 fun CloudstreamApp() {
     val navController = remember { NavController() }
@@ -71,6 +76,12 @@ fun CloudstreamApp() {
     val amoledMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.amoledMode.collectAsState()
     val primaryColor = com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName(themeAccent)
     val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, amoledMode)
+    val selectedFont by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.selectedFont.collectAsState()
+    val typography = androidx.compose.runtime.remember(selectedFont) {
+        com.lagradost.cloudstream3.desktop.ui.theme.buildTypography(
+            com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(selectedFont)
+        )
+    }
 
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
@@ -78,12 +89,36 @@ fun CloudstreamApp() {
     ) {
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)
 
-        androidx.compose.material3.MaterialTheme(colorScheme = appColorScheme) {
+        androidx.compose.material3.MaterialTheme(colorScheme = appColorScheme, typography = typography) {
             androidx.compose.material3.Surface(
                 modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                 color = androidx.compose.material3.MaterialTheme.colorScheme.background,
             ) {
-                androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.ui.Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    if (event.type == PointerEventType.Release) {
+                                        // Ignore back/forward navigation if the video player is open
+                                        if (currentVideo == null) {
+                                            when (event.button) {
+                                                PointerButton.Back -> {
+                                                    if (navController.canGoBack()) navController.goBack()
+                                                }
+                                                PointerButton.Forward -> {
+                                                    if (navController.canGoForward()) navController.goForward()
+                                                }
+                                                else -> {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                ) {
                     val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
 
                     androidx.compose.animation.AnimatedContent(
@@ -91,36 +126,76 @@ fun CloudstreamApp() {
                         modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                         contentAlignment = androidx.compose.ui.Alignment.TopStart,
                         transitionSpec = {
-                            val isPush = targetState is Screen.Details || targetState is Screen.CategoryGrid
-                            val isPop = initialState is Screen.Details || initialState is Screen.CategoryGrid
+                            val isTopLevelTarget = targetState is Screen.Home || targetState is Screen.Library || targetState is Screen.Extensions || targetState is Screen.Settings
+                            val isTopLevelInitial = initialState is Screen.Home || initialState is Screen.Library || initialState is Screen.Extensions || initialState is Screen.Settings
+
+                            val isTabSwitch = isTopLevelInitial && isTopLevelTarget
+                            val isPush = navController.lastAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Push && !isTabSwitch
+                            val isPop = navController.lastAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Pop && !isTabSwitch
+
+                            val isToDetails = targetState is Screen.Details
+                            val isFromDetails = initialState is Screen.Details
 
                             if (isPush) {
-                                (slideIntoContainer(
-                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = androidx.compose.animation.core.tween(350)
-                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350))).togetherWith(
-                                    slideOutOfContainer(
-                                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
-                                        animationSpec = androidx.compose.animation.core.tween(350),
-                                        targetOffset = { it / 3 } // Parallax effect
-                                    ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(350))
-                                ).apply {
-                                    targetContentZIndex = 1f // New screen slides in ON TOP
+                                if (isToDetails) {
+                                    // Smooth fade and slight scale-in for Details, without scaling the Home screen
+                                    (androidx.compose.animation.fadeIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                    ) + androidx.compose.animation.scaleIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        initialScale = 0.95f
+                                    )).togetherWith(
+                                        androidx.compose.animation.fadeOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                        )
+                                    ).apply { targetContentZIndex = 1f }
+                                } else {
+                                    // Shared Axis Z — push: new screen scales up from 92%, old screen zooms away to 108%
+                                    (androidx.compose.animation.fadeIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                    ) + androidx.compose.animation.scaleIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        initialScale = 0.92f
+                                    )).togetherWith(
+                                        androidx.compose.animation.fadeOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.scaleOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            targetScale = 1.08f
+                                        )
+                                    ).apply { targetContentZIndex = 1f }
                                 }
                             } else if (isPop) {
-                                (slideIntoContainer(
-                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
-                                    animationSpec = androidx.compose.animation.core.tween(350),
-                                    initialOffset = { it / 3 } // Parallax effect
-                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350))).togetherWith(
-                                    slideOutOfContainer(
-                                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
-                                        animationSpec = androidx.compose.animation.core.tween(350)
-                                    ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(350))
-                                ).apply {
-                                    targetContentZIndex = -1f // New screen (Home) slides in UNDERNEATH the old screen (Details)
+                                if (isFromDetails) {
+                                    // Smooth fade out and scale down for Details, without scaling the Home screen
+                                    (androidx.compose.animation.fadeIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                    )).togetherWith(
+                                        androidx.compose.animation.fadeOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.scaleOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            targetScale = 0.95f
+                                        )
+                                    ).apply { targetContentZIndex = -1f }
+                                } else {
+                                    // Shared Axis Z — pop: old screen shrinks back to 92%, previous screen zooms in from 108%
+                                    (androidx.compose.animation.fadeIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                    ) + androidx.compose.animation.scaleIn(
+                                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                        initialScale = 1.08f
+                                    )).togetherWith(
+                                        androidx.compose.animation.fadeOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                                        ) + androidx.compose.animation.scaleOut(
+                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                            targetScale = 0.92f
+                                        )
+                                    ).apply { targetContentZIndex = -1f }
                                 }
                             } else {
+                                // Tab switch: simple crossfade — no depth needed for same-level navigation
                                 androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
                                 androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
                             }

@@ -64,15 +64,14 @@ object NetworkConfig {
         // CRITICAL: Strip all IPv6 addresses from DNS responses.
         // Windows frequently advertises IPv6 capability but many ISPs/routers silently
         // blackhole IPv6 traffic, causing OkHttp's Happy Eyeballs to hang for 30+ seconds
-        // on hosts like HubCloud before falling back to IPv4.
-        // This wraps whatever DNS is currently configured (System or DoH).
+        // on many hosts before falling back to IPv4. Or worse, throws "Protocol family unavailable" if disabled in Windows.
         try {
             val upstreamDns = baseBuilder.build().dns
             baseBuilder.dns(object : okhttp3.Dns {
                 override fun lookup(hostname: String): List<java.net.InetAddress> {
                     val addresses = upstreamDns.lookup(hostname)
                     val ipv4Only = addresses.filter { it is java.net.Inet4Address }
-                    return ipv4Only.ifEmpty { addresses } // fallback to all if no IPv4 exists
+                    return ipv4Only.ifEmpty { addresses }
                 }
             })
         } catch (e: Exception) {
