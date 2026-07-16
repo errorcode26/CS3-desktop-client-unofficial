@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,15 +61,25 @@ fun ExtensionCard(
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 )
             } else {
+                // Generate a consistent color based on the internalName string hash
+                val colorHash = kotlin.math.abs(internalName.hashCode())
+                val hue = (colorHash % 360).toFloat()
+                val avatarColor = androidx.compose.ui.graphics.Color.hsv(hue, 0.6f, 0.8f)
+                val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+
                 Box(
-                    modifier = Modifier.size(56.dp).padding(end = 16.dp),
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .size(40.dp) // Match the visual size of the image minus padding
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(avatarColor),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Default.Extension,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Text(
+                        text = initial,
+                        color = androidx.compose.ui.graphics.Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

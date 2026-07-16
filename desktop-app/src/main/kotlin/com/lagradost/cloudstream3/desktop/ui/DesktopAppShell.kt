@@ -420,13 +420,11 @@ private fun TopBar(
 
             val theme = LocalDesktopTheme.current
 
-            if (isHome) {
-                IconButton(
-                    onClick = { DesktopUiState.forceProviderRefresh.value += 1 },
-                    modifier = Modifier.size(38.dp),
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(20.dp))
-                }
+            IconButton(
+                onClick = { DesktopUiState.forceProviderRefresh.value += 1 },
+                modifier = Modifier.size(38.dp),
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(20.dp))
             }
 
             IconButton(

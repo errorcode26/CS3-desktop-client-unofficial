@@ -83,7 +83,7 @@ fun NativePlayerControls(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .then(if (!showControls) Modifier.pointerHoverIcon(blankCursor) else Modifier)
+            .pointerHoverIcon(if (!showControls) blankCursor else androidx.compose.ui.input.pointer.PointerIcon.Default)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = {

@@ -572,6 +572,7 @@ object DesktopRepositoryManager {
 
                             localJar.delete()
                             File(repoDir, "${remotePlugin.internalName}-jvm.jar").delete()
+                            File(repoDir, "${remotePlugin.internalName}.dex").delete()
 
                             val newJar = downloadPlugin(repo.name, remotePlugin)
 

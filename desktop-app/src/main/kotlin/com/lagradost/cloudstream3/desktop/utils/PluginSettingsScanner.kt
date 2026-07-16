@@ -61,6 +61,41 @@ object PluginSettingsScanner {
         }
     }
 
+    /**
+     * Performs a deep scan of the given JAR file and extracts all plausible string literals
+     * that could be used as settings keys. Returns a sorted list of unique keys.
+     */
+    fun extractAllStringLiterals(jarFile: File): List<String> {
+        val keys = mutableSetOf<String>()
+        try {
+            java.util.zip.ZipFile(jarFile).use { zip ->
+                for (entry in zip.entries()) {
+                    if (entry.name.endsWith(".class")) {
+                        zip.getInputStream(entry).use { inputStream ->
+                            val reader = ClassReader(inputStream)
+                            val node = ClassNode()
+                            reader.accept(node, 0)
+                            for (method in node.methods) {
+                                for (insn in method.instructions.toArray()) {
+                                    if (insn is LdcInsnNode && insn.cst is String) {
+                                        val str = insn.cst as String
+                                        // Filter for plausible keys: no spaces, 2-50 chars, no weird characters
+                                        if (str.length in 2..50 && str.matches(Regex("^[a-zA-Z0-9_-]+$"))) {
+                                            keys.add(str)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("Error extracting string literals from jar", e)
+        }
+        return keys.sorted()
+    }
+
     private fun scanClassNode(classNode: ClassNode, keys: MutableSet<String>) {
         for (method in classNode.methods) {
             scanMethodNode(method, keys)

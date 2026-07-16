@@ -161,7 +161,8 @@ fun LinksSidePanel(provider: MainAPI, dataUrl: String, history: WatchHistory, lo
                 statusText = "Launching ${effectivePlayer.uppercase()}..."
 
                 val latestHistory = DesktopDataStore.getEpisodeWatched(history.parentId, history.episodeId) ?: history
-                val startSec = PlayerLinkHandler.resumeStartSeconds(latestHistory.position, latestHistory.duration)
+                val isLive = loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
+                val startSec = if (isLive) 0L else PlayerLinkHandler.resumeStartSeconds(latestHistory.position, latestHistory.duration)
                 val startMs = startSec * 1000L
 
                 val subUrls = subtitles.map { it.url }.filter { it.isNotBlank() }

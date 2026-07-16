@@ -128,7 +128,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
                 }
                 val hasSchemaSettings = com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName)
-                val showSettings = instance?.openSettings != null || hasSchemaSettings
+                val showSettings = true // Fully unlocked: always allow adding custom settings
 
                 ExtensionCard(
                     name = plugin.name,
@@ -153,9 +153,8 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     },
                     showSettings = showSettings,
                     onSettingsClick = {
-                        if (hasSchemaSettings) {
-                            showDynamicSettings = true
-                        } else {
+                        showDynamicSettings = true
+                        if (!hasSchemaSettings) {
                             showUnsupportedWarning = true
                         }
                     },
@@ -165,6 +164,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     PluginSettingsDialog(
                         pluginName = plugin.name,
                         prefName = prefName,
+                        jarFile = plugin.file,
                         onDismiss = { showDynamicSettings = false },
                     )
                 }

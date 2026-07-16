@@ -13,6 +13,7 @@ OutputDir=..\desktop-app\build\outputs
 OutputBaseFilename=CloudStream-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
+LZMAUseSeparateProcess=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 

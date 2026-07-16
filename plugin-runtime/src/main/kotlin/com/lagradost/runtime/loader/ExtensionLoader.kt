@@ -101,11 +101,13 @@ object ExtensionLoader {
             throw IllegalArgumentException("Could not determine pluginClassName from manifest.json and no fallback provided.")
         }
 
+        val finalInternalName = internalNameFromManifest ?: nameFromManifest ?: pluginClassName?.split(".")?.lastOrNull() ?: jarFile.nameWithoutExtension.removeSuffix("-jvm")
+
         AppLogger.i("Loading plugin class: $pluginClassName from ${jarToLoad.absolutePath}")
 
         if (!forceBypassSecurity && !isTrusted(jarToLoad)) {
             AppLogger.i("Running static bytecode security verification on ${jarToLoad.name}...")
-            com.lagradost.runtime.security.PluginSecurityVerifier.verifyJar(jarToLoad)
+            com.lagradost.runtime.security.PluginSecurityVerifier.verifyJar(jarToLoad, finalInternalName)
         } else {
             if (forceBypassSecurity) {
                 addTrusted(jarToLoad)
@@ -133,7 +135,6 @@ object ExtensionLoader {
             }
 
             val instance = pluginClass.getDeclaredConstructor().newInstance() as BasePlugin
-            val finalInternalName = internalNameFromManifest ?: nameFromManifest ?: pluginClassName?.split(".")?.lastOrNull() ?: jarFile.nameWithoutExtension.removeSuffix("-jvm")
             classLoaders[classLoader] = finalInternalName
             instance
         }

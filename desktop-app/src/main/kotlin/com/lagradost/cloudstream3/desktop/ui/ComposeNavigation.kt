@@ -95,37 +95,28 @@ fun CloudstreamApp() {
                             val isPop = initialState is Screen.Details || initialState is Screen.CategoryGrid
 
                             if (isPush) {
-                                (
-                                    androidx.compose.animation.slideInHorizontally(
-                                        initialOffsetX = { it },
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    ) + androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
-                                        androidx.compose.animation.slideOutHorizontally(
-                                            targetOffsetX = { -it / 3 },
-                                            animationSpec = androidx.compose.animation.core.tween(300),
-                                        ) + androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
-                                    )
-                                    .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.snap() })
-                                    .apply { targetContentZIndex = 1f }
+                                slideIntoContainer(
+                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
+                                    animationSpec = androidx.compose.animation.core.tween(300)
+                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) togetherWith
+                                slideOutOfContainer(
+                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
+                                    animationSpec = androidx.compose.animation.core.tween(300),
+                                    targetOffset = { it / 3 } // Parallax effect
+                                ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
                             } else if (isPop) {
-                                (
-                                    androidx.compose.animation.slideInHorizontally(
-                                        initialOffsetX = { -it / 3 },
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    ) + androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
-                                        androidx.compose.animation.slideOutHorizontally(
-                                            targetOffsetX = { it },
-                                            animationSpec = androidx.compose.animation.core.tween(300),
-                                        ) + androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
-                                    )
-                                    .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.snap() })
-                                    .apply { targetContentZIndex = -1f }
+                                slideIntoContainer(
+                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
+                                    animationSpec = androidx.compose.animation.core.tween(300),
+                                    initialOffset = { it / 3 } // Parallax effect
+                                ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) togetherWith
+                                slideOutOfContainer(
+                                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
+                                    animationSpec = androidx.compose.animation.core.tween(300)
+                                ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
                             } else {
-                                (
-                                    androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
-                                        androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
-                                    )
-                                    .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.snap() })
+                                androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
+                                androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
                             }
                         },
                         label = "screen_transition",

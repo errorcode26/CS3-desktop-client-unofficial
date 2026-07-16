@@ -52,7 +52,6 @@ fun EmbeddedVideoPlayer(
     }
 
     var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     var failedLinks by remember { mutableStateOf(setOf<Int>()) }
     var showSources by remember { mutableStateOf(false) }
     var isFinished by remember { mutableStateOf(false) }
@@ -83,7 +82,6 @@ fun EmbeddedVideoPlayer(
         lastSavedHistory = actualLaunchData.history
 
         isLoading = true
-        errorMessage = null
         lastPositionSec = actualLaunchData.startPositionMs / 1000L
         lastDurationSec = actualLaunchData.history.duration
         lastSavedPositionSec = actualLaunchData.startPositionMs / 1000L
@@ -93,7 +91,8 @@ fun EmbeddedVideoPlayer(
 
     LaunchedEffect(nextEpisodeError) {
         if (nextEpisodeError != null) {
-            errorMessage = nextEpisodeError
+            actualLaunchData.onError?.invoke(nextEpisodeError!!)
+            onClose()
         }
     }
 
@@ -129,7 +128,7 @@ fun EmbeddedVideoPlayer(
             val playerMaxHeight = maxHeight
 
             // --- Main Video + Controls ---
-            if (errorMessage == null && !isFinished) {
+            if (!isFinished) {
                 var countdownToNextEpisode by remember { mutableStateOf<Int?>(null) }
 
                 LaunchedEffect(countdownToNextEpisode) {
@@ -166,9 +165,8 @@ fun EmbeddedVideoPlayer(
                         } else if (failedLinks.size < actualLaunchData.links.size) {
                             // If we have an untried link that is higher than currentLinkIndex, or any untried link if we ran out
                             val nextIndex = (0 until actualLaunchData.links.size).firstOrNull { it > currentLinkIndex && it !in failedLinks }
-                            if (nextIndex != null && (errorMessage != null || currentLinkIndex in failedLinks)) {
+                            if (nextIndex != null && (currentLinkIndex in failedLinks)) {
                                 currentLinkIndex = nextIndex
-                                errorMessage = null
                                 isLoading = true
                             }
                         }
@@ -277,7 +275,6 @@ fun EmbeddedVideoPlayer(
                                     nextIndex != null -> {
                                         currentLinkIndex = nextIndex
                                         isLoading = true
-                                        errorMessage = null
                                     }
                                     newFailed.size >= actualLaunchData.links.size -> {
                                         if (isScrapingLinks) {
@@ -286,9 +283,8 @@ fun EmbeddedVideoPlayer(
                                         } else {
                                             // All sources failed — dismiss overlay and show error
                                             isProbingOverlay = false
-                                            errorMessage = "All sources failed. Please try again later."
-                                            showSources = true
-                                            isLoading = false
+                                            actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
+                                            onClose()
                                         }
                                     }
                                     else -> {
@@ -297,7 +293,6 @@ fun EmbeddedVideoPlayer(
                                         if (anyUntried != null) {
                                             currentLinkIndex = anyUntried
                                             isLoading = true
-                                            errorMessage = null
                                         } else {
                                             if (isScrapingLinks) {
                                                 isLoading = true
@@ -305,9 +300,8 @@ fun EmbeddedVideoPlayer(
                                             } else {
                                                 // All sources exhausted — dismiss overlay and show error
                                                 isProbingOverlay = false
-                                                errorMessage = "All sources failed. Please try again later."
-                                                showSources = true
-                                                isLoading = false
+                                                actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
+                                                onClose()
                                             }
                                         }
                                     }
@@ -321,33 +315,7 @@ fun EmbeddedVideoPlayer(
                 } // end outer Box
             } // end if (!error && !finished)
 
-            // --- Error State ---
-            if (errorMessage != null) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "Playback Failed",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = errorMessage ?: "Unknown error",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = onClose) {
-                        Text("Go Back")
-                    }
-                }
-            }
+
 
             // --- Finished State ---
             if (isFinished) {

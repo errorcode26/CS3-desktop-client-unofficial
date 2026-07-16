@@ -131,6 +131,28 @@ fun SettingsAppearance() {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Grid Scale / Poster Size
+        Text("Poster Size", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+        Text("Adjust the size of posters on the home screen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            listOf("Compact" to "Compact", "Normal" to "Normal", "Large" to "Large").forEach { (id, label) ->
+                FilterChip(
+                    selected = gridScale == id,
+                    onClick = { AppearanceConfig.setGridScale(id) },
+                    label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = Color.White,
+                    ),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Layout Width
         val layoutWidth by AppearanceConfig.layoutWidth.collectAsState()
         Text("Layout Width", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)

@@ -809,6 +809,13 @@ fun ComposeNativeWebPlayer(
                 }
                 val mpvDir = mpvExe.parentFile
                 System.setProperty("jna.library.path", mpvDir.absolutePath)
+                
+                // CRITICAL: JNA caches jna.library.path on initialization. 
+                // We MUST use addSearchPath to inject our bundled DLL path dynamically.
+                val targets = listOf("libmpv-2", "mpv-2", "mpv-1", "mpv", "libmpv", "mpv-3.dll")
+                targets.forEach { target ->
+                    com.sun.jna.NativeLibrary.addSearchPath(target, mpvDir.absolutePath)
+                }
 
                 val lib = MpvLibrary.INSTANCE
                 val handle = lib.mpv_create() ?: run {

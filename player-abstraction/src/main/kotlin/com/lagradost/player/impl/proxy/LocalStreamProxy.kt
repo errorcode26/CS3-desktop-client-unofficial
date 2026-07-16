@@ -264,10 +264,8 @@ object LocalStreamProxy {
             }
             keysToRemove.forEach { mergedHeaders.remove(it) }
             
-            // Explicitly request identity encoding to prevent OkHttp from transparently adding Accept-Encoding: gzip.
-            // If OkHttp uses gzip, it strips the Content-Length header, forcing Ktor to use Chunked Transfer Encoding,
-            // which breaks FFmpeg's HLS keep-alive parsing and corrupts the video sync!
-            mergedHeaders["Accept-Encoding"] = "identity"
+            // Removed explicitly requesting identity encoding. OkHttp will handle gzip natively.
+            // Chunked transfer encoding is fine since we close the connection anyway.
 
             call.request.headers["Range"]?.let {
                 mergedHeaders["Range"] = it

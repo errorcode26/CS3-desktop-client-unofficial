@@ -13,6 +13,8 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 // haze imports removed
 
 @Composable
@@ -163,6 +165,47 @@ fun ComposeHomeScreen(
                     )
                 }
             }
+        } else if (providers.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                        contentDescription = "No providers",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "No Providers Found",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Please go to the Extensions tab to install some plugins.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = { navController.navigate(Screen.Extensions) }) {
+                        Text("Go to Extensions")
+                    }
+                }
+            }
+
+            HomeTopBar(
+                searchQuery = searchQuery,
+                onSearchQueryChange = { viewModel.searchQuery.value = it },
+                onSearch = { viewModel.search() },
+                providers = providers,
+                selectedProvider = selectedProvider,
+                onProviderSelected = {
+                    viewModel.selectedProviderName.value = it
+                    viewModel.searchResultsGrouped.value = null
+                },
+                mergedPluginIcons = mergedPluginIcons,
+                onProviderSelectClick = { isProviderDropdownExpanded = true }
+            )
         } else {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 Column(modifier = Modifier.fillMaxWidth()) {

@@ -73,3 +73,6 @@ exe_out.txt
 Output/
 *.iss.bak
 
+
+# Temporary Extension Data
+temp_ext/

@@ -57,6 +57,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val enrichmentTrigger by viewModel.enrichmentTrigger.collectAsState()
     val screenshots by viewModel.screenshots.collectAsState()
 
+    var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
 
     val handlePlay: (Triple<MainAPI, String, WatchHistory>) -> Unit = { (linkProvider, linkUrl, linkHistory) ->
@@ -70,20 +71,39 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     append(" - E${linkHistory.episode}")
                 }
             }
+            val isLive = (response ?: fakeData)?.type == com.lagradost.cloudstream3.TvType.Live
+            val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
             playVideo(
                 com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
                     links = emptyList(),
                     initialIndex = 0,
                     title = epTitle,
                     subtitles = emptyList(),
-                    startPositionMs = com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L,
+                    startPositionMs = resumeMs,
                     history = linkHistory,
                     loadResponse = response ?: fakeData,
+                    onError = { err -> playbackError = err }
                 ),
             )
         } else {
             viewModel.openLinksPanel(Triple(linkProvider, linkUrl, linkHistory))
         }
+    }
+
+    if (playbackError != null) {
+        AlertDialog(
+            onDismissRequest = { playbackError = null },
+            title = { Text("Playback Failed") },
+            text = { Text(playbackError ?: "Unknown error") },
+            confirmButton = {
+                TextButton(onClick = { playbackError = null }) {
+                    Text("OK")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {

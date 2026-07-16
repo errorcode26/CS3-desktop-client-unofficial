@@ -9,7 +9,7 @@ import java.util.zip.ZipFile
 object PluginSecurityVerifier {
 
     @Throws(SecurityException::class)
-    fun verifyJar(jarFile: File) {
+    fun verifyJar(jarFile: File, pluginInternalName: String) {
         ZipFile(jarFile).use { zip ->
             val entries = zip.entries()
             while (entries.hasMoreElements()) {
@@ -28,8 +28,20 @@ object PluginSecurityVerifier {
                                     // Block dangerous class owners outright
                                     if (owner == "java/lang/ProcessBuilder" ||
                                         owner == "java/io/File" ||
+                                        owner == "java/io/FileInputStream" ||
+                                        owner == "java/io/FileOutputStream" ||
+                                        owner == "java/io/RandomAccessFile" ||
+                                        owner == "java/io/FileReader" ||
+                                        owner == "java/io/FileWriter" ||
+                                        owner.startsWith("java/nio/file/") ||
                                         owner.startsWith("java/lang/reflect/") ||
-                                        owner.startsWith("java/lang/invoke/")
+                                        owner.startsWith("java/lang/invoke/") ||
+                                        owner.startsWith("kotlin/reflect/") ||
+                                        owner.startsWith("javax/script/") ||
+                                        owner.startsWith("javax/naming/") ||
+                                        owner.startsWith("javax/tools/") ||
+                                        owner.startsWith("sun/misc/") ||
+                                        owner.startsWith("jdk/internal/misc/")
                                     ) {
                                         throw SecurityException("Security Sandbox: Potentially unsafe code detected in class ${classNode.name} method ${method.name}. Illegal invocation: $owner.${insn.name}")
                                     }
@@ -70,12 +82,16 @@ object PluginSecurityVerifier {
                                         owner == "java/net/URLConnection" ||
                                         owner == "javax/net/ssl/HttpsURLConnection"
                                     ) {
-                                        throw RequiresPermissionException("Network Sockets", "Security Sandbox: Illegal raw HTTP connection in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        if (!com.lagradost.runtime.loader.PermissionManager.hasPermission(pluginInternalName, "Network Sockets")) {
+                                            throw RequiresPermissionException("Network Sockets", "Security Sandbox: Illegal raw HTTP connection in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        }
                                     }
 
                                     // Detect raw Sockets (e.g. for proxy servers)
                                     if (owner == "java/net/Socket" || owner == "java/net/ServerSocket" || owner == "java/net/DatagramSocket") {
-                                        throw RequiresPermissionException("Network Sockets", "Security Sandbox: Raw socket access detected in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        if (!com.lagradost.runtime.loader.PermissionManager.hasPermission(pluginInternalName, "Network Sockets")) {
+                                            throw RequiresPermissionException("Network Sockets", "Security Sandbox: Raw socket access detected in ${classNode.name}. Plugin requires 'Network Sockets' permission.")
+                                        }
                                     }
 
                                     // Block specific dangerous System calls

@@ -156,12 +156,8 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
     fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
         _pluginRequiringPermission.value = null
         com.lagradost.runtime.loader.PermissionManager.grantPermission(plugin.internalName, permissionName)
-        // Retry installation (it will now pass the ClassLoader check)
-        // Wait, bypassSecurityAndInstall is needed because PluginSecurityVerifier will still throw unless bypassed?
-        // Ah! If we grant permission in PermissionManager, the static analyzer WILL STILL THROW!
-        // We need to pass forceBypassSecurity = true, OR we modify PluginSecurityVerifier to check PermissionManager?
-        // Let's just bypass static analyzer and let SafePluginClassLoader enforce the granted permissions.
-        bypassSecurityAndInstall(repoName, plugin)
+        // Now that PluginSecurityVerifier checks PermissionManager, we can retry standard installation
+        installPlugin(repoName, plugin) {}
     }
 
     fun clearPermissionRequest() {
@@ -176,6 +172,7 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                     val parentDir = plugin.file.parentFile
                     plugin.file.delete()
                     File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar").delete()
+                    File(parentDir, plugin.file.nameWithoutExtension + ".dex").delete()
                     if (parentDir != null && parentDir.listFiles()?.isEmpty() == true) {
                         parentDir.delete()
                     }

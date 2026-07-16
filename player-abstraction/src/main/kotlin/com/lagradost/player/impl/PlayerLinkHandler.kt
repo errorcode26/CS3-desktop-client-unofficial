@@ -56,7 +56,7 @@ object PlayerLinkHandler {
             )
         }
 
-        val url = link.url.trim()
+        val url = link.url.trim().substringBefore("|")
         if (url.isBlank()) {
             return Result.failure(IllegalArgumentException("Stream URL is empty."))
         }
@@ -101,7 +101,7 @@ object PlayerLinkHandler {
         // mid-stream, causing broken-pieces playback.
         val useProxy = when (kind) {
             StreamKind.HLS -> true
-            StreamKind.DASH -> clearKeyHex != null // Only use proxy for DRM DASH for manifest rewriting
+            StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
             StreamKind.PROGRESSIVE -> false
         }
         
@@ -163,6 +163,19 @@ object PlayerLinkHandler {
             val cleaned = value.replace("\r", "").replace("\n", "").trim()
             if (key.isNotBlank() && cleaned.isNotEmpty()) {
                 merged[key] = cleaned
+            }
+        }
+        
+        // Parse trailing headers from the URL (e.g., |Referer=...&User-Agent=...)
+        val url = link.url.trim()
+        if (url.contains("|")) {
+            val trailing = url.substringAfter("|")
+            trailing.split("&").forEach { pair ->
+                val key = pair.substringBefore("=").trim()
+                val value = pair.substringAfter("=", "").trim()
+                if (key.isNotBlank() && value.isNotEmpty()) {
+                    merged[key] = value
+                }
             }
         }
         
