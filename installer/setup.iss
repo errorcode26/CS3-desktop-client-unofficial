@@ -1,7 +1,7 @@
 [Setup]
 AppName=CloudStream
 AppVersion=0.1.2-pre-alpha
-AppPublisher=CloudStream
+AppPublisher=Ayu
 AppPublisherURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
 AppSupportURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
 AppUpdatesURL=https://github.com/errorcode26/cloudstream-desktop-unofficial
