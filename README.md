@@ -15,10 +15,7 @@ If you are looking for extensive unit tests or a robust CI/CD pipeline, you have
 ## Disclaimer
 This repository acts purely as a blank-slate media shell. The application does not ship with any plugins, media files, or pre-configured content sources. The developers hold no responsibility or liability for how users choose to utilize this software.
 
-## Setup & Installation
-
-### For End Users
-Simply download the latest .exe installer from the releases page and run it. Everything is pre-bundled (including the hardware-accelerated video player). There is absolutely zero configuration required.
+## Setup 
 
 ---
 
