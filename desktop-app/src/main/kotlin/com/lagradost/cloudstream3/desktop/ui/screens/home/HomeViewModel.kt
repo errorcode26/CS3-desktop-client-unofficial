@@ -193,16 +193,17 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                     com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(dummy, "dummy_${item.url}") {}
 
                     val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }
+                    val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }
                     val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: cleanHeroTitle(item.name)
                     val tags = dummy.tags?.take(4) ?: emptyList()
                     val plot = dummy.plot?.take(200)
                     val score = dummy.score?.toString() // Fallback if toStringNull isn't strictly available here
 
-                    val meta = HeroMeta(title, backdropUrl, tags, plot, score, dummy.year)
+                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type)
                     HeroCache.cache[cacheKey] = meta
                     heroMetaMap.update { it + (item.url to meta) }
                 } else {
-                    val meta = HeroMeta(dummyTitle, null, emptyList(), null, null, null)
+                    val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null)
                     HeroCache.cache[cacheKey] = meta
                     heroMetaMap.update { it + (item.url to meta) }
                 }
@@ -222,12 +223,14 @@ class HomeViewModel(private val coroutineScope: CoroutineScope) {
                         val currentMeta = heroMetaMap.value[item.url]
                         val newTitle = details.name.takeIf { it.isNotBlank() } ?: currentMeta?.title
                         val newBackdrop = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.backdropUrl
+                        val newLogo = details.logoUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.logoUrl
                         val newTags = details.tags?.takeIf { it.isNotEmpty() } ?: currentMeta?.tags ?: emptyList()
                         val newPlot = details.plot?.takeIf { it.isNotBlank() } ?: currentMeta?.plot
                         val newScore = details.score?.toString() ?: currentMeta?.score
                         val newYear = details.year ?: currentMeta?.year
+                        val newType = details.type ?: currentMeta?.type
 
-                        val finalMeta = HeroMeta(newTitle, newBackdrop, newTags, newPlot, newScore, newYear)
+                        val finalMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType)
                         HeroCache.cache[cacheKey] = finalMeta
                         heroMetaMap.update { it + (item.url to finalMeta) }
                     }

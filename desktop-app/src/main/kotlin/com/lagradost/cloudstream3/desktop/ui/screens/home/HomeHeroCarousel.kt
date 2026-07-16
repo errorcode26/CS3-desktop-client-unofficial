@@ -47,10 +47,12 @@ import kotlin.math.absoluteValue
 data class HeroMeta(
     val title: String?,
     val backdropUrl: String?,
+    val logoUrl: String?,
     val tags: List<String>,
     val plot: String?,
     val score: String?,
     val year: Int?,
+    val type: com.lagradost.cloudstream3.TvType?,
 )
 
 object HeroCache {
@@ -270,7 +272,8 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         modifier = Modifier.weight(1f), // Take up remaining space comfortably
                     ) {
                         // Content-type badge
-                        item.type?.let { tvType ->
+                        val displayType = meta?.type ?: item.type
+                        displayType?.let { tvType ->
                             val typeLabel = when (tvType) {
                                 com.lagradost.cloudstream3.TvType.Movie -> "MOVIE"
                                 com.lagradost.cloudstream3.TvType.TvSeries -> "SERIES"
@@ -297,18 +300,30 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                             Spacer(Modifier.height(12.dp))
                         }
 
-                        // Title
-                        val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
-                        if (displayTitle.isNotBlank()) {
-                            Text(
-                                text = displayTitle,
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = 48.sp,
+                        // Title or Logo
+                        if (!meta?.logoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = meta!!.logoUrl,
+                                contentDescription = "Logo",
+                                modifier = Modifier
+                                    .fillMaxWidth(0.5f)
+                                    .heightIn(max = 120.dp),
+                                contentScale = ContentScale.Fit,
+                                alignment = Alignment.BottomStart
                             )
+                        } else {
+                            val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
+                            if (displayTitle.isNotBlank()) {
+                                Text(
+                                    text = displayTitle,
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 48.sp,
+                                )
+                            }
                         }
 
                         // Rating & Year
@@ -344,7 +359,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         if (!meta?.tags.isNullOrEmpty()) {
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                meta!!.tags.forEach { tag ->
+                                meta!!.tags.distinct().take(4).forEach { tag ->
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(20.dp))
@@ -364,7 +379,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                 text = meta!!.plot!!,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
                                 fontSize = 14.sp,
-                                maxLines = 3,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 lineHeight = 22.sp,
                             )

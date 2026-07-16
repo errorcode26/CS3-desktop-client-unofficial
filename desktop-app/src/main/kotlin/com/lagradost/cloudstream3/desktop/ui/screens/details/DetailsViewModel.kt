@@ -72,7 +72,7 @@ object GlobalDetailsCache {
 
                 TmdbRateLimiter.acquire()
                 val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
-                val searchUrl = "https://api.themoviedb.org/3/search/multi?api_key=e6333b32409e02a4a6eba6fb7ff866bb&query=${java.net.URLEncoder.encode(cleanName, "UTF-8")}&page=1&language=en-US"
+                val searchUrl = "https://api.themoviedb.org/3/search/multi?api_key=3828864585df9d4f006c09403eb9a888&query=${java.net.URLEncoder.encode(cleanName, "UTF-8")}&page=1&language=en-US"
                 val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
                 val results = searchData?.get("results")
 
@@ -110,7 +110,7 @@ object GlobalDetailsCache {
                         // Optimize TV show fetching by appending seasons 1-15 to the single request!
                         // This prevents making N requests for N seasons, keeping us well under rate limits.
                         val seasonsAppend = if (!isMovie) ",${(1..15).joinToString(",") { "season/$it" }}" else ""
-                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=e6333b32409e02a4a6eba6fb7ff866bb&append_to_response=images,credits,recommendations$seasonsAppend&language=en-US"
+                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=3828864585df9d4f006c09403eb9a888&append_to_response=images,credits,recommendations$seasonsAppend&language=en-US"
 
                         val tmdbData = com.lagradost.cloudstream3.app.get(tmdbUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
                         if (tmdbData != null) {
