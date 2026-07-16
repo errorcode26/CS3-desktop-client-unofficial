@@ -88,7 +88,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
-        jvmArgs += listOf("-Djava.security.manager=allow", "-Djava.net.preferIPv4Stack=true", "-Djava.library.path=build/libs", "-Dfile.encoding=UTF-8")
+        jvmArgs += listOf("-Djava.security.manager=allow", "-Djava.net.preferIPv4Stack=true", "-Djava.library.path=build/libs;\$APPDIR/resources/jni", "-Dfile.encoding=UTF-8")
 
         buildTypes.release.proguard {
             isEnabled.set(false)
