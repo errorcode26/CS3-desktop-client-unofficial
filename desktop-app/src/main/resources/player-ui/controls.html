@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudStream Player</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-drag: none; }
         body {
             background: transparent;
             color: white;
@@ -168,13 +168,23 @@
         }
         .vol-group:hover .vol-slider-wrap { width: 88px; }
         .vol-slider {
-            -webkit-appearance: none; height: 3px; width: 78px; margin: 0 5px;
+            -webkit-appearance: none; height: 4px; width: 78px; margin: 0 5px;
             background: rgba(255,255,255,0.35); border-radius: 2px; outline: none;
+            transition: height 0.2s ease;
         }
+        .vol-slider:hover { height: 6px; }
         .vol-slider::-webkit-slider-thumb {
             -webkit-appearance: none; width: 12px; height: 12px;
-            background: white; border-radius: 50%; cursor: pointer;
+            background: #E50914; border-radius: 50%; cursor: pointer;
+            box-shadow: 0 0 8px rgba(229, 9, 20, 0.6);
+            transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s ease;
         }
+        .vol-slider:hover::-webkit-slider-thumb {
+            transform: scale(1.33);
+            box-shadow: 0 0 12px rgba(229, 9, 20, 0.9);
+        }
+        .vol-anim { transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); transform-box: fill-box; transform-origin: center left; }
+        #volCross { transform-origin: center; }
 
         /* ── Resume Overlay ─────────────────────────────────────────────── */
         #resumeOverlay {
@@ -238,19 +248,21 @@
 
         /* ── Floating Panels ────────────────────────────────────────────── */
         .panel {
-            position: absolute; bottom: 90px; right: 36px;
+            position: absolute; bottom: 115px; right: 36px;
             background: rgba(20,20,20,0.96); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
             color: white; z-index: 1000; display: none; flex-direction: column;
             box-shadow: 0 16px 48px rgba(0,0,0,0.7); pointer-events: auto;
             overflow: hidden;
+            width: 360px; /* Standardized uniform width */
+            max-height: 65vh;
         }
         .panel.open { display: flex; animation: panelIn 0.18s ease-out; }
         @keyframes panelIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 
         /* Episodes Panel */
         #episodesPanel {
-            width: 360px; max-height: 60vh;
+            /* Handled by .panel base width */
         }
 
         /* Season Dropdown Selector */
@@ -325,9 +337,7 @@
         .ep-playing { font-size: 10px; font-weight: 700; color: #E50914; letter-spacing: 0.08em; text-transform: uppercase; }
 
         /* Servers / Settings panel */
-        #serversPanel { width: 340px; max-height: 60vh; }
-        #settingsPanel { width: 350px; max-height: 52vh; }
-        #subsPanel { width: 340px; max-height: 60vh; }
+        /* Handled by .panel base width */
 
         /* Settings panel tab header (segmented control style) */
         .settings-tab-header {
@@ -359,7 +369,7 @@
         .srv-item.active { background: rgba(255,255,255,0.04); }
         .srv-check { width: 18px; flex-shrink: 0; color: #E50914; }
         .srv-icon { width: 20px; height: 20px; flex-shrink: 0; color: #aaa; }
-        .srv-name { flex: 1; font-size: 14px; }
+        .srv-name { flex: 1; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
         .srv-quality { font-size: 12px; color: #777; }
         .srv-badge {
             font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
@@ -374,7 +384,7 @@
             padding: 11px 20px; cursor: pointer; transition: background 0.15s;
         }
         .sub-item:hover { background: rgba(255,255,255,0.06); }
-        .sub-item .sub-name { font-size: 14px; }
+        .sub-item .sub-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; margin-right: 12px; }
         .sub-item .check-icon { color: #E50914; opacity: 0; }
         .sub-item.active .check-icon { opacity: 1; }
         .sub-expand-btn {
@@ -617,19 +627,16 @@
     <div class="panel-body" id="serversList"></div>
 </div>
 
-<!-- ── Unified Audio & Subtitles Panel ────────────────────────────────── -->
-<div id="subsPanel" class="panel">
+<!-- ── Quality & Audio Panel ───────────────────────────────────────────── -->
+<div id="qualityPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 16px 20px 0;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Playback Settings</h2>
-            <button class="close-btn" id="closeSubsBtn">✕</button>
+            <h2>Quality & Audio</h2>
+            <button class="close-btn" id="closeQualityBtn">✕</button>
         </div>
         <div class="settings-tab-header">
             <button class="settings-tab-btn active" data-tab-target="sub-quality">Quality</button>
             <button class="settings-tab-btn" data-tab-target="sub-audio">Audio</button>
-            <button class="settings-tab-btn" data-tab-target="sub-tracks">Subtitles</button>
-            <button class="settings-tab-btn" data-tab-target="sub-sync">Sync</button>
-            <button class="settings-tab-btn" data-tab-target="sub-style">Style</button>
         </div>
     </div>
     <div class="panel-body" style="padding-top: 6px;">
@@ -648,9 +655,25 @@
                 <div id="audioList"></div>
             </div>
         </div>
+    </div>
+</div>
 
+<!-- ── Unified Subtitles Panel ────────────────────────────────── -->
+<div id="subsPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 16px 20px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Subtitles</h2>
+            <button class="close-btn" id="closeSubsBtn">✕</button>
+        </div>
+        <div class="settings-tab-header">
+            <button class="settings-tab-btn active" data-tab-target="sub-tracks">Subtitles</button>
+            <button class="settings-tab-btn" data-tab-target="sub-sync">Sync</button>
+            <button class="settings-tab-btn" data-tab-target="sub-style">Style</button>
+        </div>
+    </div>
+    <div class="panel-body" style="padding-top: 6px;">
         <!-- Tab 2: Subtitle Tracks -->
-        <div class="settings-tab-content" id="sub-tracks">
+        <div class="settings-tab-content active" id="sub-tracks">
             <div class="settings-section" style="border-bottom: none;">
                 <div class="settings-label">Subtitle Tracks</div>
                 <div id="subList"></div>
@@ -728,7 +751,10 @@
         <!-- Tab 1: Video -->
         <div class="settings-tab-content active" id="set-video">
             <div class="settings-section" style="border-bottom: none;">
-                <div class="settings-label">Video Aspect & Zoom</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div class="settings-label" style="margin-bottom: 0;">Video Aspect & Zoom</div>
+                    <button id="btnResetVideo" style="background: rgba(255,255,255,0.08); border: none; color: white; border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: bold; cursor: pointer; transition: background 0.15s;">RESET ALL</button>
+                </div>
                 <div class="style-row" style="margin-bottom: 12px; flex-direction: column; align-items: flex-start; gap: 8px;">
                     <span>Aspect Ratio</span>
                     <div class="chip-row" id="aspectChips">
@@ -740,7 +766,7 @@
                 </div>
                 <div class="style-row" style="margin-bottom: 12px;">
                     <span>Video Zoom</span>
-                    <input type="range" class="style-slider" id="zoomSlider" min="0" max="2" step="0.05" value="0">
+                    <input type="range" class="style-slider" id="zoomSlider" min="0" max="3" step="0.25" value="0">
                 </div>
                 <div class="style-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
                     <span>Upscale Filter</span>
@@ -835,7 +861,13 @@
                 <!-- Volume -->
                 <div class="vol-group">
                     <button id="muteBtn" class="icon-btn" title="Mute">
-                        <svg viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M24 12a14 14 0 0 0-4.1-9.9l-1.415 1.415a12 12 0 0 1 0 16.97L19.9 21.9A14 14 0 0 0 24 12ZM11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12ZM17.071 4.93a10 10 0 0 1 0 14.142l-1.414-1.414a8 8 0 0 0 0-11.314L17.07 4.93Z" fill="currentColor"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293Z" fill="currentColor"/>
+                            <path id="volWave1" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12Z" fill="currentColor"/>
+                            <path id="volWave2" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M17.071 4.93a10 10 0 0 1 0 14.142l-1.414-1.414a8 8 0 0 0 0-11.314L17.07 4.93Z" fill="currentColor"/>
+                            <path id="volWave3" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M24 12a14 14 0 0 0-4.1-9.9l-1.415 1.415a12 12 0 0 1 0 16.97L19.9 21.9A14 14 0 0 0 24 12Z" fill="currentColor"/>
+                            <path id="volCross" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M23.414 12l2.293-2.293-1.414-1.414L22 10.586 19.707 8.293l-1.414 1.414L20.586 12l-2.293 2.293 1.414 1.414L22 13.414l2.293 2.293 1.414-1.414L23.414 12Z" fill="currentColor" style="opacity: 0; transform: scale(0.5);"/>
+                        </svg>
                     </button>
                     <div class="vol-slider-wrap">
                         <input type="range" id="volumeBar" class="vol-slider" min="0" max="100" value="100">
@@ -858,6 +890,10 @@
                 <!-- Source / Server -->
                 <button id="serversBtn" class="icon-btn" title="Video Sources">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="20" r="1.5" fill="currentColor"/></svg>
+                </button>
+                <!-- Quality & Audio -->
+                <button id="qualityBtn" class="icon-btn" title="Quality & Audio">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
                 </button>
                 <!-- Subtitles -->
                 <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
@@ -945,7 +981,7 @@
     const zoneRight         = document.getElementById('zoneRight');
 
     // Panel toggles
-    const panels = ['episodesPanel','serversPanel','subsPanel','settingsPanel'];
+    const panels = ['episodesPanel','serversPanel','subsPanel','settingsPanel','qualityPanel'];
 
     // ── SVG Icons ────────────────────────────────────────────────────────
     const SVGS = {
@@ -1029,6 +1065,7 @@
     document.getElementById('closeServersBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeSubsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeSettingsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeQualityBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
 
     // Season Dropdown Selector Change Event
     seasonSelect.addEventListener('change', e => {
@@ -1082,12 +1119,44 @@
     });
 
     // ── Volume ───────────────────────────────────────────────────────────
-    volumeBar.addEventListener('input', e => send('setVolume', e.target.value));
+    const updateVolumeTrack = (val) => {
+        volumeBar.style.background = `linear-gradient(to right, #E50914 ${val}%, rgba(255,255,255,0.35) ${val}%)`;
+    };
+    updateVolumeTrack(100); // Initialize
+
+    volumeBar.addEventListener('input', e => {
+        updateVolumeTrack(e.target.value);
+        send('setVolume', e.target.value);
+    });
 
     // ── Mute Icon ────────────────────────────────────────────────────────
     const updateMuteIcon = () => {
-        muteBtn.innerHTML = (isMuted || currentVolume === 0) ? SVGS.volMute
-            : currentVolume < 50 ? SVGS.volLow : SVGS.volHigh;
+        const w1 = document.getElementById('volWave1');
+        const w2 = document.getElementById('volWave2');
+        const w3 = document.getElementById('volWave3');
+        const cross = document.getElementById('volCross');
+        if (!w1 || !w2 || !w3 || !cross) return;
+
+        if (isMuted || currentVolume === 0) {
+            w1.style.opacity = '0'; w1.style.transform = 'scale(0.5)';
+            w2.style.opacity = '0'; w2.style.transform = 'scale(0.5)';
+            w3.style.opacity = '0'; w3.style.transform = 'scale(0.5)';
+            cross.style.opacity = '1'; cross.style.transform = 'scale(1)';
+        } else {
+            cross.style.opacity = '0'; cross.style.transform = 'scale(0.5)';
+            w1.style.opacity = '1'; w1.style.transform = 'scale(1)';
+            
+            if (currentVolume < 33) {
+                w2.style.opacity = '0'; w2.style.transform = 'scale(0.8)';
+                w3.style.opacity = '0'; w3.style.transform = 'scale(0.8)';
+            } else if (currentVolume < 66) {
+                w2.style.opacity = '1'; w2.style.transform = 'scale(1)';
+                w3.style.opacity = '0'; w3.style.transform = 'scale(0.8)';
+            } else {
+                w2.style.opacity = '1'; w2.style.transform = 'scale(1)';
+                w3.style.opacity = '1'; w3.style.transform = 'scale(1)';
+            }
+        }
     };
 
     // ── Helper: seek relative ────────────────────────────────────────────
@@ -1164,7 +1233,11 @@
             }
         }
 
-        if (s.volume !== undefined) { currentVolume = s.volume; volumeBar.value = s.volume; }
+        if (s.volume !== undefined) { 
+            currentVolume = s.volume; 
+            volumeBar.value = s.volume; 
+            updateVolumeTrack(s.volume);
+        }
         if (s.isMuted !== undefined) isMuted = s.isMuted;
         updateMuteIcon();
         if (s.isLoading !== undefined) {
@@ -1570,6 +1643,7 @@
     document.getElementById('serversBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('serversPanel'); });
     document.getElementById('subtitlesBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('subsPanel'); });
     document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('settingsPanel'); });
+    document.getElementById('qualityBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('qualityPanel'); });
 
     // ── Settings Controls ────────────────────────────────────────────────
     // Speed
@@ -1634,6 +1708,24 @@
         send('setMpvProperty', `video-zoom:${e.target.value}`);
     });
 
+    document.getElementById('btnResetVideo').addEventListener('click', e => {
+        e.stopPropagation();
+        // Reset Aspect
+        document.querySelectorAll('#aspectChips .chip').forEach(c => c.classList.remove('active'));
+        document.querySelector('#aspectChips .chip[data-aspect="original"]').classList.add('active');
+        send('setMpvProperty', 'keepaspect:yes');
+        send('setMpvProperty', 'video-aspect-override:no');
+        
+        // Reset Zoom
+        document.getElementById('zoomSlider').value = 0;
+        send('setMpvProperty', 'video-zoom:0');
+        
+        // Reset Scale
+        document.querySelectorAll('#scaleChips .chip').forEach(c => c.classList.remove('active'));
+        document.querySelector('#scaleChips .chip[data-scale="spline36"]').classList.add('active');
+        send('setMpvProperty', 'scale:spline36');
+    });
+
     // Scale filter
     document.querySelectorAll('#scaleChips .chip').forEach(c => {
         c.addEventListener('click', e => {
@@ -1677,11 +1769,16 @@
             });
         });
     }
-    setupTabs('settingsPanel');
+    setupTabs('qualityPanel');
     setupTabs('subsPanel');
+    setupTabs('settingsPanel');
 
     // ── Keyboard Shortcuts ───────────────────────────────────────────────
+    // Prevent UI zooming
+    document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+
     document.addEventListener('keydown', e => {
+        if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0')) { e.preventDefault(); return; }
         if (e.target.closest('input,textarea,[contenteditable]')) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
