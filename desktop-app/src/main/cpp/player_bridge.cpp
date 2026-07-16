@@ -35,14 +35,13 @@ HWND g_containerHwnd = nullptr;  // Combined MPV render and WebView2 container c
 HWND g_messageHwnd   = nullptr;  // Message-only window for UI tasks
 ICoreWebView2Controller* g_webviewController = nullptr;
 ICoreWebView2*           g_webview           = nullptr;
-volatile bool g_webviewReady = false;
+bool                     g_webviewReady      = false;
+std::wstring             g_pendingUrl        = L"";
 
 mpv_handle* g_mpvHandle = nullptr;
 std::mutex g_mpvMutex;
 UINT_PTR g_syncTimer = 0;
 
-// Pending navigation URL — set by loadUrl() before WebView2 is ready
-std::wstring g_pendingUrl;
 std::mutex   g_pendingUrlMutex;
 
 // JNI State for events
@@ -88,24 +87,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
 
 // ─── JNI Event Dispatcher ──────────────────────────────────────────────────
 void dispatchPlayerEvent(const std::wstring& message) {
-    {
-        FILE* f = fopen("player_bridge_debug.log", "a");
-        if (f) {
-            std::string msg(message.begin(), message.end());
-            fprintf(f, "dispatchPlayerEvent called with: %s\n", msg.c_str());
-            fprintf(f, "g_jvm=%p, g_listener=%p, g_listenerMethod=%p\n", g_jvm, g_listener, g_listenerMethod);
-            fclose(f);
-        }
-    }
     if (!g_jvm || !g_listener || !g_listenerMethod) return;
 
-    JNIEnv* env;
-    int getEnvStat = g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    bool didAttach  = false;
-
+    JNIEnv* env = nullptr;
+    bool didAttach = false;
+    jint getEnvStat = g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    
     if (getEnvStat == JNI_EDETACHED) {
-        if (g_jvm->AttachCurrentThread((void**)&env, nullptr) != 0) {
-            std::cerr << "[NativeBridge] Failed to attach thread" << std::endl;
+        if (g_jvm->AttachCurrentThread((void**)&env, nullptr) == JNI_OK) {
+            didAttach = true;
+        } else {
             return;
         }
         didAttach = true;
