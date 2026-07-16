@@ -861,12 +861,14 @@ fun ComposeNativeWebPlayer(
                 val actualHwdec = MpvLibrary.getPropertyString(handle, "hwdec-current")
                 com.lagradost.common.logging.AppLogger.i("MPV initialized: vo=$actualVo, hwdec=$actualHwdec")
 
-                // Initialize WebView2 — write HTML to a temp file once, then load it.
-                // The old code loaded twice (immediately + after 1s delay) which caused a race
-                // where the second load wiped out any partial state set by the first load.
-                // Now we write the correct content once and load once; the JS sends "ui_ready"
-                // when the DOM is ready, which triggers resizeWebView.
-                val tempFile = File(System.getProperty("java.io.tmpdir"), "cloudstream_controls.html")
+                // Initialize WebView2 — write HTML into the WebView2 user data folder.
+                // IMPORTANT: We write into %TEMP%\CloudStreamWebView2\ (the same folder used
+                // as WebView2's userData path in C++) because WebView2 blocks file:// URLs
+                // that are outside its trusted scope in production installs. Writing into
+                // the userData folder makes the file:// URL trusted by WebView2.
+                val webView2DataDir = File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
+                webView2DataDir.mkdirs()
+                val tempFile = File(webView2DataDir, "cloudstream_controls.html")
                 val htmlContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/controls.html")
                     ?.use { it.readBytes().toString(Charsets.UTF_8) }
                     ?: ""
@@ -891,8 +893,6 @@ fun ComposeNativeWebPlayer(
                         // string values ("value":"123") and numeric values ("value":123).
                         val eventType = extractJsonString(value, "type")
                         val eventValue = extractJsonValue(value, "value")
-
-                        com.lagradost.common.logging.AppLogger.d("[NativePlayer] Event: $eventType | value: $eventValue")
 
                         when (eventType) {
                             "ui_ready" -> {

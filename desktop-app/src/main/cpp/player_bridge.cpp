@@ -5,12 +5,30 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <fstream>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <unordered_map>
 #include <initguid.h>
 #include "WebView2.h"
+
+// File logging macro for production debugging
+static std::ofstream g_logFile;
+static std::mutex g_logMutex;
+
+#define LOG_TO_FILE(msg) \
+    do { \
+        std::lock_guard<std::mutex> lock(g_logMutex); \
+        if (!g_logFile.is_open()) { \
+            char tempPath[MAX_PATH]; \
+            GetTempPathA(MAX_PATH, tempPath); \
+            std::string logPath = std::string(tempPath) + "cloudstream_native.log"; \
+            g_logFile.open(logPath, std::ios::app); \
+        } \
+        g_logFile << msg << std::endl; \
+        std::cout << msg << std::endl; \
+    } while(0)
 
 extern "C" {
 typedef struct mpv_handle mpv_handle;
@@ -239,7 +257,7 @@ public:
         g_webviewController->add_AcceleratorKeyPressed(new AcceleratorKeyPressedHandler(), &accelToken);
 
         g_webviewReady = true;
-        std::cout << "[NativeBridge] WebView2 Initialized Successfully!" << std::endl;
+        LOG_TO_FILE("[NativeBridge] WebView2 Initialized Successfully!");
 
         // Bring the WebView2 overlay above the MPV render window immediately
         SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, 0, 0,
@@ -437,12 +455,39 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         std::cerr << "[NativeBridge] FATAL: WebView2 container CreateWindowExW failed, error="
                   << GetLastError() << std::endl;
     } else {
-        std::cout << "[NativeBridge] WebView2 container HWND created: " << g_containerHwnd << std::endl;
+        LOG_TO_FILE("[NativeBridge] WebView2 container HWND created: " << g_containerHwnd);
     }
 
     // ── Initialize WebView2 ──
+    // IMPORTANT: We must load WebView2Loader.dll using an absolute path derived from
+    // our own DLL's location. Using a bare filename (L"WebView2Loader.dll") causes
+    // Windows to search the CWD first — in the installed .exe the CWD is {app}\ root,
+    // NOT the {app}\app\resources\jni\ subfolder where WebView2Loader.dll lives.
+    // This was the root cause of WebView2 silently failing in the installed build.
     HMODULE hLoader = GetModuleHandleW(L"WebView2Loader.dll");
-    if (!hLoader) hLoader = LoadLibraryW(L"WebView2Loader.dll");
+    if (!hLoader) {
+        // Get our own DLL's HMODULE using a static variable address (always in this DLL)
+        static int s_selfMarker = 0;
+        HMODULE hSelf = nullptr;
+        GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCWSTR)&s_selfMarker,
+            &hSelf);
+        // Get the directory of this DLL and load WebView2Loader.dll from the same folder
+        wchar_t selfPath[MAX_PATH] = {};
+        GetModuleFileNameW(hSelf, selfPath, MAX_PATH);
+        std::wstring jniDir(selfPath);
+        auto lastSlash = jniDir.find_last_of(L"\\/");
+        if (lastSlash != std::wstring::npos) jniDir = jniDir.substr(0, lastSlash + 1);
+        std::wstring loaderPath = jniDir + L"WebView2Loader.dll";
+        LOG_TO_FILE("[NativeBridge] Loading WebView2Loader from: " << std::string(loaderPath.begin(), loaderPath.end()));
+        hLoader = LoadLibraryW(loaderPath.c_str());
+        if (!hLoader) {
+            // Fallback: try bare name (works in dev where CWD has the DLL)
+            LOG_TO_FILE("[NativeBridge] Absolute load failed (error=" << GetLastError() << "), falling back to bare name");
+            hLoader = LoadLibraryW(L"WebView2Loader.dll");
+        }
+    }
 
     auto createEnvFunc = (CreateCoreWebView2EnvironmentWithOptionsFunc)
         GetProcAddress(hLoader, "CreateCoreWebView2EnvironmentWithOptions");
@@ -451,11 +496,15 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     GetTempPathW(MAX_PATH, tempPath);
     std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
 
-    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", 
-        L"--allow-file-access-from-files --disable-web-security --allow-running-insecure-content --disk-cache-size=1 --disable-application-cache --aggressive-cache-discard");
+    // Pass browser args via env var — must be set on the same thread before CreateEnvironment.
+    // This is the correct approach for MinGW builds without WRL support.
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        L"--allow-file-access-from-files --disable-web-security "
+        L"--allow-running-insecure-content --disk-cache-size=1 "
+        L"--disable-application-cache --aggressive-cache-discard");
 
     HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
-    std::cout << "[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec << std::endl;
+    LOG_TO_FILE("[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec);
 
     // Signal Kotlin that the container HWND is ready (MPV wid can now be set)
     {
@@ -508,7 +557,7 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
 {
     g_hostHwnd = (HWND)hostHwndPtr;
-    std::cout << "[NativeBridge] initWebView called, thread=" << GetCurrentThreadId() << std::endl;
+    LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
 
     // Subclass the AWT Canvas to prevent white flashes on resize
     if (!g_originalHostWndProc) {
@@ -530,7 +579,7 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     std::unique_lock<std::mutex> lock(g_initMutex);
     g_initCv.wait(lock, []() { return g_initComplete; });
 
-    std::cout << "[NativeBridge] Returning combined HWND=" << g_containerHwnd << std::endl;
+    LOG_TO_FILE("[NativeBridge] Returning combined HWND=" << g_containerHwnd);
     return reinterpret_cast<jlong>(g_containerHwnd);
 }
 
@@ -813,7 +862,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     postUiTask([]() {
         if (!g_syncTimer && g_messageHwnd) {
             g_syncTimer = SetTimer(g_messageHwnd, 0x4E51, 100, nullptr);
-            std::cout << "[NativeBridge] MPV native UI sync timer started" << std::endl;
+            LOG_TO_FILE("[NativeBridge] MPV native UI sync timer started");
         }
     });
 }
@@ -830,7 +879,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         if (g_syncTimer && g_messageHwnd) {
             KillTimer(g_messageHwnd, g_syncTimer);
             g_syncTimer = 0;
-            std::cout << "[NativeBridge] MPV native UI sync timer stopped" << std::endl;
+            LOG_TO_FILE("[NativeBridge] MPV native UI sync timer stopped");
         }
     });
 }
