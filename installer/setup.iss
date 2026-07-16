@@ -1,6 +1,6 @@
 [Setup]
 AppName=CloudStream
-AppVersion=0.1.1
+AppVersion=0.1.2-pre-alpha
 AppPublisher=CloudStream
 AppPublisherURL=https://github.com/recloudstream/cloudstream
 AppSupportURL=https://github.com/recloudstream/cloudstream
