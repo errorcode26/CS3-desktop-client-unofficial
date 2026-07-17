@@ -1,8 +1,15 @@
 package com.lagradost.cloudstream3.desktop.player
 
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
 
+/**
+ * Integration test — requires libmpv-2.dll to be present.
+ * Run manually with: ./gradlew :desktop-app:test -Dnative=true
+ * Excluded from the standard CI test run via @Tag("native").
+ */
+@Tag("native")
 class MpvEventTest {
     @Test
     fun testMpvEventLoopAndJnaMapping() {
