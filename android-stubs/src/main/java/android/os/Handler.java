@@ -8,7 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 @android.annotation.Implemented
 public class Handler {
-    private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    // Use a larger thread pool so blocking tasks in one handler don't freeze all other handlers
+    private static final ScheduledExecutorService executor = Executors.newScheduledThreadPool(8);
     // Tracks pending futures so removeCallbacks can actually cancel them
     private final ConcurrentHashMap<Runnable, ScheduledFuture<?>> futures = new ConcurrentHashMap<>();
 
@@ -17,12 +18,18 @@ public class Handler {
     public Handler(Looper looper, Callback callback) {}
 
     public boolean post(Runnable r) {
-        futures.put(r, executor.schedule(r, 0, TimeUnit.MILLISECONDS));
+        Runnable wrapped = () -> {
+            try { r.run(); } finally { futures.remove(r); }
+        };
+        futures.put(r, executor.schedule(wrapped, 0, TimeUnit.MILLISECONDS));
         return true;
     }
 
     public boolean postDelayed(Runnable r, long delayMillis) {
-        futures.put(r, executor.schedule(r, delayMillis, TimeUnit.MILLISECONDS));
+        Runnable wrapped = () -> {
+            try { r.run(); } finally { futures.remove(r); }
+        };
+        futures.put(r, executor.schedule(wrapped, delayMillis, TimeUnit.MILLISECONDS));
         return true;
     }
 
