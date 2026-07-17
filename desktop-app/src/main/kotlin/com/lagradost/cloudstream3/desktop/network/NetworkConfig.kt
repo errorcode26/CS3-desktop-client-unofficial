@@ -23,8 +23,68 @@ enum class DohProvider(val title: String) {
     CANADIAN_SHIELD("Canadian Shield"),
 }
 
+/**
+ * Named interceptor class so it can be identified and deduplicated
+ * when updateGlobalNetworkClients() is called multiple times (e.g. on DoH switch).
+ */
+class TmdbMirrorInterceptor : okhttp3.Interceptor {
+    
+    // A lazy client dedicated to TMDB that uses HTTP/1.1 to bypass the HTTP/2 network hang.
+    // We clone the baseClient but remove this interceptor to avoid an infinite loop.
+    private val http11Client by lazy {
+        val builder = com.lagradost.cloudstream3.app.baseClient.newBuilder()
+            .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+        
+        // Remove this interceptor from the clone so we don't infinitely recurse
+        val interceptors = builder.interceptors()
+        val toRemove = interceptors.filterIsInstance<TmdbMirrorInterceptor>()
+        toRemove.forEach { builder.interceptors().remove(it) }
+        
+        builder.build()
+    }
+
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        var request = chain.request()
+
+        // Redirect TMDB requests. Treat "api.themoviedb.org" itself as the blocked origin
+        // and always fall back to "api.tmdb.org" unless the user set a custom mirror.
+        val host = request.url.host
+        if (host == "api.themoviedb.org" || host == "api.tmdb.org") {
+            val saved = DesktopDataStore.getKey<String>(NetworkConfig.PREF_TMDB_API_MIRROR)
+            val mirror = saved
+                ?.takeIf { it.isNotBlank() && it != "api.themoviedb.org" }
+                ?: "api.tmdb.org"
+            val newUrl = request.url.newBuilder().host(mirror).build()
+            request = request.newBuilder().url(newUrl).build()
+            
+            AppLogger.d("-> [HTTP/1.1 Fallback] ${request.method} ${request.url}")
+            return try {
+                // Execute using the dedicated HTTP/1.1 client instead of the chain
+                val response = http11Client.newCall(request).execute()
+                AppLogger.d("<- [HTTP/1.1 Fallback] ${response.code} ${request.url}")
+                response
+            } catch (e: Exception) {
+                AppLogger.d("<- ERROR [HTTP/1.1 Fallback] ${request.url} : ${e.message}")
+                throw e
+            }
+        }
+
+        AppLogger.d("-> ${request.method} ${request.url}")
+        request.headers.forEach { (name, value) -> AppLogger.d("   H: $name: $value") }
+        return try {
+            val response = chain.proceed(request)
+            AppLogger.d("<- ${response.code} ${request.url}")
+            response
+        } catch (e: Exception) {
+            AppLogger.d("<- ERROR ${request.url} : ${e.message}")
+            throw e
+        }
+    }
+}
+
 object NetworkConfig {
     const val PREF_DOH_PROVIDER = "doh_provider"
+    const val PREF_TMDB_API_MIRROR = "tmdb_api_mirror"
 
     /**
      * Rebuilds and assigns the global NiceHttp clients (`app.baseClient` and `insecureApp.baseClient`)
@@ -55,7 +115,6 @@ object NetworkConfig {
         }
 
         // Apply CloudflareKiller interceptor only if not already present
-        // (since we inherit from app.baseClient.newBuilder(), a previous call may have added one)
         val hasCloudflareKiller = baseBuilder.interceptors().any { it is CloudflareKiller }
         if (!hasCloudflareKiller) {
             baseBuilder.addInterceptor(CloudflareKiller())
@@ -64,7 +123,7 @@ object NetworkConfig {
         // CRITICAL: Strip all IPv6 addresses from DNS responses.
         // Windows frequently advertises IPv6 capability but many ISPs/routers silently
         // blackhole IPv6 traffic, causing OkHttp's Happy Eyeballs to hang for 30+ seconds
-        // on many hosts before falling back to IPv4. Or worse, throws "Protocol family unavailable" if disabled in Windows.
+        // on many hosts before falling back to IPv4.
         try {
             val upstreamDns = baseBuilder.build().dns
             baseBuilder.dns(object : okhttp3.Dns {
@@ -78,20 +137,10 @@ object NetworkConfig {
             AppLogger.e("Failed to configure IPv4-only DNS: ${e.message}", e)
         }
 
-        baseBuilder.addInterceptor { chain ->
-            val request = chain.request()
-            AppLogger.d("-> ${request.method} ${request.url}")
-            request.headers.forEach { (name, value) ->
-                AppLogger.d("   H: $name: $value")
-            }
-            val response = try {
-                chain.proceed(request)
-            } catch (e: Exception) {
-                AppLogger.d("<- ERROR ${request.url} : ${e.message}")
-                throw e
-            }
-            AppLogger.d("<- ${response.code} ${request.url}")
-            response
+        // Add TMDB mirror interceptor only if not already present (prevents stacking on reload)
+        val hasTmdbMirror = baseBuilder.interceptors().any { it is TmdbMirrorInterceptor }
+        if (!hasTmdbMirror) {
+            baseBuilder.addInterceptor(TmdbMirrorInterceptor())
         }
 
         // Apply to main client

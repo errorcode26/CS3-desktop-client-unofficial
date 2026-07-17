@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -179,7 +180,9 @@ fun main() {
             onCloseRequest = ::exitApplication,
             title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
             state = state,
-            icon = androidx.compose.ui.res.painterResource("logo_ui.png"),
+            // Use native Windows .ico from executable in production to prevent blurry taskbar downscaling.
+            // In dev mode (gradle run), fallback to the .png so we don't see the Java coffee cup.
+            icon = if (System.getProperty("jpackage.app-path") != null) null else androidx.compose.ui.res.painterResource("app_icon.png"),
             onKeyEvent = { keyEvent ->
                 if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                     toggleFullscreen()
@@ -276,7 +279,8 @@ fun main() {
                         initProviders()
                         initPlugins()
                         com.lagradost.cloudstream3.APIHolder.initAll()
-                        launchAutoUpdater()
+                        launchAutoUpdater() // Plugins
+                        com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates() // App Updater
                     }
                     val delayJob = launch {
                         // Artificial 5-second delay for the banana loading bar
@@ -296,6 +300,36 @@ fun main() {
                     ) { ready ->
                         if (ready) {
                             CloudstreamApp()
+                            
+                            // App Update Dialog Overlay
+                            val latestRelease by com.lagradost.cloudstream3.desktop.AppUpdater.latestRelease.collectAsState()
+                            if (latestRelease != null) {
+                                var showUpdateDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+                                if (showUpdateDialog) {
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = { showUpdateDialog = false },
+                                        title = { androidx.compose.material3.Text("Update Available: v${latestRelease!!.tag_name.removePrefix("v")}", style = androidx.compose.material3.MaterialTheme.typography.titleLarge) },
+                                        text = { 
+                                            androidx.compose.foundation.layout.Column {
+                                                androidx.compose.material3.Text("A new version of CloudStream Desktop is available!", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                                                androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(8.dp))
+                                                androidx.compose.material3.Text(latestRelease!!.body ?: "", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, maxLines = 10)
+                                            }
+                                        },
+                                        confirmButton = {
+                                            androidx.compose.material3.Button(onClick = {
+                                                try {
+                                                    java.awt.Desktop.getDesktop().browse(java.net.URI(latestRelease!!.html_url))
+                                                } catch (e: Exception) {}
+                                                showUpdateDialog = false
+                                            }) { androidx.compose.material3.Text("Download") }
+                                        },
+                                        dismissButton = {
+                                            androidx.compose.material3.TextButton(onClick = { showUpdateDialog = false }) { androidx.compose.material3.Text("Later") }
+                                        }
+                                    )
+                                }
+                            }
                         } else {
                             val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition()
                             val scale by infiniteTransition.animateFloat(
@@ -321,7 +355,7 @@ fun main() {
                             ) {
                                 androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                                     androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource("logo_ui.png"),
+                                        painter = androidx.compose.ui.res.painterResource("app_icon.png"),
                                         contentDescription = "CloudStream Logo",
                                         modifier = Modifier
                                             .size(200.dp)
