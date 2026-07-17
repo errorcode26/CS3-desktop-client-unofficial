@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 @android.annotation.Implemented
 public class Handler {
-    // Use a larger thread pool so blocking tasks in one handler don't freeze all other handlers
-    private static final ScheduledExecutorService executor = Executors.newScheduledThreadPool(8);
+    // MUST BE SINGLE-THREADED to preserve sequential execution guarantees of Android Handlers
+    private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     // Tracks pending futures so removeCallbacks can actually cancel them
     private final ConcurrentHashMap<Runnable, ScheduledFuture<?>> futures = new ConcurrentHashMap<>();
 
@@ -39,7 +39,6 @@ public class Handler {
     }
 
     public void removeCallbacksAndMessages(Object token) {
-        // Cancel and clear all tracked futures for this handler
         for (ScheduledFuture<?> f : futures.values()) {
             f.cancel(false);
         }
