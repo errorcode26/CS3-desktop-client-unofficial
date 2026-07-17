@@ -17,6 +17,16 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
+
+    - name: Verify Tag is on Main Branch
+      shell: bash
+      run: |
+        git fetch origin main
+        if ! git branch -r --contains ${{ github.sha }} | grep -q 'origin/main'; then
+          echo "❌ Error: Release tags must be on the main branch! Aborting release."
+          exit 1
+        fi
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4
