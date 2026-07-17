@@ -182,7 +182,7 @@ fun main() {
             state = state,
             // Use native Windows .ico from executable in production to prevent blurry taskbar downscaling.
             // In dev mode (gradle run), fallback to the .png so we don't see the Java coffee cup.
-            icon = if (System.getProperty("jpackage.app-path") != null) null else androidx.compose.ui.res.painterResource("app_icon.png"),
+            icon = if (System.getProperty("jpackage.app-path") != null) null else androidx.compose.ui.res.painterResource("app_icon_small.png"),
             onKeyEvent = { keyEvent ->
                 if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                     toggleFullscreen()
@@ -272,22 +272,16 @@ fun main() {
                 var isAppReady by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
                 androidx.compose.runtime.LaunchedEffect(Unit) {
-                    val initJob = launch(kotlinx.coroutines.Dispatchers.IO) {
+                    launch(kotlinx.coroutines.Dispatchers.IO) {
                         initProxy()
                         initSecurity()
                         initNetwork()
                         initProviders()
                         initPlugins()
                         com.lagradost.cloudstream3.APIHolder.initAll()
-                        launchAutoUpdater() // Plugins
-                        com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates() // App Updater
-                    }
-                    val delayJob = launch {
-                        // Artificial 5-second delay for the banana loading bar
-                        delay(5000)
-                    }
-                    initJob.join()
-                    delayJob.join()
+                        launchAutoUpdater()
+                        com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates()
+                    }.join()
                     isAppReady = true
                 }
 
@@ -331,72 +325,15 @@ fun main() {
                                 }
                             }
                         } else {
-                            val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition()
-                            val scale by infiniteTransition.animateFloat(
-                                initialValue = 0.90f,
-                                targetValue = 1.05f,
-                                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                                    animation = androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
-                                ),
-                            )
-                            val alpha by infiniteTransition.animateFloat(
-                                initialValue = 0.6f,
-                                targetValue = 1.0f,
-                                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                                    animation = androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
-                                ),
-                            )
-
                             androidx.compose.foundation.layout.Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = androidx.compose.ui.Alignment.Center,
                             ) {
-                                androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                                    androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource("app_icon.png"),
-                                        contentDescription = "CloudStream Logo",
-                                        modifier = Modifier
-                                            .size(200.dp)
-                                            .scale(scale)
-                                            .alpha(alpha),
-                                    )
-                                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(32.dp))
-                                    androidx.compose.material3.Text(
-                                        text = "LOADING",
-                                        color = Color.White.copy(alpha = alpha), // Matches the logo breathing
-                                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 12.sp,
-                                    )
-                                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
-
-                                    var bananaProgress by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0f) }
-                                    androidx.compose.runtime.LaunchedEffect(Unit) {
-                                        androidx.compose.animation.core.animate(
-                                            initialValue = 0f,
-                                            targetValue = 1f,
-                                            animationSpec = androidx.compose.animation.core.tween(5000, easing = androidx.compose.animation.core.LinearEasing),
-                                        ) { value, _ -> bananaProgress = value }
-                                    }
-
-                                    val totalBananas = 5
-                                    val currentBananas = (bananaProgress * totalBananas).toInt().coerceIn(0, totalBananas)
-
-                                    androidx.compose.foundation.layout.Row(
-                                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                        modifier = Modifier.height(32.dp), // Keep height consistent
-                                    ) {
-                                        for (i in 0 until currentBananas) {
-                                            androidx.compose.material3.Text(
-                                                text = "🍌",
-                                                fontSize = 28.sp,
-                                            )
-                                        }
-                                    }
-                                }
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(24.dp),
+                                )
                             }
                         }
                     }
