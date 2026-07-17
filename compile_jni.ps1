@@ -14,6 +14,10 @@ if ([string]::IsNullOrEmpty($javaHome)) {
 $jniInclude = Join-Path $javaHome "include"
 $jniWin32 = Join-Path $jniInclude "win32"
 
+if (!(Test-Path (Join-Path $jniInclude "jni.h"))) {
+    Write-Error "Could not find jni.h in $jniInclude.`nPlease install a JDK (not a JRE) and ensure the JAVA_HOME environment variable is set correctly (e.g., C:\Program Files\Java\jdk-21)."
+}
+
 $cppDir = "desktop-app\src\main\cpp"
 $outDir = "desktop-app\build\libs"
 $webview2Dir = Join-Path $cppDir "webview2\build\native"

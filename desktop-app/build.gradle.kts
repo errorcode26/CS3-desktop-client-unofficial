@@ -22,6 +22,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     }
 }
 
+configurations.all {
+    exclude(group = "org.slf4j", module = "slf4j-simple")
+}
+
 dependencies {
     // CloudStream Library (KMP, JVM target)
     // Contains: MainAPI, extractors, metaproviders, WebViewResolver (JVM actual), etc.
@@ -99,8 +103,7 @@ compose.desktop {
         }
 
         nativeDistributions {
-            // Windows only — no Mac or Linux targets
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
+            // Inno Setup (installer/setup.iss) handles packaging — no native installer format needed here
             packageName = "CloudStream-Desktop"
             packageVersion = "0.1.2"
             description = "CloudStream Desktop Client"
@@ -133,7 +136,7 @@ compose.desktop {
             appResourcesRootDir.set(project.layout.projectDirectory.dir("appResources"))
 
             windows {
-                iconFile.set(project.file("src/main/resources/logo_installer.ico"))
+                iconFile.set(project.file("src/main/resources/app_icon.ico"))
                 menuGroup = "CloudStream Desktop"
                 upgradeUuid = "d7e9b04f-723a-4467-84df-fcf470c1ae02"
                 shortcut = true // Creates a Desktop shortcut during install
@@ -144,7 +147,11 @@ compose.desktop {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // Exclude integration tests that require native binaries (e.g. libmpv-2.dll)
+        // Run them manually with: ./gradlew :desktop-app:test -Dtags=native
+        excludeTags("native")
+    }
 }
 
 tasks.register<JavaExec>("runTestWebViewPlayer") {

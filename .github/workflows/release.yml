@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v0.1.2, v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Download and inject libmpv-2.dll (latest build)
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path "desktop-app/appResources/windows/mpv"
+
+        Write-Host "Fetching latest libmpv release from shinchiro/mpv-winbuild-cmake..."
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest" -Headers @{ "Accept" = "application/vnd.github.v3+json" }
+        $asset = $release.assets | Where-Object { $_.name -like "mpv-dev-x86_64-*.7z" } | Select-Object -First 1
+
+        if ($null -eq $asset) {
+          Write-Error "Could not find a matching mpv-dev-x86_64-*.7z asset in the latest release!"
+          exit 1
+        }
+
+        Write-Host "Downloading: $($asset.name) from $($asset.browser_download_url)"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "mpv-dev.7z"
+        7z e mpv-dev.7z "libmpv-2.dll" -o"desktop-app/appResources/windows/mpv" -r
+
+        if (-not (Test-Path "desktop-app/appResources/windows/mpv/libmpv-2.dll")) {
+          Write-Error "libmpv-2.dll was not extracted! The release asset structure may have changed."
+          exit 1
+        }
+        Write-Host "libmpv-2.dll ready."
+
+    - name: Build App (createDistributable)
+      run: ./gradlew :desktop-app:createDistributable --no-daemon
+
+    - name: Install Inno Setup
+      run: choco install innosetup --yes
+
+    - name: Compile Installer with Inno Setup
+      shell: pwsh
+      run: |
+        $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        & $iscc "installer\setup.iss"
+
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: desktop-app/build/outputs/CloudStream-Setup.exe
+        generate_release_notes: true
