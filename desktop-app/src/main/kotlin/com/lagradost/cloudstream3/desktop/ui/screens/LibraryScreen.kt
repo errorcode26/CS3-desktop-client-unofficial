@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -61,22 +63,15 @@ fun ComposeLibraryScreen(navController: NavController) {
         if (bookmarksState.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    "Your library is empty.",
+                    text = "Your library is empty",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Go bookmark some shows!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                Spacer(modifier = Modifier.height(24.dp))
                 Button(onClick = { navController.navigate(Screen.Home) }) {
                     Text("Browse Shows")
                 }
@@ -88,27 +83,28 @@ fun ComposeLibraryScreen(navController: NavController) {
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTab.ordinal,
-                    edgePadding = 16.dp,
-                    containerColor = Color.Transparent,
-                    divider = {},
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     DesktopWatchType.entries.forEach { tab ->
-                        val selected = selectedTab == tab
-                        Tab(
-                            selected = selected,
+                        FilterChip(
+                            selected = selectedTab == tab,
                             onClick = { selectedTab = tab },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        ) {
-                            Text(
-                                text = tab.stringRes,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                        }
+                            label = { 
+                                Text(
+                                    text = tab.stringRes,
+                                    fontWeight = if (selectedTab == tab) FontWeight.SemiBold else FontWeight.Medium
+                                ) 
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White,
+                            ),
+                        )
                     }
                 }
 
