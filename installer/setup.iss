@@ -10,6 +10,8 @@ AppUpdatesURL=https://github.com/errorcode26/CS3-desktop-client-unofficial
 DefaultDirName={autopf}\CloudStream
 DefaultGroupName=CloudStream
 AllowNoIcons=yes
+SetupIconFile=..\desktop-app\src\main\resources\app_icon.ico
+UninstallDisplayIcon={app}\CloudStream-Desktop.exe
 ; Output directory for the compiled installer
 OutputDir=..\desktop-app\build\outputs
 OutputBaseFilename=CloudStream-Setup
