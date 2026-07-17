@@ -91,13 +91,13 @@ interface MpvLibrary : Library {
             var loaded: MpvLibrary? = null
             for (target in targets) {
                 try {
-                    loaded = Native.load(target, MpvLibrary::class.java) as MpvLibrary
-                    AppLogger.i("Successfully loaded native mpv library: $target")
+                    loaded = com.sun.jna.Native.load(target, MpvLibrary::class.java) as MpvLibrary
+                    com.lagradost.common.logging.AppLogger.i("Successfully loaded native mpv library: $target")
                     break
                 } catch (e: UnsatisfiedLinkError) {
-                    // Try next
+                    com.lagradost.common.logging.AppLogger.e("Failed to load native mpv library $target: ${e.message}")
                 } catch (e: IllegalArgumentException) {
-                    // Try next
+                    com.lagradost.common.logging.AppLogger.e("Illegal arg for native mpv library $target: ${e.message}")
                 }
             }
             loaded ?: throw RuntimeException("Failed to load native MPV library. Please ensure mpv is installed and in your system PATH.")
