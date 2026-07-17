@@ -35,60 +35,6 @@ fun SettingsGeneral() {
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         
-        // --- Group 1: Updates & About ---
-        SettingsGroupCard(title = "Updates & About") {
-            val latestRelease by com.lagradost.cloudstream3.desktop.AppUpdater.latestRelease.collectAsState()
-            var isChecking by remember { mutableStateOf(false) }
-
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("CloudStream Desktop Client", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("Current Version: v${com.lagradost.cloudstream3.desktop.AppConfig.APP_VERSION}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                
-                if (latestRelease == null) {
-                    FilledTonalButton(
-                        onClick = { 
-                            scope.launch {
-                                isChecking = true
-                                com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates(force = true)
-                                kotlinx.coroutines.delay(500)
-                                isChecking = false
-                            }
-                        },
-                        enabled = !isChecking
-                    ) {
-                        Text(if (isChecking) "Checking..." else "Check for Updates")
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            try {
-                                java.awt.Desktop.getDesktop().browse(java.net.URI(latestRelease!!.html_url))
-                            } catch (e: Exception) {}
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Download v${latestRelease!!.tag_name.removePrefix("v")}")
-                    }
-                }
-            }
-            
-            if (latestRelease != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("What's New in ${latestRelease!!.name}:", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(latestRelease!!.body ?: "No release notes provided.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-        }
 
         // --- Group 2: Accounts & Integrations ---
         SettingsGroupCard(title = "Accounts & Integrations") {

@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,7 @@ fun SettingsAbout() {
             "This Application",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, top = 8.dp)
+            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)
         )
         ListItem(
             headlineContent = { Text("Desktop Source Code") },
@@ -73,7 +74,7 @@ fun SettingsAbout() {
             "The Official Project",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, top = 8.dp)
+            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)
         )
         ListItem(
             headlineContent = { Text("Official Android App") },
