@@ -16,6 +16,7 @@ enum class SettingsTab(val title: String) {
     PLAYER("Playback Engine"),
     NETWORK("Network"),
     DEVELOPER("Developer Tools"),
+    UPDATES("Updates"),
     ABOUT("About"),
 }
 
@@ -91,6 +92,7 @@ fun ComposeSettingsScreen(navController: NavController) {
                         SettingsTab.PLAYER -> SettingsPlayer()
                         SettingsTab.NETWORK -> SettingsNetwork()
                         SettingsTab.DEVELOPER -> SettingsDeveloper()
+                        SettingsTab.UPDATES -> SettingsUpdates()
                         SettingsTab.ABOUT -> SettingsAbout()
                     }
                 }
