@@ -90,6 +90,18 @@ If you need to generate a standalone Windows `.exe` setup installer for testing:
 
 The compiled setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.
 
+### 6. Automated GitHub Releases (CI/CD)
+The project is configured to automatically build and publish a Windows `.exe` installer directly to GitHub Releases whenever a new version tag is pushed to `main`. 
+To trigger a new public release:
+1. Bump `APP_VERSION` in `gradle.properties` (e.g., from `0.1.2` to `0.1.3`).
+2. Commit the change to the `main` branch.
+3. Create and push a version tag matching the version number:
+   ```bash
+   git tag v0.1.3
+   git push origin v0.1.3
+   ```
+GitHub Actions will automatically spin up a Windows runner, compile the JVM binaries, package the Inno Setup executable, and draft the release notes for you!
+
 ---
 
 ## 🧪 Testing & Code Quality
