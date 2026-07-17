@@ -17,25 +17,50 @@ fun SettingsAbout() {
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("About CloudStream Desktop", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "About CloudStream Desktop",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                    ) {
+                        Text(
+                            "PRE-ALPHA",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "This is an UNOFFICIAL Desktop client. Please use the official CloudStream Android app for the best experience. " +
+                    "This is an UNOFFICIAL Desktop client in early pre-alpha. Expect bugs and missing features. Please use the official CloudStream Android app for the most stable experience. " +
                         "This application does not ship with any media content or scrapers.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Button(onClick = { openUrl("https://github.com/errorcode26/CS3-desktop-client-unofficial") }) {
+                        Text("Desktop GitHub Repo")
+                    }
                     Button(onClick = { openUrl("https://discord.gg/5Hus6fM") }) {
                         Text("Join Discord")
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
                     Button(onClick = { openUrl("https://recloudstream.github.io/csdocs/") }) {
                         Text("CloudStream Wiki")
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
                     OutlinedButton(onClick = { openUrl("https://github.com/recloudstream/cloudstream") }) {
                         Text("Official Android Repo")
                     }
