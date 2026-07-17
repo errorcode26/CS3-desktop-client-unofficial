@@ -196,14 +196,26 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                     kotlinx.coroutines.delay(100)
 
                     val parentDir = plugin.file.parentFile
+                    val jvmFile = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar")
+                    val dexFile = java.io.File(parentDir, plugin.file.nameWithoutExtension + ".dex")
+
                     val cs3Deleted = plugin.file.delete()
-                    val jvmDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar").delete()
-                    val dexDeleted = java.io.File(parentDir, plugin.file.nameWithoutExtension + ".dex").delete()
+                    if (!cs3Deleted) plugin.file.deleteOnExit()
+
+                    val jvmDeleted = jvmFile.delete()
+                    if (!jvmDeleted && jvmFile.exists()) jvmFile.deleteOnExit()
+
+                    val dexDeleted = dexFile.delete()
+                    if (!dexDeleted && dexFile.exists()) dexFile.deleteOnExit()
 
                     com.lagradost.common.logging.AppLogger.i("Uninstalled ${plugin.name}: cs3=$cs3Deleted, jvm=$jvmDeleted, dex=$dexDeleted")
 
-                    if (parentDir != null && parentDir.listFiles()?.isEmpty() == true) {
-                        parentDir.delete()
+                    if (parentDir != null) {
+                        if (parentDir.listFiles()?.isEmpty() == true) {
+                            parentDir.delete()
+                        } else {
+                            parentDir.deleteOnExit()
+                        }
                     }
                 } catch (e: Throwable) {
                     com.lagradost.common.logging.AppLogger.e("Error uninstalling plugin", e)

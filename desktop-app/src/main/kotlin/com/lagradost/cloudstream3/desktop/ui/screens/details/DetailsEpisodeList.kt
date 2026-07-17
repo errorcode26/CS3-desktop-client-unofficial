@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -206,6 +207,8 @@ fun EpisodeCard(
             }
         }
 
+        val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
+
         // ── Top-Right: EP number pill ────────────────────────────────────────
         ep.episode?.let { epNum ->
             Box(
@@ -267,15 +270,37 @@ fun EpisodeCard(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Text(
-                text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp),
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
-                modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this },
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
+                    modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this }.weight(1f, fill = false),
+                )
+                if (rating10p != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Rating",
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.1f", rating10p),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
             val hasDesc = !ep.description.isNullOrBlank()
             Text(
                 text = when {

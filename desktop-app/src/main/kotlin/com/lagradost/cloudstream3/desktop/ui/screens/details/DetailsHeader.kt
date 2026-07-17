@@ -809,7 +809,7 @@ private fun InfoStatCard(label: String, value: String) {
     Column(
         modifier = Modifier
             .width(200.dp)
-            .height(80.dp)
+            .heightIn(min = 80.dp)
             .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -821,7 +821,8 @@ private fun InfoStatCard(label: String, value: String) {
             color = Color.White.copy(alpha = 0.5f),
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,
-            letterSpacing = 0.8.sp
+            letterSpacing = 0.8.sp,
+            modifier = Modifier.padding(bottom = 4.dp)
         )
         Text(
             text = value,
@@ -829,7 +830,8 @@ private fun InfoStatCard(label: String, value: String) {
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
-            maxLines = 1,
+            lineHeight = 18.sp,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis
         )
     }

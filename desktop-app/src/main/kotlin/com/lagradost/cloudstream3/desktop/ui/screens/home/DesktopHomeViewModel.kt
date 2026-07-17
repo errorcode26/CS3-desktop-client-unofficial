@@ -376,10 +376,11 @@ object DesktopHomeViewModel {
                     }
 
                     if (details != null) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(details, item.url, onScreenshotsLoaded = {})
-
                         val currentMeta = heroMetaMap.value[item.url]
-                        val newTitle = details.name.takeIf { it.isNotBlank() } ?: currentMeta?.title
+
+                        // Initial update with raw scraped data while we wait for TMDB
+                        val cleanDetailsName = cleanHeroTitle(details.name)
+                        val newTitle = cleanDetailsName.takeIf { it.isNotBlank() } ?: currentMeta?.title
                         val newBackdrop = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.backdropUrl
                         val newLogo = details.logoUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.logoUrl
                         val newTags = details.tags?.takeIf { it.isNotEmpty() } ?: currentMeta?.tags ?: emptyList()
@@ -390,11 +391,30 @@ object DesktopHomeViewModel {
                         val newContentRating = details.contentRating?.takeIf { it.isNotBlank() } ?: currentMeta?.contentRating
                         val newDuration = details.duration ?: currentMeta?.duration
 
-                        val finalMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
-                        HeroCache.cache[cacheKey] = finalMeta
-                        heroMetaMap.update { it + (item.url to finalMeta) }
-                        // Re-extract color now that we have the real high-quality backdrop
+                        val rawMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
+                        HeroCache.cache[cacheKey] = rawMeta
+                        heroMetaMap.update { it + (item.url to rawMeta) }
                         if (newBackdrop != null) updateHeroColor(newBackdrop, itemUrl = item.url)
+
+                        // Launch background TMDB enrichment and update UI when finished!
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(
+                            loaded = details, 
+                            url = item.url, 
+                            onScreenshotsLoaded = {},
+                            onEnrichmentComplete = {
+                                // TMDB finished! Overwrite with beautiful enriched data (logo, backdrop, title)
+                                val enrichedMeta = heroMetaMap.value[item.url] ?: rawMeta
+                                val finalMeta = enrichedMeta.copy(
+                                    title = cleanHeroTitle(details.name).takeIf { it.isNotBlank() } ?: enrichedMeta.title,
+                                    backdropUrl = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.backdropUrl,
+                                    logoUrl = details.logoUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.logoUrl
+                                )
+                                HeroCache.cache[cacheKey] = finalMeta
+                                heroMetaMap.update { it + (item.url to finalMeta) }
+                                // Re-extract color now that we have the real high-quality backdrop
+                                if (finalMeta.backdropUrl != null) updateHeroColor(finalMeta.backdropUrl, itemUrl = item.url)
+                            }
+                        )
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {

@@ -242,7 +242,6 @@ fun CloudstreamApp() {
                                 ) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
                                         navController = navController,
-                                        onErrorLogs = { showErrorsDialog = true },
                                     )
                                 }
                                 is Screen.CategoryGrid -> DesktopAppShell(

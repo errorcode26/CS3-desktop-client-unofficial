@@ -25,7 +25,8 @@ object TmdbRateLimiter {
 }
 
 object GlobalDetailsCache {
-    private const val TMDB_API_KEY = "3828864585df9d4f006c09403eb9a888"
+    private val TMDB_API_KEY: String
+        get() = com.lagradost.common.storage.DesktopDataStore.getKey<String>("tmdb_api_key")?.takeIf { it.isNotBlank() } ?: "3828864585df9d4f006c09403eb9a888"
 
     private val dummyApi = object : com.lagradost.cloudstream3.MainAPI() {
         override var name = "TMDB"
@@ -207,11 +208,28 @@ object GlobalDetailsCache {
     ) {
         withContext(Dispatchers.IO) {
             try {
+                // Many providers fail to set loaded.year, but include the year in parentheses in the title (e.g., "Movie Name (2021)").
+                // If loaded.year is null, attempt to extract it here before we strip the title.
+                if (loaded.year == null) {
+                    val yearMatch = Regex("""\b(19\d{2}|20\d{2})\b""").find(loaded.name)
+                    if (yearMatch != null) {
+                        loaded.year = yearMatch.groupValues[1].toInt()
+                    }
+                }
+
                 val cleanName = loaded.name
+                    // Keep stripping year at the end, as it helps with matching base titles
                     .replace(Regex("""\s*\(\d{4}\).*"""), "")
-                    .replace(Regex("""\s*(?i)(dual audio|720p|1080p|480p|2160p|webrip|web-dl|hdtv|bluray).*"""), "")
+                    // Remove standard quality tags and anything after them (including leading parentheses)
+                    .replace(Regex("""\s*[\(\[\{]?(?i)(dual audio|multi audio|hindi dubbed|full movie|720p|1080p|480p|2160p|webrip|web-dl|hdtv|bluray).*"""), "")
+                    // Remove brackets and anything after
                     .replace(Regex("""\s*[\[\{].*"""), "")
-                    .replace(Regex("""\s*(?i)\(?\b(season|episodes|episode|s\d+e\d+|vol|volume|added)\b.*"""), "")
+                    // Remove pipe and anything after (common delimiter for junk on provider sites)
+                    .replace(Regex("""\s*\|.*"""), "")
+                    // Safely remove Season/Episode ONLY when followed by digits (e.g. Season 1, S01E01).
+                    // This prevents breaking titles like "Season of the Witch" or "Star Wars: Episode IV".
+                    // Removed 'vol', 'volume', and 'added' which broke legitimate movie titles like "Guardians of the Galaxy Vol. 2".
+                    .replace(Regex("""(?i)(-\s*)?\b(season|episodes|episode|s\d+e\d+)\b\s*\d+.*"""), "")
                     .trim()
 
                 TmdbRateLimiter.acquire()
@@ -228,7 +246,13 @@ object GlobalDetailsCache {
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
                             if (strippedResultName.equals(strippedCleanName, ignoreCase = true) && strippedCleanName.isNotEmpty()) {
-                                if (mediaType == "movie" && resultYear != null && loaded.year != null && resultYear != loaded.year) continue
+                                // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
+                                if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
+                                if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
+                                
+                                // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
+                                if (resultYear != null && loaded.year != null && Math.abs(resultYear - loaded.year!!) > 1) continue
+                                
                                 possible.add(result)
                             }
                         }
@@ -278,7 +302,7 @@ object GlobalDetailsCache {
                         if (tmdbData != null) {
                             val tmdbTitle = tmdbData.get("name")?.asText() ?: tmdbData.get("title")?.asText()
                             if (!tmdbTitle.isNullOrBlank() && tmdbTitle != "null") {
-                                // loaded.name = tmdbTitle (Keep original provider name for display and split layout)
+                                loaded.name = tmdbTitle
                             }
 
                             val tagline = tmdbData.get("tagline")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
@@ -633,7 +657,8 @@ object GlobalDetailsCache {
                                     ?: allLogos.firstOrNull()?.first
 
                                 if (bestLogoPath != null && bestLogoPath != "null") {
-                                    val logoUrl = "https://image.tmdb.org/t/p/w500$bestLogoPath"
+                                    val sizeParam = if (bestLogoPath.endsWith(".svg", ignoreCase = true)) "original" else "w500"
+                                    val logoUrl = "https://image.tmdb.org/t/p/$sizeParam$bestLogoPath"
                                     if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
                                         loaded.logoUrl = logoUrl
                                     } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
