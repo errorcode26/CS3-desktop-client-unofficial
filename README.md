@@ -1,8 +1,10 @@
 # CloudStream Desktop (Unofficial Client)
 
-> [!IMPORTANT]
-> **Pre-Alpha / Closed Testing Phase**  
-> This project is in active pre-alpha development. We are not distributing pre-compiled setup executables or installers yet. All development, testing, and debugging are currently run directly from the source code.
+> [!CAUTION]
+> **PURELY EXPERIMENTAL - NOT FOR REGULAR USERS**  
+> This project is a massive, highly experimental sandbox. It is **NOT** a stable release, it is **NOT** meant for regular users, and it is **NOT** ready for daily use. Expect crashes, broken features, and missing functionality. This is strictly a developer playground and proof-of-concept for running Android plugins natively on the desktop. 
+> 
+> *Also, this project contains AI-generated code, so beware: it might not make sense sometimes because the dev is very lazy and too stupid to write their own code.*
 
 Welcome to the CloudStream Desktop project. This is a native **Compose for Desktop** application designed to run CloudStream Android plugins natively in a desktop JVM environment.
 
@@ -45,8 +47,8 @@ Make sure you have all of these installed before you start:
 ### 1. Clone the Repository
 You **must** use Git clone with recursive submodules so the Android core library references are pulled correctly:
 ```bash
-git clone --recursive https://github.com/errorcode26/cloudstream-desktop-unofficial.git
-cd cloudstream-desktop-unofficial
+git clone --recursive https://github.com/errorcode26/CS3-desktop-client-unofficial.git
+cd CS3-desktop-client-unofficial
 ```
 > [!WARNING]  
 > Do not download this repository as a zip file from GitHub, as submodules will be missing.
