@@ -52,7 +52,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 repoUrl = ""
                                 val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
                                 statusText = "Added ${addedRepos.size} repository(s): $repoNames. Syncing..."
-                                viewModel.fetchPlugins()
+                                viewModel.loadPluginsFromManager()
                                 statusText = "Repositories added and synced successfully."
                             } else {
                                 statusText = "Failed to load repository. Check the URL and try again."
