@@ -14,7 +14,7 @@ private fun loadFont(path: String): ByteArray =
         ?.readBytes()
         ?: ClassLoader.getSystemResourceAsStream(path)!!.readBytes()
 
-// ── Font Families ──────────────────────────────────────────────────────────
+// Font Families
 
 val InterFontFamily: FontFamily by lazy {
     FontFamily(
@@ -112,7 +112,7 @@ val LobsterFontFamily: FontFamily by lazy {
     )
 }
 
-// ── Font registry: name shown in Settings → FontFamily ─────────────────────
+// Font registry: name shown in Settings -> FontFamily
 
 val availableFonts: List<String> = listOf("Inter", "Outfit", "DM Sans", "Roboto", "Nunito", "Poppins", "Lato", "Ubuntu", "Fira Sans", "Pacifico", "Lobster")
 
@@ -130,7 +130,7 @@ fun getFontFamily(name: String): FontFamily = when (name) {
     else -> InterFontFamily // "Inter" is the default
 }
 
-// ── Typography builder — call with any FontFamily ──────────────────────────
+// Typography builder - call with any FontFamily
 
 fun buildTypography(fontFamily: FontFamily): Typography = Typography(
     displayLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp),

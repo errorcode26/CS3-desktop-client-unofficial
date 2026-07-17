@@ -42,7 +42,7 @@ fun SettingsTesting() {
         modifier = Modifier.fillMaxSize().padding(end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // --- Header ---
+
         Text(
             text = "Provider Testing",
             style = MaterialTheme.typography.headlineSmall,
@@ -55,7 +55,7 @@ fun SettingsTesting() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // --- Controls & Stats ---
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -112,7 +112,7 @@ fun SettingsTesting() {
         
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-        // --- Results List ---
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)

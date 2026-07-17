@@ -575,7 +575,7 @@ fun DetailsContent(
                             .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                             .padding(vertical = 16.dp),
                     ) {
-                        // ── Collapsible Screenshots header row ──
+                        // Collapsible Screenshots header row
                         Row(
                             modifier = Modifier
                                 .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
@@ -743,7 +743,7 @@ fun DetailsContent(
             }
         }
 
-        // ── Back button ──
+        // Back button
         IconButton(
             onClick = { navController.goBack() },
             modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
@@ -1008,7 +1008,7 @@ fun DetailsSkeletonPlaceholder(
             )
         }
 
-        // ── Window Controls ──
+        // Window Controls
         Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
             com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(isHome = false)
         }

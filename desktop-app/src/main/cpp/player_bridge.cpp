@@ -87,7 +87,7 @@ std::mutex             g_initMutex;
 std::condition_variable g_initCv;
 bool                   g_initComplete = false;
 
-// ─── UI Task Queue ─────────────────────────────────────────
+// UI Task Queue
 std::mutex g_uiTaskMutex;
 std::vector<std::function<void()>> g_uiTasks;
 
@@ -117,7 +117,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_VERSION_1_6;
 }
 
-// ─── JNI Event Dispatcher ──────────────────────────────────────────────────
+// JNI Event Dispatcher
 void dispatchPlayerEvent(const std::wstring& message) {
     if (!g_jvm || !g_listener || !g_listenerMethod) return;
 
@@ -154,7 +154,7 @@ typedef HRESULT(STDAPICALLTYPE *CreateCoreWebView2EnvironmentWithOptionsFunc)(
     ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler* environmentCreatedHandler);
 
 
-// ─── WebView2 Event Handlers ───────────────────────────────────────────────
+// WebView2 Event Handlers
 class WebMessageReceivedHandler : public ICoreWebView2WebMessageReceivedEventHandler {
     ULONG m_refCount = 1;
 public:
@@ -177,7 +177,7 @@ public:
             std::wstring wjson(messageJson);
             CoTaskMemFree(messageJson);
 
-            // ── Fast-path: handle latency-sensitive MPV commands directly in C++ ──
+            // Fast-path: handle latency-sensitive MPV commands directly in C++
             // This completely bypasses the JNI → Kotlin coroutine round-trip (~10–50ms)
             // which caused the seek bar to rubber-band (old time-pos arrived before seek).
             //
@@ -343,7 +343,7 @@ public:
         GetClientRect(g_containerHwnd, &bounds);
         g_webviewController->put_Bounds(bounds);
 
-        // ── Transparent background ──
+        // Transparent background
         // Makes WebView2 background fully transparent so MPV video shows through.
         ICoreWebView2Controller2* controller2 = nullptr;
         if (SUCCEEDED(g_webviewController->QueryInterface(IID_ICoreWebView2Controller2, (void**)&controller2))) {
@@ -352,7 +352,7 @@ public:
             controller2->Release();
         }
 
-        // ── Disable context menus and status bar ──
+        // Disable context menus and status bar
         ICoreWebView2Settings* settings = nullptr;
         if (g_webview && SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
             settings->put_AreDefaultContextMenusEnabled(FALSE);
@@ -411,7 +411,7 @@ public:
     }
 };
 
-// ─── WndProcs ──────────────────────────────────────────────────────────────
+// WndProcs
 LRESULT CALLBACK ContainerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_ERASEBKGND: {
@@ -503,7 +503,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             g_webview->PostWebMessageAsJson(wJson.c_str());
                         }
 
-                        // ── Stats for Nerds: only poll expensive string props when the panel is open ──
+                        // Stats for Nerds: only poll expensive string props when the panel is open
                         if (g_statsVisible && g_mpv_get_property_string && g_mpv_free) {
                             // Read a string property, JSON-escape it, then free the MPV-allocated buffer.
                             auto readStrFree = [&](const char* prop) -> std::string {
@@ -602,7 +602,7 @@ LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     return CallWindowProc(g_originalHostWndProc, hwnd, msg, wParam, lParam);
 }
 
-// ─── Native UI Thread ──────────────────────────────────────────────────────
+// Native UI Thread
 void runNativeUiThread(HWND hostHwnd, int width, int height) {
     g_uiThreadId = GetCurrentThreadId();
 
@@ -613,7 +613,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
 
-    // ── Register WebView2 container window class ──
+    // Register WebView2 container window class
     WNDCLASSW wcWV = {0};
     wcWV.lpfnWndProc   = ContainerWndProc;
     wcWV.hInstance     = hInstance;
@@ -636,7 +636,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     LONG_PTR hostStyle = GetWindowLongPtrW(hostHwnd, GWL_STYLE);
     SetWindowLongPtrW(hostHwnd, GWL_STYLE, hostStyle | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 
-    // ── Create WebView2 container (also used as MPV render surface) ──
+    // Create WebView2 container (also used as MPV render surface)
     g_containerHwnd = CreateWindowExW(
         0, // No WS_EX_LAYERED or WS_EX_TRANSPARENT, WebView2 controller background is transparent
         L"CloudStreamWebView2Container", L"",
@@ -651,7 +651,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         LOG_TO_FILE("[NativeBridge] WebView2 container HWND created: " << g_containerHwnd);
     }
 
-    // ── Initialize WebView2 ──
+    // Initialize WebView2
     // IMPORTANT: We must load WebView2Loader.dll using an absolute path derived from
     // our own DLL's location. Using a bare filename (L"WebView2Loader.dll") causes
     // Windows to search the CWD first — in the installed .exe the CWD is {app}\ root,
@@ -706,7 +706,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     }
     g_initCv.notify_one();
 
-    // ── Start 500ms relayout timer ──
+    // Start 500ms relayout timer
     // Ensures container always matches physical host dimensions on resize/fullscreen.
     SetTimer(g_messageHwnd, 1, 500, nullptr);
 
@@ -717,7 +717,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         DispatchMessageW(&msg);
     }
 
-    // ── Cleanup ──
+    // Cleanup
     if (g_webviewController) {
         g_webviewController->Close();
         g_webviewController->Release();
@@ -744,7 +744,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
 
 extern "C" {
 
-// ─── initWebView ─────────────────────────────────────────────────────────────
+// initWebView
 // Returns the single container HWND which WebView2 is hosted inside and MPV renders onto.
 JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_initWebView(
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
@@ -776,7 +776,7 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     return reinterpret_cast<jlong>(g_containerHwnd);
 }
 
-// ─── setFullscreen (per-window state) ─────────────────────────
+// setFullscreen (per-window state)
 struct WindowFullscreenState {
     LONG_PTR       style      = 0;
     LONG_PTR       exStyle    = 0;
@@ -881,7 +881,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     }
 }
 
-// ─── applyWindowChrome (DWM dark mode + caption colour) ──────────────────────
+// applyWindowChrome (DWM dark mode + caption colour)
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_applyWindowChrome(
     JNIEnv* env, jobject thiz,
     jlong hwndPtr, jboolean darkMode,
@@ -909,7 +909,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     DwmSetWindowAttribute(hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &textColor,    sizeof(textColor));
 }
 
-// ─── destroyWebView ───────────────────────────────────────────────────────────
+// destroyWebView
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_destroyWebView(
     JNIEnv* env, jobject thiz)
 {
@@ -934,7 +934,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     g_uiThreadId = 0;
 }
 
-// ─── resizeWebView ────────────────────────────────────────────────────────────
+// resizeWebView
 // Java passes AWT *logical* pixel dimensions. On a DPI-scaled secondary monitor
 // (e.g. 125%) AWT's canvas.width is smaller than the physical pixel count.
 // Win32 child-window coordinates inside g_hostHwnd are physical pixels, so we
@@ -971,7 +971,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 }
 
 
-// ─── executeScript ────────────────────────────────────────────────────────────
+// executeScript
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_executeScript(
     JNIEnv* env, jobject thiz, jstring script)
 {
@@ -986,7 +986,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// ─── loadUrl ─────────────────────────────────────────────────────────────────
+// loadUrl
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_loadUrl(
     JNIEnv* env, jobject thiz, jstring url)
 {
@@ -1004,7 +1004,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// ─── openDevTools ─────────────────────────────────────────────────────────────
+// openDevTools
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_openDevTools(
     JNIEnv* env, jobject thiz)
 {
@@ -1015,7 +1015,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// ─── setEventListener ────────────────────────────────────────────────────────
+// setEventListener
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setEventListener(
     JNIEnv* env, jobject thiz, jobject listener)
 {
@@ -1029,7 +1029,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     }
 }
 
-// ─── postMessage ──────────────────────────────────────────────────────────────
+// postMessage
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_postMessage(
     JNIEnv* env, jobject thiz, jstring message)
 {
@@ -1044,7 +1044,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// ─── startMpvSync ─────────────────────────────────────────────────────────────
+// startMpvSync
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_startMpvSync(
     JNIEnv* env, jobject thiz, jlong mpvPtr)
 {
@@ -1060,7 +1060,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// ─── stopMpvSync ─────────────────────────────────────────────────────────────
+// stopMpvSync
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_stopMpvSync(
     JNIEnv* env, jobject thiz)
 {

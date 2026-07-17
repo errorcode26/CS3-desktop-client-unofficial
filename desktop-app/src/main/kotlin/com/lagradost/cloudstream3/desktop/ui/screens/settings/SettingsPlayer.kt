@@ -22,7 +22,7 @@ fun SettingsPlayer() {
         modifier = Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // --- Group 1: Playback Engine ---
+
         SettingsGroupCard(title = "Playback Engine") {
             SettingsDropdownItem(
                 label = "Hardware Acceleration",
@@ -52,7 +52,7 @@ fun SettingsPlayer() {
             )
         }
 
-        // --- Group 2: Automation ---
+
         SettingsGroupCard(title = "Automation") {
             SettingsToggleItem(
                 label = "Auto Play",
@@ -83,7 +83,7 @@ fun SettingsPlayer() {
             }
         }
 
-        // --- Group 3: Subtitles ---
+
         SettingsGroupCard(title = "Subtitles") {
             SettingsDropdownItem(
                 label = "Font Size",

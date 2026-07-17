@@ -474,7 +474,7 @@ fun SubtitleDownloadDialog(
     launchData: com.lagradost.cloudstream3.desktop.ui.VideoLaunchData,
     onDismiss: () -> Unit,
 ) {
-    // ── State ────────────────────────────────────────────────────────────────
+    // State
     var searchQuery by remember { mutableStateOf(launchData.title ?: "") }
     var selectedLang by remember { mutableStateOf("English") }
     var seasonText by remember { mutableStateOf("") }
@@ -501,7 +501,7 @@ fun SubtitleDownloadDialog(
         "Chinese" to "zh",
     )
 
-    // ── Colours matching existing dialog ────────────────────────────────────
+    // Colors matching parent dialog
     val bgColor = Color(0xFF141414)
     val inputBg = Color(0xFF1E1E1E)
     val accentRed = Color(0xFFE53935)
@@ -509,7 +509,7 @@ fun SubtitleDownloadDialog(
     val cardBg = Color(0xFF1C1C1C)
     val borderColor = Color.White.copy(alpha = 0.08f)
 
-    // ── Search function ──────────────────────────────────────────────────────
+    // Search function
     fun performSearch() {
         coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
             isLoading = true
@@ -548,7 +548,7 @@ fun SubtitleDownloadDialog(
     // Auto-search on first open
     LaunchedEffect(Unit) { performSearch() }
 
-    // ── Dialog ───────────────────────────────────────────────────────────────
+    // Dialog container
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -558,7 +558,7 @@ fun SubtitleDownloadDialog(
                 .heightIn(min = 300.dp, max = 600.dp),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                // ── Header ───────────────────────────────────────────────────
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -577,7 +577,7 @@ fun SubtitleDownloadDialog(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Search Bar Row ────────────────────────────────────────────
+                // Search Bar Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -701,7 +701,7 @@ fun SubtitleDownloadDialog(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Results ───────────────────────────────────────────────────
+                // Results list
                 when {
                     isLoading -> {
                         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {

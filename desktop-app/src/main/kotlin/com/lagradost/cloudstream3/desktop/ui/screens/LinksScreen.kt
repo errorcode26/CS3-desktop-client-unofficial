@@ -172,7 +172,7 @@ fun LinksSidePanel(
         }
     }
 
-    // --- UI ---
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(modifier = Modifier.widthIn(max = 700.dp).fillMaxHeight()) {

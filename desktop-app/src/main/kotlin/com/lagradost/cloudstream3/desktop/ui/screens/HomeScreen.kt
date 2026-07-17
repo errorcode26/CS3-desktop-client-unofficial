@@ -96,7 +96,7 @@ fun ComposeHomeScreen(
                 }
             },
     ) {
-        // ── Main content area ────────────────────────────────────────────────
+        // Main content area
         if (isSearchActive) {
             HomeSearchResults(
                 searchResultsGrouped = searchResultsGrouped,
@@ -205,7 +205,7 @@ fun ComposeHomeScreen(
             }
         }
 
-        // ── Single persistent search overlay — always mounted so focus is never lost ──
+        // Single persistent search overlay - always mounted to prevent losing keyboard focus
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             AnimatedSearchOverlay(
                 searchQuery = searchQuery,

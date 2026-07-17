@@ -1198,7 +1198,7 @@
 </div>
 
 <script>
-    // ── Bridge: JS → Kotlin ──────────────────────────────────────────────
+    // Bridge: JS -> Kotlin
     // Use window.send so inline onclick="send(...)" attributes can call it
     window.send = (type, value) => {
         const payload = { type, value: value === undefined ? '' : String(value) };
@@ -1219,7 +1219,7 @@
         return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
     };
 
-    // ── State ────────────────────────────────────────────────────────────
+    // State
     let isSeeking = false, durationMs = 0, currentPosMs = 0;
     let isMuted = false, currentVolume = 100;
     let isMenuOpen = false;
@@ -1229,7 +1229,7 @@
     let seekLockTimer = null;
     let episodesData = [];
 
-    // ── Element References ───────────────────────────────────────────────
+    // Element References
     const overlay       = document.getElementById('overlay');
     const playPauseBtn  = document.getElementById('playPauseBtn');
     const muteBtn       = document.getElementById('muteBtn');
@@ -1268,7 +1268,7 @@
     // Panel toggles
     const panels = ['episodesPanel','serversPanel','subsPanel','settingsPanel','qualityPanel'];
 
-    // ── SVG Icons ────────────────────────────────────────────────────────
+    // SVG Icons
     const SVGS = {
         play:  `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path d="M4 2.691a1 1 0 0 1 1.482-.876l16.925 9.309a1 1 0 0 1 0 1.752L5.482 22.185A1 1 0 0 1 4 21.309V2.69Z" fill="currentColor"></path></svg>`,
         pause: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><rect x="5" y="3" width="4" height="18" rx="1.5" fill="currentColor"/><rect x="15" y="3" width="4" height="18" rx="1.5" fill="currentColor"/></svg>`,
@@ -1280,7 +1280,7 @@
         check:  `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`,
     };
 
-    // ── Volume OSD ───────────────────────────────────────────────────────
+    // Volume OSD
     let volumeOsdTimer = null;
     const showVolumeOsd = (vol) => {
         const osd = document.getElementById('volumeOsd');
@@ -1296,7 +1296,7 @@
         volumeOsdTimer = setTimeout(() => { osd.classList.remove('show'); }, 1500);
     };
 
-    // ── Action Feedback ──────────────────────────────────────────────────
+    // Action Feedback
     let feedbackTimer;
     const triggerActionFeedback = (svgHtml, align = 'center') => {
         const fb = document.getElementById('actionFeedback');
@@ -1323,7 +1323,7 @@
         }, 500);
     };
 
-    // ── Auto-hide Controls ───────────────────────────────────────────────
+    // Auto-hide Controls
     let hideTimer;
     let globalIsPlaying = false;
     const showControls = () => {
@@ -1348,7 +1348,7 @@
     document.addEventListener('click', showControls);
     document.addEventListener('keydown', showControls);
 
-    // ── Panel Management ─────────────────────────────────────────────────
+    // Panel Management
     const closeAllPanels = () => {
         panels.forEach(id => document.getElementById(id).classList.remove('open'));
         isMenuOpen = false;
@@ -1379,7 +1379,7 @@
         renderFilteredEpisodes(parseInt(e.target.value));
     });
 
-    // ── Resume Dialog ────────────────────────────────────────────────────
+    // Resume Dialog
     document.getElementById('btnContinue').addEventListener('click', () => {
         resumeOverlay.style.display = 'none'; resumeHandled = true;
         send('setMpvProperty', 'pause:no'); showControls();
@@ -1389,7 +1389,7 @@
         send('seekTo', 0); setTimeout(() => send('setMpvProperty', 'pause:no'), 100); showControls();
     });
 
-    // ── Seek Bar ─────────────────────────────────────────────────────────
+    // Seek Bar
     seekBar.addEventListener('mousedown', () => { 
         if (durationMs <= 0) return;
         isSeeking = true; 
@@ -1426,7 +1426,7 @@
         }
     });
 
-    // ── Volume ───────────────────────────────────────────────────────────
+    // Volume
     const updateVolumeTrack = (val) => {
         const pct = (val / 200) * 100;
         volumeBar.style.background = `linear-gradient(to right, #E50914 ${pct}%, rgba(255,255,255,0.35) ${pct}%)`;
@@ -1459,7 +1459,7 @@
         }
     });
 
-    // ── Mute Icon ────────────────────────────────────────────────────────
+    // Mute Icon
     const updateMuteIcon = () => {
         const w1 = document.getElementById('volWave1');
         const w2 = document.getElementById('volWave2');
@@ -1489,7 +1489,7 @@
         }
     };
 
-    // ── Helper: seek relative ────────────────────────────────────────────
+    // Helper: seek relative
     const doRelativeSeek = (deltaMs) => {
         if (durationMs <= 0) return; // Prevent relative seek on live/unknown duration
         isSeeking = true;
@@ -1507,7 +1507,7 @@
         seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
     };
 
-    // ── Backend Messages ─────────────────────────────────────────────────
+    // Backend Messages
     let loadingTimer = null;
     let isCurrentlyLoading = false;
     let isAppLoading = false;      // set by Kotlin via app_state_update
@@ -2030,7 +2030,7 @@
         });
     }
 
-    // ── Subtitle Search Modal ─────────────────────────────────────────────
+    // Subtitle Search Modal
     window.openSubSearchModal = () => {
         const overlay = document.getElementById('subSearchOverlay');
         if (overlay) {
@@ -2069,7 +2069,7 @@
         }, 3000);
     };
 
-    // ── Subtitle Search ───────────────────────────────────────────────────
+    // Subtitle Search
     window.doSubSearch = () => {
         const query   = document.getElementById('subSearchQuery')?.value?.trim() || '';
         const lang    = document.getElementById('subSearchLang')?.value || '';
@@ -2151,7 +2151,7 @@
         this._userEdited = true;
     });
 
-    // ── Button Listeners ─────────────────────────────────────────────────
+    // Button Listeners
     playPauseBtn.addEventListener('click', e => { 
         e.stopPropagation(); 
         send('togglePlay'); 
@@ -2238,7 +2238,7 @@
     document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('settingsPanel'); });
     document.getElementById('qualityBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('qualityPanel'); });
 
-    // ── Settings Controls ────────────────────────────────────────────────
+    // Settings Controls
     // Speed
     document.querySelectorAll('#speedChips .chip').forEach(c => {
         c.addEventListener('click', e => {
@@ -2369,7 +2369,7 @@
     setupTabs('subsPanel');
     setupTabs('settingsPanel');
 
-    // ── Keyboard Shortcuts ───────────────────────────────────────────────
+    // Keyboard Shortcuts
     // Prevent UI zooming
     document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
@@ -2389,7 +2389,7 @@
         }
     });
 
-    // ── Video Ended Overlay Logic ──────────────────────────────────────────
+    // Video Ended Overlay Logic
     const videoEndedOverlay = document.getElementById('videoEndedOverlay');
     const videoEndedSubtext = document.getElementById('videoEndedSubtext');
     const btnNextEpisode = document.getElementById('btnNextEpisode');
@@ -2452,7 +2452,7 @@
         }
     });
 
-    // ── Ready ────────────────────────────────────────────────────────────
+    // Ready
     const notifyReady = () => { send('ui_ready'); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', notifyReady);
     else notifyReady();

@@ -42,7 +42,7 @@ fun SettingsAppearance() {
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // --- Group 1: Theme & Colors ---
+
         SettingsGroupCard(title = "Theme & Colors") {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
@@ -94,7 +94,7 @@ fun SettingsAppearance() {
             )
         }
 
-        // --- Group 2: Typography ---
+
         SettingsGroupCard(title = "Typography") {
             SettingsDropdownItem(
                 label = "App Font",
@@ -105,7 +105,7 @@ fun SettingsAppearance() {
             )
         }
 
-        // --- Group 2: Cinematic Aesthetics ---
+
         SettingsGroupCard(title = "Cinematic Aesthetics") {
             SettingsToggleItem(
                 label = "Ambient Glow",
@@ -166,7 +166,7 @@ fun SettingsAppearance() {
             )
         }
 
-        // --- Group 3: Display & Layout ---
+
         SettingsGroupCard(title = "Display & Layout") {
             SettingsDropdownItem(
                 label = "Dock Position",

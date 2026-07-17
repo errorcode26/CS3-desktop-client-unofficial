@@ -694,7 +694,7 @@ object GlobalDetailsCache {
                     }
                 }
 
-                // ── AniList: Fetch anime character art + voice actors ──────────────────
+                // Fetch AniList anime character art and voice actors
                 val isAnime = tmdbIsAnime ||
                     loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
                     loaded.type == com.lagradost.cloudstream3.TvType.Anime ||

@@ -35,9 +35,8 @@ object PlayerLinkHandler {
 
     @kotlin.OptIn(kotlin.uuid.ExperimentalUuidApi::class, com.lagradost.cloudstream3.Prerelease::class)
     fun validate(link: ExtractorLink, explicitTitle: String? = null): Result<ValidatedLink> {
-        // --- Handle ExtractorLinkPlayList (concatenated chunk streams) ---
-        // These have url="" but provide a list of chunk URLs + durations.
-        // We generate an MPV EDL (Edit Decision List) file to play them seamlessly.
+        // ExtractorLinkPlayList contains concatenated chunk streams (with empty parent URLs).
+        // We write an MPV Edit Decision List (EDL) file locally to play them seamlessly.
         if (link is ExtractorLinkPlayList) {
             if (link.playlist.isEmpty()) {
                 return Result.failure(IllegalArgumentException("ExtractorLinkPlayList has empty playlist."))

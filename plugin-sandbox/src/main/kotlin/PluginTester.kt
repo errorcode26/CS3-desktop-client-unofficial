@@ -42,7 +42,7 @@ fun main(args: Array<String>) {
 
         finalReport.append("\n--- Deep Execution Testing ---\n")
 
-        // --- 1. Initialize Runtime Environment (Mirroring Main.kt) ---
+        // Initialize Runtime Environment (mirroring Main.kt)
         println("Initializing Desktop Environment...")
 
         // Proxy Server
@@ -116,7 +116,7 @@ fun main(args: Array<String>) {
         }
 
         try {
-            // --- 2. Load Plugin Safely (Using ExtensionLoader to trigger StaticVerifier) ---
+            // Load Plugin Safely (using ExtensionLoader to trigger StaticVerifier)
             println("Loading and Verifying Plugin via ExtensionLoader...")
             val pluginClassName = com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(jarFile)
 

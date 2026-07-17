@@ -23,7 +23,7 @@ class PluginSecurityVerifierTest {
     @TempDir
     lateinit var tempDir: File
 
-    // --- Helpers ---
+
 
     /** Builds a minimal .class file (as bytes) that calls the given owner/method. */
     private fun buildClassWithCall(
@@ -57,7 +57,7 @@ class PluginSecurityVerifierTest {
         return jar
     }
 
-    // --- Tests ---
+
 
     @Test
     fun `clean class with no dangerous calls passes verification`() {

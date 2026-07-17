@@ -815,7 +815,7 @@ object LocalStreamProxy {
             return rewritten
         }
 
-        // --- Non-Master Playlist Processing ---
+        // Process media (non-master) HLS playlists containing TS chunks.
         val isExplicitLive = content.contains("PLAYLIST-TYPE:EVENT", ignoreCase = true) ||
             content.contains("PLAYLIST-TYPE:LIVE", ignoreCase = true)
         val hasEndList = content.contains("#EXT-X-ENDLIST", ignoreCase = true)

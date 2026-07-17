@@ -249,7 +249,7 @@ fun ComposeNativeWebPlayer(
 
                 while (isActive) {
                     try {
-                        // ── Wait for an mpv event (50ms max) ───────────────────────────────
+                        // Wait for an mpv event (50ms max)
                         // Keeping timeout short (50ms) ensures the fallback position poll
                         // fires at ≥10 Hz even when mpv sends no events (e.g. during initial
                         // buffering where time-pos is still 0 and no PROPERTY_CHANGE fires).
@@ -405,7 +405,7 @@ fun ComposeNativeWebPlayer(
                             }
                         }
 
-                        // ── Fallback position poll (100ms) ─────────────────────────────────
+                        // Fallback position poll (100ms)
                         // This fires even when mpv sends no events (buffering, idle).
                         // It is the PRIMARY seek-bar driver when native events are sparse.
                         val now = System.currentTimeMillis()
@@ -458,7 +458,7 @@ fun ComposeNativeWebPlayer(
                                 pushMetadataToWebView()
                             }
 
-                            // ── Completion / fast-fail / timeout checks ────────────────────
+                            // Completion / fast-fail / timeout checks
                             val currentLoad = loadfileIssuedAt
                             if (lastErrorLoadfileAt != currentLoad && currentLoad > 0) {
                                 if (lastEofReached) {
@@ -505,7 +505,7 @@ fun ComposeNativeWebPlayer(
                             }
                         }
 
-                        // ── Heavy track + stats poll (2000ms) ──────────────────────────────
+                        // Heavy track + stats poll (2000ms)
                         // Separated from position poll so ~20 mpv_get_property_string calls
                         // never stall the 100ms seek-bar update window.
                         if (now - lastTrackPollMs >= 2000L) {

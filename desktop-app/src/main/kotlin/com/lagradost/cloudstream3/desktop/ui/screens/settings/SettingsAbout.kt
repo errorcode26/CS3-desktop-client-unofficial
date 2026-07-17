@@ -16,7 +16,7 @@ fun SettingsAbout() {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // App Header Info
+
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth()
@@ -54,7 +54,7 @@ fun SettingsAbout() {
             }
         }
 
-        // Desktop Source
+
         Text(
             "This Application",
             style = MaterialTheme.typography.titleSmall,
@@ -69,7 +69,7 @@ fun SettingsAbout() {
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
 
-        // Official Links
+
         Text(
             "The Official Project",
             style = MaterialTheme.typography.titleSmall,

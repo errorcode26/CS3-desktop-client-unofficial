@@ -37,7 +37,7 @@ fun SettingsDiagnostics() {
             .padding(end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // ── Header ──
+
         Text(
             text = "Network Diagnostics",
             style = MaterialTheme.typography.headlineSmall,
@@ -50,7 +50,7 @@ fun SettingsDiagnostics() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // ── Action Buttons ──
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -106,7 +106,7 @@ fun SettingsDiagnostics() {
             }
         }
 
-        // ── Running indicator ──
+
         if (isRunning && currentTest.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -125,7 +125,7 @@ fun SettingsDiagnostics() {
             }
         }
 
-        // ── Results Table ──
+
         if (results.isNotEmpty()) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -140,7 +140,7 @@ fun SettingsDiagnostics() {
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    // Table header
+
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                     ) {
@@ -177,14 +177,14 @@ fun SettingsDiagnostics() {
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                     )
 
-                    // Result rows
+
                     results.forEach { result ->
                         DiagnosticResultRow(result)
                     }
                 }
             }
 
-            // Summary bar
+
             val passCount = results.count { it.passed }
             val failCount = results.count { !it.passed }
             val avgTime = results.filter { it.passed && it.timeMs > 0 }

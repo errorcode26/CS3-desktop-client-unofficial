@@ -36,7 +36,7 @@ fun SettingsGeneral() {
     ) {
         
 
-        // --- Group 2: Accounts & Integrations ---
+
         SettingsGroupCard(title = "Accounts & Integrations") {
             accountsUpdated.hashCode() // Trigger recompose on change
             
@@ -126,7 +126,7 @@ fun SettingsGeneral() {
             }
         }
 
-        // --- Group 2: Search Settings ---
+
         SettingsGroupCard(title = "Search Settings") {
             var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
             SettingsToggleItem(
@@ -140,7 +140,7 @@ fun SettingsGeneral() {
             )
         }
 
-        // --- Group 3: Storage Directories ---
+
         SettingsGroupCard(title = "Storage Directories") {
             Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
@@ -168,7 +168,7 @@ fun SettingsGeneral() {
             PathRow("System Logs", com.lagradost.common.platform.PlatformPaths.logsDir)
         }
 
-        // --- Group 4: Data Management ---
+
         SettingsGroupCard(title = "Data Management") {
             var imageCacheSize by remember { mutableStateOf("Calculating...") }
             val imageCacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache")
@@ -202,7 +202,7 @@ fun SettingsGeneral() {
             }
         }
 
-        // Clone Dialog State
+
         var showAddCloneDialog by remember { mutableStateOf(false) }
         var clonedSites by remember {
             mutableStateOf(
@@ -223,7 +223,7 @@ fun SettingsGeneral() {
             )
         }
 
-        // --- Group 5: Cloned Sites ---
+
         SettingsGroupCard(title = "Cloned Sites & Custom URLs") {
             Text("You can clone an existing provider and override its URL. This is useful if a site changes its domain.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
@@ -251,7 +251,7 @@ fun SettingsGeneral() {
             }
         }
 
-        // --- Clone Dialog Implementation ---
+
         if (showAddCloneDialog) {
             var selectedProvider by remember { mutableStateOf<com.lagradost.cloudstream3.MainAPI?>(null) }
             var nameInput by remember { mutableStateOf("") }
@@ -269,7 +269,7 @@ fun SettingsGeneral() {
                     color = MaterialTheme.colorScheme.surface,
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        // Left Pane: Provider Selection
+
                         Column(modifier = Modifier.weight(1f).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
                             Text("Select Base Provider", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(16.dp))
@@ -318,7 +318,7 @@ fun SettingsGeneral() {
                             }
                         }
 
-                        // Right Pane: Configuration
+
                         Column(modifier = Modifier.weight(1.5f).fillMaxHeight().padding(24.dp)) {
                             Text("Configure Clone", style = MaterialTheme.typography.headlineSmall)
                             Spacer(Modifier.height(24.dp))
@@ -395,7 +395,7 @@ fun SettingsGeneral() {
             }
         }
 
-        // --- Group 6: Danger Zone ---
+
         SettingsGroupCard(title = "Danger Zone") {
             var showResetDialog by remember { mutableStateOf(false) }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -421,9 +421,9 @@ fun SettingsGeneral() {
                             onClick = {
                                 val target = com.lagradost.common.platform.PlatformPaths.appDataDir
                                 if (target.exists()) {
-                                    // Delete everything we can right now
+
                                     target.deleteRecursively()
-                                    // Register anything locked (like plugin JARs) to be deleted when the JVM exits
+
                                     target.walkBottomUp().forEach { it.deleteOnExit() }
                                 }
                                 kotlin.system.exitProcess(0)

@@ -100,7 +100,7 @@ fun EpisodeCard(
             .clip(RoundedCornerShape(10.dp))
             .clickable { navigateToPlay(provider, data, ep, onPlay) },
     ) {
-        // ── Background image ────────────────────────────────────────────────
+        // Background image
         if (epImg != null || fallbackImg != null) {
             SubcomposeAsyncImage(
                 model = epImg ?: fallbackImg,
@@ -149,7 +149,7 @@ fun EpisodeCard(
             }
         }
 
-        // ── Gradient scrim: clear → black at bottom ──────────────────────────
+        // Gradient scrim: clear -> black at bottom
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -163,7 +163,7 @@ fun EpisodeCard(
                 ),
         )
 
-        // ── Hover play overlay ───────────────────────────────────────────────
+        // Hover play overlay
         AnimatedVisibility(
             visible = isHovered,
             modifier = Modifier.matchParentSize(),
@@ -192,7 +192,7 @@ fun EpisodeCard(
             }
         }
 
-        // ── Anti-spoiler overlay ─────────────────────────────────────────────
+        // Anti-spoiler overlay
         if (shouldHideSpoilers && !isHovered) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
@@ -209,7 +209,7 @@ fun EpisodeCard(
 
         val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
-        // ── Top-Right: EP number pill ────────────────────────────────────────
+        // Top-Right: EP number pill
         ep.episode?.let { epNum ->
             Box(
                 modifier = Modifier
@@ -228,7 +228,7 @@ fun EpisodeCard(
             }
         }
 
-        // ── Top-Left: Mark as Watched toggle ─────────────────────────────────
+        // Top-Left: Mark as Watched toggle
         val isWatched = progress > 0.9f
         Box(
             modifier = Modifier
@@ -262,7 +262,7 @@ fun EpisodeCard(
             )
         }
 
-        // ── Bottom overlay: Title + plot description ─────────────────────────
+        // Bottom overlay: Title + plot description
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -317,7 +317,7 @@ fun EpisodeCard(
             )
         }
 
-        // ── Bottom-Right: Duration / Time Left pill ──────────────────────────
+        // Bottom-Right: Duration / Time Left pill
         val durationText = if (history != null && history.duration > 0) {
             if (progress > 0f && progress < 1f) {
                 val leftSeconds = history.duration - history.position
@@ -349,7 +349,7 @@ fun EpisodeCard(
             }
         }
 
-        // ── Bottom progress bar ──────────────────────────────────────────────
+        // Bottom progress bar
         if (progress > 0f) {
             Box(
                 modifier = Modifier

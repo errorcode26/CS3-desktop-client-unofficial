@@ -189,7 +189,7 @@ object DiagnosticsRunner {
         return sb.toString()
     }
 
-    // ── Internal helpers ──
+    // Internal helper functions
 
     private fun buildClient(
         protocols: List<Protocol> = listOf(Protocol.HTTP_2, Protocol.HTTP_1_1),

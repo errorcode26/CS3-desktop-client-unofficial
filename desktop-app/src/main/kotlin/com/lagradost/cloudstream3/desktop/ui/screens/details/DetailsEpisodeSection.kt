@@ -125,7 +125,7 @@ fun DetailsEpisodeSection(
                 .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                 .padding(vertical = 24.dp),
         ) {
-            // ── Card Header: "Episodes" title + season watch toggle + anti-spoiler ──
+            // Card Header: Episodes title, season watch toggle, and anti-spoiler settings
             if (!isMovieLike) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
