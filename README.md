@@ -33,8 +33,14 @@ The project is structured into modular layers to cleanly separate concerns and a
 ## 🛠️ Setup & Development Workflow
 
 ### Prerequisites
-*   **JDK 21** or higher.
-*   **Git** (needed for cloning submodules).
+Make sure you have all of these installed before you start:
+*   **JDK 21** or higher — [Download Temurin](https://adoptium.net/)
+*   **Git** — needed for cloning with submodules ([Download](https://git-scm.com/))
+*   **MinGW-w64 / g++** — only needed if you plan to modify the C++ JNI bridge (`compile_jni.ps1`). Make sure `g++` is available in your `PATH` ([Download via MSYS2](https://www.msys2.org/))
+*   **Inno Setup 6** — only needed if you want to build the `.exe` installer locally ([Download](https://jrsoftware.org/isdl.php))
+
+> [!NOTE]
+> You do **not** need Android Studio or any Android SDK. This is a pure JVM/Desktop project.
 
 ### 1. Clone the Repository
 You **must** use Git clone with recursive submodules so the Android core library references are pulled correctly:
@@ -56,12 +62,28 @@ To compile and launch the desktop application in developer mode:
 ```bash
 .\gradlew.bat :desktop-app:run
 ```
-To quickly run only the isolated media player test harness:
+To quickly run only the isolated media player test harness (without starting the entire app UI):
 ```bash
-.\gradlew.bat :desktop-app:testPlayer
+# For WebView player testing:
+.\gradlew.bat :desktop-app:runTestWebViewPlayer
+
+# For native MPV player testing:
+.\gradlew.bat :desktop-app:runTestMpvPlayer
 ```
 
-### 4. Build Installer (Optional)
+### 4. Working on the Native C++ Bridge
+If you are tweaking the raw C++ code for the WebView2 JNI player bridge (`desktop-app/src/main/cpp`), you do not need to memorize the 15+ GCC compiler/linking flags. Simply run the included PowerShell script to instantly recompile the `.dll`:
+```powershell
+.\compile_jni.ps1
+```
+
+> [!IMPORTANT]
+> The CI/CD pipeline does **not** recompile the C++ bridge automatically. After running the script, make sure you **commit the updated `player_bridge.dll`** along with your C++ changes before pushing. Otherwise the CI build will ship the old binary.
+
+> [!NOTE]
+> **Want a new UI feature that uses native Windows functionality?** If the feature you want doesn't already exist in the C++ bridge (e.g., a new WebView2 control, a new window event, a new native dialog), you **must** add the corresponding JNI method to `player_bridge.cpp` first and recompile the `.dll`. The Kotlin/Compose UI layer can only call native capabilities that are already exposed through the JNI bridge — there is no other way to add them.
+
+### 5. Build Installer (Optional)
 If you need to generate a standalone Windows `.exe` setup installer for testing:
 1. Run `compile.bat` to clean and compile the latest executable binaries.
 2. Open Inno Setup Compiler and compile [installer/setup.iss](installer/setup.iss).
@@ -73,10 +95,32 @@ The compiled setup installer will be generated at `desktop-app\build\outputs\Clo
 ## 🧪 Testing & Code Quality
 This architecture is built for rapid iteration. We have a lightweight test harness, but our focus is on active developer validation:
 *   Use isolated experimental/feature branches for development to keep the `dev` branch clean.
-*   To test changes on the video player directly, use:
+*   To run the standard automated unit test suite (verifies math, updaters, and API parsers):
     ```bash
-    .\run_test_player.bat
+    .\gradlew.bat :desktop-app:test
     ```
+*   To test changes on the video player directly without booting the full app shell, use the isolated harnesses:
+    ```bash
+    .\gradlew.bat :desktop-app:runTestWebViewPlayer
+    .\gradlew.bat :desktop-app:runTestMpvPlayer
+    ```
+
+---
+
+## 🤝 Contributing & Issues
+
+### Reporting Issues
+Found a bug or got a cool feature idea? Just open an issue! Keep it simple and to the point:
+1. **What were you trying to do?** (e.g., "I clicked the play button...")
+2. **What actually happened?** (e.g., "...and the app crashed.") If things blew up, drop the error logs or a screenshot.
+3. **How can we reproduce it?** (Step-by-step is super helpful so we can see the bug ourselves).
+
+### Pull Requests (PRs)
+Want to build a feature yourself? Awesome! We love PRs.
+1. Fork the repo and create your own branch off the `dev` branch.
+2. Build your feature. Be sure to test it locally using the test commands above!
+3. **Important:** Don't touch the version numbers in `gradle.properties` (we handle version bumping when we merge).
+4. Open a PR, give it a quick description of what you added and why it's cool, and we'll take a look!
 
 ---
 

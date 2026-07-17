@@ -32,8 +32,8 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path "desktop-app/appResources/windows/mpv"
 
-        Write-Host "Fetching latest libmpv release from shinchiro/mpv-winbuild-cmake..."
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest" -Headers @{ "Accept" = "application/vnd.github.v3+json" }
+        Write-Host "Fetching pinned libmpv release (20260610) from shinchiro/mpv-winbuild-cmake..."
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/tags/20260610" -Headers @{ "Accept" = "application/vnd.github.v3+json" }
         $asset = $release.assets | Where-Object { $_.name -like "mpv-dev-x86_64-*.7z" } | Select-Object -First 1
 
         if ($null -eq $asset) {

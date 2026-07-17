@@ -159,6 +159,13 @@ object DesktopDataStore {
         DatabaseFactory.database.cloudstreamDBQueries.deleteKeyValue(key)
     }
 
+    fun getAllKeysWithPrefix(prefix: String): List<String> {
+        return DatabaseFactory.database.cloudstreamDBQueries.selectAllKeyValues()
+            .executeAsList()
+            .map { it.key }
+            .filter { it.startsWith(prefix) }
+    }
+
     fun getBookmarks(): List<DesktopBookmark> {
         return DatabaseFactory.database.cloudstreamDBQueries.selectAllBookmarks().executeAsList().map {
             DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0)

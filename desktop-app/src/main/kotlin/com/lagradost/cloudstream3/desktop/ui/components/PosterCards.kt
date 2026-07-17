@@ -412,32 +412,51 @@ fun WatchHistoryCard(
         ) {
             if (provider != null) {
                 Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(DesktopUi.Accent.copy(alpha = 0.9f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text = provider.name,
+                        text = provider.name.uppercase(),
                         color = Color.White,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        style = androidx.compose.ui.text.TextStyle(
+                            lineHeight = 9.sp,
+                            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+                            )
+                        ),
                     )
                 }
             }
             if (seText.isNotBlank()) {
                 Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color.Black.copy(alpha = 0.6f))
                         .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text = seText,
+                        text = seText.uppercase(),
                         color = Color.White,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        style = androidx.compose.ui.text.TextStyle(
+                            lineHeight = 9.sp,
+                            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+                            )
+                        ),
                     )
                 }
             }

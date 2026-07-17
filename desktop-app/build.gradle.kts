@@ -96,8 +96,14 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
-        jvmArgs += listOf("-Djava.security.manager=allow", "-Djava.net.preferIPv6Addresses=true", "-Djava.library.path=build/libs;\$APPDIR/resources/jni", "-Dfile.encoding=UTF-8")
-
+        jvmArgs += listOf(
+            "-Djava.security.manager=allow", 
+            "-Djava.net.preferIPv6Addresses=true", 
+            "-Djava.library.path=build/libs;\$APPDIR/resources/jni", 
+            "-Djna.library.path=\$APPDIR/resources/mpv",
+            "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
+            "-Dfile.encoding=UTF-8"
+        )
         buildTypes.release.proguard {
             isEnabled.set(false)
         }
@@ -105,7 +111,7 @@ compose.desktop {
         nativeDistributions {
             // Inno Setup (installer/setup.iss) handles packaging — no native installer format needed here
             packageName = "CloudStream-Desktop"
-            packageVersion = "0.1.2"
+            packageVersion = project.findProperty("APP_VERSION")?.toString() ?: "0.0.0"
             description = "CloudStream Desktop Client"
             vendor = "CloudStream"
             includeAllModules = false
@@ -144,6 +150,27 @@ compose.desktop {
             }
         }
     }
+}
+
+tasks.matching { it.name == "run" }.configureEach {
+    val runTask = this as JavaExec
+    runTask.jvmArgs(
+        "-Djna.library.path=${project.file("appResources/windows/mpv").absolutePath}",
+        "-Djava.library.path=${project.file("appResources/windows/jni").absolutePath}",
+        "-Dcloudstream.version=${project.findProperty("APP_VERSION")}"
+    )
+}
+
+val generateInstallerVersion by tasks.registering {
+    val versionFile = project.file("../installer/version.iss")
+    outputs.file(versionFile)
+    doLast {
+        versionFile.writeText("#define AppVersion \"${project.findProperty("APP_VERSION")}\"")
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn(generateInstallerVersion)
 }
 
 tasks.withType<Test> {

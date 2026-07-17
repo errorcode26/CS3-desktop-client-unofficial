@@ -147,7 +147,7 @@ fun EpisodesOverlay(
                         null
                     }
                     Text(
-                        text = if (duration != null) "$duration min" else "",
+                        text = if (duration != null) "${duration}m" else "",
                         color = Color.White,
                         fontSize = 14.sp,
                     )

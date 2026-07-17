@@ -57,7 +57,7 @@ object AppUpdater {
         }
     }
 
-    private fun compareVersions(v1: String, v2: String): Int {
+    internal fun compareVersions(v1: String, v2: String): Int {
         val parts1 = v1.split(".").map { it.toIntOrNull() ?: 0 }
         val parts2 = v2.split(".").map { it.toIntOrNull() ?: 0 }
         val length = maxOf(parts1.size, parts2.size)

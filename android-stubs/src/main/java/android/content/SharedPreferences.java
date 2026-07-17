@@ -179,8 +179,8 @@ class DesktopSharedPreferences implements SharedPreferences {
 
         @Override
         public Editor clear() {
-            // Clearing all keys for a specific preference file is hard without iterating all keys in datastore.
-            // We skip implementation for clear() on Desktop for now to avoid accidental deletions of global state.
+            // Mark all currently stored keys under this prefix for removal on apply()
+            pending.put("\u0000__clear__", null);
             return this;
         }
 
@@ -192,11 +192,21 @@ class DesktopSharedPreferences implements SharedPreferences {
 
         @Override
         public void apply() {
+            // If clear() was called, remove all keys stored under this prefix first
+            if (pending.containsKey("\u0000__clear__")) {
+                pending.remove("\u0000__clear__");
+                String prefix = getActualPref();
+                // Collect all keys from datastore that belong to this preference namespace and remove them
+                try {
+                    java.util.List<String> toDelete = com.lagradost.common.storage.DesktopDataStore.INSTANCE.getAllKeysWithPrefix(prefix);
+                    for (String k : toDelete) {
+                        DesktopDataStore.INSTANCE.removeKey(k);
+                    }
+                } catch (Exception ignored) {}
+            }
             for (Map.Entry<String, Object> entry : pending.entrySet()) {
                 if (entry.getValue() == null) {
-                    // DesktopDataStore doesn't have a simple removeKey(String) exposed to Java? 
-                    // Let's set it to null string or something, wait we can just set it to null.
-                    DesktopDataStore.INSTANCE.setKey(getFullKey(entry.getKey()), null);
+                    DesktopDataStore.INSTANCE.removeKey(getFullKey(entry.getKey()));
                 } else {
                     DesktopDataStore.INSTANCE.setKey(getFullKey(entry.getKey()), entry.getValue());
                 }

@@ -19,7 +19,7 @@ if (!(Test-Path (Join-Path $jniInclude "jni.h"))) {
 }
 
 $cppDir = "desktop-app\src\main\cpp"
-$outDir = "desktop-app\build\libs"
+$outDir = "desktop-app\appResources\windows\jni"
 $webview2Dir = Join-Path $cppDir "webview2\build\native"
 $webview2Include = Join-Path $webview2Dir "include"
 $webview2Dll = Join-Path $webview2Dir "x64\WebView2Loader.dll"
