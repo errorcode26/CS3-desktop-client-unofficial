@@ -82,6 +82,14 @@ fun ComposeExtensionScreen(navController: NavController) {
 
                 Spacer(Modifier.weight(1f))
 
+                Text(
+                    text = "If plugins don't show up in the list, please use the Update All button.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, start = 4.dp, end = 4.dp)
+                )
+
                 var isSyncing by remember { mutableStateOf(false) }
                 Button(
                     onClick = {
