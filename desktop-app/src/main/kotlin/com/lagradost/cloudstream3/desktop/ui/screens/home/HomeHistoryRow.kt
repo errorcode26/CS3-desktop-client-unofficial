@@ -1,8 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -15,6 +13,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
+import com.lagradost.cloudstream3.desktop.ui.components.AmoledConfirmDialog
 import com.lagradost.common.storage.WatchHistory
 
 @Composable
@@ -29,42 +28,19 @@ fun HomeHistoryRow(
 
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
-    if (showClearConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirmDialog = false },
-            title = {
-                Text(
-                    text = "Clear Watch History?",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            },
-            text = {
-                Text(
-                    text = "This will permanently remove all your watch history. You won't be able to resume anything from here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showClearConfirmDialog = false
-                        onClearHistory()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text("Clear All")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
-    }
+    AmoledConfirmDialog(
+        show = showClearConfirmDialog,
+        title = "Clear Watch History?",
+        text = "This will permanently remove all your watch history. You won't be able to resume anything from here.",
+        confirmText = "Clear All",
+        dismissText = "Cancel",
+        isDestructive = true,
+        onConfirm = {
+            showClearConfirmDialog = false
+            onClearHistory()
+        },
+        onDismiss = { showClearConfirmDialog = false }
+    )
 
     CategoryRowWithHeader(
         title = "Continue Watching",

@@ -35,6 +35,8 @@ data class WatchHistory(
     val showUrl: String,
     val apiName: String,
     val posterUrl: String?,
+    val episodeThumbnailUrl: String?,
+    val screenshotUrl: String?,
     val episode: Int?,
     val season: Int?,
     val episodeId: String?,
@@ -89,6 +91,7 @@ object DesktopDataStore {
                                     history.forEach { h ->
                                         db.cloudstreamDBQueries.insertWatchHistory(
                                             h.parentId, h.episodeId ?: "", h.showName, h.showUrl, h.apiName, h.posterUrl,
+                                            h.episodeThumbnailUrl, h.screenshotUrl,
                                             h.episode?.toLong(), h.season?.toLong(), h.position, h.duration, h.updateTime,
                                         )
                                     }
@@ -189,6 +192,8 @@ object DesktopDataStore {
                 showUrl = it.showUrl,
                 apiName = it.apiName,
                 posterUrl = it.posterUrl,
+                episodeThumbnailUrl = it.episodeThumbnailUrl,
+                screenshotUrl = it.screenshotUrl,
                 episode = it.episode?.toInt(),
                 season = it.season?.toInt(),
                 episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
@@ -244,6 +249,8 @@ object DesktopDataStore {
             showUrl = history.showUrl,
             apiName = history.apiName,
             posterUrl = history.posterUrl,
+            episodeThumbnailUrl = history.episodeThumbnailUrl,
+            screenshotUrl = history.screenshotUrl,
             episode = history.episode?.toLong(),
             season = history.season?.toLong(),
             position = normalizedPosition,

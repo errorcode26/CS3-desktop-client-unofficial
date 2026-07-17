@@ -300,13 +300,9 @@ fun WatchHistoryCard(
     val shape = RoundedCornerShape(16.dp)
 
     val gridScale by AppearanceConfig.gridScale.collectAsState()
-    // Landscape card configuration
-    val cardWidth = when (gridScale) {
-        "Compact" -> 240.dp
-        "Large" -> 340.dp
-        else -> 280.dp
-    }
-    val cardHeight = cardWidth * 0.65f
+    // Landscape 16:9 card configuration (decoupled from grid scale for a cinematic look)
+    val cardWidth = 380.dp
+    val cardHeight = cardWidth * 9f / 16f
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -348,7 +344,9 @@ fun WatchHistoryCard(
             .hoverable(interactionSource)
             .clickable(onClick = onClick),
     ) {
-        val imgUrl = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
+        val imgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
+            ?: history.screenshotUrl
+            ?: provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
 
         // Full-bleed background image
         if (imgUrl != null) {
@@ -366,9 +364,9 @@ fun WatchHistoryCard(
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0.0f to Color.Black.copy(alpha = 0.05f),
-                    0.45f to Color.Black.copy(alpha = 0.2f),
-                    1.0f to Color.Black.copy(alpha = 0.85f),
+                    0.0f to Color.Transparent,
+                    0.5f to Color.Black.copy(alpha = 0.25f),
+                    1.0f to Color.Black.copy(alpha = 0.95f),
                 ),
             ),
         )
@@ -404,87 +402,97 @@ fun WatchHistoryCard(
             }
         }
 
-        // Bottom content: title + episode + progress bar
-        Column(
+        // Top-left badges (Provider and Episode)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp),
+        ) {
+            if (provider != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(DesktopUi.Accent.copy(alpha = 0.9f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = provider.name,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+            if (seText.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = seText,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        // Bottom content: Title and time left
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 40.dp, bottom = 12.dp),
+                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
         ) {
-            // Provider badge + episode tag
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 4.dp),
-            ) {
-                if (provider != null) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(DesktopUi.Accent.copy(alpha = 0.9f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            text = provider.name,
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-                if (seText.isNotBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            text = seText,
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
-
-            // Show title
             Text(
                 text = history.showName,
                 color = Color.White,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Progress bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(DesktopUi.Accent),
-                )
+            
+            val timeLeftText = if (progress >= 1f) {
+                "Completed"
+            } else if (history.duration > 0) {
+                val leftSeconds = history.duration - history.position
+                val leftMins = leftSeconds / 60L
+                if (leftMins > 0) "${leftMins}m left" else "<1m left"
+            } else {
+                "${(progress * 100).toInt()}%"
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (progress >= 1f) "Completed" else "${(progress * 100).toInt()}% watched",
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+                text = timeLeftText,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        // Full-width progress bar touching the bottom edge
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(Color.Black.copy(alpha = 0.5f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .background(DesktopUi.Accent),
             )
         }
 

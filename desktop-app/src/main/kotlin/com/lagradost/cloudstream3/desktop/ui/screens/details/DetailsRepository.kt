@@ -631,6 +631,10 @@ object GlobalDetailsCache {
                                                 if (!epName.isNullOrBlank() && epName != "null") {
                                                     ep.name = epName
                                                 }
+                                                val epRuntime = epNode.get("runtime")?.asInt()
+                                                if (epRuntime != null && epRuntime > 0) {
+                                                    ep.runTime = epRuntime
+                                                }
                                             }
                                         }
                                     }

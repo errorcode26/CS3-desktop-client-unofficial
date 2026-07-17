@@ -14,9 +14,11 @@ import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -69,9 +71,14 @@ fun EmbeddedVideoPlayer(
     // Reset all playback state when a new episode loads
     LaunchedEffect(actualLaunchData.history.episodeId) {
         if (lastDurationSec > 0 && lastPositionSec > 0) {
+            val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${lastSavedHistory.parentId}.jpg"
+            File(screenshotPath).parentFile.mkdirs()
+            playerState.takeScreenshot(screenshotPath)
+
             val updatedHistory = lastSavedHistory.copy(
                 position = lastPositionSec,
                 duration = lastDurationSec,
+                screenshotUrl = "file:///$screenshotPath",
                 updateTime = System.currentTimeMillis(),
             )
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -102,9 +109,15 @@ fun EmbeddedVideoPlayer(
     DisposableEffect(Unit) {
         onDispose {
             if (lastDurationSec > 0 && lastPositionSec > 0) {
+                // Screenshot handling
+                val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${actualLaunchData.history.parentId}.jpg"
+                File(screenshotPath).parentFile.mkdirs()
+                playerState.takeScreenshot(screenshotPath)
+
                 val updatedHistory = actualLaunchData.history.copy(
                     position = lastPositionSec,
                     duration = lastDurationSec,
+                    screenshotUrl = "file:///$screenshotPath",
                     updateTime = System.currentTimeMillis(),
                 )
                 com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -270,6 +283,8 @@ fun EmbeddedVideoPlayer(
                                                     showUrl = actualLaunchData.history.showUrl,
                                                     apiName = actualLaunchData.history.apiName,
                                                     posterUrl = actualLaunchData.history.posterUrl,
+                                                    episodeThumbnailUrl = nextEp.posterUrl,
+                                                    screenshotUrl = null,
                                                     episode = nextEp.episode,
                                                     season = nextEp.season,
                                                     episodeId = nextEp.data,

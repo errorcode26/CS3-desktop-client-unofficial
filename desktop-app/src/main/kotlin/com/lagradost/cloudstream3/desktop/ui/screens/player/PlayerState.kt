@@ -158,6 +158,14 @@ class PlayerState {
         }
     }
 
+    fun takeScreenshot(filepath: String) {
+        mpvHandle?.let {
+            // "screenshot-to-file" takes two arguments: <filename> [subtitles/video/window]
+            // We use 'window' to get exactly what the user sees (or 'video' for raw frames).
+            MpvLibrary.INSTANCE.mpv_command_string(it, "screenshot-to-file \"$filepath\" window")
+        }
+    }
+
     fun setVolume(vol: Float) {
         mpvHandle?.let {
             val safeVol = vol.coerceIn(0f, 130f)

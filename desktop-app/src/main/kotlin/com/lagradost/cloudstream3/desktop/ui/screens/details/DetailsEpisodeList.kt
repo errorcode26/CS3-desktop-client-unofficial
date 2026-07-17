@@ -267,7 +267,7 @@ fun EpisodeCard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(start = 14.dp, end = 60.dp, bottom = 12.dp), // end padding to avoid overlap with duration pill
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -317,6 +317,38 @@ fun EpisodeCard(
             )
         }
 
+        // ── Bottom-Right: Duration / Time Left pill ──────────────────────────
+        val durationText = if (history != null && history.duration > 0) {
+            if (progress > 0f && progress < 1f) {
+                val leftSeconds = history.duration - history.position
+                val leftMins = leftSeconds / 60L
+                if (leftMins > 0) "${leftMins}m left" else "<1m left"
+            } else {
+                val totalMins = history.duration / 60L
+                "${totalMins}m"
+            }
+        } else if (epRunTime != null) {
+            if (epRunTime > 300) "${epRunTime / 60}m" else "${epRunTime}m"
+        } else null
+
+        if (durationText != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 12.dp, end = 10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    text = durationText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+
         // ── Bottom progress bar ──────────────────────────────────────────────
         if (progress > 0f) {
             Box(
@@ -351,6 +383,8 @@ fun toggleEpisodeWatched(provider: MainAPI, data: LoadResponse, ep: Episode, isW
         showUrl = data.url,
         apiName = provider.name,
         posterUrl = data.posterUrl,
+        episodeThumbnailUrl = ep.posterUrl,
+        screenshotUrl = saved?.screenshotUrl,
         episode = ep.episode,
         season = ep.season,
         episodeId = ep.data,
@@ -376,6 +410,8 @@ fun navigateToPlay(provider: MainAPI, data: LoadResponse, ep: Episode, onPlay: (
         showUrl = data.url,
         apiName = provider.name,
         posterUrl = data.posterUrl,
+        episodeThumbnailUrl = ep.posterUrl,
+        screenshotUrl = saved?.screenshotUrl,
         episode = ep.episode,
         season = ep.season,
         episodeId = ep.data,
