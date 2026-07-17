@@ -28,6 +28,7 @@ juniversalchardet = "2.5.0"
 kotlinGradlePlugin = "2.3.20"
 kotlinxAtomicfu = "0.32.1"
 kotlinxDatetime = "0.8.0"
+kotlinxIOCore = "0.9.1"
 kotlinxCollectionsImmutable = "0.4.0"
 kotlinxSerializationJson = "1.6.3"
 kotlinxCoroutinesCore = "1.10.2"
@@ -94,6 +95,7 @@ juniversalchardet = { module = "com.github.albfernandez:juniversalchardet", vers
 ktor-http = { module = "io.ktor:ktor-http", version.ref = "ktor" }
 kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "kotlinxAtomicfu" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIOCore" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
