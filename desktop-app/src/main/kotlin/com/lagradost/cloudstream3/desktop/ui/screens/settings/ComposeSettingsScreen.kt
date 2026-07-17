@@ -11,17 +11,16 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 
 enum class SettingsTab(val title: String) {
-    PLAYER("Playback Engine"),
+    GENERAL("General"),
     APPEARANCE("Appearance"),
+    PLAYER("Playback Engine"),
     NETWORK("Network"),
-    ADVANCED("Advanced"),
-    LOGCAT("Logcat"),
+    DEVELOPER("Developer Tools"),
     ABOUT("About"),
-    ACCOUNTS("Accounts"),
 }
 
 @Composable
-fun ComposeSettingsScreen(navController: NavController, onErrorLogs: () -> Unit) {
+fun ComposeSettingsScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(SettingsTab.PLAYER) }
 
     Row(
@@ -87,13 +86,12 @@ fun ComposeSettingsScreen(navController: NavController, onErrorLogs: () -> Unit)
                     label = "settings_crossfade",
                 ) { tab ->
                     when (tab) {
-                        SettingsTab.PLAYER -> SettingsPlayer()
+                        SettingsTab.GENERAL -> SettingsGeneral()
                         SettingsTab.APPEARANCE -> SettingsAppearance()
+                        SettingsTab.PLAYER -> SettingsPlayer()
                         SettingsTab.NETWORK -> SettingsNetwork()
-                        SettingsTab.ADVANCED -> SettingsAdvanced(onErrorLogs)
-                        SettingsTab.LOGCAT -> SettingsLogcat()
+                        SettingsTab.DEVELOPER -> SettingsDeveloper()
                         SettingsTab.ABOUT -> SettingsAbout()
-                        SettingsTab.ACCOUNTS -> SettingsAccounts()
                     }
                 }
             }

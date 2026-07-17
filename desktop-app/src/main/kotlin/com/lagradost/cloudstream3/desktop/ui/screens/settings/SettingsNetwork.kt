@@ -21,6 +21,7 @@ fun SettingsNetwork() {
     var selectedProvider by remember {
         mutableStateOf(DesktopDataStore.getKey<Int>(NetworkConfig.PREF_DOH_PROVIDER) ?: 0)
     }
+
     var statusMessage by remember { mutableStateOf("") }
 
     Card(
@@ -68,8 +69,10 @@ fun SettingsNetwork() {
                 }
             }
 
+
+
             if (statusMessage.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(statusMessage, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             }
         }

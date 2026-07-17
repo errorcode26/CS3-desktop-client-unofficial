@@ -21,11 +21,7 @@ fun SettingsAbout() {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "This is an UNOFFICIAL Desktop client. Please use the official CloudStream Android app for the best experience. " +
-                        "Follow their socials below for more information.\n\n" +
-                        "PRE-ALPHA BUILD: This software is provided 'as is'. We do not guarantee that any features will work correctly, " +
-                        "and there is no guarantee of future updates or ongoing maintenance.\n\n" +
-                        "This application does not ship with any media content or scrapers. By using this software, you agree that you are solely " +
-                        "responsible for the third-party extensions downloaded and the networks you connect to.",
+                        "This application does not ship with any media content or scrapers.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -46,26 +42,11 @@ fun SettingsAbout() {
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                Text("TMDB API Attribution", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "This product uses the TMDB API but is not endorsed or certified by TMDB.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("Legal & DMCA Disclaimer", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "CloudStream Desktop acts strictly as a neutral web-scraping client and video player framework. " +
-                        "The developers of this application do NOT host, index, upload, distribute, or control any media files or streams. " +
-                        "We hold zero liability for the actions of users or the capabilities of third-party extensions. " +
-                        "All DMCA takedown requests must be directed to the actual third-party websites and servers hosting the copyrighted material. " +
-                        "This software is provided 'as is', without warranty of any kind.",
+                    "This product uses the TMDB API but is not endorsed or certified by TMDB.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

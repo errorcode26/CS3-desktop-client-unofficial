@@ -14,20 +14,173 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.lagradost.cloudstream3.syncproviders.AccountManager
+import com.lagradost.cloudstream3.syncproviders.AuthAPI
+import com.lagradost.cloudstream3.syncproviders.AuthData
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 
 @Composable
-fun SettingsAdvanced(onErrorLogs: () -> Unit) {
+fun SettingsGeneral() {
     val scope = rememberCoroutineScope()
+    var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
+    var accountsUpdated by remember { mutableStateOf(0) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // --- Group 1: Search Settings ---
+        
+        // --- Group 1: Updates & About ---
+        SettingsGroupCard(title = "Updates & About") {
+            val latestRelease by com.lagradost.cloudstream3.desktop.AppUpdater.latestRelease.collectAsState()
+            var isChecking by remember { mutableStateOf(false) }
+
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("CloudStream Desktop Client", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Current Version: v${com.lagradost.cloudstream3.desktop.AppConfig.APP_VERSION}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                
+                if (latestRelease == null) {
+                    FilledTonalButton(
+                        onClick = { 
+                            scope.launch {
+                                isChecking = true
+                                com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates(force = true)
+                                kotlinx.coroutines.delay(500)
+                                isChecking = false
+                            }
+                        },
+                        enabled = !isChecking
+                    ) {
+                        Text(if (isChecking) "Checking..." else "Check for Updates")
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            try {
+                                java.awt.Desktop.getDesktop().browse(java.net.URI(latestRelease!!.html_url))
+                            } catch (e: Exception) {}
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Download v${latestRelease!!.tag_name.removePrefix("v")}")
+                    }
+                }
+            }
+            
+            if (latestRelease != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("What's New in ${latestRelease!!.name}:", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(latestRelease!!.body ?: "No release notes provided.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        // --- Group 2: Accounts & Integrations ---
+        SettingsGroupCard(title = "Accounts & Integrations") {
+            accountsUpdated.hashCode() // Trigger recompose on change
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AccountManager.allApis.forEach { api ->
+                    val accounts = AccountManager.cachedAccounts[api.idPrefix] ?: emptyArray()
+                    val currentAccount = accounts.firstOrNull()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(api.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
+
+                            if (currentAccount != null) {
+                                if (isApiKeyOnly) {
+                                    Text("API Key Active", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                } else {
+                                    Text("Logged in as ${currentAccount.user.name}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                }
+                            } else {
+                                if (isApiKeyOnly) {
+                                    Text("No API Key", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                } else {
+                                    Text("Not logged in", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                                }
+                            }
+                        }
+
+                        if (currentAccount != null) {
+                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
+                            Button(
+                                onClick = {
+                                    AccountManager.updateAccounts(api.idPrefix, emptyArray())
+                                    accountsUpdated++
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            ) {
+                                Text(if (isApiKeyOnly) "Remove Key" else "Logout")
+                            }
+                        } else if (api.requiresLogin) {
+                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
+                            Button(
+                                onClick = {
+                                    if (api.hasInApp) {
+                                        selectedApiForLogin = api
+                                    } else {
+                                        com.lagradost.common.logging.AppLogger.w("${api.name} login not supported on Desktop yet (missing hasInApp)")
+                                    }
+                                },
+                            ) {
+                                Text(if (api.hasInApp) (if (isApiKeyOnly) "Add Key" else "Login") else "Not Supported")
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                }
+
+                // TMDB Custom API Key
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text("The Movie Database (TMDB)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("If TMDB stops working in the future, this is an optional key in case the default key fails or gets rate limited.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    var tmdbApiKey by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<String>("tmdb_api_key") ?: "") }
+                    TextField(
+                        value = tmdbApiKey,
+                        onValueChange = { 
+                            tmdbApiKey = it
+                            com.lagradost.common.storage.DesktopDataStore.setKey("tmdb_api_key", it)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("Leave blank to use default key") },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        shape = MaterialTheme.shapes.medium
+                    )
+                }
+            }
+        }
+
+        // --- Group 2: Search Settings ---
         SettingsGroupCard(title = "Search Settings") {
             var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
             SettingsToggleItem(
@@ -41,7 +194,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
             )
         }
 
-        // --- Group 2: Storage Directories ---
+        // --- Group 3: Storage Directories ---
         SettingsGroupCard(title = "Storage Directories") {
             Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
@@ -69,7 +222,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
             PathRow("System Logs", com.lagradost.common.platform.PlatformPaths.logsDir)
         }
 
-        // --- Group 3: Data Management ---
+        // --- Group 4: Data Management ---
         SettingsGroupCard(title = "Data Management") {
             var imageCacheSize by remember { mutableStateOf("Calculating...") }
             val imageCacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache")
@@ -124,7 +277,7 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
             )
         }
 
-        // --- Group 4: Cloned Sites ---
+        // --- Group 5: Cloned Sites ---
         SettingsGroupCard(title = "Cloned Sites & Custom URLs") {
             Text("You can clone an existing provider and override its URL. This is useful if a site changes its domain.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
@@ -149,19 +302,6 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
 
             Button(onClick = { showAddCloneDialog = true }) {
                 Text("Add Cloned Site")
-            }
-        }
-
-        // --- Group 5: System Logs ---
-        SettingsGroupCard(title = "System Logs") {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Application Logs", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    Text("View internal application logs for troubleshooting and bug reporting.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                OutlinedButton(onClick = onErrorLogs) {
-                    Text("View Logs")
-                }
             }
         }
 
@@ -305,6 +445,161 @@ fun SettingsAdvanced(onErrorLogs: () -> Unit) {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // --- Group 6: Danger Zone ---
+        SettingsGroupCard(title = "Danger Zone") {
+            var showResetDialog by remember { mutableStateOf(false) }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Factory Reset App", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    Text("Deletes all extensions, watch history, settings, and cached data. This cannot be undone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FilledTonalButton(
+                    onClick = { showResetDialog = true },
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                ) {
+                    Text("Wipe Data")
+                }
+            }
+
+            if (showResetDialog) {
+                AlertDialog(
+                    onDismissRequest = { showResetDialog = false },
+                    title = { Text("Factory Reset") },
+                    text = { Text("Are you absolutely sure? This will permanently wipe all your data, plugins, and settings. The app will immediately close to perform the wipe.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val target = com.lagradost.common.platform.PlatformPaths.appDataDir
+                                if (target.exists()) {
+                                    // Delete everything we can right now
+                                    target.deleteRecursively()
+                                    // Register anything locked (like plugin JARs) to be deleted when the JVM exits
+                                    target.walkBottomUp().forEach { it.deleteOnExit() }
+                                }
+                                kotlin.system.exitProcess(0)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Yes, wipe everything") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
+        }
+    }
+
+    if (selectedApiForLogin != null) {
+        InAppLoginDialog(
+            api = selectedApiForLogin!!,
+            onDismiss = { selectedApiForLogin = null },
+            onSuccess = { authData ->
+                AccountManager.updateAccounts(selectedApiForLogin!!.idPrefix, arrayOf(authData))
+                accountsUpdated++
+                selectedApiForLogin = null
+            },
+        )
+    }
+}
+
+@Composable
+fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) -> Unit) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var server by remember { mutableStateOf("") }
+    var apiKeyStr by remember { mutableStateOf("") }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    val req = api.inAppLoginRequirement
+
+    Dialog(onDismissRequest = onDismiss) {
+        val isApiKeyOnly = req != null && req.apiKey && !req.username && !req.password && !req.email && !req.server
+
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.width(400.dp),
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(if (isApiKeyOnly) "Enter API Key for ${api.name}" else "Login to ${api.name}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (req?.username == true) {
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text("Username") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (req?.email == true) {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (req?.password == true) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (req?.server == true) {
+                    OutlinedTextField(
+                        value = server,
+                        onValueChange = { server = it },
+                        label = { Text("Server") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (req?.apiKey == true) {
+                    OutlinedTextField(
+                        value = apiKeyStr,
+                        onValueChange = { apiKeyStr = it },
+                        label = { Text("API Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (errorMsg != null) {
+                    Text(errorMsg!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = {
+                        val authData = AuthData(
+                            user = com.lagradost.cloudstream3.syncproviders.AuthUser(name = if (username.isNotBlank()) username else "User", id = 0, profilePicture = ""),
+                            token = com.lagradost.cloudstream3.syncproviders.AuthToken(accessToken = apiKeyStr.ifBlank { "dummy_token" }),
+                        )
+                        onSuccess(authData)
+                    }) { Text("Login") }
                 }
             }
         }
