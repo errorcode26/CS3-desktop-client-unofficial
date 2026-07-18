@@ -18,7 +18,7 @@ Write-Host "Compiling player_bridge.dll..."
 # -shared: Create a DLL
 # -static: Statically link libstdc++, libgcc, and libwinpthread so the DLL doesn't require MinGW runtime on user PCs
 # -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid: Required Windows system libraries for WebView2 and DWM chrome
-g++ -shared -static -o $DllOutput $Source -I$JavaInclude -I$JavaIncludeWin32 -I$WebviewInclude -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid
+g++ -shared -static -o "$DllOutput" "$Source" -I"$JavaInclude" -I"$JavaIncludeWin32" -I"$WebviewInclude" -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Compilation successful! DLL output to: $DllOutput" -ForegroundColor Green
