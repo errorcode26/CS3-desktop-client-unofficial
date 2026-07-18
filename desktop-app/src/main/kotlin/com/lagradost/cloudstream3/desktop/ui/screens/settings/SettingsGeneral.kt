@@ -22,7 +22,6 @@ import com.lagradost.cloudstream3.syncproviders.AccountManager
 import com.lagradost.cloudstream3.syncproviders.AuthAPI
 import com.lagradost.cloudstream3.syncproviders.AuthData
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.collectAsState
 
 @Composable
 fun SettingsGeneral() {
@@ -34,12 +33,9 @@ fun SettingsGeneral() {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        
-
-
         SettingsGroupCard(title = "Accounts & Integrations") {
             accountsUpdated.hashCode() // Trigger recompose on change
-            
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AccountManager.allApis.forEach { api ->
                     val accounts = AccountManager.cachedAccounts[api.idPrefix] ?: emptyArray()
@@ -103,11 +99,11 @@ fun SettingsGeneral() {
                     Text("The Movie Database (TMDB)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
                     Text("If TMDB stops working in the future, this is an optional key in case the default key fails or gets rate limited.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     var tmdbApiKey by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<String>("tmdb_api_key") ?: "") }
                     TextField(
                         value = tmdbApiKey,
-                        onValueChange = { 
+                        onValueChange = {
                             tmdbApiKey = it
                             com.lagradost.common.storage.DesktopDataStore.setKey("tmdb_api_key", it)
                         },
@@ -120,12 +116,11 @@ fun SettingsGeneral() {
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
                         ),
-                        shape = MaterialTheme.shapes.medium
+                        shape = MaterialTheme.shapes.medium,
                     )
                 }
             }
         }
-
 
         SettingsGroupCard(title = "Search Settings") {
             var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
@@ -139,7 +134,6 @@ fun SettingsGeneral() {
                 },
             )
         }
-
 
         SettingsGroupCard(title = "Storage Directories") {
             Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -167,7 +161,6 @@ fun SettingsGeneral() {
             PathRow("Cache Data", com.lagradost.common.platform.PlatformPaths.cacheDir)
             PathRow("System Logs", com.lagradost.common.platform.PlatformPaths.logsDir)
         }
-
 
         SettingsGroupCard(title = "Data Management") {
             var imageCacheSize by remember { mutableStateOf("Calculating...") }
@@ -202,7 +195,6 @@ fun SettingsGeneral() {
             }
         }
 
-
         var showAddCloneDialog by remember { mutableStateOf(false) }
         var clonedSites by remember {
             mutableStateOf(
@@ -222,7 +214,6 @@ fun SettingsGeneral() {
                 },
             )
         }
-
 
         SettingsGroupCard(title = "Cloned Sites & Custom URLs") {
             Text("You can clone an existing provider and override its URL. This is useful if a site changes its domain.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -251,7 +242,6 @@ fun SettingsGeneral() {
             }
         }
 
-
         if (showAddCloneDialog) {
             var selectedProvider by remember { mutableStateOf<com.lagradost.cloudstream3.MainAPI?>(null) }
             var nameInput by remember { mutableStateOf("") }
@@ -269,7 +259,6 @@ fun SettingsGeneral() {
                     color = MaterialTheme.colorScheme.surface,
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-
                         Column(modifier = Modifier.weight(1f).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
                             Text("Select Base Provider", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(16.dp))
@@ -317,7 +306,6 @@ fun SettingsGeneral() {
                                 }
                             }
                         }
-
 
                         Column(modifier = Modifier.weight(1.5f).fillMaxHeight().padding(24.dp)) {
                             Text("Configure Clone", style = MaterialTheme.typography.headlineSmall)
@@ -395,7 +383,6 @@ fun SettingsGeneral() {
             }
         }
 
-
         SettingsGroupCard(title = "Danger Zone") {
             var showResetDialog by remember { mutableStateOf(false) }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -405,7 +392,7 @@ fun SettingsGeneral() {
                 }
                 FilledTonalButton(
                     onClick = { showResetDialog = true },
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
                 ) {
                     Text("Wipe Data")
                 }
@@ -421,19 +408,18 @@ fun SettingsGeneral() {
                             onClick = {
                                 val target = com.lagradost.common.platform.PlatformPaths.appDataDir
                                 if (target.exists()) {
-
                                     target.deleteRecursively()
 
                                     target.walkBottomUp().forEach { it.deleteOnExit() }
                                 }
                                 kotlin.system.exitProcess(0)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         ) { Text("Yes, wipe everything") }
                     },
                     dismissButton = {
                         TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
-                    }
+                    },
                 )
             }
         }

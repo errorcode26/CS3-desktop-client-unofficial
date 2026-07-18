@@ -344,7 +344,7 @@ fun DetailsContent(
                 val sortedEpisodes = remember(allEpisodes) {
                     allEpisodes.sortedWith(
                         compareBy<com.lagradost.cloudstream3.Episode> { it.season ?: 1 }
-                            .thenBy { it.episode ?: 1 }
+                            .thenBy { it.episode ?: 1 },
                     )
                 }
                 val targetEp = remember(sortedEpisodes, latestHistory) {
@@ -467,7 +467,7 @@ fun DetailsContent(
 
             item {
                 com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
-                    uiState = uiState
+                    uiState = uiState,
                 )
             }
 
@@ -480,7 +480,7 @@ fun DetailsContent(
                             onMovieClick = { rec ->
                                 val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
                                 navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider, rec.url, rec.name, rec.posterUrl, null, false))
-                            }
+                            },
                         )
                     }
                 }
@@ -504,7 +504,7 @@ fun DetailsContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 120.dp),
-                            contentAlignment = Alignment.TopStart
+                            contentAlignment = Alignment.TopStart,
                         ) {
                             if (collBg != null) {
                                 coil3.compose.AsyncImage(
@@ -518,7 +518,7 @@ fun DetailsContent(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 18.dp)
+                                    .padding(horizontal = 24.dp, vertical = 18.dp),
                             ) {
                                 Text(
                                     text = "COLLECTION / SAGA",

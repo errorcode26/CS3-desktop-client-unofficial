@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -10,10 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.components.AmoledConfirmDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
-import com.lagradost.cloudstream3.desktop.ui.components.AmoledConfirmDialog
 import com.lagradost.common.storage.WatchHistory
 
 @Composable
@@ -39,7 +38,7 @@ fun HomeHistoryRow(
             showClearConfirmDialog = false
             onClearHistory()
         },
-        onDismiss = { showClearConfirmDialog = false }
+        onDismiss = { showClearConfirmDialog = false },
     )
 
     CategoryRowWithHeader(
@@ -51,7 +50,7 @@ fun HomeHistoryRow(
             }
         },
     ) {
-        items(historyList.size) { index ->
+        items(historyList.size, key = { index -> historyList[index].parentId }) { index ->
             val history = historyList[index]
             val provider = providers.find { it.name == history.apiName }
             WatchHistoryCard(

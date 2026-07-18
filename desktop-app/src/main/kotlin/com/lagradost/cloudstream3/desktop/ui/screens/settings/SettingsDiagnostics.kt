@@ -37,7 +37,6 @@ fun SettingsDiagnostics() {
             .padding(end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-
         Text(
             text = "Network Diagnostics",
             style = MaterialTheme.typography.headlineSmall,
@@ -49,7 +48,6 @@ fun SettingsDiagnostics() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -106,7 +104,6 @@ fun SettingsDiagnostics() {
             }
         }
 
-
         if (isRunning && currentTest.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -125,7 +122,6 @@ fun SettingsDiagnostics() {
             }
         }
 
-
         if (results.isNotEmpty()) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -140,7 +136,6 @@ fun SettingsDiagnostics() {
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                     ) {
@@ -177,13 +172,11 @@ fun SettingsDiagnostics() {
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                     )
 
-
                     results.forEach { result ->
                         DiagnosticResultRow(result)
                     }
                 }
             }
-
 
             val passCount = results.count { it.passed }
             val failCount = results.count { !it.passed }
@@ -261,8 +254,11 @@ private fun DiagnosticResultRow(result: DiagnosticResult) {
                 modifier = Modifier.width(72.dp),
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
-                color = if (result.timeMs > 3000) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (result.timeMs > 3000) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
             Text(
                 text = result.detail,

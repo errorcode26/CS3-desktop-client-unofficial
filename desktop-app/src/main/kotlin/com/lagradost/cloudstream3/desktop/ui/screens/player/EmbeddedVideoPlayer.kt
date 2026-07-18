@@ -140,7 +140,6 @@ fun EmbeddedVideoPlayer(
             val playerMaxWidth = maxWidth
             val playerMaxHeight = maxHeight
 
-
             if (!isFinished) {
                 var countdownToNextEpisode by remember { mutableStateOf<Int?>(null) }
 
@@ -366,7 +365,6 @@ fun EmbeddedVideoPlayer(
                     )
                 } // end outer Box
             } // end if (!error && !finished)
-
 
             if (isFinished) {
                 Column(

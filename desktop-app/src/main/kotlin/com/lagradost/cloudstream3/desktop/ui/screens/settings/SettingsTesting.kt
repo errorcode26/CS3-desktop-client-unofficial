@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.APIHolder
-import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.utils.TestingUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,7 +26,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsTesting() {
     val scope = rememberCoroutineScope()
-    
+
     val allProviders = remember {
         APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
     }
@@ -42,7 +41,6 @@ fun SettingsTesting() {
         modifier = Modifier.fillMaxSize().padding(end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-
         Text(
             text = "Provider Testing",
             style = MaterialTheme.typography.headlineSmall,
@@ -55,11 +53,10 @@ fun SettingsTesting() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Button(
                 onClick = {
@@ -69,7 +66,7 @@ fun SettingsTesting() {
                         passed = 0
                         failed = 0
                         total = allProviders.size
-                        
+
                         scope.launch(Dispatchers.IO) {
                             TestingUtils.getDeferredProviderTests(this, allProviders.toTypedArray()) { api, result ->
                                 // Update results map safely
@@ -77,7 +74,7 @@ fun SettingsTesting() {
                                     put(api.name, result)
                                 }
                                 if (result.success) passed++ else failed++
-                                
+
                                 if (results.size == allProviders.size) {
                                     isRunning = false
                                 }
@@ -100,7 +97,7 @@ fun SettingsTesting() {
                     Text("Run All Tests")
                 }
             }
-            
+
             if (total > 0) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Passed: $passed", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
@@ -109,36 +106,35 @@ fun SettingsTesting() {
                 }
             }
         }
-        
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(allProviders) { api ->
                 val result = results[api.name]
-                
+
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = api.name,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
-                            
+
                             if (result != null) {
                                 if (result.success) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = "Passed", tint = Color(0xFF4CAF50))
@@ -151,7 +147,7 @@ fun SettingsTesting() {
                                 Text("Not Tested", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        
+
                         AnimatedVisibility(visible = result != null) {
                             if (result != null) {
                                 Column(
@@ -159,7 +155,7 @@ fun SettingsTesting() {
                                         .fillMaxWidth()
                                         .padding(top = 12.dp)
                                         .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                                        .padding(12.dp)
+                                        .padding(12.dp),
                                 ) {
                                     result.log.forEach { logMsg ->
                                         val logColor = when (logMsg.level) {
@@ -172,7 +168,7 @@ fun SettingsTesting() {
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 12.sp,
                                             color = logColor,
-                                            modifier = Modifier.padding(bottom = 2.dp)
+                                            modifier = Modifier.padding(bottom = 2.dp),
                                         )
                                     }
                                     if (result.exception != null) {
@@ -181,7 +177,7 @@ fun SettingsTesting() {
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 12.sp,
                                             color = Color(0xFFFF5252),
-                                            modifier = Modifier.padding(top = 4.dp)
+                                            modifier = Modifier.padding(top = 4.dp),
                                         )
                                     }
                                 }

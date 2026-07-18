@@ -240,10 +240,10 @@ object DesktopRepositoryManager {
     private suspend fun addSingleRepository(url: String): Repository? {
         val resolvedUrl = parseRepoUrl(url) ?: url
         val manifest = fetchRepository(resolvedUrl) ?: return null
-        
+
         // Cache the repository immediately
         repoCache[resolvedUrl] = manifest
-        
+
         saveRepository(
             RepositoryData(
                 iconUrl = manifest.iconUrl,
@@ -251,7 +251,7 @@ object DesktopRepositoryManager {
                 url = resolvedUrl,
             ),
         )
-        
+
         // Pre-fetch and cache all plugins for this repository so they are instantly available
         manifest.pluginLists.forEach { listUrl ->
             try {
@@ -260,7 +260,7 @@ object DesktopRepositoryManager {
                 com.lagradost.common.logging.AppLogger.e("Failed to pre-fetch plugins for $listUrl", e)
             }
         }
-        
+
         return manifest
     }
 

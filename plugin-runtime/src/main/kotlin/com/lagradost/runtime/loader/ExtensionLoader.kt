@@ -97,8 +97,18 @@ object ExtensionLoader {
 
             val dexEntry = zip.getEntry("classes.dex")
             if (hasJvmClasses) {
-                jarToLoad = jarFile
-                AppLogger.i("[PluginLoader] Native JVM JAR detected: ${jarFile.name}")
+                val secureJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-secure.jar")
+                val isCacheValid = secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
+                    (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
+
+                if (!isCacheValid) {
+                    AppLogger.i("[PluginLoader] Securing Native JVM JAR: ${jarFile.name}...")
+                    java.nio.file.Files.copy(jarFile.toPath(), secureJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    PluginBytecodeTransformer.transform(secureJar)
+                } else {
+                    AppLogger.i("[PluginLoader] Using cached Secure JVM JAR: ${secureJar.name}")
+                }
+                jarToLoad = secureJar
             } else if (dexEntry != null) {
                 val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
                 val isCacheValid = convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified() &&
@@ -370,7 +380,11 @@ object ExtensionLoader {
 
     fun unloadPlugin(absolutePath: String) {
         val normPath = File(absolutePath).absolutePath
-        val canonicalPath = try { File(absolutePath).canonicalPath } catch (_: Throwable) { normPath }
+        val canonicalPath = try {
+            File(absolutePath).canonicalPath
+        } catch (_: Throwable) {
+            normPath
+        }
         val plugin = plugins[normPath] ?: plugins[absolutePath] ?: plugins[canonicalPath]
 
         if (plugin != null) {

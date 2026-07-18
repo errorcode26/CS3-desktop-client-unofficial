@@ -120,7 +120,7 @@ object DiagnosticsRunner {
         val response = client.newCall(request).execute()
         val contentLength = response.header("Content-Length") ?: "unknown"
         response.close()
-        "HTTP ${response.code} — Size: ${contentLength} bytes"
+        "HTTP ${response.code} — Size: $contentLength bytes"
     }
 
     /** Test 7: GitHub raw (needed for plugin repos) */
@@ -182,7 +182,7 @@ object DiagnosticsRunner {
         for (r in results) {
             val status = if (r.passed) "PASS" else "FAIL"
             val time = if (r.timeMs > 0) "${r.timeMs}ms" else "--"
-            sb.appendLine("[${status}]  ${r.name.padEnd(28)} ${time.padStart(7)}  ${r.detail}")
+            sb.appendLine("[$status]  ${r.name.padEnd(28)} ${time.padStart(7)}  ${r.detail}")
         }
 
         sb.appendLine("─".repeat(50))

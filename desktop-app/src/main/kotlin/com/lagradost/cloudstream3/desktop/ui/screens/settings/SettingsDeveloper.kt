@@ -17,12 +17,12 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsDeveloper() {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    
+
     data class TabData(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
     val tabs = listOf(
         TabData("Provider Testing", Icons.Default.Build),
         TabData("Network Diagnostics", Icons.Default.NetworkCheck),
-        TabData("Logcat", Icons.Default.List)
+        TabData("Logcat", Icons.Default.List),
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -30,15 +30,15 @@ fun SettingsDeveloper() {
         Surface(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 tabs.forEachIndexed { index, tab ->
                     val isSelected = selectedTabIndex == index
-                    
+
                     Surface(
                         modifier = Modifier
                             .weight(1f)
@@ -46,23 +46,23 @@ fun SettingsDeveloper() {
                         onClick = { selectedTabIndex = index },
                         shape = RoundedCornerShape(12.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     ) {
                         Row(
                             modifier = Modifier.padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                imageVector = tab.icon, 
+                                imageVector = tab.icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = tab.title,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyLarge,
                             )
                         }
                     }

@@ -290,7 +290,7 @@ fun EpisodeCard(
                             Icons.Default.Star,
                             contentDescription = "Rating",
                             tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(14.dp),
                         )
                         Text(
                             text = String.format(java.util.Locale.US, "%.1f", rating10p),
@@ -329,7 +329,9 @@ fun EpisodeCard(
             }
         } else if (epRunTime != null) {
             if (epRunTime > 300) "${epRunTime / 60}m" else "${epRunTime}m"
-        } else null
+        } else {
+            null
+        }
 
         if (durationText != null) {
             Box(

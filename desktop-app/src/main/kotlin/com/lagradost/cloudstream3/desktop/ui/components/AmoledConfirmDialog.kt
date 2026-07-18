@@ -6,9 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -48,17 +46,17 @@ fun AmoledConfirmDialog(
 
     if (show || isVisible) {
         val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-        
+
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
-                usePlatformDefaultWidth = false
-            )
+                usePlatformDefaultWidth = false,
+            ),
         ) {
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
-                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f)
+                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
             ) {
                 AlertDialog(
                     onDismissRequest = onDismiss,
@@ -68,7 +66,7 @@ fun AmoledConfirmDialog(
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleLarge,
-                            color = if (amoledMode) Color.White else MaterialTheme.colorScheme.onSurface
+                            color = if (amoledMode) Color.White else MaterialTheme.colorScheme.onSurface,
                         )
                     },
                     text = {

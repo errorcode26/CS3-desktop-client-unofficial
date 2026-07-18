@@ -96,14 +96,15 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
-        jvmArgs += listOf(
-            "-Djava.security.manager=allow", 
-            "-Djava.net.preferIPv6Addresses=true", 
-            "-Djava.library.path=\$APPDIR/resources/jni", 
-            "-Djna.library.path=\$APPDIR/resources/mpv",
-            "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
-            "-Dfile.encoding=UTF-8"
-        )
+        jvmArgs +=
+            listOf(
+                "-Djava.security.manager=allow",
+                "-Djava.net.preferIPv6Addresses=true",
+                "-Djava.library.path=\$APPDIR/resources/jni",
+                "-Djna.library.path=\$APPDIR/resources/mpv",
+                "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
+                "-Dfile.encoding=UTF-8",
+            )
         buildTypes.release.proguard {
             isEnabled.set(false)
         }
@@ -158,7 +159,7 @@ tasks.matching { it.name == "run" }.configureEach {
     runTask.jvmArgs(
         "-Djna.library.path=${project.file("appResources/windows/mpv").absolutePath}",
         "-Djava.library.path=${project.file("appResources/windows/jni").absolutePath}",
-        "-Dcloudstream.version=${project.findProperty("APP_VERSION")}"
+        "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
     )
 }
 

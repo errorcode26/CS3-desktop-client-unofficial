@@ -429,8 +429,8 @@ fun WatchHistoryCard(
                             lineHeight = 9.sp,
                             lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
                                 alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
-                            )
+                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                            ),
                         ),
                     )
                 }
@@ -454,8 +454,8 @@ fun WatchHistoryCard(
                             lineHeight = 9.sp,
                             lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
                                 alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
-                            )
+                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                            ),
                         ),
                     )
                 }
@@ -480,7 +480,7 @@ fun WatchHistoryCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(end = 8.dp),
             )
-            
+
             val timeLeftText = if (progress >= 1f) {
                 "Completed"
             } else if (history.duration > 0) {

@@ -42,7 +42,6 @@ fun SettingsAppearance() {
         modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-
         SettingsGroupCard(title = "Theme & Colors") {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
@@ -94,7 +93,6 @@ fun SettingsAppearance() {
             )
         }
 
-
         SettingsGroupCard(title = "Typography") {
             SettingsDropdownItem(
                 label = "App Font",
@@ -104,7 +102,6 @@ fun SettingsAppearance() {
                 onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
             )
         }
-
 
         SettingsGroupCard(title = "Cinematic Aesthetics") {
             SettingsToggleItem(
@@ -165,7 +162,6 @@ fun SettingsAppearance() {
                 onCheckedChange = { AppearanceConfig.setHeroDynamicColorEnabled(it) },
             )
         }
-
 
         SettingsGroupCard(title = "Display & Layout") {
             SettingsDropdownItem(

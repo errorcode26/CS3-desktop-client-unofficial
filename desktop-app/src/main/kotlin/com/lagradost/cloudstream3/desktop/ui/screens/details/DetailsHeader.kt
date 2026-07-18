@@ -3,16 +3,11 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -24,11 +19,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,8 +31,8 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
+import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
@@ -49,7 +42,6 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
-import kotlinx.coroutines.launch
 
 @Composable
 fun DetailsBackdrop(
@@ -429,58 +421,57 @@ fun DetailsMetadata(
             }
 
             if (!isLoading) {
-                    Spacer(modifier = Modifier.width(64.dp))
-                    Column(
-                        modifier = Modifier.width(240.dp).padding(bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
-                    ) {
-                        // Status
-                        val status = uiState?.enrichedStatus ?: (data as? TvSeriesLoadResponse)?.showStatus?.name
-                        if (!status.isNullOrBlank()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = "STATUS",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp
-                                )
-                                Text(text = status, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // Source/Provider
+                Spacer(modifier = Modifier.width(64.dp))
+                Column(
+                    modifier = Modifier.width(240.dp).padding(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    // Status
+                    val status = uiState?.enrichedStatus ?: (data as? TvSeriesLoadResponse)?.showStatus?.name
+                    if (!status.isNullOrBlank()) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "SOURCE",
+                                text = "STATUS",
                                 color = Color.White.copy(alpha = 0.5f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp
+                                letterSpacing = 0.8.sp,
                             )
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color.White.copy(alpha = 0.12f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                            Text(text = status, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Source/Provider
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "SOURCE",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.White.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Info,
-                                        contentDescription = "Source",
-                                        tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = provider.name,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp,
-                                    )
-                                }
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = "Source",
+                                    tint = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = provider.name,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                )
                             }
                         }
                     }
@@ -488,6 +479,7 @@ fun DetailsMetadata(
             }
         }
     }
+}
 
 @Composable
 private fun InfoRowItem(label: String, value: String) {
@@ -498,7 +490,7 @@ private fun InfoRowItem(label: String, value: String) {
             color = Color.White.copy(alpha = 0.55f),
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp,
-            fontSize = 11.sp
+            fontSize = 11.sp,
         )
         Text(
             text = value,
@@ -507,7 +499,7 @@ private fun InfoRowItem(label: String, value: String) {
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -517,18 +509,18 @@ private fun InfoRowItem(label: String, value: String) {
 fun DetailsCastSection(
     data: LoadResponse,
     provider: MainAPI,
-    onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {}
+    onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {},
 ) {
     var selectedActor by remember { mutableStateOf<ActorData?>(null) }
     val actors = data.actors ?: emptyList()
 
     val directors = actors.filter {
         it.roleString?.equals("Director", ignoreCase = true) == true ||
-        it.roleString?.equals("Creator", ignoreCase = true) == true
+            it.roleString?.equals("Creator", ignoreCase = true) == true
     }
     val cast = actors.filter {
         it.roleString?.equals("Director", ignoreCase = true) != true &&
-        it.roleString?.equals("Creator", ignoreCase = true) != true
+            it.roleString?.equals("Creator", ignoreCase = true) != true
     }
 
     if (cast.isNotEmpty() || directors.isNotEmpty()) {
@@ -548,7 +540,7 @@ fun DetailsCastSection(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 androidx.compose.foundation.layout.FlowRow(
@@ -562,7 +554,7 @@ fun DetailsCastSection(
                             provider = provider,
                             isInverted = invertedMap[actor] == true,
                             onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { selectedActor = actor }
+                            onClick = { selectedActor = actor },
                         )
                     }
                 }
@@ -578,7 +570,7 @@ fun DetailsCastSection(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 androidx.compose.foundation.layout.FlowRow(
@@ -592,7 +584,7 @@ fun DetailsCastSection(
                             provider = provider,
                             isInverted = invertedMap[actor] == true,
                             onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { selectedActor = actor }
+                            onClick = { selectedActor = actor },
                         )
                     }
                 }
@@ -604,7 +596,7 @@ fun DetailsCastSection(
         CastDetailsDialog(
             actor = selectedActor!!,
             onDismiss = { selectedActor = null },
-            onMovieClick = onMovieClick
+            onMovieClick = onMovieClick,
         )
     }
 }
@@ -615,7 +607,7 @@ private fun ActorCard(
     provider: MainAPI,
     isInverted: Boolean,
     onInvertToggle: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val (mainImgRaw, cornerImgRaw) = if (!isInverted || actor.voiceActor?.image.isNullOrBlank()) {
         Pair(actor.actor.image, actor.voiceActor?.image)
@@ -692,7 +684,7 @@ private fun ActorCard(
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
         if (!subName.isNullOrBlank()) {
@@ -722,7 +714,7 @@ private fun ActorCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailsStatsSection(
-    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState?
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState?,
 ) {
     if (uiState == null) return
 
@@ -752,7 +744,7 @@ fun DetailsStatsSection(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                modifier = Modifier.padding(horizontal = 8.dp),
             )
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -813,7 +805,7 @@ private fun InfoStatCard(label: String, value: String) {
             .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = label.uppercase(),
@@ -822,7 +814,7 @@ private fun InfoStatCard(label: String, value: String) {
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,
             letterSpacing = 0.8.sp,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier.padding(bottom = 4.dp),
         )
         Text(
             text = value,
@@ -832,7 +824,7 @@ private fun InfoStatCard(label: String, value: String) {
             fontSize = 14.sp,
             lineHeight = 18.sp,
             maxLines = 3,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

@@ -18,7 +18,7 @@ object TestingUtils {
         enum class LogLevel {
             Normal,
             Warning,
-            Error;
+            Error,
         }
 
         data class Message(val level: LogLevel, val message: String) {
@@ -48,10 +48,14 @@ object TestingUtils {
             messageLog.add(Message(LogLevel.Error, message))
         }
     }
-    
+
     private fun fail(message: String): Nothing = throw AssertionError(message)
-    private fun assertTrue(message: String, condition: Boolean) { if (!condition) fail(message) }
-    private fun assertNotNull(message: String, value: Any?) { if (value == null) fail(message) }
+    private fun assertTrue(message: String, condition: Boolean) {
+        if (!condition) fail(message)
+    }
+    private fun assertNotNull(message: String, value: Any?) {
+        if (value == null) fail(message)
+    }
 
     class TestResultList(val results: List<SearchResponse>) : TestResult(true)
     class TestResultLoad(val extractorData: String, val shouldLoadLinks: Boolean) : TestResult(true)
@@ -59,14 +63,14 @@ object TestingUtils {
     class TestResultProvider(
         success: Boolean,
         val log: List<Logger.Message>,
-        val exception: Throwable?
+        val exception: Throwable?,
     ) :
         TestResult(success)
 
     @Throws(AssertionError::class, CancellationException::class)
     suspend fun testHomepage(
         api: MainAPI,
-        logger: Logger
+        logger: Logger,
     ): TestResult {
         if (api.hasMainPage) {
             try {
@@ -136,12 +140,11 @@ object TestingUtils {
         }
     }
 
-
     @Throws(AssertionError::class, CancellationException::class)
     private suspend fun testLoad(
         api: MainAPI,
         result: SearchResponse,
-        logger: Logger
+        logger: Logger,
     ): TestResult {
         try {
             if (result.apiName != api.name) {
@@ -230,7 +233,7 @@ object TestingUtils {
     private suspend fun testLinkLoading(
         api: MainAPI,
         url: String?,
-        logger: Logger
+        logger: Logger,
     ): TestResult {
         assertNotNull("Api ${api.name} has invalid url on episode", url)
         if (url == null) return TestResult.Fail // Should never trigger
@@ -269,7 +272,7 @@ object TestingUtils {
     fun getDeferredProviderTests(
         scope: CoroutineScope,
         providers: Array<MainAPI>,
-        callback: (MainAPI, TestResultProvider) -> Unit
+        callback: (MainAPI, TestResultProvider) -> Unit,
     ) {
         providers.forEach { api ->
             scope.launch {
@@ -286,9 +289,11 @@ object TestingUtils {
                     // Test Search Results
                     val searchQueries =
                         // Use the random 3 home page results as queries since they are guaranteed to exist
-                        (homePageList.shuffled(Random).take(3).map { it.name.split(" ").first() } +
+                        (
+                            homePageList.shuffled(Random).take(3).map { it.name.split(" ").first() } +
                                 // If home page is sparse then use generic search queries
-                                listOf("over", "iron", "guy")).take(3)
+                                listOf("over", "iron", "guy")
+                            ).take(3)
 
                     val searchResults = testSearch(api, searchQueries, logger)
                     assertTrue("Failed to get search results", searchResults.success)

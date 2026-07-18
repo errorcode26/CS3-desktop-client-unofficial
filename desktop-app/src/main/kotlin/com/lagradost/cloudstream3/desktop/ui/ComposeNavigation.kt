@@ -65,6 +65,7 @@ val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalO
 @androidx.compose.ui.ExperimentalComposeUiApi
 @Composable
 fun CloudstreamApp() {
+    val homeViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel() }
     val navController = remember { NavController() }
     var showErrorsDialog by remember { mutableStateOf(false) }
     var currentVideo by remember { mutableStateOf<VideoLaunchData?>(null) }
@@ -220,6 +221,7 @@ fun CloudstreamApp() {
                                 ) {
                                     ComposeHomeScreen(
                                         navController = navController,
+                                        viewModel = homeViewModel,
                                     )
                                 }
                                 is Screen.Extensions -> DesktopAppShell(

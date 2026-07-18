@@ -2,11 +2,8 @@ package com.lagradost.cloudstream3.desktop.init
 
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
-import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.mapper
-import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.common.logging.AppLogger
-import kotlinx.coroutines.launch
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -101,7 +98,7 @@ fun initNetwork() {
             ) { true }
         }
     }
-    */
+     */
 
     // Bind the CookieManager stub to OkHttp CookieJar
     android.webkit.CookieManager.setCookieHandler = { url, value ->

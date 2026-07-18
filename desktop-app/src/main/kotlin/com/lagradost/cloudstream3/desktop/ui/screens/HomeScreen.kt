@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -21,14 +22,13 @@ import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
-// haze imports removed
 
 @Composable
 fun ComposeHomeScreen(
     navController: NavController,
+    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel
 
     val providers by viewModel.providers.collectAsState()
     val selectedProvider by viewModel.selectedProvider.collectAsState()
@@ -110,7 +110,7 @@ fun ComposeHomeScreen(
             )
         } else if (selectedProvider != null && selectedProvider!!.hasMainPage && selectedProvider!!.mainPage.isNotEmpty()) {
             val currentProvider = selectedProvider!!
-            val listState = viewModel.listState
+            val listState = rememberLazyListState()
 
             LazyColumn(
                 state = listState,
@@ -209,19 +209,19 @@ fun ComposeHomeScreen(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             AnimatedSearchOverlay(
                 searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.searchQuery.value = it },
+                onSearchQueryChange = { viewModel.setSearchQuery(it) },
                 onSearch = { viewModel.search() },
                 onClose = {
-                    viewModel.searchQuery.value = ""
-                    viewModel.searchResultsGrouped.value = null
+                    viewModel.setSearchQuery("")
+                    viewModel.clearSearchResults()
                     DesktopUiState.forceShowSearchBar.value = false
                 },
                 isSearchActive = isSearchActive,
                 providers = providers,
                 selectedProvider = selectedProvider,
                 onProviderSelected = {
-                    viewModel.selectedProviderName.value = it
-                    viewModel.searchResultsGrouped.value = null
+                    viewModel.setSelectedProvider(it)
+                    viewModel.clearSearchResults()
                 },
                 mergedPluginIcons = mergedPluginIcons,
             )

@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -32,31 +31,31 @@ fun SettingsUpdates() {
                     text = "Updates & Version",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = "Current Version: v${AppConfig.APP_VERSION}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 if (latestRelease != null) {
                     val release = latestRelease!!
                     Text(
                         text = "New Update Available: ${release.name}",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Published at: ${release.published_at}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
@@ -66,7 +65,7 @@ fun SettingsUpdates() {
                             } catch (e: Exception) {
                                 com.lagradost.common.logging.AppLogger.e("Error opening link ${release.html_url}", e)
                             }
-                        }
+                        },
                     ) {
                         Text("Download Update")
                     }
@@ -74,7 +73,7 @@ fun SettingsUpdates() {
                     Text(
                         text = "You are on the latest version.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -90,12 +89,12 @@ fun SettingsUpdates() {
                             isChecking = false
                         }
                     },
-                    enabled = !isChecking
+                    enabled = !isChecking,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Check for updates",
-                        modifier = Modifier.padding(end = 8.dp).size(18.dp)
+                        modifier = Modifier.padding(end = 8.dp).size(18.dp),
                     )
                     Text(if (isChecking) "Checking..." else "Check for Updates")
                 }

@@ -8,7 +8,6 @@ import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotNull
 
 /**
  * Tests for PluginSecurityVerifier — the bytecode scanner that gates plugin loading.
@@ -23,15 +22,13 @@ class PluginSecurityVerifierTest {
     @TempDir
     lateinit var tempDir: File
 
-
-
     /** Builds a minimal .class file (as bytes) that calls the given owner/method. */
     private fun buildClassWithCall(
         className: String,
         ownerClass: String,
         methodName: String,
         descriptor: String,
-        isInterface: Boolean = false
+        isInterface: Boolean = false,
     ): ByteArray {
         val cw = ClassWriter(0)
         cw.visit(Opcodes.V11, Opcodes.ACC_PUBLIC, className, null, "java/lang/Object", null)
@@ -57,8 +54,6 @@ class PluginSecurityVerifierTest {
         return jar
     }
 
-
-
     @Test
     fun `clean class with no dangerous calls passes verification`() {
         // A totally empty class — no method calls at all — should pass cleanly
@@ -74,8 +69,10 @@ class PluginSecurityVerifierTest {
     @Test
     fun `Runtime#exec is blocked`() {
         val classBytes = buildClassWithCall(
-            "EvilPlugin", "java/lang/Runtime", "exec",
-            "(Ljava/lang/String;)Ljava/lang/Process;"
+            "EvilPlugin",
+            "java/lang/Runtime",
+            "exec",
+            "(Ljava/lang/String;)Ljava/lang/Process;",
         )
         val jar = jarWith("EvilPlugin", classBytes)
         assertFailsWith<SecurityException> {
@@ -86,8 +83,11 @@ class PluginSecurityVerifierTest {
     @Test
     fun `System#exit is blocked`() {
         val classBytes = buildClassWithCall(
-            "ExitPlugin", "java/lang/System", "exit", "(I)V",
-            isInterface = false
+            "ExitPlugin",
+            "java/lang/System",
+            "exit",
+            "(I)V",
+            isInterface = false,
         )
         val jar = jarWith("ExitPlugin", classBytes)
         assertFailsWith<SecurityException> {
@@ -98,8 +98,10 @@ class PluginSecurityVerifierTest {
     @Test
     fun `System#getenv is blocked`() {
         val classBytes = buildClassWithCall(
-            "EnvPlugin", "java/lang/System", "getenv",
-            "(Ljava/lang/String;)Ljava/lang/String;"
+            "EnvPlugin",
+            "java/lang/System",
+            "getenv",
+            "(Ljava/lang/String;)Ljava/lang/String;",
         )
         val jar = jarWith("EnvPlugin", classBytes)
         assertFailsWith<SecurityException> {
@@ -110,8 +112,10 @@ class PluginSecurityVerifierTest {
     @Test
     fun `URL#openStream is blocked`() {
         val classBytes = buildClassWithCall(
-            "UrlPlugin", "java/net/URL", "openStream",
-            "()Ljava/io/InputStream;"
+            "UrlPlugin",
+            "java/net/URL",
+            "openStream",
+            "()Ljava/io/InputStream;",
         )
         val jar = jarWith("UrlPlugin", classBytes)
         assertFailsWith<SecurityException> {
@@ -122,8 +126,10 @@ class PluginSecurityVerifierTest {
     @Test
     fun `TimeZone#getDefault is blocked for untrusted plugins`() {
         val classBytes = buildClassWithCall(
-            "TzPlugin", "java/util/TimeZone", "getDefault",
-            "()Ljava/util/TimeZone;"
+            "TzPlugin",
+            "java/util/TimeZone",
+            "getDefault",
+            "()Ljava/util/TimeZone;",
         )
         val jar = jarWith("TzPlugin", classBytes)
         assertFailsWith<SecurityException>("TimeZone.getDefault should be blocked for untrusted plugins") {
@@ -134,8 +140,10 @@ class PluginSecurityVerifierTest {
     @Test
     fun `TimeZone#getDefault is allowed for trusted plugins`() {
         val classBytes = buildClassWithCall(
-            "TrustedPlugin", "java/util/TimeZone", "getDefault",
-            "()Ljava/util/TimeZone;"
+            "TrustedPlugin",
+            "java/util/TimeZone",
+            "getDefault",
+            "()Ljava/util/TimeZone;",
         )
         val jar = jarWith("TrustedPlugin", classBytes)
         // Should NOT throw for trusted plugins

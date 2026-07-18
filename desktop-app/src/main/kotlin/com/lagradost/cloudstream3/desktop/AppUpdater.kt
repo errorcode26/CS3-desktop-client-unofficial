@@ -17,7 +17,7 @@ data class GitHubRelease(
     val name: String,
     val body: String?,
     val html_url: String,
-    val published_at: String
+    val published_at: String,
 )
 
 object AppUpdater {
@@ -43,7 +43,7 @@ object AppUpdater {
                         response.body?.string()?.let { bodyString ->
                             val release = mapper.readValue<GitHubRelease>(bodyString)
                             val remoteVersion = release.tag_name.removePrefix("v")
-                            
+
                             if (compareVersions(remoteVersion, AppConfig.APP_VERSION) > 0) {
                                 _latestRelease.value = release
                             }

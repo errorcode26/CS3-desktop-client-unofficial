@@ -202,7 +202,7 @@ object GlobalDetailsCache {
             collectionItems: List<com.lagradost.cloudstream3.SearchResponse>,
             budget: Long?,
             revenue: Long?,
-            networks: List<String>?
+            networks: List<String>?,
         ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
     ) {
@@ -249,10 +249,10 @@ object GlobalDetailsCache {
                                 // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
-                                
+
                                 // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
                                 if (resultYear != null && loaded.year != null && Math.abs(resultYear - loaded.year!!) > 1) continue
-                                
+
                                 possible.add(result)
                             }
                         }
@@ -356,14 +356,19 @@ object GlobalDetailsCache {
                             } else {
                                 val firstYr = rawFirstAir?.take(4)
                                 val lastYr = rawLastAir?.take(4)
-                                if (firstYr != null && lastYr != null && firstYr != lastYr) "$firstYr – $lastYr"
-                                else firstYr ?: rawRelDate
+                                if (firstYr != null && lastYr != null && firstYr != lastYr) {
+                                    "$firstYr – $lastYr"
+                                } else {
+                                    firstYr ?: rawRelDate
+                                }
                             }
 
                             val countryList = tmdbData.get("origin_country")
                             val countryStr = if (countryList != null && countryList.isArray && countryList.size() > 0) {
                                 countryList.mapNotNull { it.asText()?.takeIf { c -> c.isNotBlank() && c != "null" } }.take(2).joinToString(", ")
-                            } else null
+                            } else {
+                                null
+                            }
 
                             val collId = collectionNode?.get("id")?.asInt()
                             val collItems = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
@@ -384,7 +389,7 @@ object GlobalDetailsCache {
                                                 dummyApi.newMovieSearchResponse(pTitle, url = pUrl, com.lagradost.cloudstream3.TvType.Movie, false) {
                                                     this.posterUrl = pPosterUrl
                                                     if (pId != null) this.id = pId
-                                                }
+                                                },
                                             )
                                         }
                                     }
@@ -421,7 +426,7 @@ object GlobalDetailsCache {
                                 collItems,
                                 budget,
                                 revenue,
-                                networksList
+                                networksList,
                             )
 
                             val originalLanguage = tmdbData.get("original_language")?.asText()
@@ -559,7 +564,7 @@ object GlobalDetailsCache {
                                                 // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
                                                 merged[existingIdx] = existing.copy(
                                                     actor = tmdbActor.actor,
-                                                    roleString = tmdbActor.roleString
+                                                    roleString = tmdbActor.roleString,
                                                 )
                                             }
                                         }

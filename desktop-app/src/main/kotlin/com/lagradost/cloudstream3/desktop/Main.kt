@@ -4,22 +4,18 @@ package com.lagradost.cloudstream3.desktop
 
 // TODO: Yeah I know this is a big ball of mud, but let's refactor this later.
 
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import coil3.compose.setSingletonImageLoaderFactory
@@ -35,7 +31,6 @@ import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import java.io.File
@@ -293,7 +288,7 @@ fun main() {
                     ) { ready ->
                         if (ready) {
                             CloudstreamApp()
-                            
+
                             // App Update Dialog Overlay
                             val latestRelease by com.lagradost.cloudstream3.desktop.AppUpdater.latestRelease.collectAsState()
                             if (latestRelease != null) {
@@ -302,7 +297,7 @@ fun main() {
                                     androidx.compose.material3.AlertDialog(
                                         onDismissRequest = { showUpdateDialog = false },
                                         title = { androidx.compose.material3.Text("Update Available: v${latestRelease!!.tag_name.removePrefix("v")}", style = androidx.compose.material3.MaterialTheme.typography.titleLarge) },
-                                        text = { 
+                                        text = {
                                             androidx.compose.foundation.layout.Column {
                                                 androidx.compose.material3.Text("A new version of CloudStream Desktop is available!", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                                                 androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(8.dp))
@@ -319,7 +314,7 @@ fun main() {
                                         },
                                         dismissButton = {
                                             androidx.compose.material3.TextButton(onClick = { showUpdateDialog = false }) { androidx.compose.material3.Text("Later") }
-                                        }
+                                        },
                                     )
                                 }
                             }

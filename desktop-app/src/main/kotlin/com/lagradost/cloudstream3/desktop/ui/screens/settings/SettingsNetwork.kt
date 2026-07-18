@@ -69,8 +69,6 @@ fun SettingsNetwork() {
                 }
             }
 
-
-
             if (statusMessage.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(statusMessage, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)

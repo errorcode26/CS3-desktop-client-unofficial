@@ -28,18 +28,18 @@ enum class DohProvider(val title: String) {
  * when updateGlobalNetworkClients() is called multiple times (e.g. on DoH switch).
  */
 class TmdbMirrorInterceptor : okhttp3.Interceptor {
-    
+
     // A lazy client dedicated to TMDB that uses HTTP/1.1 to bypass the HTTP/2 network hang.
     // We clone the baseClient but remove this interceptor to avoid an infinite loop.
     private val http11Client by lazy {
         val builder = com.lagradost.cloudstream3.app.baseClient.newBuilder()
             .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
-        
+
         // Remove this interceptor from the clone so we don't infinitely recurse
         val interceptors = builder.interceptors()
         val toRemove = interceptors.filterIsInstance<TmdbMirrorInterceptor>()
         toRemove.forEach { builder.interceptors().remove(it) }
-        
+
         builder.build()
     }
 
@@ -56,7 +56,7 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
                 ?: "api.tmdb.org"
             val newUrl = request.url.newBuilder().host(mirror).build()
             request = request.newBuilder().url(newUrl).build()
-            
+
             AppLogger.d("-> [HTTP/1.1 Fallback] ${request.method} ${request.url}")
             return try {
                 // Execute using the dedicated HTTP/1.1 client instead of the chain

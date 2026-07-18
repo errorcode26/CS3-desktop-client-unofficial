@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 fun CastDetailsDialog(
     actor: com.lagradost.cloudstream3.ActorData,
     onDismiss: () -> Unit,
-    onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {}
+    onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {},
 ) {
     var details by remember { mutableStateOf<GlobalDetailsCache.DesktopActorDetails?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -214,7 +214,7 @@ fun CastDetailsDialog(
                                                             triggerDismiss()
                                                             onMovieClick(item)
                                                         }
-                                                    }
+                                                    },
                                             ) {
                                                 AsyncImage(
                                                     model = item.posterUrl,
