@@ -99,8 +99,8 @@ compose.desktop {
         jvmArgs += listOf(
             "-Djava.security.manager=allow", 
             "-Djava.net.preferIPv6Addresses=true", 
-            "-Djava.library.path=\$APPDIR\\resources\\jni", 
-            "-Djna.library.path=\$APPDIR\\resources\\mpv",
+            "-Djava.library.path=\$APPDIR/resources/jni", 
+            "-Djna.library.path=\$APPDIR/resources/mpv",
             "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
             "-Dfile.encoding=UTF-8"
         )
