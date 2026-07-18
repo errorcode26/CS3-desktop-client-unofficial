@@ -64,6 +64,8 @@ To compile and launch the desktop application in developer mode:
 ```bash
 .\gradlew.bat :desktop-app:run
 ```
+> [!WARNING]
+> Running this command bypasses `jpackage` and the release `.cfg` configuration entirely. Always build the actual `.exe` using `compile.bat` and test it locally before pushing packaging or JNI changes, otherwise you might introduce silent crashes in the release build!
 To quickly run only the isolated media player test harness (without starting the entire app UI):
 ```bash
 # For WebView player testing:
