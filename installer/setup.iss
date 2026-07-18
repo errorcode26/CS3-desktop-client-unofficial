@@ -2,7 +2,7 @@
 #include "version.iss"
 AppId={{C626E83F-8C3A-4D78-B5B3-FA19FE223E0C}}
 AppName=CloudStream
-AppVersion={#AppVersion}-pre-alpha
+AppVersion={#AppVersion}
 AppPublisher=Ayu
 AppPublisherURL=https://github.com/errorcode26/CS3-desktop-client-unofficial
 AppSupportURL=https://github.com/errorcode26/CS3-desktop-client-unofficial

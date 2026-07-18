@@ -180,9 +180,8 @@ fun main() {
             onCloseRequest = ::exitApplication,
             title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
             state = state,
-            // Use native Windows .ico from executable in production to prevent blurry taskbar downscaling.
-            // In dev mode (gradle run), fallback to the .png so we don't see the Java coffee cup.
-            icon = if (System.getProperty("jpackage.app-path") != null) null else androidx.compose.ui.res.painterResource("app_icon_small.png"),
+            // Always supply the icon to Compose so we don't see the Java coffee cup in the title bar!
+            icon = androidx.compose.ui.res.painterResource("app_icon_small.png"),
             onKeyEvent = { keyEvent ->
                 if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                     toggleFullscreen()

@@ -87,6 +87,7 @@ fun initNetwork() {
     }
     mapper.registerModule(fallbackModule)
 
+    /*
     // Initialize WebViewResolver
     WebViewResolver.webViewHandler = { request, callback ->
         com.lagradost.cloudstream3.desktop.network.CdpResolverImpl.resolve(request, callback)
@@ -100,6 +101,7 @@ fun initNetwork() {
             ) { true }
         }
     }
+    */
 
     // Bind the CookieManager stub to OkHttp CookieJar
     android.webkit.CookieManager.setCookieHandler = { url, value ->

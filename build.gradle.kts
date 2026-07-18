@@ -42,4 +42,13 @@ allprojects {
     tasks.withType<AbstractTestTask>().configureEach {
         failOnNoDiscoveredTests = false
     }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            freeCompilerArgs.addAll(
+                "-opt-in=kotlin.uuid.ExperimentalUuidApi",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlin.ExperimentalMultiplatform"
+            )
+        }
+    }
 }

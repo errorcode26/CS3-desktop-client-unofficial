@@ -111,7 +111,8 @@ compose.desktop {
         nativeDistributions {
             // Inno Setup (installer/setup.iss) handles packaging — no native installer format needed here
             packageName = "CloudStream-Desktop"
-            packageVersion = project.findProperty("APP_VERSION")?.toString() ?: "0.0.0"
+            // jpackage STRICTLY requires version to be numeric (e.g. 0.1.5). Strip any -beta or -pre-alpha suffixes.
+            packageVersion = project.findProperty("APP_VERSION")?.toString()?.substringBefore('-') ?: "0.0.0"
             description = "CloudStream Desktop Client"
             vendor = "CloudStream"
             includeAllModules = false
