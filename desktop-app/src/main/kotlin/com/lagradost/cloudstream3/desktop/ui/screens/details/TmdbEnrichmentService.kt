@@ -142,7 +142,9 @@ object TmdbEnrichmentService {
                 if (loaded.year == null) {
                     val yearMatch = Regex("""\b(19\d{2}|20\d{2})\b""").find(loaded.name)
                     if (yearMatch != null) {
-                        loaded.year = yearMatch.groupValues[1].toInt()
+                        withContext(Dispatchers.Main.immediate) {
+                            loaded.year = yearMatch.groupValues[1].toInt()
+                        }
                     }
                 }
 
@@ -231,7 +233,9 @@ object TmdbEnrichmentService {
                         if (tmdbData != null) {
                             val tmdbTitle = tmdbData.get("name")?.asText() ?: tmdbData.get("title")?.asText()
                             if (!tmdbTitle.isNullOrBlank() && tmdbTitle != "null") {
-                                loaded.name = tmdbTitle
+                                withContext(Dispatchers.Main.immediate) {
+                                    loaded.name = tmdbTitle
+                                }
                             }
 
                             val tagline = tmdbData.get("tagline")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
@@ -363,67 +367,69 @@ object TmdbEnrichmentService {
                             val bgPath = tmdbData.get("backdrop_path")?.asText()
                             val posterPath = tmdbData.get("poster_path")?.asText()
 
-                            if (bgPath != null && bgPath != "null") {
-                                loaded.backgroundPosterUrl = "https://image.tmdb.org/t/p/original$bgPath"
-                            } else if (posterPath != null && posterPath != "null" && loaded.backgroundPosterUrl.isNullOrBlank()) {
-                                loaded.backgroundPosterUrl = "https://image.tmdb.org/t/p/original$posterPath"
-                            }
+                            withContext(Dispatchers.Main.immediate) {
+                                if (bgPath != null && bgPath != "null") {
+                                    loaded.backgroundPosterUrl = "https://image.tmdb.org/t/p/original$bgPath"
+                                } else if (posterPath != null && posterPath != "null" && loaded.backgroundPosterUrl.isNullOrBlank()) {
+                                    loaded.backgroundPosterUrl = "https://image.tmdb.org/t/p/original$posterPath"
+                                }
 
-                            if (loaded.posterUrl.isNullOrBlank() && posterPath != null && posterPath != "null") {
-                                loaded.posterUrl = "https://image.tmdb.org/t/p/w500$posterPath"
-                            }
+                                if (loaded.posterUrl.isNullOrBlank() && posterPath != null && posterPath != "null") {
+                                    loaded.posterUrl = "https://image.tmdb.org/t/p/w500$posterPath"
+                                }
 
-                            val overview = tmdbData.get("overview")?.asText()
-                            if (!overview.isNullOrBlank() && overview != "null" && loaded.plot.isNullOrBlank()) {
-                                loaded.plot = overview
-                            }
-                            if (loaded.plot.isNullOrBlank()) {
-                                val translationsList = tmdbData.get("translations")?.get("translations")
-                                if (translationsList != null && translationsList.isArray) {
-                                    val enOverview = translationsList.firstOrNull { it.get("iso_639_1")?.asText() == "en" }
-                                        ?.get("data")?.get("overview")?.asText()
-                                    val nativeOverview = if (!originalLanguage.isNullOrBlank()) {
-                                        translationsList.firstOrNull { it.get("iso_639_1")?.asText() == originalLanguage }
+                                val overview = tmdbData.get("overview")?.asText()
+                                if (!overview.isNullOrBlank() && overview != "null" && loaded.plot.isNullOrBlank()) {
+                                    loaded.plot = overview
+                                }
+                                if (loaded.plot.isNullOrBlank()) {
+                                    val translationsList = tmdbData.get("translations")?.get("translations")
+                                    if (translationsList != null && translationsList.isArray) {
+                                        val enOverview = translationsList.firstOrNull { it.get("iso_639_1")?.asText() == "en" }
                                             ?.get("data")?.get("overview")?.asText()
-                                    } else {
-                                        null
+                                        val nativeOverview = if (!originalLanguage.isNullOrBlank()) {
+                                            translationsList.firstOrNull { it.get("iso_639_1")?.asText() == originalLanguage }
+                                                ?.get("data")?.get("overview")?.asText()
+                                        } else {
+                                            null
+                                        }
+                                        val fallbackPlot = enOverview?.takeIf { it.isNotBlank() && it != "null" }
+                                            ?: nativeOverview?.takeIf { it.isNotBlank() && it != "null" }
+                                        if (!fallbackPlot.isNullOrBlank()) loaded.plot = fallbackPlot
                                     }
-                                    val fallbackPlot = enOverview?.takeIf { it.isNotBlank() && it != "null" }
-                                        ?: nativeOverview?.takeIf { it.isNotBlank() && it != "null" }
-                                    if (!fallbackPlot.isNullOrBlank()) loaded.plot = fallbackPlot
                                 }
-                            }
 
-                            val voteAverage = tmdbData.get("vote_average")?.asDouble()
-                            if (voteAverage != null && loaded.score == null) {
-                                loaded.score = com.lagradost.cloudstream3.Score.from10(voteAverage)
-                            }
-
-                            val runtime = tmdbData.get("runtime")?.asInt()
-                            if (runtime != null && runtime > 0 && (loaded.duration == null || loaded.duration == 0)) {
-                                loaded.duration = runtime
-                            } else {
-                                val episodeRunTime = tmdbData.get("episode_run_time")?.get(0)?.asInt()
-                                if (episodeRunTime != null && episodeRunTime > 0 && (loaded.duration == null || loaded.duration == 0)) {
-                                    loaded.duration = episodeRunTime
+                                val voteAverage = tmdbData.get("vote_average")?.asDouble()
+                                if (voteAverage != null && loaded.score == null) {
+                                    loaded.score = com.lagradost.cloudstream3.Score.from10(voteAverage)
                                 }
-                            }
 
-                            val genres = tmdbData.get("genres")
-                            if (genres != null && genres.isArray) {
-                                val tmdbTags = mutableListOf<String>()
-                                genres.forEach { tag ->
-                                    val name = tag.get("name")?.asText()
-                                    if (!name.isNullOrBlank() && name != "null") tmdbTags.add(name)
-                                }
-                                if (tmdbTags.isNotEmpty()) {
-                                    if (tmdbTags.any { it.equals("Animation", ignoreCase = true) } && originalLanguage == "ja") {
-                                        tmdbIsAnime = true
+                                val runtime = tmdbData.get("runtime")?.asInt()
+                                if (runtime != null && runtime > 0 && (loaded.duration == null || loaded.duration == 0)) {
+                                    loaded.duration = runtime
+                                } else {
+                                    val episodeRunTime = tmdbData.get("episode_run_time")?.get(0)?.asInt()
+                                    if (episodeRunTime != null && episodeRunTime > 0 && (loaded.duration == null || loaded.duration == 0)) {
+                                        loaded.duration = episodeRunTime
                                     }
-                                    if (loaded.tags.isNullOrEmpty()) {
-                                        loaded.tags = tmdbTags
-                                    } else {
-                                        loaded.tags = (loaded.tags!! + tmdbTags).distinct()
+                                }
+
+                                val genres = tmdbData.get("genres")
+                                if (genres != null && genres.isArray) {
+                                    val tmdbTags = mutableListOf<String>()
+                                    genres.forEach { tag ->
+                                        val name = tag.get("name")?.asText()
+                                        if (!name.isNullOrBlank() && name != "null") tmdbTags.add(name)
+                                    }
+                                    if (tmdbTags.isNotEmpty()) {
+                                        if (tmdbTags.any { it.equals("Animation", ignoreCase = true) } && originalLanguage == "ja") {
+                                            tmdbIsAnime = true
+                                        }
+                                        if (loaded.tags.isNullOrEmpty()) {
+                                            loaded.tags = tmdbTags
+                                        } else {
+                                            loaded.tags = (loaded.tags!! + tmdbTags).distinct()
+                                        }
                                     }
                                 }
                             }
@@ -480,24 +486,26 @@ object TmdbEnrichmentService {
                                 }
 
                                 if (actors.isNotEmpty()) {
-                                    if (loaded.actors.isNullOrEmpty()) {
-                                        loaded.actors = actors
-                                    } else {
-                                        val merged = loaded.actors!!.toMutableList()
-                                        actors.forEach { tmdbActor ->
-                                            val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
-                                            if (existingIdx == -1) {
-                                                merged.add(tmdbActor)
-                                            } else {
-                                                val existing = merged[existingIdx]
-                                                // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
-                                                merged[existingIdx] = existing.copy(
-                                                    actor = tmdbActor.actor,
-                                                    roleString = tmdbActor.roleString,
-                                                )
+                                    withContext(Dispatchers.Main.immediate) {
+                                        if (loaded.actors.isNullOrEmpty()) {
+                                            loaded.actors = actors
+                                        } else {
+                                            val merged = loaded.actors!!.toMutableList()
+                                            actors.forEach { tmdbActor ->
+                                                val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
+                                                if (existingIdx == -1) {
+                                                    merged.add(tmdbActor)
+                                                } else {
+                                                    val existing = merged[existingIdx]
+                                                    // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
+                                                    merged[existingIdx] = existing.copy(
+                                                        actor = tmdbActor.actor,
+                                                        roleString = tmdbActor.roleString,
+                                                    )
+                                                }
                                             }
+                                            loaded.actors = merged
                                         }
-                                        loaded.actors = merged
                                     }
                                 }
                             }
@@ -532,7 +540,11 @@ object TmdbEnrichmentService {
                                         recs.add(searchResp)
                                     }
                                 }
-                                if (recs.isNotEmpty()) loaded.recommendations = recs
+                                if (recs.isNotEmpty()) {
+                                    withContext(Dispatchers.Main.immediate) {
+                                        loaded.recommendations = recs
+                                    }
+                                }
                             }
 
                             // Extract episode thumbnails for seasons 1-15
@@ -597,12 +609,14 @@ object TmdbEnrichmentService {
                                 if (bestLogoPath != null && bestLogoPath != "null") {
                                     val sizeParam = if (bestLogoPath.endsWith(".svg", ignoreCase = true)) "original" else "w500"
                                     val logoUrl = "https://image.tmdb.org/t/p/$sizeParam$bestLogoPath"
-                                    if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
-                                        loaded.logoUrl = logoUrl
-                                    } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                                        loaded.logoUrl = logoUrl
-                                    } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                                        loaded.logoUrl = logoUrl
+                                    withContext(Dispatchers.Main.immediate) {
+                                        if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
+                                            loaded.logoUrl = logoUrl
+                                        } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                                            loaded.logoUrl = logoUrl
+                                        } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                                            loaded.logoUrl = logoUrl
+                                        }
                                     }
                                 }
                             }
@@ -639,7 +653,9 @@ object TmdbEnrichmentService {
                     try {
                         val aniListCast = fetchAniListCast(cleanName, loaded.year)
                         if (!aniListCast.isNullOrEmpty()) {
-                            loaded.actors = aniListCast
+                            withContext(Dispatchers.Main.immediate) {
+                                loaded.actors = aniListCast
+                            }
                             com.lagradost.common.logging.AppLogger.i("[AniList] Enriched cast with ${aniListCast.size} character+VA entries for '${loaded.name}'")
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {

@@ -25,7 +25,7 @@
 - `TmdbEnrichmentService` — all TMDB queries.
 - `ImageColorExtractor` — pixel sampling logic (already partially isolated in `DetailsViewModel`).
 
-**Fix now or after alpha?** After alpha — this is a correctness-stable God Object, not a crash risk. But it will block testability indefinitely if left.
+**Fix now or after alpha?** ✅ FIXED — Extracted `TmdbEnrichmentService` (`TmdbEnrichmentService.kt`) from `DetailsRepository.kt`.
 
 ---
 
@@ -91,7 +91,7 @@ _response.value = currentData.copy(name = preloadedName)
 // OR treat LoadResponse as immutable and make a local wrapper.
 ```
 
-**Fix now or after alpha?** Now.
+**Fix now or after alpha?** ✅ FIXED — Confined all field mutations on `loaded` (`name`, `posterUrl`, `plot`, `score`, `duration`, `tags`, `actors`, `recommendations`, `logoUrl`) to `Dispatchers.Main.immediate` in `TmdbEnrichmentService.kt` via Thread Confinement.
 
 ---
 
@@ -620,7 +620,7 @@ These issues are real but their root cause comes from porting Android patterns. 
 
 | ID | Issue | Risk if Fixed Incorrectly | Status |
 |----|-------|---------------------------|--------|
-| A01 | `GlobalDetailsCache` God Object | Low — internal refactor only | Partially Fixed (`DetailsCache` split) |
+| ✅ A01 | `GlobalDetailsCache` God Object | Low — internal refactor only | **FIXED** (`DetailsCache` & `TmdbEnrichmentService` split) |
 | ✅ A06 | `Screen.Details` stores `providerName` String | **High** — incorrect fix breaks plugin navigation | **FIXED** |
 | ✅ A08 | `DesktopRepositoryManager` bypasses proxy | Low — OkHttp swap only | **FIXED** |
 | ✅ A13 | `DataStore.save()` synchronous write | Low — in-memory cache unchanged, only disk flush deferred | **FIXED** |
