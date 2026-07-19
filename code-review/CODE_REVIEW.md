@@ -641,7 +641,7 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 
 | ID  | Area                                                           | Severity     | Fix When     | Category | Status |
 |-----|----------------------------------------------------------------|--------------|--------------|----------|--------|
-| A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | Partial |
+| ✅ A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | **FIXED** |
 | ✅ A02 | `TmdbRateLimiter` race condition                               | **Major**    | **Now**      | **1**    | **FIXED** |
 | ✅ A03 | Mutable `LoadResponse` on IO thread                            | **Critical** | **Now**      | **1**    | **FIXED** |
 | ✅ A04 | `DetailsViewModel` scope leak                                  | **Major**    | **Now**      | **1**    | **FIXED** |
