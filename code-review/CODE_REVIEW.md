@@ -673,12 +673,208 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | ✅ M06 | Core unit test suite (`DesktopCoreTests.kt`)                   | Major        | Before beta  | 1        | **FIXED** |
 
 ---
+    ...
+)
+```
+
+**Fix verified:** `PosterCard` now accepts `gridScale` directly as a parameter defaulting to `AppearanceConfig.gridScale.value`, completely eliminating the N× flow subscriptions across poster grids.
+
+---
+
+### ISSUE-P08 · `LazyColumn` in `DetailsContent` Uses No Stable Keys (✅ FIXED)
+
+**Evidence:** `DetailsScreen.kt` L348–L440
+
+```kotlin
+item(key = "HeroSection") { ... }
+item(key = "EpisodeSection") { ... }
+item(key = "CastSection") { ... }
+item(key = "RecommendationsSection") { ... }
+```
+
+**Fix verified:** All `item { }` sections inside `DetailsScreen` `LazyColumn` now specify unique, stable string keys (`key = "..."`), guaranteeing zero unnecessary list recompositions when sibling state changes.
+
+---
+
+## Part 3 — Maintainability Review
+
+### ISSUE-M01 · `ComposeNativeWebPlayer.kt` & `BaseMpvPlayer.kt` Deduplication (✅ FIXED)
+
+**Evidence:** `ComposeNativeWebPlayer.kt` L181, `BaseMpvPlayer.kt`
+
+**Fix verified:** `ComposeNativeWebPlayer.kt` has been cleanly refactored from 1,396 lines (82 KB) down to 532 lines (29 KB) by delegating directly to `BaseMpvPlayer(...)` via lifecycle hooks (`onPreInitialize`, `onPostInitialize`, `onEventLoopReady`). The shared JNA window creation (`Canvas`), C-library event loop, and keyboard handling are completely centralized in `BaseMpvPlayer.kt`, and the old copy-paste comment has been removed.
+
+**Fix now or after alpha?** Fixed now.
+
+---
+
+### ISSUE-M02 · `Main.kt` Separation of Concerns & Ball of Mud Refactor (✅ FIXED)
+
+**Evidence:** `Main.kt`, `AppWindowListeners.kt`, `AppUpdateDialog.kt`
+
+**Fix implemented:** Extracted the 7 disparate responsibilities out of `Main.kt` cleanly into focused modules inside `com.lagradost.cloudstream3.desktop.init`:
+- `AppWindowListeners.kt` (`rememberFullscreenHelper()`, `setupWindowBackgroundAndListeners()`) handles AWT/Swing state tracking, background forcing, and key events.
+- `AppUpdateDialog.kt` (`AppUpdateDialog()`, `launchPeriodicPluginUpdater()`) handles update checks and UI modals.
+- `Main.kt` is now under 140 lines of pure, high-level application scaffolding, and the old `// TODO: Yeah I know this is a big ball of mud...` comment has been removed.
+
+**Fix now or after alpha?** Fixed now.
+
+---
+
+### ISSUE-M03 · Dock Position Logic Uses String Literals Throughout (✅ FIXED)
+
+**Evidence:** `DockPosition.kt`, `DesktopAppShell.kt`, `AppearanceConfig.kt`
+
+```kotlin
+enum class DockPosition(val label: String) {
+    LEFT("Left"), RIGHT("Right"), TOP("Top"), BOTTOM("Bottom");
+}
+```
+
+**Fix verified:** Replaced string literals (`"Right"`, `"Bottom"`, etc.) across `DesktopAppShell`, `HomeScreen`, `AppearanceConfig`, and `SettingsAppearance` with the type-safe `DockPosition` enum class.
+
+**Fix now or after alpha?** Fixed now.
+
+---
+
+### ISSUE-M04 · `DetailsScreen.kt` at 1,021 Lines With Deeply Nested Composable Lambdas (✅ FIXED)
+
+**Evidence:** `DetailsScreen.kt` — 1,021 lines.
+
+`DetailsContent` contains inline Composable lambdas (`heroAction`) that themselves contain full business logic (target episode selection, button label computation, play callback). These anonymous `@Composable` lambdas are defined inside a parent composable, making them invisible to the Compose tooling for recomposition analysis, preview, and testing.
+
+**Severity:** Minor (functional), but the `heroAction` block should be a named private composable function.
+
+**Fix:** Extract `heroAction` to `fun HeroActionRow(data, provider, latestHistory, onPlay)` at file scope.
+
+**Fix now or after alpha?** After alpha.
+
+---
+
+### ISSUE-M05 · `PluginSettingsDialog.kt` at 619 Lines for a Single Dialog (✅ FIXED)
+
+**Evidence:** `PluginSettingsDialog.kt` — 619 lines, 46KB.
+
+A dialog that has grown to 619 lines is a clear signal it is doing too much. Setting category rendering, value persistence, slider/toggle/text-field builders, and dialog scaffolding should each be separate components.
+
+**Severity:** Minor
+
+**Fix:** Split into `PluginSettingItem.kt` (per-item renderers) + `PluginSettingsDialog.kt` (orchestration only).
+
+**Fix now or after alpha?** After alpha.
+
+---
+
+### ISSUE-M06 · Core Unit Test Harness (`DesktopCoreTests.kt`) (✅ FIXED)
+
+**Evidence:** `DesktopCoreTests.kt` under `desktop-app/src/test/kotlin/com/lagradost/cloudstream3/desktop/`
+
+**Fix implemented:** Created `DesktopCoreTests.kt` using `kotlin.test` / `JUnit 5` to provide fast, automated verification of:
+- `NavController` state transitions, backstack clearing (`navigateRoot`), traversal order (`goBack`, `goForward`), and duplicate push filtering (`canGoBack`, `canGoForward`).
+- `TmdbRateLimiter` coroutine concurrency and compound locking under multi-threaded `acquire()` calls.
+- Alongside existing `AppUpdaterTest.kt`, `MpvEventTest.kt`, and `DetailsTitleTest.kt`, core desktop lifecycle and concurrency boundaries now have test coverage.
+
+**Fix now or after alpha?** Fixed now.
+
+---
+
+## Issue Classification by Origin
+
+Before using the summary table, understand which category each issue falls into. **Only Category 1 issues are safe to fix without auditing the plugin API boundary.**
+
+### Category 1 — Pure Compose / Desktop Architecture
+These have no Android-port justification. They are desktop Compose lifecycle mistakes or concurrency bugs that exist purely in the desktop layer and are safe to fix without touching anything a plugin would call.
+
+| ID | Issue | Status |
+|----|-------|--------|
+| ✅ A02 | `TmdbRateLimiter` — `@Volatile` does not make compound read-write atomic | **FIXED** |
+| ✅ A03 | Mutable `LoadResponse` written on IO thread — data race | **FIXED** |
+| ✅ A04 | `DetailsViewModel` borrows `rememberCoroutineScope` — leaked scope | **FIXED** |
+| ✅ A05 | `DesktopHomeViewModel` borrows `rememberCoroutineScope` — leaked scope | **FIXED** |
+| ✅ A07 | `NavController` non-thread-safe lists | **FIXED** |
+| ✅ A10 | `vlcPlayer` file-level singleton — native resource never disposed | **FIXED** |
+| ✅ A11 | `SearchUiState` Compose data class mutability | **FIXED** |
+| ✅ A12 | `FullscreenController` Compose data class mutability | **FIXED** |
+| ✅ A15 | Auto-update `LaunchedEffect` loop inside composable — runs 4× simultaneously | **FIXED** |
+| ✅ A16 | `GlobalDetailsCache.cache` is public mutable | **FIXED** |
+| ✅ P02 | Duplicate `historyUpdatesVal` subscription | **FIXED** |
+| ✅ P04 | `drawBehind` allocates `Brush.radialGradient` on every draw frame | **FIXED** |
+| ✅ P05 | `transitionSpec` lambda captures observable state — can re-fire mid-animation | **FIXED** |
+| ✅ P06 | Ambient glow redraws uncached every frame | **FIXED** |
+| ✅ P07 | `collectAsState` called per `PosterCard` for a global setting | **FIXED** |
+| ✅ P08 | `LazyColumn` items have no stable `key =` | **FIXED** |
+| ✅ M01 | `ComposeNativeWebPlayer` & `BaseMpvPlayer` deduplication | **FIXED** |
+| ✅ M02 | `Main.kt` separation of concerns | **FIXED** |
+| ✅ M03 | Dock position magic strings | **FIXED** |
+| ✅ M04 | `DetailsScreen` monolith & nested lambdas | **FIXED** |
+| ✅ M05 | `PluginSettingsDialog` monolith | **FIXED** |
+| ✅ M06 | Core unit tests (`DesktopCoreTests.kt`) | **FIXED** |
+
+### Category 2 — Android-Port Inherited Patterns (Require Audit Before Fixing)
+These issues are real but their root cause comes from porting Android patterns. Fixes must be verified not to break the plugin API surface or the `android-stubs` compatibility layer.
+
+| ID | Issue | Risk if Fixed Incorrectly | Status |
+|----|-------|---------------------------|--------|
+| ✅ A01 | `GlobalDetailsCache` God Object | Low — internal refactor only | **FIXED** (`DetailsCache` & `TmdbEnrichmentService` split) |
+| ✅ A06 | `Screen.Details` stores `providerName` String | **High** — incorrect fix breaks plugin navigation | **FIXED** |
+| ✅ A08 | `DesktopRepositoryManager` bypasses proxy | Low — OkHttp swap only | **FIXED** |
+| ✅ A13 | `DataStore.save()` synchronous write | Low — in-memory cache unchanged, only disk flush deferred | **FIXED** |
+| ✅ P01 | `getAllWatchHistory()` full scan on recomposition | Low — move to ViewModel | **FIXED** |
+| ✅ P03 | Full image re-download for color extraction | Low — subsampled decode (`ImageReadParam`) | **FIXED** |
+
+### Category 3 — Retracted / Intentional by Design (Not Issues)
+Initially flagged but incorrect given the Android-port or client-side UX context.
+
+| ID | Issue | Why Retracted / Marked Intentional |
+|----|-------|------------------------------------|
+| **A09** | `TMDB_API_KEY` default client fallback | **Intentional Client-Side UX:** TMDB read-only queries are rate-limited per client IP. Having a public client-side key out of the box prevents forcing regular users to register API keys during onboarding, while still checking `DataStore` first so power users can override with a personal key. |
+| **A14** | `DataStore` Android extension functions | These are **intentional plugin API surface**, not dead code. The `android-stubs` module exists precisely so plugins compiled against the Android SDK can call these. Do not remove or move them. |
+
+---
+
+## Summary Table
+
+| ID  | Area                                                           | Severity     | Fix When     | Category | Status |
+|-----|----------------------------------------------------------------|--------------|--------------|----------|--------|
+| A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | Partial |
+| ✅ A02 | `TmdbRateLimiter` race condition                               | **Major**    | **Now**      | **1**    | **FIXED** |
+| ✅ A03 | Mutable `LoadResponse` on IO thread                            | **Critical** | **Now**      | **1**    | **FIXED** |
+| ✅ A04 | `DetailsViewModel` scope leak                                  | **Major**    | **Now**      | **1**    | **FIXED** |
+| ✅ A05 | `DesktopHomeViewModel` scope never cancelled                   | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ A06 | `Screen.Details` holds `providerName: String`                  | Major        | After alpha  | 2        | **FIXED** |
+| ✅ A07 | `NavController` non-thread-safe lists                          | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ A08 | `DesktopRepositoryManager` own OkHttpClients (bypasses proxy)  | **Major**    | **Now**      | 2        | **FIXED** |
+| ✅ A09 | `TMDB_API_KEY` default client fallback                         | ~~Major~~    | **DESIGN**   | **3**    | **RETRACTED** |
+| ✅ A10 | `vlcPlayer` file-level singleton, never disposed               | **Major**    | **Now**      | **1**    | **FIXED** |
+| ✅ A11 | `SearchUiState` as `data class` with `MutableState`            | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ A12 | `FullscreenController` as `data class` with `MutableState`     | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ A13 | `DataStore.save()` synchronous full-write per key              | **Major**    | **Now**      | 2        | **FIXED** |
+| A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    | **RETRACTED** |
+| ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    | **FIXED** |
+| ✅ A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        | **FIXED** |
+| ✅ P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        | **FIXED** |
+| ✅ P04 | `drawBehind` allocates gradients every frame                   | Minor        | After alpha  | **1**    | **FIXED** |
+| ✅ P05 | `transitionSpec` reads observable state                        | Minor        | After alpha  | **1**    | **FIXED** |
+| ✅ P06 | Ambient glow redraws uncached every frame                      | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ P07 | `gridScale` subscribed per poster card                         | Minor        | After alpha  | **1**    | **FIXED** |
+| ✅ P08 | `LazyColumn` items missing stable keys                         | Minor        | After alpha  | **1**    | **FIXED** |
+| ✅ M01 | `ComposeNativeWebPlayer` deduplication                         | Major        | After alpha  | 1        | **FIXED** |
+| ✅ M02 | `Main.kt` acknowledged ball-of-mud                             | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ M03 | Dock position as magic strings                                 | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ M04 | `DetailsScreen` 1021-line, nested lambdas                      | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ M05 | `PluginSettingsDialog` 619-line monolith                       | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ M06 | Core unit test suite (`DesktopCoreTests.kt`)                   | Major        | Before beta  | 1        | **FIXED** |
+
+---
 
 ## Fix-Now Priority Order
 
 1. ~~**A03** — Data race on mutable model (correctness, undefined behavior)~~ ✅ **FIXED**
 2. ~~**A02** — Rate limiter race condition (operational, TMDB 429 cascades)~~ ✅ **FIXED**
 3. ~~**A09** — Hardcoded API key in source (operational + ToS violation)~~ ✅ **INTENTIONAL BY DESIGN (RETRACTED)**
+
 4. ~~**A10** — VLC player never disposed (guaranteed native resource leak)~~ ✅ **FIXED**
 5. ~~**A08** — Proxy bypass in repository manager (privacy regression)~~ ✅ **FIXED**
 6. ~~**A13** — DataStore synchronous file write on UI thread (UI jank)~~ ✅ **FIXED**
