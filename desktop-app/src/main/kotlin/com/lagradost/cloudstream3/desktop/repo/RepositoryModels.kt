@@ -23,6 +23,7 @@ data class SitePlugin(
     @JsonProperty("description") val description: String? = null,
     @JsonProperty("iconUrl") val iconUrl: String? = null,
     @JsonProperty("fileHash") val fileHash: String? = null,
+    @JsonProperty("jarHash") val jarHash: String? = null,
     @JsonProperty("fileSize") val fileSize: Long? = null,
     @JsonProperty("language") val language: String? = null,
     @JsonProperty("tvTypes") val tvTypes: List<String>? = null,

@@ -59,6 +59,10 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember(url) { DetailsViewModel(coroutineScope, provider, url, preloadedName, preloadedPoster, preloadedBg) }
 
+    LaunchedEffect(viewModel) {
+        viewModel.load()
+    }
+
     val response by viewModel.response.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val fakeData by viewModel.fakeData.collectAsState()

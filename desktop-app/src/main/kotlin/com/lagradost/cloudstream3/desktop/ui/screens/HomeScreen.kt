@@ -15,7 +15,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.DesktopUiState
+
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
@@ -29,6 +29,7 @@ fun ComposeHomeScreen(
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
 
     val providers by viewModel.providers.collectAsState()
     val selectedProvider by viewModel.selectedProvider.collectAsState()
@@ -214,7 +215,7 @@ fun ComposeHomeScreen(
                 onClose = {
                     viewModel.setSearchQuery("")
                     viewModel.clearSearchResults()
-                    DesktopUiState.forceShowSearchBar.value = false
+                    searchUiState.isSearchForced.value = false
                 },
                 isSearchActive = isSearchActive,
                 providers = providers,

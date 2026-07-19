@@ -40,6 +40,13 @@ val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoL
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
 
+data class SearchUiState(
+    val isSearchForced: androidx.compose.runtime.MutableState<Boolean>,
+    val searchFocusTrigger: androidx.compose.runtime.MutableState<Int>
+)
+val LocalSearchUiState = androidx.compose.runtime.staticCompositionLocalOf<SearchUiState> { error("No SearchUiState provided") }
+val LocalHomeViewModel = androidx.compose.runtime.staticCompositionLocalOf<com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel> { error("No DesktopHomeViewModel provided") }
+
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
  * Uses GraphicsDevice.setFullScreenWindow() which is the only way to get true fullscreen on Windows
@@ -83,8 +90,17 @@ fun CloudstreamApp() {
         )
     }
 
+    val searchUiState = remember {
+        SearchUiState(
+            isSearchForced = mutableStateOf(false),
+            searchFocusTrigger = mutableStateOf(0)
+        )
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
+        LocalSearchUiState provides searchUiState,
+        LocalHomeViewModel provides homeViewModel,
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)

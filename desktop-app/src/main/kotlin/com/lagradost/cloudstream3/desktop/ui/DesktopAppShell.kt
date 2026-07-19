@@ -28,17 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 
-object DesktopUiState {
-    val forceShowSearchBar = MutableStateFlow(false)
-    val searchFocusTrigger = MutableStateFlow(0)
-    val forceProviderRefresh = MutableStateFlow(0)
-
-    // Global provider selection states (fed by HomeViewModel)
-    val homeProviders = MutableStateFlow<List<com.lagradost.cloudstream3.MainAPI>>(emptyList())
-    val selectedProviderName = MutableStateFlow<String?>(null)
-    val mergedPluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
-    val isProviderDropdownExpanded = MutableStateFlow(false)
-}
+// Removed DesktopUiState globally!
 
 @Composable
 fun DesktopAppShell(
@@ -54,10 +44,11 @@ fun DesktopAppShell(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
     LaunchedEffect(current) {
         if (current !is Screen.Home) {
-            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
-            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.searchFocusTrigger.value = 0
+            searchUiState.isSearchForced.value = false
+            searchUiState.searchFocusTrigger.value = 0
         }
     }
 
@@ -70,7 +61,7 @@ fun DesktopAppShell(
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val isSearchForced by com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.collectAsState()
+    val isSearchForced by searchUiState.isSearchForced
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -195,8 +186,8 @@ fun DesktopAppShell(
                     if (current !is Screen.Home) {
                         navController.navigateRoot(Screen.Home)
                     }
-                    com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = true
-                    com.lagradost.cloudstream3.desktop.ui.DesktopUiState.searchFocusTrigger.value += 1
+                    searchUiState.isSearchForced.value = true
+                    searchUiState.searchFocusTrigger.value += 1
                 },
             )
 
@@ -227,7 +218,8 @@ private fun NavigationDock(
     val isTop = dockPosition == "Top"
     val isHorizontal = isBottom || isTop
 
-    val isSearchForced by com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.collectAsState()
+    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
+    val isSearchForced by searchUiState.isSearchForced
 
     val dockItems = @Composable {
         DockItem(
@@ -237,7 +229,7 @@ private fun NavigationDock(
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = {
-                com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceShowSearchBar.value = false
+                searchUiState.isSearchForced.value = false
                 onNavigate(Screen.Home)
             },
         )

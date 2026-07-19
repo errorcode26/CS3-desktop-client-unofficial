@@ -247,32 +247,7 @@ class DesktopHomeViewModel {
             }
         }
 
-        // Listen for global provider refresh
-        coroutineScope.launch {
-            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.forceProviderRefresh.collect { value ->
-                if (value > 0) reloadProvider()
-            }
-        }
 
-        // Sync provider data to DesktopUiState for global access
-        coroutineScope.launch {
-            providers.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.homeProviders.value = it }
-        }
-        coroutineScope.launch {
-            mergedPluginIcons.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.mergedPluginIcons.value = it }
-        }
-        // Bidirectional sync for selectedProviderName
-        coroutineScope.launch {
-            selectedProviderName.collect { com.lagradost.cloudstream3.desktop.ui.DesktopUiState.selectedProviderName.value = it }
-        }
-        coroutineScope.launch {
-            com.lagradost.cloudstream3.desktop.ui.DesktopUiState.selectedProviderName.collect { globalName ->
-                if (globalName != null && selectedProviderName.value != globalName) {
-                    _selectedProviderName.value = globalName
-                    _searchResultsGrouped.value = null
-                }
-            }
-        }
 
         updateHistory()
         reloadIcons()

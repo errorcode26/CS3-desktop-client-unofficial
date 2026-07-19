@@ -33,9 +33,8 @@ fun ComposeExtensionScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            DesktopRepositoryManager.syncAll()
-        }
+        viewModel.loadPluginsFromManager()
+        viewModel.refreshInstalled()
     }
 
     Row(

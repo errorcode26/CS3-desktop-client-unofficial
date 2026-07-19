@@ -167,7 +167,11 @@ class DetailsViewModel(
         }
     }
 
-    init {
+    private val _isInitialized = MutableStateFlow(false)
+
+    fun load() {
+        if (_isInitialized.value) return
+        _isInitialized.value = true
         extractColor(preloadedBg ?: preloadedPoster ?: _response.value?.backgroundPosterUrl ?: _response.value?.posterUrl)
         loadDetails()
     }

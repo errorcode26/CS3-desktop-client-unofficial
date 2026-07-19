@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.DesktopUiState
+
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 
@@ -37,9 +37,10 @@ fun WindowControlsPill(isHome: Boolean = false) {
     val theme = LocalDesktopTheme.current
 
     // Fetch provider states for the global pill
-    val providers by DesktopUiState.homeProviders.collectAsState()
-    val selectedProviderName by DesktopUiState.selectedProviderName.collectAsState()
-    val mergedPluginIcons by DesktopUiState.mergedPluginIcons.collectAsState()
+    val homeViewModel = com.lagradost.cloudstream3.desktop.ui.LocalHomeViewModel.current
+    val providers by homeViewModel.providers.collectAsState()
+    val selectedProviderName by homeViewModel.selectedProviderName.collectAsState()
+    val mergedPluginIcons by homeViewModel.mergedPluginIcons.collectAsState()
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
@@ -171,7 +172,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
                                 val pluginIcon = mergedPluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
                                 androidx.compose.material.DropdownMenuItem(
                                     onClick = {
-                                        DesktopUiState.selectedProviderName.value = provider.name
+                                        homeViewModel.setSelectedProvider(provider.name)
                                         isDropdownExpanded.value = false
                                     },
                                 ) {
@@ -212,7 +213,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
             }
 
             IconButton(
-                onClick = { DesktopUiState.forceProviderRefresh.value += 1 },
+                onClick = { homeViewModel.reloadProvider() },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(18.dp))

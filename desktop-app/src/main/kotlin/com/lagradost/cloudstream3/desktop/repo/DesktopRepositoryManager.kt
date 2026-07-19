@@ -423,7 +423,7 @@ object DesktopRepositoryManager {
 
             // [PERFORMANCE] If a pre-compiled JVM jar is provided, download it alongside the .cs3 file.
             // ExtensionLoader will detect this -jvm.jar file and completely skip the slow dex2jar conversion step!
-            if (!plugin.jarUrl.isNullOrBlank()) {
+            if (!plugin.jarUrl.isNullOrBlank() && !plugin.jarHash.isNullOrBlank()) {
                 val jvmDestFile = File(repoDir, "${plugin.internalName}-jvm.jar")
                 val jvmTempFile = File.createTempFile(jvmDestFile.name, ".tmp", getExtensionsDir())
                 try {
@@ -433,6 +433,12 @@ object DesktopRepositoryManager {
                             FileOutputStream(jvmTempFile).use { out ->
                                 response.body.byteStream().copyTo(out)
                             }
+                            
+                            val downloadHash = sha256(jvmTempFile)
+                            if (plugin.jarHash != downloadHash) {
+                                throw IllegalStateException("JVM Extension hash mismatch when validating '${jvmDestFile.name}'! Expected: '${plugin.jarHash}', got: '$downloadHash'.")
+                            }
+
                             try {
                                 Files.move(
                                     jvmTempFile.toPath(),

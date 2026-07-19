@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.desktop.ui.DesktopUiState
+
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.delay
@@ -44,10 +44,11 @@ fun AnimatedSearchOverlay(
     var isProviderDropdownExpanded by remember { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
-    val searchTrigger by DesktopUiState.searchFocusTrigger.collectAsState()
+    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
+    val searchTrigger by searchUiState.searchFocusTrigger
 
     val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
-    val isForced by DesktopUiState.forceShowSearchBar.collectAsState()
+    val isForced by searchUiState.isSearchForced
 
     val isVisible = searchBarMode == "Always Visible" || isForced || isSearchActive
 
@@ -57,7 +58,7 @@ fun AnimatedSearchOverlay(
             try {
                 focusRequester.requestFocus()
             } catch (e: Exception) {}
-            DesktopUiState.searchFocusTrigger.value = 0
+            searchUiState.searchFocusTrigger.value = 0
         }
     }
 
