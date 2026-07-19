@@ -85,12 +85,12 @@ fun SettingsToggleItem(
 }
 
 @Composable
-fun SettingsDropdownItem(
+fun <T> SettingsDropdownItem(
     label: String,
     subtitle: String? = null,
-    options: List<Pair<String, String>>,
-    currentValue: String,
-    onSelectionChanged: (String) -> Unit,
+    options: List<Pair<T, String>>,
+    currentValue: T,
+    onSelectionChanged: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -117,7 +117,7 @@ fun SettingsDropdownItem(
 
         Box {
             FilledTonalButton(onClick = { expanded = true }) {
-                Text(options.find { it.first == currentValue }?.second ?: currentValue)
+                Text(options.find { it.first == currentValue }?.second ?: currentValue.toString())
             }
             AppDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { (value, title) ->

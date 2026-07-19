@@ -43,11 +43,11 @@ fun PosterCard(
     provider: MainAPI?,
     modifier: Modifier = Modifier,
     itemWidth: androidx.compose.ui.unit.Dp? = null,
+    gridScale: String = AppearanceConfig.gridScale.value,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
-    val gridScale by AppearanceConfig.gridScale.collectAsState()
     val width = itemWidth ?: when (gridScale) {
         "Compact" -> 150.dp
         "Large" -> 220.dp
@@ -298,8 +298,6 @@ fun WatchHistoryCard(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
-
-    val gridScale by AppearanceConfig.gridScale.collectAsState()
     // Landscape 16:9 card configuration (decoupled from grid scale for a cinematic look)
     val cardWidth = 380.dp
     val cardHeight = cardWidth * 9f / 16f

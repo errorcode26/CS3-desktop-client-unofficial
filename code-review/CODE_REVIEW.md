@@ -685,19 +685,19 @@ Initially flagged but incorrect given the Android-port context.
 | A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    |
 | ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    |
 | A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | [✅] |
-| P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        |
+| ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        |
 | P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        |
 | P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        |
-| P04 | `drawBehind` allocates gradients every frame                   | Minor        | After alpha  | **1**    |
+| ✅ P04 | `drawBehind` allocates gradients every frame                   | Minor        | After alpha  | **1**    |
 | P05 | `transitionSpec` reads observable state                        | Minor        | After alpha  | **1**    |
-| P06 | Ambient glow redraws uncached every frame                      | Minor        | After alpha  | 1        |
+| ✅ P06 | Ambient glow redraws uncached every frame                      | Minor        | After alpha  | 1        |
 | P07 | `gridScale` subscribed per poster card                         | Minor        | After alpha  | **1**    |
 | P08 | `LazyColumn` items missing stable keys                         | Minor        | After alpha  | **1**    |
 | M01 | `ComposeNativeWebPlayer` 1396-line copy-paste                  | Major        | After alpha  | 1        |
 | M02 | `Main.kt` acknowledged ball-of-mud                             | Minor        | After alpha  | 1        |
 | M03 | Dock position as magic strings                                 | Minor        | After alpha  | 1        |
-| M04 | `DetailsScreen` 1021-line, nested lambdas                      | Minor        | After alpha  | 1        |
-| M05 | `PluginSettingsDialog` 619-line monolith                       | Minor        | After alpha  | 1        |
+| ✅ M04 | `DetailsScreen` 1021-line, nested lambdas                      | Minor        | After alpha  | 1        |
+| ✅ M05 | `PluginSettingsDialog` 619-line monolith                       | Minor        | After alpha  | 1        |
 | M06 | Zero unit tests                                                | Major        | Before beta  | 1        |
 
 ---

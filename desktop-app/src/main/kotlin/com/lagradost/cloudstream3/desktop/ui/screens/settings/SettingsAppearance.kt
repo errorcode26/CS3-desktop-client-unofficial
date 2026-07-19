@@ -167,7 +167,12 @@ fun SettingsAppearance() {
             SettingsDropdownItem(
                 label = "Dock Position",
                 subtitle = "Choose where the main navigation dock is placed",
-                options = listOf("Left" to "Left", "Top" to "Top", "Bottom" to "Bottom", "Right" to "Right"),
+                options = listOf(
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT to "Left",
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP to "Top",
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM to "Bottom",
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT to "Right"
+                ),
                 currentValue = dockPosition,
                 onSelectionChanged = { AppearanceConfig.setDockPosition(it) },
             )

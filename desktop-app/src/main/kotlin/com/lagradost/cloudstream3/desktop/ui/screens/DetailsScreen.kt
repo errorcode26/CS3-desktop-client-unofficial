@@ -345,7 +345,7 @@ fun DetailsContent(
         }
 
         LazyColumn(state = scrollState, modifier = Modifier.fillMaxSize()) {
-            item {
+            item(key = "HeroSection") {
                 val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
                 val heroHeight = with(androidx.compose.ui.platform.LocalDensity.current) {
                     windowInfo.containerSize.height.toDp()
@@ -366,7 +366,7 @@ fun DetailsContent(
                 }
             }
 
-            item {
+            item(key = "EpisodeSection") {
                 com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
                     provider = provider,
                     data = data,
@@ -379,13 +379,13 @@ fun DetailsContent(
                 )
             }
 
-            item {
+            item(key = "StatsSection") {
                 com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
                     uiState = uiState,
                 )
             }
 
-            item {
+            item(key = "CastSection") {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
@@ -404,7 +404,7 @@ fun DetailsContent(
             val collBg = uiState?.enrichedCollectionBackdrop
             val collItems = uiState?.enrichedCollectionItems ?: emptyList()
             if (!collName.isNullOrBlank()) {
-                item {
+                item(key = "CollectionSection") {
                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
                         collName = collName,
                         collBg = collBg,
@@ -416,7 +416,7 @@ fun DetailsContent(
             }
 
             if (!screenshots.isNullOrEmpty()) {
-                item {
+                item(key = "ScreenshotsSection") {
                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
                         screenshots = screenshots,
                         screenshotsExpanded = screenshotsExpanded,
@@ -429,7 +429,7 @@ fun DetailsContent(
             val validRecs = data.recommendations?.filterIsInstance<com.lagradost.cloudstream3.SearchResponse>()?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
 
             if (validRecs.isNotEmpty()) {
-                item {
+                item(key = "RecommendationsSection") {
                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
                         validRecs = validRecs,
                         onNavigate = { screen -> navController.navigate(screen) }
@@ -437,7 +437,7 @@ fun DetailsContent(
                 }
             }
 
-            item {
+            item(key = "Spacer") {
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }

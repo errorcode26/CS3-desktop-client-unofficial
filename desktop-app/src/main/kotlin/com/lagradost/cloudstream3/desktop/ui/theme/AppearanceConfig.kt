@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.theme
 
+import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -27,7 +28,7 @@ object AppearanceConfig {
     val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
     val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
     val heroDynamicColorEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_DYNAMIC_COLOR) ?: true)
-    val dockPosition = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
+    val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
 
     fun setThemeAccent(colorName: String) {
@@ -87,9 +88,9 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_HERO_DYNAMIC_COLOR, enabled)
     }
 
-    fun setDockPosition(position: String) {
+    fun setDockPosition(position: DockPosition) {
         dockPosition.value = position
-        DesktopDataStore.setKey(PREF_DOCK_POSITION, position)
+        DesktopDataStore.setKey(PREF_DOCK_POSITION, position.label)
     }
 
     fun setSelectedFont(font: String) {

@@ -102,7 +102,7 @@ class DesktopHomeViewModel {
             try {
                 val bytes = app.get(imageUrl).body.bytes()
                 val img: BufferedImage = ImageIO.read(bytes.inputStream()) ?: return@launch
-                val dominant = sampleDominantColor(img) ?: return@launch
+                val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.sampleDominantColor(img) ?: return@launch
                 colorCache[imageUrl] = dominant
                 if (itemUrl == null) {
                     _heroExtractedColor.value = dominant
@@ -121,64 +121,7 @@ class DesktopHomeViewModel {
         }
     }
 
-    private fun sampleDominantColor(img: BufferedImage): androidx.compose.ui.graphics.Color? {
-        val area = img.width * img.height
-        val step = maxOf(1, Math.sqrt(area / 300.0).toInt())
-        val colorBuckets = mutableMapOf<Int, Int>()
 
-        var x = 0
-        var pixelCount = 0
-        while (x < img.width) {
-            var y = 0
-            while (y < img.height) {
-                val argb = img.getRGB(x, y)
-                val r = (argb shr 16) and 0xFF
-                val g = (argb shr 8) and 0xFF
-                val b = argb and 0xFF
-
-                // Skip near-white, near-black, and near-gray pixels
-                val max = maxOf(r, g, b)
-                val min = minOf(r, g, b)
-                val saturation = if (max == 0) 0f else (max - min).toFloat() / max.toFloat()
-                val brightness = max / 255f
-                if (saturation < 0.25f || brightness < 0.15f || brightness > 0.95f) {
-                    y += step
-                    pixelCount++
-                    continue
-                }
-
-                // Quantize to reduce noise: bucket by dividing RGB into 32-step chunks
-                val qr = (r / 32) * 32
-                val qg = (g / 32) * 32
-                val qb = (b / 32) * 32
-                val key = (qr shl 16) or (qg shl 8) or qb
-                colorBuckets[key] = (colorBuckets[key] ?: 0) + 1
-                y += step
-                pixelCount++
-            }
-            x += step
-        }
-
-        if (colorBuckets.isEmpty()) return null
-
-        // Score each bucket by population * (saturation ^ 2) to strongly favor vibrant colors
-        val dominant = colorBuckets.maxByOrNull { entry ->
-            val key = entry.key
-            val count = entry.value
-            val r = (key shr 16) and 0xFF
-            val g = (key shr 8) and 0xFF
-            val b = key and 0xFF
-            val max = maxOf(r, g, b)
-            val min = minOf(r, g, b)
-            val sat = if (max == 0) 0f else (max - min).toFloat() / max.toFloat()
-            count * (sat * sat)
-        }?.key ?: return null
-
-        val r = (dominant shr 16) and 0xFF
-        val g = (dominant shr 8) and 0xFF
-        val b = dominant and 0xFF
-        return androidx.compose.ui.graphics.Color(r, g, b)
-    }
 
     init {
         // Initialize providers
