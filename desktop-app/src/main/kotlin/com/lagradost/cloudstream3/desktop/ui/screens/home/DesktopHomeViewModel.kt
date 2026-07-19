@@ -37,6 +37,7 @@ fun MainAPI.isRealProvider(): Boolean {
 
 class DesktopHomeViewModel {
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private val _providers = MutableStateFlow<List<MainAPI>>(emptyList())
     val providers = _providers.asStateFlow()
@@ -250,6 +251,8 @@ class DesktopHomeViewModel {
             return
         }
 
+        if (!prefetchingUrls.add(cacheKey)) return
+
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val dummyTitle = cleanHeroTitle(item.name)
@@ -353,6 +356,8 @@ class DesktopHomeViewModel {
                 // If all retries fail, clear the dummy cache so we can attempt fetching again next time they swipe here
                 HeroCache.cache.remove(cacheKey)
                 _heroMetaMap.update { it - item.url }
+            } finally {
+                prefetchingUrls.remove(cacheKey)
             }
         }
     }

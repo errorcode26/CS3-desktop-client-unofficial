@@ -83,20 +83,18 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
     val heroMetaMap by viewModel.heroMetaMap.collectAsState()
     val heroColorMap by viewModel.heroColorMap.collectAsState()
     val scope = rememberCoroutineScope()
-    var globalIndex by remember { mutableStateOf(0) }
-
-    LaunchedEffect(displayItems.size) {
-        if (displayItems.isNotEmpty() && globalIndex == 0) {
-            globalIndex = displayItems.size * 1000
-        }
+    var globalIndex by remember(displayItems.size) {
+        mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
     }
 
     val currentIndex = if (displayItems.isNotEmpty()) globalIndex % displayItems.size else 0
 
-    LaunchedEffect(globalIndex, displayItems.size) {
+    LaunchedEffect(displayItems.size) {
         if (displayItems.isNotEmpty()) {
-            delay(10000)
-            globalIndex++
+            while (true) {
+                delay(10000)
+                globalIndex++
+            }
         }
     }
 

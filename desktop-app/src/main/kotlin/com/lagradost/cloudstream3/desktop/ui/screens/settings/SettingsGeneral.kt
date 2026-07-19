@@ -27,18 +27,16 @@ import kotlinx.coroutines.launch
 fun SettingsGeneral() {
     val scope = rememberCoroutineScope()
     var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
-    var accountsUpdated by remember { mutableStateOf(0) }
+    val cachedAccounts by AccountManager.accountsFlow.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         SettingsGroupCard(title = "Accounts & Integrations") {
-            accountsUpdated.hashCode() // Trigger recompose on change
-
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AccountManager.allApis.forEach { api ->
-                    val accounts = AccountManager.cachedAccounts[api.idPrefix] ?: emptyArray()
+                    val accounts = cachedAccounts[api.idPrefix] ?: emptyArray()
                     val currentAccount = accounts.firstOrNull()
 
                     Row(
@@ -70,7 +68,6 @@ fun SettingsGeneral() {
                             Button(
                                 onClick = {
                                     AccountManager.updateAccounts(api.idPrefix, emptyArray())
-                                    accountsUpdated++
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             ) {
@@ -431,7 +428,6 @@ fun SettingsGeneral() {
             onDismiss = { selectedApiForLogin = null },
             onSuccess = { authData ->
                 AccountManager.updateAccounts(selectedApiForLogin!!.idPrefix, arrayOf(authData))
-                accountsUpdated++
                 selectedApiForLogin = null
             },
         )

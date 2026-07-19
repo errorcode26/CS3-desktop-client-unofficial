@@ -642,6 +642,8 @@ SettingsGroupCard(title = "Accounts & Integrations") {
 
 **Fix now or after alpha?** Fix now / Phase 2.
 
+**Status:** FIXED ✅ (Exposed `AccountManager.accountsFlow` as `StateFlow` and removed `.hashCode()` recomposition hack in `SettingsGeneral.kt`)
+
 ---
 
 ### ISSUE-C02 · Uncontrolled Inline `LaunchedEffect` Loops & Race Conditions (`HomeHeroCarousel.kt`)
@@ -669,6 +671,8 @@ LaunchedEffect(globalIndex, displayItems.size) {
 **Fix:** Consolidate carousel auto-scroll into a single, stable `LaunchedEffect` state machine with debounced network prefetching.
 
 **Fix now or after alpha?** Fix now / Phase 2.
+
+**Status:** FIXED ✅ (Consolidated racing `LaunchedEffect` timers in `HomeHeroCarousel.kt` and shielded `DesktopHomeViewModel.prefetchHeroItem` against duplicate coroutines)
 
 ---
 
@@ -971,8 +975,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | ✅ A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | **FIXED** |
 | A17 | UI -> Infrastructure direct coupling (`DesktopDataStore` in UI)  | **Major**    | Before beta  | 1        | **OPEN** |
 | A18 | Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` | **Major**    | Before beta  | 1        | **OPEN** |
-| C01 | Recomposition forcing via `.hashCode()` hack (`SettingsGeneral`) | **Major**    | **Now**      | 1        | **OPEN** |
-| C02 | Uncontrolled `LaunchedEffect` loops (`HomeHeroCarousel`)       | **Major**    | **Now**      | 1        | **OPEN** |
+| ✅ C01 | Recomposition forcing via `.hashCode()` hack (`SettingsGeneral`) | **Major**    | **Now**      | 1        | **FIXED** |
+| ✅ C02 | Uncontrolled `LaunchedEffect` loops (`HomeHeroCarousel`)       | **Major**    | **Now**      | 1        | **FIXED** |
 | ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        | **FIXED** |
 | ✅ P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        | **FIXED** |
@@ -1008,8 +1012,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 
 ## Phase 2 Fix Priority Order (Red Team Findings)
 
-1. **C01** — Recomposition forcing via `.hashCode()` hack (`SettingsGeneral.kt`) (`[OPEN]`)
-2. **C02** — Uncontrolled inline `LaunchedEffect` loops & race conditions (`HomeHeroCarousel.kt`) (`[OPEN]`)
+1. ~~**C01** — Recomposition forcing via `.hashCode()` hack (`SettingsGeneral.kt`)~~ (`[FIXED]`) ✅
+2. ~~**C02** — Uncontrolled inline `LaunchedEffect` loops & race conditions (`HomeHeroCarousel.kt`)~~ (`[FIXED]`) ✅
 3. **A18** — Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` (`[OPEN]`)
 4. **A17** — UI -> Infrastructure direct coupling (`DesktopDataStore` & `DesktopRepositoryManager` in `@Composable`) (`[OPEN]`)
 5. **P09** — Un-cached Skia `Brush.gradient` allocations during 60 FPS hero transitions (`[OPEN]`)

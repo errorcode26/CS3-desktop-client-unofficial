@@ -4,6 +4,9 @@ import com.lagradost.cloudstream3.syncproviders.providers.AniListApi
 import com.lagradost.cloudstream3.syncproviders.providers.MalApi
 import com.lagradost.cloudstream3.syncproviders.providers.SimklApi
 import com.lagradost.cloudstream3.syncproviders.providers.SubDlApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class AccountManager {
     companion object {
@@ -24,6 +27,9 @@ class AccountManager {
 
         var cachedAccounts: MutableMap<String, Array<AuthData>> = mutableMapOf()
 
+        private val _accountsFlow = MutableStateFlow<Map<String, Array<AuthData>>>(emptyMap())
+        val accountsFlow: StateFlow<Map<String, Array<AuthData>>> = _accountsFlow.asStateFlow()
+
         const val ACCOUNT_TOKEN = "auth_tokens"
 
         // Defaulting to "default" account since Desktop might not have multiple profile switching yet.
@@ -41,6 +47,7 @@ class AccountManager {
             com.lagradost.common.storage.DesktopDataStore.setKey("${ACCOUNT_TOKEN}_${prefix}_$currentAccount", array)
             synchronized(cachedAccounts) {
                 cachedAccounts[prefix] = array
+                _accountsFlow.value = cachedAccounts.toMap()
             }
         }
 
@@ -51,6 +58,7 @@ class AccountManager {
             }
             synchronized(cachedAccounts) {
                 cachedAccounts = data
+                _accountsFlow.value = data.toMap()
             }
         }
     }
