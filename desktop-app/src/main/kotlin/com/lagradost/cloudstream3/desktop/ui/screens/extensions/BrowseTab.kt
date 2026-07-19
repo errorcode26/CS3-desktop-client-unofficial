@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
@@ -246,12 +245,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         ) {
             items(filteredPlugins, key = { "${it.first}-${it.second.internalName}" }) { (repoName, plugin) ->
                 val iconUrl = plugin.iconUrl
-                    ?: DesktopRepositoryManager.remotePluginIcons.value[plugin.internalName]
-                    ?: DesktopRepositoryManager.remotePluginIcons.value[plugin.name]
+                    ?: viewModel.remotePluginIcons.value[plugin.internalName]
+                    ?: viewModel.remotePluginIcons.value[plugin.name]
 
                 var isInstalling by remember { mutableStateOf(false) }
                 val isPluginInstalled = remember(plugin, syncGeneration) {
-                    val ext = DesktopRepositoryManager.getExtensionsDir()
+                    val ext = viewModel.getExtensionsDir()
                     val subDir = java.io.File(ext, repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                     java.io.File(subDir, "${plugin.internalName}.jar").exists()
                 }

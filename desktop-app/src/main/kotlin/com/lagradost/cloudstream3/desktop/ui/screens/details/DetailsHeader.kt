@@ -290,9 +290,8 @@ fun DetailsMetadata(
                     heroAction()
 
                     val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                    var currentBookmark by remember {
-                        mutableStateOf(DesktopDataStore.getBookmarks().find { it.id == bookmarkId })
-                    }
+                    val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+                    val currentBookmark = allBookmarks[bookmarkId]
                     var showBookmarkMenu by remember { mutableStateOf(false) }
 
                     Box {
@@ -373,8 +372,7 @@ fun DetailsMetadata(
                                                 posterUrl = data.posterUrl,
                                                 watchType = type.id,
                                             )
-                                            DesktopDataStore.addBookmark(newBookmark)
-                                            currentBookmark = newBookmark
+                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
                                             showBookmarkMenu = false
                                         },
                                         modifier = Modifier
@@ -389,8 +387,7 @@ fun DetailsMetadata(
                                             Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                                         },
                                         onClick = {
-                                            DesktopDataStore.removeBookmark(bookmarkId)
-                                            currentBookmark = null
+                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
                                             showBookmarkMenu = false
                                         },
                                         modifier = Modifier

@@ -57,7 +57,37 @@ data class HeroMeta(
 )
 
 object HeroCache {
-    val cache = java.util.concurrent.ConcurrentHashMap<String, HeroMeta>()
+    private const val MAX_ENTRIES = 150
+    private val map = java.util.concurrent.ConcurrentHashMap<String, HeroMeta>()
+    private val accessOrder = java.util.concurrent.ConcurrentLinkedQueue<String>()
+
+    @Synchronized
+    fun put(key: String, value: HeroMeta) {
+        if (!map.containsKey(key)) {
+            accessOrder.add(key)
+        }
+        map[key] = value
+        while (accessOrder.size > MAX_ENTRIES) {
+            val oldest = accessOrder.poll()
+            if (oldest != null) {
+                map.remove(oldest)
+            }
+        }
+    }
+
+    fun get(key: String): HeroMeta? = map[key]
+
+    @Synchronized
+    fun remove(key: String): HeroMeta? {
+        accessOrder.remove(key)
+        return map.remove(key)
+    }
+
+    @Synchronized
+    fun clear() {
+        accessOrder.clear()
+        map.clear()
+    }
 }
 
 fun cleanHeroTitle(raw: String): String {
@@ -150,6 +180,13 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     animationSpec = tween(durationMillis = 600),
                     label = "pageScrimColor_${item.url}",
                 )
+                val verticalFadeBrush = remember {
+                    Brush.verticalGradient(
+                        0.0f to Color.Black,
+                        0.65f to Color.Black,
+                        1.0f to Color.Transparent,
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -157,18 +194,17 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         .drawWithContent {
                             drawContent()
                             drawRect(
-                                brush = Brush.verticalGradient(
-                                    0.0f to Color.Black,
-                                    0.65f to Color.Black,
-                                    1.0f to Color.Transparent,
-                                ),
+                                brush = verticalFadeBrush,
                                 blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
                             )
                         },
                 ) {
                     if (ambientBg != null) {
                         AsyncImage(
-                            model = ambientBg,
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(ambientBg)
+                                .size(1280, 720)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             alignment = Alignment.TopCenter,
@@ -179,30 +215,28 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     }
 
                     val hScrimColor = if (isLightMode) Color.Transparent else animatedPageScrimColor.copy(alpha = 0.80f)
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(
-                            Brush.horizontalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to hScrimColor,
-                                    0.60f to Color.Transparent,
-                                ),
+                    val hScrimBrush = remember(hScrimColor) {
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.0f to hScrimColor,
+                                0.60f to Color.Transparent,
                             ),
-                        ),
-                    )
+                        )
+                    }
+                    Box(modifier = Modifier.fillMaxSize().background(hScrimBrush))
 
                     val vBottomAlpha = if (isLightMode) 0f else 0.35f
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.40f to Color.Transparent,
-                                    0.75f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else 0.25f),
-                                    1.0f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else vBottomAlpha),
-                                ),
+                    val vScrimBrush = remember(animatedPageScrimColor, isLightMode) {
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.40f to Color.Transparent,
+                                0.75f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else 0.25f),
+                                1.0f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else vBottomAlpha),
                             ),
-                        ),
-                    )
+                        )
+                    }
+                    Box(modifier = Modifier.fillMaxSize().background(vScrimBrush))
                 }
 
                 Box(
@@ -219,7 +253,10 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                     ) {
                         if (posterUrl != null && meta?.backdropUrl == null) {
                             AsyncImage(
-                                model = posterUrl,
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(posterUrl)
+                                    .size(320, 480)
+                                    .build(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -247,7 +284,10 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     contentAlignment = Alignment.BottomStart,
                                 ) {
                                     coil3.compose.AsyncImage(
-                                        model = meta!!.logoUrl,
+                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                            .data(meta!!.logoUrl)
+                                            .size(400, 200)
+                                            .build(),
                                         contentDescription = null,
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -264,7 +304,10 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                         colorFilter = DesktopDimens.LogoShadowFilter,
                                     )
                                     coil3.compose.SubcomposeAsyncImage(
-                                        model = meta!!.logoUrl,
+                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                            .data(meta!!.logoUrl)
+                                            .size(400, 200)
+                                            .build(),
                                         contentDescription = "Logo",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Fit,
@@ -459,9 +502,8 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
                                 val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
                                 var showBookmarkMenu by remember { mutableStateOf(false) }
-                                var currentBookmark by remember(bookmarkId) {
-                                    mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null)
-                                }
+                                val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+                                val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
 
                                 Box {
                                     IconButton(
@@ -520,8 +562,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                                         posterUrl = item.posterUrl,
                                                         watchType = type.id,
                                                     )
-                                                    DesktopDataStore.addBookmark(newBookmark)
-                                                    currentBookmark = newBookmark
+                                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
                                                     showBookmarkMenu = false
                                                 },
                                                 modifier = Modifier
@@ -536,8 +577,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                                     Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                                                 },
                                                 onClick = {
-                                                    DesktopDataStore.removeBookmark(bookmarkId)
-                                                    currentBookmark = null
+                                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
                                                     showBookmarkMenu = false
                                                 },
                                                 modifier = Modifier
@@ -617,7 +657,10 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     )
 
                                     AsyncImage(
-                                        model = thumbUrl,
+                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                            .data(thumbUrl)
+                                            .size(240, 360)
+                                            .build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier

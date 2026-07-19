@@ -74,9 +74,12 @@ fun PosterCard(
                 .aspectRatio(2f / 3f),
         ) {
             if (imgUrl != null) {
-                // Actual poster — Crop to fill the entire box
+                // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
                 AsyncImage(
-                    model = imgUrl,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(imgUrl)
+                        .size(320, 480)
+                        .build(),
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
@@ -133,9 +136,8 @@ fun PosterCard(
 
             val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
             var showBookmarkMenu by remember { mutableStateOf(false) }
-            var currentBookmark by remember(bookmarkId) {
-                mutableStateOf(if (bookmarkId.isNotEmpty()) DesktopDataStore.getBookmarks().find { it.id == bookmarkId } else null)
-            }
+            val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+            val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
 
             val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = if (isHovered || currentBookmark != null || showBookmarkMenu) 1f else 0f,
@@ -195,8 +197,7 @@ fun PosterCard(
                                         posterUrl = item.posterUrl,
                                         watchType = type.id,
                                     )
-                                    DesktopDataStore.addBookmark(newBookmark)
-                                    currentBookmark = newBookmark
+                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
                                     showBookmarkMenu = false
                                 },
                                 modifier = Modifier
@@ -211,8 +212,7 @@ fun PosterCard(
                                     Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                                 },
                                 onClick = {
-                                    DesktopDataStore.removeBookmark(bookmarkId)
-                                    currentBookmark = null
+                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
                                     showBookmarkMenu = false
                                 },
                                 modifier = Modifier

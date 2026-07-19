@@ -81,16 +81,13 @@ class DesktopHomeViewModel {
     private val _heroColorMap = MutableStateFlow<Map<String, androidx.compose.ui.graphics.Color>>(emptyMap())
     val heroColorMap = _heroColorMap.asStateFlow()
 
-    // Cache to avoid re-extracting the same URL repeatedly
-    private val colorCache = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.Color>()
-
     fun updateHeroColor(imageUrl: String?, itemUrl: String? = null) {
         if (imageUrl == null) {
             if (itemUrl == null) _heroExtractedColor.value = null
             return
         }
-        // Return cached result immediately if available
-        colorCache[imageUrl]?.let { cached ->
+        // Return cached result immediately from global cache if available
+        com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.getCachedColor(imageUrl)?.let { cached ->
             if (itemUrl == null) {
                 // Called for current displayed item — update live color
                 _heroExtractedColor.value = cached
@@ -102,7 +99,6 @@ class DesktopHomeViewModel {
         }
         coroutineScope.launch(Dispatchers.IO) {
             val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl) ?: return@launch
-            colorCache[imageUrl] = dominant
             if (itemUrl == null) {
                 _heroExtractedColor.value = dominant
             } else {
@@ -245,7 +241,7 @@ class DesktopHomeViewModel {
         val cacheKey = "${provider?.name}_${item.url}"
         if (heroMetaMap.value.containsKey(item.url)) return
 
-        val existing = HeroCache.cache[cacheKey]
+        val existing = HeroCache.get(cacheKey)
         if (existing != null) {
             _heroMetaMap.update { it + (item.url to existing) }
             return
@@ -277,14 +273,14 @@ class DesktopHomeViewModel {
                     val score = dummy.score?.toString() // Fallback if toStringNull isn't strictly available here
 
                     val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
-                    HeroCache.cache[cacheKey] = meta
+                    HeroCache.put(cacheKey, meta)
                     _heroMetaMap.update { it + (item.url to meta) }
 
                     // Pre-calculate the dominant color in the background so it's ready instantly when this item is displayed
                     updateHeroColor(backdropUrl ?: provider.fixUrlNull(item.posterUrl), itemUrl = item.url)
                 } else {
                     val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
-                    HeroCache.cache[cacheKey] = meta
+                    HeroCache.put(cacheKey, meta)
                     _heroMetaMap.update { it + (item.url to meta) }
                 }
 
@@ -325,7 +321,7 @@ class DesktopHomeViewModel {
                         val newDuration = details.duration ?: currentMeta?.duration
 
                         val rawMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
-                        HeroCache.cache[cacheKey] = rawMeta
+                        HeroCache.put(cacheKey, rawMeta)
                         _heroMetaMap.update { it + (item.url to rawMeta) }
                         if (newBackdrop != null) updateHeroColor(newBackdrop, itemUrl = item.url)
 
@@ -342,7 +338,7 @@ class DesktopHomeViewModel {
                                     backdropUrl = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.backdropUrl,
                                     logoUrl = details.logoUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.logoUrl,
                                 )
-                                HeroCache.cache[cacheKey] = finalMeta
+                                HeroCache.put(cacheKey, finalMeta)
                                 _heroMetaMap.update { it + (item.url to finalMeta) }
                                 // Re-extract color now that we have the real high-quality backdrop
                                 if (finalMeta.backdropUrl != null) updateHeroColor(finalMeta.backdropUrl, itemUrl = item.url)
@@ -354,7 +350,7 @@ class DesktopHomeViewModel {
                 throw e
             } catch (e: Exception) {
                 // If all retries fail, clear the dummy cache so we can attempt fetching again next time they swipe here
-                HeroCache.cache.remove(cacheKey)
+                HeroCache.remove(cacheKey)
                 _heroMetaMap.update { it - item.url }
             } finally {
                 prefetchingUrls.remove(cacheKey)

@@ -53,7 +53,9 @@ object DesktopRepositoryManager {
 
     val remotePluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
     val syncGeneration = MutableStateFlow(0)
-    val failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val _failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    fun isIconFailed(url: String): Boolean = _failedIconUrls.contains(url)
+    fun markIconFailed(url: String) { _failedIconUrls.add(url) }
 
     data class SyncReport(
         val reposRefreshed: Int,

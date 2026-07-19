@@ -15,7 +15,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,7 +23,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     var repoUrl by remember { mutableStateOf("") }
-    val repos by DesktopRepositoryManager.savedRepositories.collectAsState()
+    val repos by viewModel.savedRepositories.collectAsState()
     var statusText by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
@@ -45,9 +44,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 if (repoUrl.isNotBlank()) {
                     coroutineScope.launch {
                         try {
-                            val addedRepos = withContext(Dispatchers.IO) {
-                                DesktopRepositoryManager.addRepositoryFromInput(repoUrl)
-                            }
+                            val addedRepos = viewModel.addRepositoryFromInput(repoUrl)
                             if (addedRepos != null && addedRepos.isNotEmpty()) {
                                 repoUrl = ""
                                 val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
@@ -152,7 +149,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Surface(
                                         onClick = {
-                                            val installUrl = DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
+                                            val installUrl = viewModel.getPluginsJsonUrl(repo.url)
                                             val selection = java.awt.datatransfer.StringSelection(installUrl)
                                             java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
                                             copied = true
@@ -222,11 +219,11 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             ) {
                                 items(repoPlugins, key = { it.internalName }) { plugin ->
                                     val iconUrl = plugin.iconUrl
-                                        ?: DesktopRepositoryManager.remotePluginIcons.value[plugin.internalName]
-                                        ?: DesktopRepositoryManager.remotePluginIcons.value[plugin.name]
+                                        ?: viewModel.remotePluginIcons.value[plugin.internalName]
+                                        ?: viewModel.remotePluginIcons.value[plugin.name]
 
                                     val isInstalled = remember(plugin, installedPlugins) {
-                                        val ext = DesktopRepositoryManager.getExtensionsDir()
+                                        val ext = viewModel.getExtensionsDir()
                                         val subDir = java.io.File(ext, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                                         java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
                                             java.io.File(ext, "${plugin.internalName}.jar").exists() ||
@@ -280,7 +277,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 dismissButton = {
                     TextButton(
                         onClick = {
-                            DesktopRepositoryManager.removeRepository(repo.url)
+                            viewModel.removeRepository(repo.url)
                             selectedRepoForDetail = null
                             viewModel.inspectRepository("")
                         },
@@ -316,7 +313,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (!repo.iconUrl.isNullOrEmpty() && !DesktopRepositoryManager.failedIconUrls.contains(repo.iconUrl)) {
+                            if (!repo.iconUrl.isNullOrEmpty() && !viewModel.isIconFailed(repo.iconUrl)) {
                                 coil3.compose.SubcomposeAsyncImage(
                                     model = repo.iconUrl,
                                     contentDescription = null,
@@ -326,7 +323,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         RepoAvatarBox(repo.name)
                                     },
                                     error = {
-                                        DesktopRepositoryManager.failedIconUrls.add(repo.iconUrl)
+                                        viewModel.markIconFailed(repo.iconUrl)
                                         RepoAvatarBox(repo.name)
                                     },
                                 )
@@ -359,7 +356,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             var cardCopied by remember(repo.url) { mutableStateOf(false) }
                             TextButton(
                                 onClick = {
-                                    val installUrl = DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
+                                    val installUrl = viewModel.getPluginsJsonUrl(repo.url)
                                     val selection = java.awt.datatransfer.StringSelection(installUrl)
                                     java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
                                     cardCopied = true
@@ -382,7 +379,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             }
                             TextButton(
                                 onClick = {
-                                    DesktopRepositoryManager.removeRepository(repo.url)
+                                    viewModel.removeRepository(repo.url)
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp),

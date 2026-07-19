@@ -275,7 +275,7 @@ class FullscreenController(...) {
 
 ---
 
-### ISSUE-A13 · `DataStore.save()` Writes the Full JSON File Synchronously on Every Key Set
+### ISSUE-A13 · `DataStore.save()` Writes the Full JSON File Synchronously on Every Key Set (✅ FIXED)
 
 **Evidence:** `DataStore.kt` L29–L57
 
@@ -606,6 +606,8 @@ DesktopRepositoryManager.savedRepositories.collectAsState()
 
 **Fix now or after alpha?** Before beta / Phase 2 refactor.
 
+**Status:** FIXED ✅ (Decoupled `BookmarksRepository` and `ExtensionsViewModel` from UI tabs and screens)
+
 ---
 
 ### ISSUE-A18 · Public Mutable Sets & Unbounded Singletons (`failedIconUrls`, `HeroCache`)
@@ -619,6 +621,8 @@ DesktopRepositoryManager.savedRepositories.collectAsState()
 **Fix:** Encapsulate `failedIconUrls` behind reactive `StateFlow` / observable repositories and apply LRU/bounded eviction policies to `HeroCache`.
 
 **Fix now or after alpha?** Before beta / Phase 2 refactor.
+
+**Status:** FIXED ✅ (Encapsulated `failedIconUrls` behind reactive accessors and thread-safe boundaries for `HeroCache`)
 
 ---
 
@@ -676,7 +680,7 @@ LaunchedEffect(globalIndex, displayItems.size) {
 
 ---
 
-### ISSUE-P09 · Un-cached Skia `Brush.gradient` Allocations inside 60 FPS Transitions (`HomeHeroCarousel.kt`)
+### ISSUE-P09 · Un-cached Skia `Brush.gradient` Allocations inside 60 FPS Transitions (`HomeHeroCarousel.kt`) (✅ FIXED)
 
 **Evidence:** `HomeHeroCarousel.kt` L158–L198 (`Brush.verticalGradient(...)`, `Brush.horizontalGradient(...)`, `Modifier.blur(24.dp)`)
 
@@ -688,9 +692,11 @@ LaunchedEffect(globalIndex, displayItems.size) {
 
 **Fix now or after alpha?** After alpha / Phase 2.
 
+**Status:** FIXED ✅ (Cached Skia gradient brushes inside `HomeHeroCarousel.kt` using `remember` across page transitions)
+
 ---
 
-### ISSUE-P10 · Unbounded Bitmap Decoding in Large Grid Lists (`AsyncImage` / Coil)
+### ISSUE-P10 · Unbounded Bitmap Decoding in Large Grid Lists (`AsyncImage` / Coil) (✅ FIXED)
 
 **Evidence:** `PosterCards.kt` L137–L214, `HomeHeroCarousel.kt` L172
 
@@ -701,6 +707,8 @@ LaunchedEffect(globalIndex, displayItems.size) {
 **Fix:** Apply explicit `size(width, height)` parameters or downsampling `ImageRequest` transformations inside grid poster `AsyncImage` calls.
 
 **Fix now or after alpha?** After alpha / Phase 2.
+
+**Status:** FIXED ✅ (Applied explicit `size(...)` downsampling to all `AsyncImage` requests across `PosterCards.kt` and `HomeHeroCarousel.kt`)
 
 ---
 
@@ -723,12 +731,16 @@ These have no Android-port justification. They are desktop Compose lifecycle mis
 | ✅ A12 | `FullscreenController` Compose data class mutability | **FIXED** |
 | ✅ A15 | Auto-update `LaunchedEffect` loop inside composable — runs 4× simultaneously | **FIXED** |
 | ✅ A16 | `GlobalDetailsCache.cache` is public mutable | **FIXED** |
+| ✅ A17 | `DesktopRepositoryManager` & Bookmarks UI decoupling | **FIXED** |
+| ✅ A18 | `failedIconUrls` & `HeroCache` encapsulation | **FIXED** |
 | ✅ P02 | Duplicate `historyUpdatesVal` subscription | **FIXED** |
 | ✅ P04 | `drawBehind` allocates `Brush.radialGradient` on every draw frame | **FIXED** |
 | ✅ P05 | `transitionSpec` lambda captures observable state — can re-fire mid-animation | **FIXED** |
 | ✅ P06 | Ambient glow redraws uncached every frame | **FIXED** |
 | ✅ P07 | `collectAsState` called per `PosterCard` for a global setting | **FIXED** |
 | ✅ P08 | `LazyColumn` items have no stable `key =` | **FIXED** |
+| ✅ P09 | Un-cached Skia `Brush.gradient` in 60 FPS transitions | **FIXED** |
+| ✅ P10 | Unbounded `AsyncImage` bitmap decoding across grids | **FIXED** |
 | ✅ M01 | `ComposeNativeWebPlayer` & `BaseMpvPlayer` deduplication | **FIXED** |
 | ✅ M02 | `Main.kt` separation of concerns | **FIXED** |
 | ✅ M03 | Dock position magic strings | **FIXED** |
@@ -778,6 +790,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    | **RETRACTED** |
 | ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    | **FIXED** |
 | ✅ A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ A17 | `DesktopRepositoryManager` & Bookmarks UI decoupling            | **Major**    | **Phase 2**  | **1**    | **FIXED** |
+| ✅ A18 | `failedIconUrls` & `HeroCache` encapsulation                    | **Major**    | **Phase 2**  | **1**    | **FIXED** |
 | ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        | **FIXED** |
 | ✅ P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        | **FIXED** |
@@ -973,8 +987,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    | **RETRACTED** |
 | ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    | **FIXED** |
 | ✅ A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | **FIXED** |
-| A17 | UI -> Infrastructure direct coupling (`DesktopDataStore` in UI)  | **Major**    | Before beta  | 1        | **OPEN** |
-| A18 | Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` | **Major**    | Before beta  | 1        | **OPEN** |
+| ✅ A17 | UI -> Infrastructure direct coupling (`DesktopDataStore` in UI)  | **Major**    | Before beta  | 1        | **FIXED** |
+| ✅ A18 | Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` | **Major**    | Before beta  | 1        | **FIXED** |
 | ✅ C01 | Recomposition forcing via `.hashCode()` hack (`SettingsGeneral`) | **Major**    | **Now**      | 1        | **FIXED** |
 | ✅ C02 | Uncontrolled `LaunchedEffect` loops (`HomeHeroCarousel`)       | **Major**    | **Now**      | 1        | **FIXED** |
 | ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        | **FIXED** |
@@ -985,8 +999,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | ✅ P06 | Ambient glow redraws uncached every frame                      | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ P07 | `gridScale` subscribed per poster card                         | Minor        | After alpha  | **1**    | **FIXED** |
 | ✅ P08 | `LazyColumn` items missing stable keys                         | Minor        | After alpha  | **1**    | **FIXED** |
-| P09 | Un-cached Skia `Brush.gradient` in 60 FPS transitions          | Minor        | After alpha  | 1        | **OPEN** |
-| P10 | Unbounded `AsyncImage` bitmap decoding in grid lists           | Minor        | After alpha  | 1        | **OPEN** |
+| ✅ P09 | Un-cached Skia `Brush.gradient` in 60 FPS transitions          | Minor        | After alpha  | 1        | **FIXED** |
+| ✅ P10 | Unbounded `AsyncImage` bitmap decoding in grid lists           | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ M01 | `ComposeNativeWebPlayer` deduplication                         | Major        | After alpha  | 1        | **FIXED** |
 | ✅ M02 | `Main.kt` acknowledged ball-of-mud                             | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ M03 | Dock position as magic strings                                 | Minor        | After alpha  | 1        | **FIXED** |
@@ -1014,7 +1028,7 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 
 1. ~~**C01** — Recomposition forcing via `.hashCode()` hack (`SettingsGeneral.kt`)~~ (`[FIXED]`) ✅
 2. ~~**C02** — Uncontrolled inline `LaunchedEffect` loops & race conditions (`HomeHeroCarousel.kt`)~~ (`[FIXED]`) ✅
-3. **A18** — Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` (`[OPEN]`)
-4. **A17** — UI -> Infrastructure direct coupling (`DesktopDataStore` & `DesktopRepositoryManager` in `@Composable`) (`[OPEN]`)
-5. **P09** — Un-cached Skia `Brush.gradient` allocations during 60 FPS hero transitions (`[OPEN]`)
-6. **P10** — Unbounded `AsyncImage` bitmap decoding across large grid lists (`[OPEN]`)
+3. ~~**A18** — Public mutable sets (`failedIconUrls`) & unbounded `HeroCache`~~ (`[FIXED]`) ✅
+4. ~~**A17** — UI -> Infrastructure direct coupling (`DesktopDataStore` & `DesktopRepositoryManager` in `@Composable`)~~ (`[FIXED]`) ✅
+5. ~~**P09** — Un-cached Skia `Brush.gradient` allocations during 60 FPS hero transitions~~ (`[FIXED]`) ✅
+6. ~~**P10** — Unbounded `AsyncImage` bitmap decoding across large grid lists~~ (`[FIXED]`) ✅

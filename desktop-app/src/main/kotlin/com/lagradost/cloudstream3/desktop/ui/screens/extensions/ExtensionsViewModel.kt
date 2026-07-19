@@ -45,6 +45,32 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
 
     val inspectedRepoName = MutableStateFlow<String?>(null)
 
+    val savedRepositories = DesktopRepositoryManager.savedRepositories
+    val remotePluginIcons = DesktopRepositoryManager.remotePluginIcons
+    val syncGeneration = DesktopRepositoryManager.syncGeneration
+
+    suspend fun addRepositoryFromInput(input: String): List<com.lagradost.cloudstream3.desktop.repo.Repository>? = withContext(Dispatchers.IO) {
+        DesktopRepositoryManager.addRepositoryFromInput(input)
+    }
+
+    fun removeRepository(url: String) {
+        coroutineScope.launch(Dispatchers.IO) {
+            DesktopRepositoryManager.removeRepository(url)
+        }
+    }
+
+    suspend fun syncAllRepos() = withContext(Dispatchers.IO) {
+        DesktopRepositoryManager.syncAll()
+    }
+
+    fun getPluginsJsonUrl(url: String): String = DesktopRepositoryManager.getPluginsJsonUrl(url)
+
+    fun getExtensionsDir(): File = DesktopRepositoryManager.getExtensionsDir()
+
+    fun isIconFailed(url: String): Boolean = DesktopRepositoryManager.isIconFailed(url)
+
+    fun markIconFailed(url: String) = DesktopRepositoryManager.markIconFailed(url)
+
     fun inspectRepository(repoName: String) {
         inspectedRepoName.value = repoName
     }

@@ -88,7 +88,7 @@ fun ExtensionCard(
                     Spacer(modifier = Modifier.width(6.dp))
                 }
 
-                if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.failedIconUrls.contains(iconUrl)) {
+                if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(iconUrl)) {
                     coil3.compose.SubcomposeAsyncImage(
                         model = iconUrl,
                         contentDescription = null,
@@ -98,7 +98,7 @@ fun ExtensionCard(
                             PluginPlaceholderAvatar(name, internalName)
                         },
                         error = {
-                            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.failedIconUrls.add(iconUrl)
+                            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.markIconFailed(iconUrl)
                             PluginPlaceholderAvatar(name, internalName)
                         },
                     )

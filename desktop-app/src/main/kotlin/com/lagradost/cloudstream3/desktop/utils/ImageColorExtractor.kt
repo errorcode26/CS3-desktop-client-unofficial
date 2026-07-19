@@ -9,6 +9,13 @@ import java.io.InputStream
 import javax.imageio.ImageIO
 
 object ImageColorExtractor {
+    private val globalColorCache = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.Color>()
+
+    fun getCachedColor(imageUrl: String?): androidx.compose.ui.graphics.Color? {
+        if (imageUrl.isNullOrBlank()) return null
+        return globalColorCache[imageUrl]
+    }
+
     fun decodeSubsampled(inputStream: InputStream, subsampleX: Int = 8, subsampleY: Int = 8): BufferedImage? {
         val imageInputStream = ImageIO.createImageInputStream(inputStream) ?: return null
         try {
@@ -28,15 +35,23 @@ object ImageColorExtractor {
         }
     }
 
-    suspend fun extractDominantColorFromUrl(imageUrl: String): androidx.compose.ui.graphics.Color? = withContext(Dispatchers.IO) {
-        try {
-            val response = app.get(imageUrl)
-            val bytes = response.body.bytes()
-            val img = decodeSubsampled(bytes.inputStream(), subsampleX = 8, subsampleY = 8) ?: return@withContext null
-            sampleDominantColor(img)
-        } catch (e: Exception) {
-            AppLogger.w("ImageColorExtractor: Failed to extract color from $imageUrl — ${e.message}")
-            null
+    suspend fun extractDominantColorFromUrl(imageUrl: String): androidx.compose.ui.graphics.Color? {
+        if (imageUrl.isBlank()) return null
+        globalColorCache[imageUrl]?.let { return it }
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = app.get(imageUrl)
+                val bytes = response.body.bytes()
+                val img = decodeSubsampled(bytes.inputStream(), subsampleX = 8, subsampleY = 8) ?: return@withContext null
+                val color = sampleDominantColor(img)
+                if (color != null) {
+                    globalColorCache[imageUrl] = color
+                }
+                color
+            } catch (e: Exception) {
+                AppLogger.w("ImageColorExtractor: Failed to extract color from $imageUrl — ${e.message}")
+                null
+            }
         }
     }
 

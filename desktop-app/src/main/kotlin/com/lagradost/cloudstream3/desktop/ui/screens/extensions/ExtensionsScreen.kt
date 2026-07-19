@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,10 +19,9 @@ import kotlinx.coroutines.withContext
 fun ComposeExtensionScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Browse", "Installed", "Repositories")
-    val syncGen by DesktopRepositoryManager.syncGeneration.collectAsState()
-
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { ExtensionsViewModel(coroutineScope) }
+    val syncGen by viewModel.syncGeneration.collectAsState()
     val inspectedRepoName by viewModel.inspectedRepoName.collectAsState()
 
     LaunchedEffect(inspectedRepoName) {
@@ -96,7 +94,7 @@ fun ComposeExtensionScreen(navController: NavController) {
                         coroutineScope.launch(Dispatchers.IO) {
                             isSyncing = true
                             try {
-                                DesktopRepositoryManager.syncAll()
+                                viewModel.syncAllRepos()
                             } catch (e: Exception) {
                                 // ignore
                             } finally {

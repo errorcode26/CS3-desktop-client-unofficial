@@ -9,7 +9,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
@@ -19,7 +18,7 @@ import com.lagradost.runtime.loader.ExtensionLoader
 fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     val installedPlugins by viewModel.installedPlugins.collectAsState()
     var selectedPlugins by remember { mutableStateOf(setOf<LocalPlugin>()) }
-    val remoteIcons by DesktopRepositoryManager.remotePluginIcons.collectAsState()
+    val remoteIcons by viewModel.remotePluginIcons.collectAsState()
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showUnsupportedWarning by remember { mutableStateOf(false) }

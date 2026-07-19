@@ -45,7 +45,7 @@ fun HomeSearchResults(
                     ) {
                         items(items.size) { index ->
                             val item = items[index]
-                            val heroMeta = HeroCache.cache["${provider.name}_${item.url}"]
+                            val heroMeta = HeroCache.get("${provider.name}_${item.url}")
                             PosterCard(item, provider) {
                                 onItemClick(provider, item, heroMeta?.backdropUrl)
                             }

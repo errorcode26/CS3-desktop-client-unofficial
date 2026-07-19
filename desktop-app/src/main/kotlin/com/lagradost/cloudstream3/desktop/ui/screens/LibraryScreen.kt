@@ -48,19 +48,13 @@ import com.lagradost.common.storage.DesktopWatchType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeLibraryScreen(navController: NavController) {
-    // We use a mutable state list so the UI updates when we remove a bookmark
-    val bookmarksState = remember { mutableStateListOf<DesktopBookmark>() }
-
-    // Load initial bookmarks
-    LaunchedEffect(Unit) {
-        bookmarksState.clear()
-        bookmarksState.addAll(DesktopDataStore.getBookmarks())
-    }
+    val bookmarksMap by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+    val bookmarksList = remember(bookmarksMap) { bookmarksMap.values.toList() }
 
     var showError by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (bookmarksState.isEmpty()) {
+        if (bookmarksList.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -78,8 +72,8 @@ fun ComposeLibraryScreen(navController: NavController) {
             }
         } else {
             var selectedTab by remember { mutableStateOf(DesktopWatchType.WATCHING) }
-            val filteredBookmarks = remember(bookmarksState.toList(), selectedTab) {
-                bookmarksState.filter { it.watchType == selectedTab.id }
+            val filteredBookmarks = remember(bookmarksList, selectedTab) {
+                bookmarksList.filter { it.watchType == selectedTab.id }
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -142,8 +136,7 @@ fun ComposeLibraryScreen(navController: NavController) {
                                     }
                                 },
                                 onDelete = {
-                                    DesktopDataStore.removeBookmark(bookmark.id)
-                                    bookmarksState.remove(bookmark)
+                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmark.id)
                                 },
                             )
                         }

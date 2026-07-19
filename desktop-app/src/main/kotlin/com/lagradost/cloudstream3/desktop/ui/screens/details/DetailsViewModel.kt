@@ -107,13 +107,9 @@ class DetailsViewModel(
 
 
 
-    companion object {
-        private val detailsColorCache = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.Color>()
-    }
-
     private fun extractColor(imageUrl: String?) {
         if (imageUrl.isNullOrBlank()) return
-        detailsColorCache[imageUrl]?.let {
+        com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.getCachedColor(imageUrl)?.let {
             _heroExtractedColor.value = it
             _uiState.update { state -> state.copy(heroColor = it) }
             return
@@ -121,7 +117,6 @@ class DetailsViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val color = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
             if (color != null) {
-                detailsColorCache[imageUrl] = color
                 _heroExtractedColor.value = color
                 _uiState.update { state -> state.copy(heroColor = color) }
             }
