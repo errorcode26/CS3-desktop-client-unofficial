@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 
@@ -36,24 +40,42 @@ data class DetailsUiState(
 )
 
 class DetailsViewModel(
-    private val viewModelScope: CoroutineScope,
     private val provider: MainAPI,
     private val url: String,
     private val preloadedName: String? = null,
     private val preloadedPoster: String? = null,
     private val preloadedBg: String? = null,
 ) {
+    private val viewModelScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+
+    fun dispose() {
+        viewModelScope.cancel()
+    }
 
     private val _uiState = MutableStateFlow(
         DetailsUiState(
-            response = GlobalDetailsCache.cache[url],
-            enrichedLogoUrl = GlobalDetailsCache.cache[url]?.logoUrl,
-            enrichedBackdropUrl = GlobalDetailsCache.cache[url]?.backgroundPosterUrl,
+            response = DetailsCache.get(url),
+            enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
+            enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
         ),
     )
     val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()
 
-    private val _response = MutableStateFlow<LoadResponse?>(GlobalDetailsCache.cache[url])
+    private val _watchHistory = MutableStateFlow<Map<String, WatchHistory>>(emptyMap())
+    val watchHistory: StateFlow<Map<String, WatchHistory>> = _watchHistory.asStateFlow()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.historyUpdates.collect {
+                val historyMap = com.lagradost.common.storage.DesktopDataStore.getAllWatchHistory()
+                    .filter { it.showUrl == url }
+                    .associateBy { it.episodeId ?: it.parentId }
+                _watchHistory.value = historyMap
+            }
+        }
+    }
+
+    private val _response = MutableStateFlow<LoadResponse?>(DetailsCache.get(url))
     val response: StateFlow<LoadResponse?> = _response.asStateFlow()
 
     private val _enrichmentTrigger = MutableStateFlow(0)
@@ -193,7 +215,7 @@ class DetailsViewModel(
                 }
 
                 try {
-                    val rawData = GlobalDetailsCache.fetchRaw(provider, url, fallbackName = preloadedName)
+                    val rawData = DetailsRepository.fetchRaw(provider, url, fallbackName = preloadedName)
                     if (rawData != null) {
                         _response.value = rawData
                         _isLoading.value = false
@@ -225,14 +247,16 @@ class DetailsViewModel(
             val currentData = _response.value
             if (currentData != null) {
                 if (!preloadedName.isNullOrBlank() && currentData.name.isBlank()) {
-                    currentData.name = preloadedName
+                    withContext(Dispatchers.Main.immediate) {
+                        currentData.name = preloadedName
+                    }
                 }
                 if (_heroExtractedColor.value == null) {
                     extractColor(currentData.backgroundPosterUrl ?: currentData.posterUrl ?: preloadedBg ?: preloadedPoster)
                 }
                 _uiState.update { it.copy(isEnriching = true) }
                 val targetEnrichUrl = if (currentData.url.isNotBlank() && !currentData.url.contains("themoviedb.org")) currentData.url else url
-                GlobalDetailsCache.enrich(
+                TmdbEnrichmentService.enrich(
                     loaded = currentData,
                     url = targetEnrichUrl,
                     onScreenshotsLoaded = { images -> _screenshots.value = images },
@@ -277,7 +301,7 @@ class DetailsViewModel(
     fun retry() {
         _fetchFailed.value = false
         _isLoading.value = true
-        GlobalDetailsCache.cache.remove(url)
+        DetailsCache.remove(url)
         loadDetails()
     }
 

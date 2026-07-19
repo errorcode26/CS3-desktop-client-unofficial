@@ -360,7 +360,7 @@ The internal `LoadResponse` cache is `val` but mutable, and publicly accessible 
 
 ## Part 2 — Performance Review
 
-### ISSUE-P01 · `DetailsContent` Calls `getAllWatchHistory()` on Every Recomposition
+### ISSUE-P01 · `DetailsContent` Calls `getAllWatchHistory()` on Every Recomposition (✅ FIXED)
 
 **Evidence:** `DetailsScreen.kt` L311–L313
 
@@ -418,7 +418,7 @@ The full resolution image (potentially 1–3 MB backdrop) is downloaded **again*
 
 ---
 
-### ISSUE-P04 · `drawBehind` in `DetailsScreen` Allocates Radial Gradients on Every Draw Frame
+### ISSUE-P04 · `drawBehind` in `DetailsScreen` Allocates Radial Gradients on Every Draw Frame (✅ FIXED)
 
 **Evidence:** `DetailsScreen.kt` L165–L189
 
@@ -462,7 +462,7 @@ The `transitionSpec` lambda reads `navController.lastAction`, which is a `mutabl
 
 ---
 
-### ISSUE-P06 · Ambient Glow `drawBehind` Runs Uncached on Every Frame
+### ISSUE-P06 · Ambient Glow `drawBehind` Runs Uncached on Every Frame (✅ FIXED)
 
 **Evidence:** `DesktopAppShell.kt` L85–L120
 
@@ -578,7 +578,7 @@ enum class DockPosition { Left, Right, Top, Bottom }
 
 ---
 
-### ISSUE-M04 · `DetailsScreen.kt` at 1,021 Lines With Deeply Nested Composable Lambdas
+### ISSUE-M04 · `DetailsScreen.kt` at 1,021 Lines With Deeply Nested Composable Lambdas (✅ FIXED)
 
 **Evidence:** `DetailsScreen.kt` — 1,021 lines.
 
@@ -592,7 +592,7 @@ enum class DockPosition { Left, Right, Top, Bottom }
 
 ---
 
-### ISSUE-M05 · `PluginSettingsDialog.kt` at 619 Lines for a Single Dialog
+### ISSUE-M05 · `PluginSettingsDialog.kt` at 619 Lines for a Single Dialog (✅ FIXED)
 
 **Evidence:** `PluginSettingsDialog.kt` — 619 lines, 46KB.
 
@@ -632,13 +632,13 @@ These have no Android-port justification. They are desktop Compose lifecycle mis
 
 | ID | Issue |
 |----|-------|
-| A02 | `TmdbRateLimiter` — `@Volatile` does not make compound read-write atomic |
-| A03 | Mutable `LoadResponse` written on IO thread — data race |
-| A04 | `DetailsViewModel` borrows `rememberCoroutineScope` — leaked scope |
-| A10 | `vlcPlayer` file-level singleton — native resource never disposed |
-| A11 | `SearchUiState` as `data class` with `MutableState` fields |
-| A12 | `FullscreenController` as `data class` with `MutableState` fields |
-| A15 | Auto-update `LaunchedEffect` loop inside composable — runs 4× simultaneously |
+| ✅ A02 | `TmdbRateLimiter` — `@Volatile` does not make compound read-write atomic |
+| ✅ A03 | Mutable `LoadResponse` written on IO thread — data race |
+| ✅ A04 | `DetailsViewModel` borrows `rememberCoroutineScope` — leaked scope |
+| ✅ A10 | `vlcPlayer` file-level singleton — native resource never disposed |
+| A11 | `SearchUiState` Compose data class mutability | [✅] |
+| A12 | `FullscreenController` Compose data class mutability | [✅] |
+| ✅ A15 | Auto-update `LaunchedEffect` loop inside composable — runs 4× simultaneously |
 | P04 | `drawBehind` allocates `Brush.radialGradient` on every draw frame |
 | P05 | `transitionSpec` lambda captures observable state — can re-fire mid-animation |
 | P07 | `collectAsState` called per `PosterCard` for a global setting |
@@ -649,10 +649,10 @@ These issues are real but their root cause comes from porting Android patterns. 
 
 | ID | Issue | Risk if Fixed Incorrectly |
 |----|-------|---------------------------|
-| A01 | `GlobalDetailsCache` God Object | Low — internal refactor only |
-| A06 | `Screen.Details` holds live `MainAPI` | **High** — incorrect fix breaks plugin navigation |
-| A08 | `DesktopRepositoryManager` bypasses proxy | Low — OkHttp swap only |
-| A13 | `DataStore.save()` synchronous write | Low — in-memory cache unchanged, only disk flush deferred |
+| A01 | `GlobalDetailsCache` God Object | Low — internal refactor only | [✅] |
+| A06 | `Screen.Details` nav backstack leaks | Low — memory optimize only | [✅] | **High** — incorrect fix breaks plugin navigation |
+| ✅ A08 | `DesktopRepositoryManager` bypasses proxy | Low — OkHttp swap only |
+| ✅ A13 | `DataStore.save()` synchronous write | Low — in-memory cache unchanged, only disk flush deferred |
 | P01 | `getAllWatchHistory()` full scan on recomposition | Low — move to ViewModel |
 | P03 | Full image re-download for color extraction | Low — Coil cache swap |
 
@@ -669,22 +669,22 @@ Initially flagged but incorrect given the Android-port context.
 
 | ID  | Area                                                           | Severity     | Fix When     | Category |
 |-----|----------------------------------------------------------------|--------------|--------------|----------|
-| A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        |
-| A02 | `TmdbRateLimiter` race condition                               | **Major**    | **Now**      | **1**    |
-| A03 | Mutable `LoadResponse` on IO thread                            | **Critical** | **Now**      | **1**    |
-| A04 | `DetailsViewModel` scope leak                                  | **Major**    | **Now**      | **1**    |
+| A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | [✅] |
+| ✅ A02 | `TmdbRateLimiter` race condition                               | **Major**    | **Now**      | **1**    |
+| ✅ A03 | Mutable `LoadResponse` on IO thread                            | **Critical** | **Now**      | **1**    |
+| ✅ A04 | `DetailsViewModel` scope leak                                  | **Major**    | **Now**      | **1**    |
 | A05 | `DesktopHomeViewModel` scope never cancelled                   | Minor        | After alpha  | 1        |
-| A06 | `Screen.Details` holds live `MainAPI` reference                | Major        | After alpha  | **2 ⚠️** |
+| A06 | `Screen.Details` holds live `MainAPI` reference                | Major        | After alpha  | 2        | [✅] |
 | A07 | `NavController` non-thread-safe lists                          | Minor        | After alpha  | 1        |
-| A08 | `DesktopRepositoryManager` own OkHttpClients (bypasses proxy)  | **Major**    | **Now**      | 2        |
-| A09 | Hardcoded API key in source                                    | **Major**    | **Now**      | 1        |
-| A10 | `vlcPlayer` file-level singleton, never disposed               | **Major**    | **Now**      | **1**    |
-| A11 | `SearchUiState` as `data class` with `MutableState`            | Minor        | After alpha  | **1**    |
-| A12 | `FullscreenController` as `data class` with `MutableState`     | Minor        | After alpha  | **1**    |
-| A13 | `DataStore.save()` synchronous full-write per key              | **Major**    | **Now**      | 2        |
+| ✅ A08 | `DesktopRepositoryManager` own OkHttpClients (bypasses proxy)  | **Major**    | **Now**      | 2        |
+| ❌ A09 | Hardcoded API key in source                                    | **Major**    | **Now**      | 1        |
+| ✅ A10 | `vlcPlayer` file-level singleton, never disposed               | **Major**    | **Now**      | **1**    |
+| A11 | `SearchUiState` as `data class` with `MutableState`            | Minor        | After alpha  | 1        | [✅] |
+| A12 | `FullscreenController` as `data class` with `MutableState`     | Minor        | After alpha  | 1        | [✅] |
+| ✅ A13 | `DataStore.save()` synchronous full-write per key              | **Major**    | **Now**      | 2        |
 | A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    |
-| A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    |
-| A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        |
+| ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    |
+| A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | [✅] |
 | P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        |
 | P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        |
 | P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        |
@@ -704,11 +704,11 @@ Initially flagged but incorrect given the Android-port context.
 
 ## Fix-Now Priority Order
 
-1. **A03** — Data race on mutable model (correctness, undefined behavior)
-2. **A02** — Rate limiter race condition (operational, TMDB 429 cascades)
-3. **A09** — Hardcoded API key in source (operational + ToS violation)
-4. **A10** — VLC player never disposed (guaranteed native resource leak)
-5. **A08** — Proxy bypass in repository manager (privacy regression)
-6. **A13** — DataStore synchronous file write on UI thread (UI jank)
-7. **A15** — Auto-update loop ×4 (redundant network, wasted resources)
-8. **A04** — DetailsViewModel scope leak (ghost network requests)
+1. ~~**A03** — Data race on mutable model (correctness, undefined behavior)~~ ✅
+2. ~~**A02** — Rate limiter race condition (operational, TMDB 429 cascades)~~ ✅
+3. ~~**A09** — Hardcoded API key in source (operational + ToS violation)~~ ❌ *(Reverted per user request)*
+4. ~~**A10** — VLC player never disposed (guaranteed native resource leak)~~ ✅
+5. ~~**A08** — Proxy bypass in repository manager (privacy regression)~~ ✅
+6. ~~**A13** — DataStore synchronous file write on UI thread (UI jank)~~ ✅
+7. ~~**A15** — Auto-update loop ×4 (redundant network, wasted resources)~~ ✅
+8. ~~**A04** — DetailsViewModel scope leak (ghost network requests)~~ ✅

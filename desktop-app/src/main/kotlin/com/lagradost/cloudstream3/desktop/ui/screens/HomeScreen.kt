@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -70,30 +71,28 @@ fun ComposeHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .drawBehind {
+            .drawWithCache {
                 if (dynamicColorEnabled && !isLightMode && animatedHeroColor != Color.Transparent) {
-                    // Uniform flat tint at 0.28f covers the ENTIRE screen equally (hero + all category rows)
-                    // This is what makes the rows match the hero color — strong enough to be clearly visible
-                    drawRect(animatedHeroColor.copy(alpha = 0.28f))
-
-                    // Large radial from top-left — extra warmth/brightness concentrated in hero area
+                    val flatColor = animatedHeroColor.copy(alpha = 0.28f)
                     val radius1 = size.width.coerceAtLeast(size.height) * 1.5f
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            colors = listOf(animatedHeroColor.copy(alpha = 0.22f), Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
-                            radius = radius1,
-                        ),
+                    val brush1 = Brush.radialGradient(
+                        colors = listOf(animatedHeroColor.copy(alpha = 0.22f), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
+                        radius = radius1,
                     )
-                    // Accent glow from top-right
                     val radius2 = size.width.coerceAtLeast(size.height) * 0.9f
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            colors = listOf(animatedHeroColor.copy(alpha = 0.12f), Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
-                            radius = radius2,
-                        ),
+                    val brush2 = Brush.radialGradient(
+                        colors = listOf(animatedHeroColor.copy(alpha = 0.12f), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
+                        radius = radius2,
                     )
+                    onDrawBehind {
+                        drawRect(flatColor)
+                        drawRect(brush = brush1)
+                        drawRect(brush = brush2)
+                    }
+                } else {
+                    onDrawBehind {}
                 }
             },
     ) {
@@ -103,10 +102,10 @@ fun ComposeHomeScreen(
                 searchResultsGrouped = searchResultsGrouped,
                 isLoadingSearch = isLoadingSearch,
                 onViewAll = { provider, title, items ->
-                    navController.navigate(Screen.CategoryGrid(provider, title, items))
+                    navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                 },
                 onItemClick = { provider, item, backdrop ->
-                    navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop))
+                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop))
                 },
             )
         } else if (selectedProvider != null && selectedProvider!!.hasMainPage && selectedProvider!!.mainPage.isNotEmpty()) {
@@ -133,15 +132,15 @@ fun ComposeHomeScreen(
                                     onClearHistory = { viewModel.clearHistory() },
                                     onRemoveHistoryItem = { viewModel.removeHistoryItem(it) },
                                     onItemClick = { prov, hist ->
-                                        navController.navigate(Screen.Details(prov, hist.showUrl, hist.showName, hist.posterUrl, null))
+                                        navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
                                     },
                                 )
                             },
                             onViewAll = { provider, title, items ->
-                                navController.navigate(Screen.CategoryGrid(provider, title, items))
+                                navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                             },
                             onItemClick = { provider, item, backdrop, autoPlay ->
-                                navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop, autoPlay))
+                                navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))
                             },
                         )
                     }
@@ -157,10 +156,10 @@ fun ComposeHomeScreen(
                                 parentScope = coroutineScope,
                                 viewModel = viewModel,
                                 onViewAll = { provider, title, items ->
-                                    navController.navigate(Screen.CategoryGrid(provider, title, items))
+                                    navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                                 },
                                 onItemClick = { provider, item, backdrop, autoPlay ->
-                                    navController.navigate(Screen.Details(provider, item.url, item.name, item.posterUrl, backdrop, autoPlay))
+                                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))
                                 },
                             )
                         }

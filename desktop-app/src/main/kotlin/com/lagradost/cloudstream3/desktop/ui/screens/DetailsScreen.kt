@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -57,11 +58,20 @@ import kotlinx.coroutines.launch
 @Composable
 fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: String, preloadedName: String? = null, preloadedPoster: String? = null, preloadedBg: String? = null, autoPlay: Boolean = false) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember(url) { DetailsViewModel(coroutineScope, provider, url, preloadedName, preloadedPoster, preloadedBg) }
+    val viewModel = remember(url) { DetailsViewModel(provider, url, preloadedName, preloadedPoster, preloadedBg) }
+    
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.load()
     }
+
+    val fetchFailed by viewModel.fetchFailed.collectAsState()
+    val showHistory by viewModel.watchHistory.collectAsState()
 
     val response by viewModel.response.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
@@ -164,33 +174,34 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
 
         Box(
             modifier = Modifier.fillMaxSize()
-                .drawBehind {
+                .drawWithCache {
                     if (dynamicColorEnabled && !isLightMode && animatedHeroColor != androidx.compose.ui.graphics.Color.Transparent) {
-                        // Uniform 0.28f flat tint — same as HomeScreen so details page matches the same vibrant theme
-                        drawRect(animatedHeroColor.copy(alpha = 0.28f))
-
+                        val flatColor = animatedHeroColor.copy(alpha = 0.28f)
                         val radius1 = size.width.coerceAtLeast(size.height) * 1.5f
-                        drawRect(
-                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                colors = listOf(animatedHeroColor.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Transparent),
-                                center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
-                                radius = radius1,
-                            ),
+                        val brush1 = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(animatedHeroColor.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Transparent),
+                            center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
+                            radius = radius1,
                         )
                         val radius2 = size.width.coerceAtLeast(size.height) * 0.9f
-                        drawRect(
-                            brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                colors = listOf(animatedHeroColor.copy(alpha = 0.12f), androidx.compose.ui.graphics.Color.Transparent),
-                                center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
-                                radius = radius2,
-                            ),
+                        val brush2 = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(animatedHeroColor.copy(alpha = 0.12f), androidx.compose.ui.graphics.Color.Transparent),
+                            center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
+                            radius = radius2,
                         )
+                        onDrawBehind {
+                            drawRect(flatColor)
+                            drawRect(brush = brush1)
+                            drawRect(brush = brush2)
+                        }
+                    } else {
+                        onDrawBehind {}
                     }
                 },
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData!!, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState)
+                    DetailsContent(navController, provider, fakeData!!, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -199,7 +210,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response!!, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState)
+                DetailsContent(navController, provider, response!!, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -296,6 +307,7 @@ fun DetailsContent(
     dynamicColorEnabled: Boolean = false,
     animatedHeroColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Transparent,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState? = null,
+    showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
 ) {
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -307,11 +319,7 @@ fun DetailsContent(
         com.lagradost.common.storage.DesktopDataStore.getLatestWatchHistoryForShow(data.url)
     }
 
-    val showHistory = remember(data.url, historyUpdatesVal) {
-        com.lagradost.common.storage.DesktopDataStore.getAllWatchHistory()
-            .filter { it.showUrl == data.url }
-            .associateBy { it.episodeId ?: it.parentId }
-    }
+
 
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(false) }
@@ -329,109 +337,11 @@ fun DetailsContent(
 
         val isLightMode by AppearanceConfig.isLightMode.collectAsState()
         val heroAction: @Composable () -> Unit = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                val historyUpdatesVal = com.lagradost.common.storage.DesktopDataStore.historyUpdates.collectAsState().value
-                val latestHistory = remember(data.url, historyUpdatesVal) {
-                    com.lagradost.common.storage.DesktopDataStore.getLatestWatchHistoryForShow(data.url)
-                }
-
-                val allEpisodes = remember(data) {
-                    when (data) {
-                        is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes
-                        is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten()
-                        else -> emptyList()
-                    }
-                }
-                val sortedEpisodes = remember(allEpisodes) {
-                    allEpisodes.sortedWith(
-                        compareBy<com.lagradost.cloudstream3.Episode> { it.season ?: 1 }
-                            .thenBy { it.episode ?: 1 },
-                    )
-                }
-                val targetEp = remember(sortedEpisodes, latestHistory) {
-                    if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-                        sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
-                    } else {
-                        sortedEpisodes.firstOrNull()
-                    }
-                }
-
-                val buttonLabel = remember(data, latestHistory, targetEp) {
-                    if (latestHistory != null) {
-                        if (targetEp?.episode != null) {
-                            "Resume E${targetEp.episode}"
-                        } else {
-                            "Resume"
-                        }
-                    } else {
-                        if (targetEp?.season != null && targetEp.episode != null) {
-                            "Play S${targetEp.season} E${targetEp.episode}"
-                        } else if (targetEp?.episode != null) {
-                            "Play E${targetEp.episode}"
-                        } else {
-                            "Play"
-                        }
-                    }
-                }
-
-                val onPlayClick = {
-                    if (targetEp != null) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, data, targetEp, onPlay)
-                    } else {
-                        val ep = when (data) {
-                            is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
-                                name = data.name
-                                description = data.plot
-                                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                            }
-                            is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
-                                name = data.name
-                                description = data.plot
-                                posterUrl = data.posterUrl
-                            }
-                            is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
-                                name = data.name
-                                description = data.plot
-                                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                            }
-                            else -> null
-                        }
-                        if (ep != null) {
-                            com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, data, ep, onPlay)
-                        }
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .height(56.dp)
-                        .widthIn(min = 190.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White)
-                        .clickable { onPlayClick() }
-                        .padding(horizontal = 32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color(0xFF0F0F0F),
-                            modifier = Modifier.size(26.dp),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = buttonLabel,
-                            color = Color(0xFF0F0F0F),
-                            fontWeight = FontWeight.ExtraBold,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                }
-            }
+            com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsPlayButton(
+                data = data,
+                provider = provider,
+                onPlay = onPlay
+            )
         }
 
         LazyColumn(state = scrollState, modifier = Modifier.fillMaxSize()) {
@@ -483,7 +393,7 @@ fun DetailsContent(
                             provider = provider,
                             onMovieClick = { rec ->
                                 val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
-                                navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider, rec.url, rec.name, rec.posterUrl, null, false))
+                                navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
                             },
                         )
                     }
@@ -495,188 +405,24 @@ fun DetailsContent(
             val collItems = uiState?.enrichedCollectionItems ?: emptyList()
             if (!collName.isNullOrBlank()) {
                 item {
-                    val collScrollState = rememberLazyListState()
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 8.dp)
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF161618)),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp),
-                            contentAlignment = Alignment.TopStart,
-                        ) {
-                            if (collBg != null) {
-                                coil3.compose.AsyncImage(
-                                    model = collBg,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.matchParentSize().blur(16.dp),
-                                )
-                                Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.65f)))
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 18.dp),
-                            ) {
-                                Text(
-                                    text = "COLLECTION / SAGA",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.sp,
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = collName,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                if (collItems.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    androidx.compose.foundation.lazy.LazyRow(
-                                        state = collScrollState,
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pointerInput(Unit) {
-                                                detectHorizontalDragGestures { change, dragAmount ->
-                                                    change.consume()
-                                                    collScrollState.dispatchRawDelta(-dragAmount)
-                                                }
-                                            },
-                                    ) {
-                                        items(collItems) { partItem ->
-                                            com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
-                                                item = partItem,
-                                                provider = provider,
-                                                itemWidth = 125.dp,
-                                                onClick = {
-                                                    navController.navigate(Screen.Details(provider, partItem.url, partItem.name, partItem.posterUrl, null, false))
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
+                        collName = collName,
+                        collBg = collBg,
+                        collItems = collItems,
+                        provider = provider,
+                        onNavigate = { screen -> navController.navigate(screen) }
+                    )
                 }
             }
 
             if (!screenshots.isNullOrEmpty()) {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 8.dp)
-                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                            .padding(vertical = 16.dp),
-                    ) {
-                        // Collapsible Screenshots header row
-                        Row(
-                            modifier = Modifier
-                                .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { screenshotsExpanded = !screenshotsExpanded }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                Text(
-                                    text = "Screenshots",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                ) {
-                                    Text(
-                                        text = "${screenshots.size}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = if (screenshotsExpanded) "Collapse" else "Expand",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                    modifier = Modifier.rotate(if (screenshotsExpanded) 180f else 0f),
-                                )
-                            }
-                        }
-                        AnimatedVisibility(
-                            visible = screenshotsExpanded,
-                            enter = fadeIn(tween(200)) + androidx.compose.animation.expandVertically(tween(200)),
-                            exit = fadeOut(tween(200)) + androidx.compose.animation.shrinkVertically(tween(200)),
-                        ) {
-                            Column {
-                                androidx.compose.foundation.lazy.LazyRow(
-                                    state = screenshotsScrollState,
-                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                    modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                                        detectHorizontalDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            screenshotsScrollState.dispatchRawDelta(-dragAmount)
-                                        }
-                                    },
-                                ) {
-                                    items(screenshots, key = { it }) { imgUrl ->
-                                        Surface(
-                                            modifier = Modifier
-                                                .width(480.dp)
-                                                .aspectRatio(16f / 9f)
-                                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .clickable { selectedScreenshot = imgUrl },
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                        ) {
-                                            coil3.compose.AsyncImage(
-                                                model = imgUrl,
-                                                contentDescription = "Screenshot",
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    ) {
-                                        Row {
-                                            IconButton(onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(-500f) } }) {
-                                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                                            }
-                                            IconButton(onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(500f) } }) {
-                                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                                            }
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
+                        screenshots = screenshots,
+                        screenshotsExpanded = screenshotsExpanded,
+                        onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
+                        onScreenshotClick = { selectedScreenshot = it }
+                    )
                 }
             }
 
@@ -684,61 +430,10 @@ fun DetailsContent(
 
             if (validRecs.isNotEmpty()) {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 8.dp)
-                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                            .padding(vertical = 24.dp),
-                    ) {
-                        Text(
-                            text = "Similar Content",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
-                        )
-                        androidx.compose.foundation.lazy.LazyRow(
-                            state = similarScrollState,
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                                detectHorizontalDragGestures { change, dragAmount ->
-                                    change.consume()
-                                    similarScrollState.dispatchRawDelta(-dragAmount)
-                                }
-                            },
-                        ) {
-                            items(validRecs.take(18)) { rec ->
-                                val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName)!!
-                                com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
-                                    item = rec,
-                                    provider = recProvider,
-                                    itemWidth = 150.dp,
-                                    onClick = {
-                                        navController.navigate(Screen.Details(recProvider, rec.url, rec.name, rec.posterUrl, null, false))
-                                    },
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            ) {
-                                Row {
-                                    IconButton(onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(-500f) } }) {
-                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                                    }
-                                    IconButton(onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(500f) } }) {
-                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
+                        validRecs = validRecs,
+                        onNavigate = { screen -> navController.navigate(screen) }
+                    )
                 }
             }
 

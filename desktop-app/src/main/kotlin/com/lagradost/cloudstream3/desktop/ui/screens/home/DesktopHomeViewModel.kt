@@ -288,11 +288,11 @@ class DesktopHomeViewModel {
         coroutineScope.launch(Dispatchers.IO) {
             for (history in topHistory) {
                 val provider = providers.value.find { it.name == history.apiName }
-                if (provider != null && !com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache.containsKey(history.showUrl)) {
+                if (provider != null && !com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache.containsKey(history.showUrl)) {
                     try {
-                        val raw = com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.fetchRaw(provider, history.showUrl)
+                        val raw = com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository.fetchRaw(provider, history.showUrl)
                         if (raw != null) {
-                            com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(raw, history.showUrl, onScreenshotsLoaded = {})
+                            com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(raw, history.showUrl, onScreenshotsLoaded = {})
                         }
                     } catch (e: Exception) {
                         com.lagradost.common.logging.AppLogger.e("HomeScreen", "Failed to prefetch history item", e)
@@ -326,7 +326,7 @@ class DesktopHomeViewModel {
                         this.posterUrl = item.posterUrl
                     }
 
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(dummy, "dummy_${item.url}", onScreenshotsLoaded = {})
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(dummy, "dummy_${item.url}", onScreenshotsLoaded = {})
 
                     val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
                     val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
@@ -354,10 +354,10 @@ class DesktopHomeViewModel {
                     while (attempt < 3 && details == null) {
                         try {
                             kotlinx.coroutines.delay(if (attempt == 0) 1500L else 2000L)
-                            details = if (!com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache.containsKey(item.url)) {
-                                com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.fetchRaw(provider, item.url)
+                            details = if (!com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache.containsKey(item.url)) {
+                                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository.fetchRaw(provider, item.url)
                             } else {
-                                com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.cache[item.url]
+                                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache.get(item.url)
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
@@ -389,7 +389,7 @@ class DesktopHomeViewModel {
                         if (newBackdrop != null) updateHeroColor(newBackdrop, itemUrl = item.url)
 
                         // Launch background TMDB enrichment and update UI when finished!
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.GlobalDetailsCache.enrich(
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(
                             loaded = details,
                             url = item.url,
                             onScreenshotsLoaded = {},

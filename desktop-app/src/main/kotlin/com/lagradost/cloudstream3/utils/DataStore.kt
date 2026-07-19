@@ -6,6 +6,12 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicReference
 
 object DataStore {
     const val PREFERENCES_NAME = "rebuild_preference"
@@ -26,7 +32,18 @@ object DataStore {
         }
     }
 
+    private val ioScope = CoroutineScope(Dispatchers.IO)
+    private val saveDebounceJob = AtomicReference<Job?>(null)
+
     private fun save() {
+        saveDebounceJob.getAndSet(null)?.cancel()
+        saveDebounceJob.set(ioScope.launch {
+            delay(200)
+            persist()
+        })
+    }
+
+    private fun persist() {
         try {
             mapper.writeValue(prefsFile, cache.toMap())
         } catch (e: Exception) {

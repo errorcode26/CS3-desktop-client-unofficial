@@ -136,7 +136,7 @@ fun ComposeLibraryScreen(navController: NavController) {
                                 onClick = {
                                     val provider = APIHolder.getApiFromNameNull(bookmark.apiName)
                                     if (provider != null) {
-                                        navController.navigate(Screen.Details(provider, bookmark.url))
+                                        navController.navigate(Screen.Details(provider.name, bookmark.url))
                                     } else {
                                         showError = "The provider '${bookmark.apiName}' is not loaded. Please install or enable it first."
                                     }

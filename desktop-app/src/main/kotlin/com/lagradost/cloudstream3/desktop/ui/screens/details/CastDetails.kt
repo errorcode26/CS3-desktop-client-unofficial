@@ -44,7 +44,7 @@ fun CastDetailsDialog(
     onDismiss: () -> Unit,
     onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {},
 ) {
-    var details by remember { mutableStateOf<GlobalDetailsCache.DesktopActorDetails?>(null) }
+    var details by remember { mutableStateOf<TmdbEnrichmentService.DesktopActorDetails?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var show by remember { mutableStateOf(false) }
 
@@ -68,7 +68,7 @@ fun CastDetailsDialog(
         // For anime dual-cast: actor = character art, voiceActor = human VA.
         // TMDB only knows real people, so search by voiceActor name if available.
         val searchName = actor.voiceActor?.name?.takeIf { it.isNotBlank() } ?: actor.actor.name
-        details = GlobalDetailsCache.getActorDetails(searchName)
+        details = TmdbEnrichmentService.getActorDetails(searchName)
         isLoading = false
     }
 

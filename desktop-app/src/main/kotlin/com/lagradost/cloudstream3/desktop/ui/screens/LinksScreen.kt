@@ -32,7 +32,6 @@ import com.lagradost.player.impl.VlcPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val vlcPlayer = VlcPlayer()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +44,13 @@ fun LinksSidePanel(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember(coroutineScope) { LinksViewModel(coroutineScope) }
+    
+    val vlcPlayer = remember { VlcPlayer() }
+    DisposableEffect(vlcPlayer) {
+        onDispose {
+            vlcPlayer.destroy()
+        }
+    }
 
     // Observe ViewModel state
     val links by viewModel.links.collectAsState()
@@ -156,8 +162,9 @@ fun LinksSidePanel(
                     currentPlayingUrl = currentPlayingUrl,
                     filteredLinks = filteredLinks,
                     coroutineScope = coroutineScope,
+                    vlcPlayer = vlcPlayer,
                     playVideo = playVideo,
-                    onStatusChange = viewModel::setStatus,
+                    onStatusChange = { viewModel.setStatus(it) },
                     onLaunching = { isLaunchingPlayer = it },
                     onCurrentUrl = { currentPlayingUrl = it },
                     onEmbeddedError = { embeddedError = it },
@@ -284,8 +291,9 @@ fun LinksSidePanel(
                                     currentPlayingUrl = currentPlayingUrl,
                                     filteredLinks = filteredLinks,
                                     coroutineScope = coroutineScope,
+                                    vlcPlayer = vlcPlayer,
                                     playVideo = playVideo,
-                                    onStatusChange = viewModel::setStatus,
+                                    onStatusChange = { viewModel.setStatus(it) },
                                     onLaunching = { isLaunchingPlayer = it },
                                     onCurrentUrl = { currentPlayingUrl = it },
                                     onEmbeddedError = { embeddedError = it },
@@ -332,6 +340,7 @@ private fun playLink(
     currentPlayingUrl: String?,
     filteredLinks: List<ExtractorLink>,
     coroutineScope: kotlinx.coroutines.CoroutineScope,
+    vlcPlayer: com.lagradost.player.impl.VlcPlayer,
     playVideo: (com.lagradost.cloudstream3.desktop.ui.VideoLaunchData?) -> Unit,
     onStatusChange: (String) -> Unit,
     onLaunching: (Boolean) -> Unit,

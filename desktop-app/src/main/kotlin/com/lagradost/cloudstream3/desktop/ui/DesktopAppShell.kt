@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,13 +64,6 @@ fun DesktopAppShell(
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val isSearchForced by searchUiState.isSearchForced
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(30 * 60 * 1000L) // 30 minutes
-            DesktopRepositoryManager.autoUpdatePlugins()
-        }
-    }
-
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
             val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
@@ -85,9 +79,9 @@ fun DesktopAppShell(
                     .fillMaxSize()
                     .then(
                         if (ambientGlowEnabled && !isLightMode) {
-                            Modifier.drawBehind {
-                                drawRect(color = surfaceColor)
-                                ambientGlowPositions.forEach { position ->
+                            Modifier.drawWithCache {
+                                val radius = size.width.coerceAtLeast(size.height) * 0.8f
+                                val brushes = ambientGlowPositions.map { position ->
                                     val yOffset = 0f
                                     val centerOffset = when (position) {
                                         "Top" -> Offset(size.width / 2f, yOffset)
@@ -100,18 +94,20 @@ fun DesktopAppShell(
                                         "Bottom Right" -> Offset(size.width, size.height)
                                         else -> Offset(size.width / 2f, size.height / 2f)
                                     }
-                                    drawRect(
-                                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                            colorStops = arrayOf(
-                                                0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
-                                                0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
-                                                0.6f to primaryColor.copy(alpha = ambientGlowIntensity * 0.2f),
-                                                1.0f to Color.Transparent,
-                                            ),
-                                            center = centerOffset,
-                                            radius = size.width.coerceAtLeast(size.height) * 0.8f,
+                                    androidx.compose.ui.graphics.Brush.radialGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
+                                            0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
+                                            0.6f to primaryColor.copy(alpha = ambientGlowIntensity * 0.2f),
+                                            1.0f to Color.Transparent,
                                         ),
+                                        center = centerOffset,
+                                        radius = radius,
                                     )
+                                }
+                                onDrawBehind {
+                                    drawRect(color = surfaceColor)
+                                    brushes.forEach { drawRect(brush = it) }
                                 }
                             }
                         } else {

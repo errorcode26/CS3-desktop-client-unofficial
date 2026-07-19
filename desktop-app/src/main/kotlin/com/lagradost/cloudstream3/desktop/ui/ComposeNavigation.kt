@@ -40,7 +40,7 @@ val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoL
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
 
-data class SearchUiState(
+class SearchUiState(
     val isSearchForced: androidx.compose.runtime.MutableState<Boolean>,
     val searchFocusTrigger: androidx.compose.runtime.MutableState<Int>
 )
@@ -52,7 +52,7 @@ val LocalHomeViewModel = androidx.compose.runtime.staticCompositionLocalOf<com.l
  * Uses GraphicsDevice.setFullScreenWindow() which is the only way to get true fullscreen on Windows
  * (WindowPlacement.Fullscreen is "fake" — the OS title bar and taskbar still render on top).
  */
-data class FullscreenController(
+class FullscreenController(
     val isFullscreen: androidx.compose.runtime.MutableState<Boolean>,
     val toggle: () -> Unit,
     val popupKey: androidx.compose.runtime.MutableState<Int> = androidx.compose.runtime.mutableStateOf(0),
@@ -228,7 +228,16 @@ fun CloudstreamApp() {
                     ) { targetScreen ->
                         saveableStateHolder.SaveableStateProvider(targetScreen) {
                             when (targetScreen) {
-                                is Screen.Details -> ComposeDetailsScreen(navController, targetScreen.provider, targetScreen.url, targetScreen.preloadedName, targetScreen.preloadedPoster, targetScreen.preloadedBg, targetScreen.autoPlay)
+                                is Screen.Details -> {
+                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(targetScreen.providerName)
+                                    if (api != null) {
+                                        ComposeDetailsScreen(navController, api, targetScreen.url, targetScreen.preloadedName, targetScreen.preloadedPoster, targetScreen.preloadedBg, targetScreen.autoPlay)
+                                    } else {
+                                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                            androidx.compose.material.Text("Plugin unloaded. Cannot load details.")
+                                        }
+                                    }
+                                }
 
                                 is Screen.Home -> DesktopAppShell(
                                     navController = navController,
@@ -268,7 +277,14 @@ fun CloudstreamApp() {
                                     showBack = true,
                                     onErrorLogs = { showErrorsDialog = true },
                                 ) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(navController, targetScreen.provider, targetScreen.title, targetScreen.items)
+                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(targetScreen.providerName)
+                                    if (api != null) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(navController, api, targetScreen.title, targetScreen.items)
+                                    } else {
+                                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                            androidx.compose.material.Text("Plugin unloaded. Cannot load category.")
+                                        }
+                                    }
                                 }
                             }
                         }

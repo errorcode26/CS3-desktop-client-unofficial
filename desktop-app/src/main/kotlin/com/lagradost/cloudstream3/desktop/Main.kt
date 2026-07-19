@@ -137,6 +137,13 @@ fun main() {
             placement = androidx.compose.ui.window.WindowPlacement.Maximized,
         )
 
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            while (true) {
+                kotlinx.coroutines.delay(30 * 60 * 1000L) // 30 minutes
+                com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.autoUpdatePlugins()
+            }
+        }
+
         val isFullscreenState = androidx.compose.runtime.mutableStateOf(false)
         val popupKeyState = androidx.compose.runtime.mutableStateOf(0)
         val contentAreaPxState = androidx.compose.runtime.mutableStateOf(Pair(0, 0))

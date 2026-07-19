@@ -27,25 +27,17 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 object DesktopRepositoryManager {
-    private val client = OkHttpClient.Builder()
-        .followRedirects(false)
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
-                .build()
-            chain.proceed(request)
-        }
-        .build()
+    private val client by lazy {
+        com.lagradost.cloudstream3.app.baseClient.newBuilder()
+            .followRedirects(false)
+            .build()
+    }
 
-    private val redirectClient = OkHttpClient.Builder()
-        .followRedirects(true)
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
-                .build()
-            chain.proceed(request)
-        }
-        .build()
+    private val redirectClient by lazy {
+        com.lagradost.cloudstream3.app.baseClient.newBuilder()
+            .followRedirects(true)
+            .build()
+    }
 
     private val mapper = ObjectMapper().registerModule(kotlinModule())
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -604,7 +596,16 @@ object DesktopRepositoryManager {
         total.get()
     }
 
+    private var lastAutoUpdateTime = 0L
+    private val autoUpdateCooldown = 15 * 60 * 1000L // 15 minutes
+
     suspend fun autoUpdatePlugins(): List<com.lagradost.common.storage.PluginUpdateRecord> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (now - lastAutoUpdateTime < autoUpdateCooldown) {
+            return@withContext emptyList()
+        }
+        lastAutoUpdateTime = now
+
         val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()
         val savedRepos = getSavedRepositories()
         val extensionsDir = getExtensionsDir()
