@@ -40,10 +40,14 @@ val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoL
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
 
+@androidx.compose.runtime.Stable
 class SearchUiState(
-    val isSearchForced: androidx.compose.runtime.MutableState<Boolean>,
-    val searchFocusTrigger: androidx.compose.runtime.MutableState<Int>
-)
+    isSearchForced: Boolean = false,
+    searchFocusTrigger: Int = 0
+) {
+    var isSearchForced by androidx.compose.runtime.mutableStateOf(isSearchForced)
+    var searchFocusTrigger by androidx.compose.runtime.mutableStateOf(searchFocusTrigger)
+}
 val LocalSearchUiState = androidx.compose.runtime.staticCompositionLocalOf<SearchUiState> { error("No SearchUiState provided") }
 val LocalHomeViewModel = androidx.compose.runtime.staticCompositionLocalOf<com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel> { error("No DesktopHomeViewModel provided") }
 
@@ -52,11 +56,12 @@ val LocalHomeViewModel = androidx.compose.runtime.staticCompositionLocalOf<com.l
  * Uses GraphicsDevice.setFullScreenWindow() which is the only way to get true fullscreen on Windows
  * (WindowPlacement.Fullscreen is "fake" — the OS title bar and taskbar still render on top).
  */
+@androidx.compose.runtime.Stable
 class FullscreenController(
-    val isFullscreen: androidx.compose.runtime.MutableState<Boolean>,
-    val toggle: () -> Unit,
-    val popupKey: androidx.compose.runtime.MutableState<Int> = androidx.compose.runtime.mutableStateOf(0),
-    val mainFrame: java.awt.Window? = null,
+    isFullscreen: Boolean,
+    var toggle: () -> Unit,
+    popupKey: Int = 0,
+    var mainFrame: java.awt.Window? = null,
     /**
      * Tracks the main window's content-pane size in physical pixels.
      * Updated from an AWT ComponentListener on the EDT, so it always reflects
@@ -64,9 +69,12 @@ class FullscreenController(
      * report stale values during the fullscreen ↔ maximized transition.
      * Zero means "not yet measured; fall back to BoxWithConstraints."
      */
-    val contentAreaPx: androidx.compose.runtime.MutableState<Pair<Int, Int>> =
-        androidx.compose.runtime.mutableStateOf(Pair(0, 0)),
-)
+    contentAreaPx: Pair<Int, Int> = Pair(0, 0),
+) {
+    var isFullscreen by androidx.compose.runtime.mutableStateOf(isFullscreen)
+    var popupKey by androidx.compose.runtime.mutableStateOf(popupKey)
+    var contentAreaPx by androidx.compose.runtime.mutableStateOf(contentAreaPx)
+}
 val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalOf<FullscreenController?> { null }
 
 @androidx.compose.ui.ExperimentalComposeUiApi
@@ -90,12 +98,7 @@ fun CloudstreamApp() {
         )
     }
 
-    val searchUiState = remember {
-        SearchUiState(
-            isSearchForced = mutableStateOf(false),
-            searchFocusTrigger = mutableStateOf(0)
-        )
-    }
+    val searchUiState = remember { SearchUiState() }
 
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
@@ -136,6 +139,7 @@ fun CloudstreamApp() {
                         },
                 ) {
                     val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+                    val currentAction = navController.lastAction
 
                     androidx.compose.animation.AnimatedContent(
                         targetState = screen,
@@ -146,8 +150,8 @@ fun CloudstreamApp() {
                             val isTopLevelInitial = initialState is Screen.Home || initialState is Screen.Library || initialState is Screen.Extensions || initialState is Screen.Settings
 
                             val isTabSwitch = isTopLevelInitial && isTopLevelTarget
-                            val isPush = navController.lastAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Push && !isTabSwitch
-                            val isPop = navController.lastAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Pop && !isTabSwitch
+                            val isPush = currentAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Push && !isTabSwitch
+                            val isPop = currentAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Pop && !isTabSwitch
 
                             val isToDetails = targetState is Screen.Details
                             val isFromDetails = initialState is Screen.Details

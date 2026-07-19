@@ -48,8 +48,8 @@ fun DesktopAppShell(
     val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
     LaunchedEffect(current) {
         if (current !is Screen.Home) {
-            searchUiState.isSearchForced.value = false
-            searchUiState.searchFocusTrigger.value = 0
+            searchUiState.isSearchForced = false
+            searchUiState.searchFocusTrigger = 0
         }
     }
 
@@ -62,7 +62,7 @@ fun DesktopAppShell(
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val isSearchForced by searchUiState.isSearchForced
+    val isSearchForced = searchUiState.isSearchForced
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
@@ -119,11 +119,11 @@ fun DesktopAppShell(
                 val contentPadding = if (current is Screen.Home) {
                     PaddingValues(0.dp)
                 } else {
-                    val hPadding = if (dockPosition == "Right" || dockPosition == "Left") 88.dp else 20.dp
+                    val hPadding = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT || dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 20.dp
                     when (dockPosition) {
-                        "Right" -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
-                        "Bottom" -> PaddingValues(top = 66.dp, start = 20.dp, end = 20.dp, bottom = 88.dp)
-                        "Top" -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(top = 66.dp, start = 20.dp, end = 20.dp, bottom = 88.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
                         else -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
                     }
                 }
@@ -167,9 +167,9 @@ fun DesktopAppShell(
 
             // Navigation Dock
             val dockAlignment = when (dockPosition) {
-                "Right" -> Alignment.CenterEnd
-                "Bottom" -> Alignment.BottomCenter
-                "Top" -> Alignment.TopCenter
+                com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
+                com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
+                com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
                 else -> Alignment.CenterStart
             }
             NavigationDock(
@@ -182,8 +182,8 @@ fun DesktopAppShell(
                     if (current !is Screen.Home) {
                         navController.navigateRoot(Screen.Home)
                     }
-                    searchUiState.isSearchForced.value = true
-                    searchUiState.searchFocusTrigger.value += 1
+                    searchUiState.isSearchForced = true
+                    searchUiState.searchFocusTrigger += 1
                 },
             )
 
@@ -202,20 +202,20 @@ fun DesktopAppShell(
 private fun NavigationDock(
     modifier: Modifier = Modifier,
     current: Screen,
-    dockPosition: String,
+    dockPosition: com.lagradost.cloudstream3.desktop.ui.DockPosition,
     isSyncing: Boolean,
     onNavigate: (Screen) -> Unit,
     onSearchClick: () -> Unit,
 ) {
     val savedRepos by DesktopRepositoryManager.savedRepositories.collectAsState()
 
-    val isBottom = dockPosition == "Bottom"
-    val isRight = dockPosition == "Right"
-    val isTop = dockPosition == "Top"
+    val isBottom = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM
+    val isRight = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT
+    val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
     val isHorizontal = isBottom || isTop
 
     val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
-    val isSearchForced by searchUiState.isSearchForced
+    val isSearchForced = searchUiState.isSearchForced
 
     val dockItems = @Composable {
         DockItem(
@@ -225,7 +225,7 @@ private fun NavigationDock(
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = {
-                searchUiState.isSearchForced.value = false
+                searchUiState.isSearchForced = false
                 onNavigate(Screen.Home)
             },
         )

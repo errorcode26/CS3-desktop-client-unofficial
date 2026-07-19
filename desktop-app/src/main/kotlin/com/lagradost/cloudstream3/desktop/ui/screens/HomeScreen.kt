@@ -53,7 +53,7 @@ fun ComposeHomeScreen(
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val isDockTop = dockPosition == "Top"
+    val isDockTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
 
     val isSearchActive = searchQuery.isNotBlank() || searchResultsGrouped != null
 
@@ -214,7 +214,7 @@ fun ComposeHomeScreen(
                 onClose = {
                     viewModel.setSearchQuery("")
                     viewModel.clearSearchResults()
-                    searchUiState.isSearchForced.value = false
+                    searchUiState.isSearchForced = false
                 },
                 isSearchActive = isSearchActive,
                 providers = providers,

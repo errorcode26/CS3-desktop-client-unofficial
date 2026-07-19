@@ -20,6 +20,12 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.request.crossfade
+import com.lagradost.cloudstream3.desktop.init.initCoil
+import com.lagradost.cloudstream3.desktop.init.initCrashHandler
+import com.lagradost.cloudstream3.desktop.init.initWindowsEnvironment
+import com.lagradost.cloudstream3.desktop.init.enterWindowsFullscreen
+import com.lagradost.cloudstream3.desktop.init.exitWindowsFullscreen
+import com.lagradost.cloudstream3.desktop.init.setWindowsDarkMode
 import com.lagradost.cloudstream3.desktop.init.initNetwork
 import com.lagradost.cloudstream3.desktop.init.initPlugins
 import com.lagradost.cloudstream3.desktop.init.initProviders
@@ -36,58 +42,13 @@ import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-private interface Kernel32 : com.sun.jna.Library {
-    fun SetEnvironmentVariableW(name: com.sun.jna.WString, value: com.sun.jna.WString): Boolean
-    companion object {
-        val INSTANCE = com.sun.jna.Native.load("kernel32", Kernel32::class.java) as Kernel32
-    }
-}
 
 /**
  * Single unified entry point for CloudStream Desktop Client.
  */
 fun main() {
-    Thread.setDefaultUncaughtExceptionHandler { _, e ->
-        try {
-            val crashDir = PlatformPaths.appDataDir
-            crashDir.mkdirs()
-            val crashFile = File(crashDir, "crash.log")
-
-            val stackTrace = java.io.StringWriter().also { e.printStackTrace(java.io.PrintWriter(it)) }.toString()
-            val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())
-
-            crashFile.appendText("\n\n--- CRASH LOG: $time ---\n")
-            crashFile.appendText(stackTrace)
-
-            try {
-                java.awt.Desktop.getDesktop().open(crashDir)
-            } catch (t: Throwable) {
-                // Ignore if opening folder fails
-            }
-
-            javax.swing.JOptionPane.showMessageDialog(
-                null,
-                "CloudStream encountered a fatal error and crashed.\n\nA crash log has been saved to:\n${crashFile.absolutePath}\n\nPlease share this file with the developers.",
-                "CloudStream Crash Reporter",
-                javax.swing.JOptionPane.ERROR_MESSAGE,
-            )
-        } catch (t: Throwable) {
-            // Failsafe, don't crash the crash handler itself
-            t.printStackTrace()
-        }
-        kotlin.system.exitProcess(1)
-    }
-
-    if (System.getProperty("os.name").lowercase().contains("win")) {
-        try {
-            Kernel32.INSTANCE.SetEnvironmentVariableW(
-                com.sun.jna.WString("WEBVIEW2_DEFAULT_BACKGROUND_COLOR"),
-                com.sun.jna.WString("00000000"),
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
+    initCrashHandler()
+    initWindowsEnvironment()
 
     // Removed the default black background. Setting it globally forces popups and tooltips
     // to render as black boxes if they fail to paint or get stuck.
@@ -100,32 +61,7 @@ fun main() {
     AppLogger.i("App data directory: ${PlatformPaths.appDataDir.absolutePath}")
 
     application {
-        setSingletonImageLoaderFactory { context ->
-            coil3.ImageLoader.Builder(context)
-                .memoryCache {
-                    coil3.memory.MemoryCache.Builder()
-                        .maxSizePercent(context, 0.25)
-                        .build()
-                }
-                .diskCache {
-                    coil3.disk.DiskCache.Builder()
-                        .directory(File(PlatformPaths.appDataDir, "image_cache").also { it.mkdirs() }.toOkioPath())
-                        .maxSizeBytes(512L * 1024 * 1024)
-                        .build()
-                }
-                .components {
-                    add(coil3.svg.SvgDecoder.Factory())
-                    add(
-                        coil3.network.okhttp.OkHttpNetworkFetcherFactory(
-                            callFactory = { request ->
-                                com.lagradost.cloudstream3.app.baseClient.newCall(request)
-                            },
-                        ),
-                    )
-                }
-                .crossfade(true)
-                .build()
-        }
+        initCoil()
 
         val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
         val windowWidth = (screenSize.width * 0.7).toInt().coerceAtLeast(1000).dp
@@ -144,9 +80,12 @@ fun main() {
             }
         }
 
-        val isFullscreenState = androidx.compose.runtime.mutableStateOf(false)
-        val popupKeyState = androidx.compose.runtime.mutableStateOf(0)
-        val contentAreaPxState = androidx.compose.runtime.mutableStateOf(Pair(0, 0))
+        val fullscreenController = FullscreenController(
+            isFullscreen = false,
+            toggle = { }, // Will be set later
+            popupKey = 0,
+            contentAreaPx = Pair(0, 0)
+        )
         // Content-pane size captured just before entering fullscreen.
         // Used to pre-seed contentAreaPxState when exiting, so the FIRST recomposition
         // triggered by isFullscreenState=false already has the correct overlay dimensions.
@@ -156,17 +95,17 @@ fun main() {
 
         fun toggleFullscreen() {
             val w = windowRef.get() as? javax.swing.JFrame ?: return
-            if (isFullscreenState.value) {
+            if (fullscreenController.isFullscreen) {
                 // Pre-seed contentAreaPxState with the saved pre-fullscreen content
                 // pane dimensions BEFORE isFullscreenState.value = false fires.
                 // This guarantees the very first recomposition (triggered by the
                 // state change below) already sees the correct overlay size, so no
                 // frame ever renders with stale fullscreen dimensions.
                 savedContentPxBeforeFullscreen?.let { saved ->
-                    contentAreaPxState.value = saved
+                    fullscreenController.contentAreaPx = saved
                 }
                 exitWindowsFullscreen(w)
-                isFullscreenState.value = false
+                fullscreenController.isFullscreen = false
             } else {
                 // Snapshot the drawable content area before hiding the title bar.
                 // contentPane is the JPanel that fills the client area; its size
@@ -174,7 +113,7 @@ fun main() {
                 val pane = w.contentPane
                 savedContentPxBeforeFullscreen = Pair(pane.width, pane.height)
                 enterWindowsFullscreen(w)
-                isFullscreenState.value = true
+                fullscreenController.isFullscreen = true
             }
         }
 
@@ -188,7 +127,7 @@ fun main() {
                 if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                     toggleFullscreen()
                     true
-                } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && isFullscreenState.value) {
+                } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && fullscreenController.isFullscreen) {
                     toggleFullscreen()
                     true
                 } else {
@@ -198,6 +137,12 @@ fun main() {
         ) {
             windowRef.set(window)
             window.minimumSize = java.awt.Dimension(1000, 700)
+            
+            // Set the toggle function now that we have it
+            if (fullscreenController.toggle != ::toggleFullscreen) {
+                fullscreenController.toggle = ::toggleFullscreen
+                fullscreenController.mainFrame = window
+            }
 
             androidx.compose.runtime.SideEffect {
                 val black = java.awt.Color.BLACK
@@ -231,7 +176,7 @@ fun main() {
             androidx.compose.runtime.DisposableEffect(Unit) {
                 onDispose {
                     val w = window as? javax.swing.JFrame
-                    if (w != null && isFullscreenState.value) {
+                    if (w != null && fullscreenController.isFullscreen) {
                         exitWindowsFullscreen(w)
                     }
                 }
@@ -247,24 +192,18 @@ fun main() {
                 val contentPane = (window as? javax.swing.JFrame)?.contentPane
                 val listener = object : java.awt.event.ComponentAdapter() {
                     override fun componentResized(e: java.awt.event.ComponentEvent) {
-                        contentAreaPxState.value = Pair(e.component.width, e.component.height)
+                        fullscreenController.contentAreaPx = Pair(e.component.width, e.component.height)
                     }
                 }
                 contentPane?.addComponentListener(listener)
                 // Seed with the current size so the first frame is correct.
                 if (contentPane != null) {
-                    contentAreaPxState.value = Pair(contentPane.width, contentPane.height)
+                    fullscreenController.contentAreaPx = Pair(contentPane.width, contentPane.height)
                 }
                 onDispose { contentPane?.removeComponentListener(listener) }
             }
 
-            val fullscreenController = FullscreenController(
-                isFullscreen = isFullscreenState,
-                toggle = ::toggleFullscreen,
-                popupKey = popupKeyState,
-                mainFrame = window,
-                contentAreaPx = contentAreaPxState,
-            )
+
 
             androidx.compose.runtime.CompositionLocalProvider(
                 com.lagradost.cloudstream3.desktop.ui.LocalWindowState provides state,
@@ -341,78 +280,5 @@ fun main() {
                 }
             }
         }
-    }
-}
-
-// Windows Borderless Fullscreen via C++ JNI bridge (NativePlayerBridge)
-private fun enterWindowsFullscreen(frame: javax.swing.JFrame) {
-    if (!System.getProperty("os.name", "").lowercase().contains("win")) {
-        // Non-Windows fallback: use AWT exclusive fullscreen
-        val gd = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice
-        gd.fullScreenWindow = frame
-        return
-    }
-    try {
-        val hwnd = com.sun.jna.Native.getComponentID(frame)
-        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
-            hwnd = hwnd,
-            fullscreen = true,
-            x = 0,
-            y = 0,
-            width = 0,
-            height = 0,
-        )
-        AppLogger.i("Entered borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
-    } catch (e: Exception) {
-        AppLogger.e("enterWindowsFullscreen failed: ${e.message}")
-        e.printStackTrace()
-        runCatching {
-            java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.fullScreenWindow = frame
-        }
-    }
-}
-
-private fun exitWindowsFullscreen(frame: javax.swing.JFrame) {
-    if (!System.getProperty("os.name", "").lowercase().contains("win")) {
-        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.fullScreenWindow = null
-        return
-    }
-    try {
-        val hwnd = com.sun.jna.Native.getComponentID(frame)
-        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
-            hwnd = hwnd,
-            fullscreen = false,
-            x = 0,
-            y = 0,
-            width = 0,
-            height = 0,
-        )
-        AppLogger.i("Exited borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
-    } catch (e: Exception) {
-        AppLogger.e("exitWindowsFullscreen failed: ${e.message}")
-        e.printStackTrace()
-        runCatching {
-            java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.fullScreenWindow = null
-        }
-    }
-}
-
-// DWM Dark mode title bar + caption colour (via C++ bridge)
-private const val WINDOW_BACKGROUND_RGB = 0x0D0D0D
-private const val WINDOW_TEXT_RGB = 0xF5F7F8
-
-private fun setWindowsDarkMode(window: java.awt.Window) {
-    if (!System.getProperty("os.name").lowercase().contains("win")) return
-    try {
-        val hwnd = com.sun.jna.Native.getComponentID(window)
-        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.applyWindowChrome(
-            hwnd = hwnd,
-            darkMode = true,
-            captionColorRgb = WINDOW_BACKGROUND_RGB,
-            borderColorRgb = WINDOW_BACKGROUND_RGB,
-            textColorRgb = WINDOW_TEXT_RGB,
-        )
-    } catch (e: Throwable) {
-        e.printStackTrace()
     }
 }

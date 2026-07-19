@@ -45,10 +45,10 @@ fun AnimatedSearchOverlay(
 
     val focusRequester = remember { FocusRequester() }
     val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
-    val searchTrigger by searchUiState.searchFocusTrigger
+    val searchTrigger = searchUiState.searchFocusTrigger
 
     val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
-    val isForced by searchUiState.isSearchForced
+    val isForced = searchUiState.isSearchForced
 
     val isVisible = searchBarMode == "Always Visible" || isForced || isSearchActive
 
@@ -58,7 +58,7 @@ fun AnimatedSearchOverlay(
             try {
                 focusRequester.requestFocus()
             } catch (e: Exception) {}
-            searchUiState.searchFocusTrigger.value = 0
+            searchUiState.searchFocusTrigger = 0
         }
     }
 
@@ -90,7 +90,7 @@ fun AnimatedSearchOverlay(
     }
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val topPadding = if (dockPosition == "Top") 84.dp else 16.dp
+    val topPadding = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP) 84.dp else 16.dp
 
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = topPadding),

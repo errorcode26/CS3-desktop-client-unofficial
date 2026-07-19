@@ -32,7 +32,7 @@ import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 fun WindowControlsPill(isHome: Boolean = false) {
     val windowState = LocalWindowState.current
     val fullscreenController = LocalFullscreenController.current
-    val isFullscreen = fullscreenController?.isFullscreen?.value ?: (windowState?.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen)
+    val isFullscreen = fullscreenController?.isFullscreen ?: (windowState?.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen)
 
     val theme = LocalDesktopTheme.current
 

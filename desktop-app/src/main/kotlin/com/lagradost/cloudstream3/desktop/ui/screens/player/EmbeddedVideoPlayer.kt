@@ -60,7 +60,7 @@ fun EmbeddedVideoPlayer(
 
     val windowState = LocalWindowState.current
     val fullscreenController = LocalFullscreenController.current
-    val isFullscreen = fullscreenController?.isFullscreen?.value ?: false
+    val isFullscreen = fullscreenController?.isFullscreen ?: false
     val initialPlacement = remember { windowState?.placement ?: WindowPlacement.Floating }
 
     // PlayerState is hoisted to top level so it can be reset on episode/source changes
