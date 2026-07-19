@@ -15,6 +15,7 @@ class NavController {
     private val backStack = mutableListOf<Screen>()
     private val forwardStack = mutableListOf<Screen>()
 
+    @Synchronized
     fun navigate(screen: Screen) {
         // Don't push duplicate top-level screens onto the stack
         if (screen == currentScreen) return
@@ -24,6 +25,7 @@ class NavController {
         lastAction = NavAction.Push
     }
 
+    @Synchronized
     fun navigateRoot(screen: Screen) {
         if (screen == currentScreen) return
         backStack.clear()
@@ -32,6 +34,7 @@ class NavController {
         lastAction = NavAction.Pop
     }
 
+    @Synchronized
     fun goBack() {
         val previous = backStack.removeLastOrNull()
         if (previous != null) {
@@ -45,6 +48,7 @@ class NavController {
         }
     }
 
+    @Synchronized
     fun goForward() {
         val next = forwardStack.removeLastOrNull()
         if (next != null) {
@@ -54,6 +58,9 @@ class NavController {
         }
     }
 
+    @Synchronized
     fun canGoBack(): Boolean = backStack.isNotEmpty() || currentScreen != Screen.Home
+
+    @Synchronized
     fun canGoForward(): Boolean = forwardStack.isNotEmpty()
 }

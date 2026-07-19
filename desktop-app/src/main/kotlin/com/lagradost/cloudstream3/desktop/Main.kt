@@ -2,46 +2,49 @@
 
 package com.lagradost.cloudstream3.desktop
 
-// TODO: Yeah I know this is a big ball of mud, but let's refactor this later.
-
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
-import coil3.compose.setSingletonImageLoaderFactory
-import coil3.request.crossfade
+import androidx.compose.ui.window.rememberWindowState
+import com.lagradost.cloudstream3.desktop.init.AppUpdateDialog
 import com.lagradost.cloudstream3.desktop.init.initCoil
 import com.lagradost.cloudstream3.desktop.init.initCrashHandler
-import com.lagradost.cloudstream3.desktop.init.initWindowsEnvironment
-import com.lagradost.cloudstream3.desktop.init.enterWindowsFullscreen
-import com.lagradost.cloudstream3.desktop.init.exitWindowsFullscreen
-import com.lagradost.cloudstream3.desktop.init.setWindowsDarkMode
 import com.lagradost.cloudstream3.desktop.init.initNetwork
 import com.lagradost.cloudstream3.desktop.init.initPlugins
 import com.lagradost.cloudstream3.desktop.init.initProviders
 import com.lagradost.cloudstream3.desktop.init.initProxy
 import com.lagradost.cloudstream3.desktop.init.initSecurity
+import com.lagradost.cloudstream3.desktop.init.initWindowsEnvironment
 import com.lagradost.cloudstream3.desktop.init.launchAutoUpdater
+import com.lagradost.cloudstream3.desktop.init.launchPeriodicPluginUpdater
+import com.lagradost.cloudstream3.desktop.init.rememberFullscreenHelper
+import com.lagradost.cloudstream3.desktop.init.setupWindowBackgroundAndListeners
 import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
-import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import okio.Path.Companion.toOkioPath
-import java.io.File
-import java.util.concurrent.atomic.AtomicReference
-
+import java.awt.Toolkit
 
 /**
  * Single unified entry point for CloudStream Desktop Client.
@@ -50,169 +53,44 @@ fun main() {
     initCrashHandler()
     initWindowsEnvironment()
 
-    // Removed the default black background. Setting it globally forces popups and tooltips
-    // to render as black boxes if they fail to paint or get stuck.
-    // val black = java.awt.Color.BLACK
-    // javax.swing.UIManager.put("Window.background", black)
-    // javax.swing.UIManager.put("Canvas.background", black)
-
     AppLogger.i("Launching CloudStream Desktop Client...")
     AppLogger.i("Platform: ${PlatformPaths.currentOS}")
     AppLogger.i("App data directory: ${PlatformPaths.appDataDir.absolutePath}")
 
     application {
         initCoil()
+        launchPeriodicPluginUpdater()
 
-        val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
+        val screenSize = Toolkit.getDefaultToolkit().screenSize
         val windowWidth = (screenSize.width * 0.7).toInt().coerceAtLeast(1000).dp
         val windowHeight = (screenSize.height * 0.7).toInt().coerceAtLeast(700).dp
-        val state = androidx.compose.ui.window.rememberWindowState(
+        val state = rememberWindowState(
             width = windowWidth,
             height = windowHeight,
-            position = androidx.compose.ui.window.WindowPosition.Aligned(androidx.compose.ui.Alignment.Center),
-            placement = androidx.compose.ui.window.WindowPlacement.Maximized,
+            position = WindowPosition.Aligned(Alignment.Center),
+            placement = WindowPlacement.Maximized,
         )
 
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            while (true) {
-                kotlinx.coroutines.delay(30 * 60 * 1000L) // 30 minutes
-                com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.autoUpdatePlugins()
-            }
-        }
-
-        val fullscreenController = FullscreenController(
-            isFullscreen = false,
-            toggle = { }, // Will be set later
-            popupKey = 0,
-            contentAreaPx = Pair(0, 0)
-        )
-        // Content-pane size captured just before entering fullscreen.
-        // Used to pre-seed contentAreaPxState when exiting, so the FIRST recomposition
-        // triggered by isFullscreenState=false already has the correct overlay dimensions.
-        var savedContentPxBeforeFullscreen: Pair<Int, Int>? = null
-        val windowRef = AtomicReference<java.awt.Window?>(null)
-        val toggleScope = kotlinx.coroutines.MainScope()
-
-        fun toggleFullscreen() {
-            val w = windowRef.get() as? javax.swing.JFrame ?: return
-            if (fullscreenController.isFullscreen) {
-                // Pre-seed contentAreaPxState with the saved pre-fullscreen content
-                // pane dimensions BEFORE isFullscreenState.value = false fires.
-                // This guarantees the very first recomposition (triggered by the
-                // state change below) already sees the correct overlay size, so no
-                // frame ever renders with stale fullscreen dimensions.
-                savedContentPxBeforeFullscreen?.let { saved ->
-                    fullscreenController.contentAreaPx = saved
-                }
-                exitWindowsFullscreen(w)
-                fullscreenController.isFullscreen = false
-            } else {
-                // Snapshot the drawable content area before hiding the title bar.
-                // contentPane is the JPanel that fills the client area; its size
-                // excludes the title bar and window borders — exactly what we need.
-                val pane = w.contentPane
-                savedContentPxBeforeFullscreen = Pair(pane.width, pane.height)
-                enterWindowsFullscreen(w)
-                fullscreenController.isFullscreen = true
-            }
-        }
+        val fullscreenHelper = rememberFullscreenHelper()
 
         Window(
             onCloseRequest = ::exitApplication,
             title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
             state = state,
-            // Always supply the icon to Compose so we don't see the Java coffee cup in the title bar!
-            icon = androidx.compose.ui.res.painterResource("app_icon_small.png"),
-            onKeyEvent = { keyEvent ->
-                if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
-                    toggleFullscreen()
-                    true
-                } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && fullscreenController.isFullscreen) {
-                    toggleFullscreen()
-                    true
-                } else {
-                    false
-                }
-            },
+            icon = painterResource("app_icon_small.png"),
+            onKeyEvent = fullscreenHelper.onKeyEvent,
         ) {
-            windowRef.set(window)
-            window.minimumSize = java.awt.Dimension(1000, 700)
-            
-            // Set the toggle function now that we have it
-            if (fullscreenController.toggle != ::toggleFullscreen) {
-                fullscreenController.toggle = ::toggleFullscreen
-                fullscreenController.mainFrame = window
-            }
+            fullscreenHelper.attachToWindow(window)
+            setupWindowBackgroundAndListeners(fullscreenHelper.controller)
 
-            androidx.compose.runtime.SideEffect {
-                val black = java.awt.Color.BLACK
-                window.background = black
-                window.rootPane.background = black
-                window.contentPane.background = black
-                (window.contentPane as? javax.swing.JComponent)?.isOpaque = true
-
-                // Deep-dive fix: Compose 1.7+ internal SkiaLayers often default to white.
-                // This absolute nightmare causes awful white flashes during rendering.
-                // We recursively traverse the entire Swing component tree and force everything black.
-                fun forceBlackBackground(container: java.awt.Container) {
-                    for (c in container.components) {
-                        c.background = black
-                        if (c is javax.swing.JComponent) {
-                            c.isOpaque = true
-                        }
-                        if (c is java.awt.Container) {
-                            forceBlackBackground(c)
-                        }
-                    }
-                }
-                forceBlackBackground(window)
-            }
-
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                setWindowsDarkMode(window)
-            }
-
-            // Exit fullscreen cleanly when window closes
-            androidx.compose.runtime.DisposableEffect(Unit) {
-                onDispose {
-                    val w = window as? javax.swing.JFrame
-                    if (w != null && fullscreenController.isFullscreen) {
-                        exitWindowsFullscreen(w)
-                    }
-                }
-            }
-
-            // Track content-pane size so EmbeddedVideoPlayer can size its overlay
-            // correctly even when BoxWithConstraints has stale fullscreen dimensions.
-            // (Yes, BoxWithConstraints frequently fails to update its size correctly here, which is incredibly annoying).
-            // The contentPane ComponentListener fires on the AWT EDT AFTER the window
-            // resize has settled (e.g. after ShowWindow SW_MAXIMIZE completes), making
-            // it the ground truth for the drawable area in physical pixels.
-            androidx.compose.runtime.DisposableEffect(Unit) {
-                val contentPane = (window as? javax.swing.JFrame)?.contentPane
-                val listener = object : java.awt.event.ComponentAdapter() {
-                    override fun componentResized(e: java.awt.event.ComponentEvent) {
-                        fullscreenController.contentAreaPx = Pair(e.component.width, e.component.height)
-                    }
-                }
-                contentPane?.addComponentListener(listener)
-                // Seed with the current size so the first frame is correct.
-                if (contentPane != null) {
-                    fullscreenController.contentAreaPx = Pair(contentPane.width, contentPane.height)
-                }
-                onDispose { contentPane?.removeComponentListener(listener) }
-            }
-
-
-
-            androidx.compose.runtime.CompositionLocalProvider(
+            CompositionLocalProvider(
                 com.lagradost.cloudstream3.desktop.ui.LocalWindowState provides state,
-                LocalFullscreenController provides fullscreenController,
+                LocalFullscreenController provides fullscreenHelper.controller,
             ) {
-                var isAppReady by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                var isAppReady by remember { mutableStateOf(false) }
 
-                androidx.compose.runtime.LaunchedEffect(Unit) {
-                    launch(kotlinx.coroutines.Dispatchers.IO) {
+                LaunchedEffect(Unit) {
+                    launch(Dispatchers.IO) {
                         initProxy()
                         initSecurity()
                         initNetwork()
@@ -220,56 +98,25 @@ fun main() {
                         initPlugins()
                         com.lagradost.cloudstream3.APIHolder.initAll()
                         launchAutoUpdater()
-                        com.lagradost.cloudstream3.desktop.AppUpdater.checkForUpdates()
+                        AppUpdater.checkForUpdates()
                     }.join()
                     isAppReady = true
                 }
 
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.fillMaxSize().background(Color.Black),
-                ) {
-                    androidx.compose.animation.Crossfade<Boolean>(
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    Crossfade<Boolean>(
                         targetState = isAppReady,
-                        animationSpec = androidx.compose.animation.core.tween(500),
+                        animationSpec = tween(500),
                     ) { ready ->
                         if (ready) {
                             CloudstreamApp()
-
-                            // App Update Dialog Overlay
-                            val latestRelease by com.lagradost.cloudstream3.desktop.AppUpdater.latestRelease.collectAsState()
-                            if (latestRelease != null) {
-                                var showUpdateDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
-                                if (showUpdateDialog) {
-                                    androidx.compose.material3.AlertDialog(
-                                        onDismissRequest = { showUpdateDialog = false },
-                                        title = { androidx.compose.material3.Text("Update Available: v${latestRelease!!.tag_name.removePrefix("v")}", style = androidx.compose.material3.MaterialTheme.typography.titleLarge) },
-                                        text = {
-                                            androidx.compose.foundation.layout.Column {
-                                                androidx.compose.material3.Text("A new version of CloudStream Desktop is available!", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-                                                androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(8.dp))
-                                                androidx.compose.material3.Text(latestRelease!!.body ?: "", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, maxLines = 10)
-                                            }
-                                        },
-                                        confirmButton = {
-                                            androidx.compose.material3.Button(onClick = {
-                                                try {
-                                                    java.awt.Desktop.getDesktop().browse(java.net.URI(latestRelease!!.html_url))
-                                                } catch (e: Exception) {}
-                                                showUpdateDialog = false
-                                            }) { androidx.compose.material3.Text("Download") }
-                                        },
-                                        dismissButton = {
-                                            androidx.compose.material3.TextButton(onClick = { showUpdateDialog = false }) { androidx.compose.material3.Text("Later") }
-                                        },
-                                    )
-                                }
-                            }
+                            AppUpdateDialog()
                         } else {
-                            androidx.compose.foundation.layout.Box(
+                            Box(
                                 modifier = Modifier.fillMaxSize(),
-                                contentAlignment = androidx.compose.ui.Alignment.Center,
+                                contentAlignment = Alignment.Center,
                             ) {
-                                androidx.compose.material3.CircularProgressIndicator(
+                                CircularProgressIndicator(
                                     color = Color.White.copy(alpha = 0.7f),
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(24.dp),

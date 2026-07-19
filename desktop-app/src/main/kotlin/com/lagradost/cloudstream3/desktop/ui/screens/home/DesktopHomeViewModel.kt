@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 import java.awt.Color
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
@@ -99,18 +100,12 @@ class DesktopHomeViewModel {
             return
         }
         coroutineScope.launch(Dispatchers.IO) {
-            try {
-                val bytes = app.get(imageUrl).body.bytes()
-                val img: BufferedImage = ImageIO.read(bytes.inputStream()) ?: return@launch
-                val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.sampleDominantColor(img) ?: return@launch
-                colorCache[imageUrl] = dominant
-                if (itemUrl == null) {
-                    _heroExtractedColor.value = dominant
-                } else {
-                    _heroColorMap.update { map -> map + (itemUrl to dominant) }
-                }
-            } catch (e: Exception) {
-                AppLogger.w("HeroColor: Failed to extract color from $imageUrl — ${e.message}")
+            val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl) ?: return@launch
+            colorCache[imageUrl] = dominant
+            if (itemUrl == null) {
+                _heroExtractedColor.value = dominant
+            } else {
+                _heroColorMap.update { map -> map + (itemUrl to dominant) }
             }
         }
     }
@@ -444,5 +439,9 @@ class DesktopHomeViewModel {
 
     fun setSelectedProvider(name: String?) {
         _selectedProviderName.value = name
+    }
+
+    fun dispose() {
+        coroutineScope.cancel()
     }
 }

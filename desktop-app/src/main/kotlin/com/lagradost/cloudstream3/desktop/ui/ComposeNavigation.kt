@@ -81,6 +81,11 @@ val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalO
 @Composable
 fun CloudstreamApp() {
     val homeViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel() }
+    androidx.compose.runtime.DisposableEffect(homeViewModel) {
+        onDispose {
+            homeViewModel.dispose()
+        }
+    }
     val navController = remember { NavController() }
     var showErrorsDialog by remember { mutableStateOf(false) }
     var currentVideo by remember { mutableStateOf<VideoLaunchData?>(null) }
@@ -139,13 +144,13 @@ fun CloudstreamApp() {
                         },
                 ) {
                     val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-                    val currentAction = navController.lastAction
 
                     androidx.compose.animation.AnimatedContent(
                         targetState = screen,
                         modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                         contentAlignment = androidx.compose.ui.Alignment.TopStart,
                         transitionSpec = {
+                            val currentAction = navController.lastAction
                             val isTopLevelTarget = targetState is Screen.Home || targetState is Screen.Library || targetState is Screen.Extensions || targetState is Screen.Settings
                             val isTopLevelInitial = initialState is Screen.Home || initialState is Screen.Library || initialState is Screen.Extensions || initialState is Screen.Settings
 

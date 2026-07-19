@@ -1,8 +1,45 @@
 package com.lagradost.cloudstream3.desktop.utils
 
+import com.lagradost.cloudstream3.app
+import com.lagradost.common.logging.AppLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.awt.image.BufferedImage
+import java.io.InputStream
+import javax.imageio.ImageIO
 
 object ImageColorExtractor {
+    fun decodeSubsampled(inputStream: InputStream, subsampleX: Int = 8, subsampleY: Int = 8): BufferedImage? {
+        val imageInputStream = ImageIO.createImageInputStream(inputStream) ?: return null
+        try {
+            val readers = ImageIO.getImageReaders(imageInputStream)
+            if (!readers.hasNext()) return null
+            val reader = readers.next()
+            try {
+                reader.input = imageInputStream
+                val param = reader.defaultReadParam
+                param.setSourceSubsampling(subsampleX, subsampleY, 0, 0)
+                return reader.read(0, param)
+            } finally {
+                reader.dispose()
+            }
+        } finally {
+            imageInputStream.close()
+        }
+    }
+
+    suspend fun extractDominantColorFromUrl(imageUrl: String): androidx.compose.ui.graphics.Color? = withContext(Dispatchers.IO) {
+        try {
+            val response = app.get(imageUrl)
+            val bytes = response.body.bytes()
+            val img = decodeSubsampled(bytes.inputStream(), subsampleX = 8, subsampleY = 8) ?: return@withContext null
+            sampleDominantColor(img)
+        } catch (e: Exception) {
+            AppLogger.w("ImageColorExtractor: Failed to extract color from $imageUrl — ${e.message}")
+            null
+        }
+    }
+
     fun sampleDominantColor(img: BufferedImage): androidx.compose.ui.graphics.Color? {
         val area = img.width * img.height
         // Sample only 300 pixels because reading the whole image takes 2 seconds and makes the fan spin

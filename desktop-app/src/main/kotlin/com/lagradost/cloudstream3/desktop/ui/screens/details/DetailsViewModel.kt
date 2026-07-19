@@ -119,17 +119,11 @@ class DetailsViewModel(
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val bytes = app.get(imageUrl).body.bytes()
-                val img = ImageIO.read(bytes.inputStream()) ?: return@launch
-                val color = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.sampleDominantColor(img)
-                if (color != null) {
-                    detailsColorCache[imageUrl] = color
-                    _heroExtractedColor.value = color
-                    _uiState.update { state -> state.copy(heroColor = color) }
-                }
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.w("DetailsColor: Failed to extract color from $imageUrl — ${e.message}")
+            val color = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
+            if (color != null) {
+                detailsColorCache[imageUrl] = color
+                _heroExtractedColor.value = color
+                _uiState.update { state -> state.copy(heroColor = color) }
             }
         }
     }

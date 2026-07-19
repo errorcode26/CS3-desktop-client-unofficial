@@ -340,6 +340,7 @@ fun DetailsContent(
             com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsPlayButton(
                 data = data,
                 provider = provider,
+                latestHistory = latestHistory,
                 onPlay = onPlay
             )
         }

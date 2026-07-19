@@ -28,17 +28,13 @@ import com.lagradost.common.storage.WatchHistory
 fun DetailsPlayButton(
     data: LoadResponse,
     provider: MainAPI,
+    latestHistory: WatchHistory? = null,
     onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val historyUpdatesVal = DesktopDataStore.historyUpdates.collectAsState().value
-        val latestHistory = remember(data.url, historyUpdatesVal) {
-            DesktopDataStore.getLatestWatchHistoryForShow(data.url)
-        }
-
         val allEpisodes = remember(data) {
             when (data) {
                 is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes
