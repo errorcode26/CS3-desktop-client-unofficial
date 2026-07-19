@@ -583,6 +583,123 @@ A dialog that has grown to 619 lines is a clear signal it is doing too much. Set
 
 ---
 
+## Part 4 — Red Team Phase 2 Findings (Architecture, Compose & Performance Audit)
+
+During Phase 2 deep inspection of `desktop-app/`, the following structural layer violations, Compose anti-patterns, and Skia graphics/memory hazards were uncovered across remaining desktop UI components.
+
+### ISSUE-A17 · Pervasive UI -> Infrastructure Direct Coupling (MVVM & Layer Violation)
+
+**Evidence:** `PosterCards.kt` (L137, L198, L214), `HomeHeroCarousel.kt` (L465, L525, L541), `DetailsScreen.kt` (L103, L317), `RepositoriesTab.kt` (L27, L49, L283), `BrowseTab.kt` (L249–L254)
+
+```kotlin
+// Inside @Composable UI functions directly:
+DesktopDataStore.getBookmarks().find { it.id == bookmarkId }
+DesktopDataStore.addBookmark(newBookmark)
+DesktopRepositoryManager.savedRepositories.collectAsState()
+```
+
+**Why it's a problem:** The desktop UI layer violates Clean/MVVM architecture boundaries by directly invoking static file-system singletons (`DesktopDataStore`) and network repository managers (`DesktopRepositoryManager`) inside `@Composable` functions. This coupling makes isolated UI unit/preview testing (`createComposeRule()`) impossible without mocking disk and network access, and introduces unmanaged data races during high-frequency user interactions.
+
+**Severity:** Major (Architectural & Testability blocker)
+
+**Fix:** Extract all direct `DesktopDataStore` and `DesktopRepositoryManager` invocations out of UI composables (`PosterCards`, `RepositoriesTab`, `HomeHeroCarousel`) and delegate them exclusively through scoped ViewModel actions and injected repositories.
+
+**Fix now or after alpha?** Before beta / Phase 2 refactor.
+
+---
+
+### ISSUE-A18 · Public Mutable Sets & Unbounded Singletons (`failedIconUrls`, `HeroCache`)
+
+**Evidence:** `DesktopRepositoryManager.kt` L56 (`val failedIconUrls = ConcurrentHashMap.newKeySet<String>()`), `HomeHeroCarousel.kt` L59 (`object HeroCache { val cache = ConcurrentHashMap<String, HeroMeta>() }`)
+
+**Why it's a problem:** `failedIconUrls` is a raw thread-safe mutable set mutated directly by UI cards (`RepositoriesTab.kt` L329, `ExtensionCard.kt` L101) without Compose observability, breaking unidirectional data flow (`UDF`) across sibling items. Meanwhile, `HeroCache.cache` is an unbounded global dictionary with zero TTL or memory eviction, causing permanent memory retention during long sessions.
+
+**Severity:** Major (Concurrency & Memory Drift)
+
+**Fix:** Encapsulate `failedIconUrls` behind reactive `StateFlow` / observable repositories and apply LRU/bounded eviction policies to `HeroCache`.
+
+**Fix now or after alpha?** Before beta / Phase 2 refactor.
+
+---
+
+### ISSUE-C01 · Recomposition Forcing via `.hashCode()` Hack (`SettingsGeneral.kt`)
+
+**Evidence:** `SettingsGeneral.kt` L30–L37
+
+```kotlin
+var accountsUpdated by remember { mutableStateOf(0) }
+...
+SettingsGroupCard(title = "Accounts & Integrations") {
+    accountsUpdated.hashCode() // Trigger recompose on change
+    AccountManager.allApis.forEach { api -> ... }
+```
+
+**Why it's a problem:** Because `AccountManager.cachedAccounts` (`AccountManager.kt`) is a non-observable static map, the UI forces recompositions by incrementing a dummy integer (`accountsUpdated`) and calling `.hashCode()` inline. Every account or login change forces the entire `SettingsGeneral` scope to re-execute all loops and re-instantiate all widgets from scratch rather than observing fine-grained state.
+
+**Severity:** Major (Recomposition Hazard)
+
+**Fix:** Expose `AccountManager.cachedAccounts` via a reactive `StateFlow` or `MutableStateFlow` so Compose screens can observe map updates cleanly without `.hashCode()` hacks.
+
+**Fix now or after alpha?** Fix now / Phase 2.
+
+---
+
+### ISSUE-C02 · Uncontrolled Inline `LaunchedEffect` Loops & Race Conditions (`HomeHeroCarousel.kt`)
+
+**Evidence:** `HomeHeroCarousel.kt` L88–L115
+
+```kotlin
+LaunchedEffect(displayItems.size) {
+    if (displayItems.isNotEmpty() && globalIndex == 0) {
+        globalIndex = displayItems.size * 1000
+    }
+}
+LaunchedEffect(globalIndex, displayItems.size) {
+    if (displayItems.isNotEmpty()) {
+        delay(10000)
+        globalIndex++
+    }
+}
+```
+
+**Why it's a problem:** Dual cascading `LaunchedEffect` blocks depend on and mutate `globalIndex` simultaneously, creating race conditions where size changes cancel and reset slide timers unpredictably. Furthermore, `LaunchedEffect(displayItems)` loops through items firing network prefetch requests on every list reference recomposition.
+
+**Severity:** Major (Race Condition & Network Prefetch Storms)
+
+**Fix:** Consolidate carousel auto-scroll into a single, stable `LaunchedEffect` state machine with debounced network prefetching.
+
+**Fix now or after alpha?** Fix now / Phase 2.
+
+---
+
+### ISSUE-P09 · Un-cached Skia `Brush.gradient` Allocations inside 60 FPS Transitions (`HomeHeroCarousel.kt`)
+
+**Evidence:** `HomeHeroCarousel.kt` L158–L198 (`Brush.verticalGradient(...)`, `Brush.horizontalGradient(...)`, `Modifier.blur(24.dp)`)
+
+**Why it's a problem:** Inside `AnimatedContent` (`L134`), every slide transition allocates three separate gradient `Brush` objects and applies high-radius blur (`Modifier.blur(24.dp)`) inside `drawWithContent` blocks at 60 FPS, causing GC thrashing and GPU frame drops during cross-fades.
+
+**Severity:** Minor (GPU & GC Churn)
+
+**Fix:** Pre-compute and cache gradient brushes at file or theme scope (`remember { Brush.verticalGradient(...) }`) and use downsampled/cached background drawables.
+
+**Fix now or after alpha?** After alpha / Phase 2.
+
+---
+
+### ISSUE-P10 · Unbounded Bitmap Decoding in Large Grid Lists (`AsyncImage` / Coil)
+
+**Evidence:** `PosterCards.kt` L137–L214, `HomeHeroCarousel.kt` L172
+
+**Why it's a problem:** `AsyncImage` calls across dense poster grids (`HomeCategorySection`, `HomeScreen` search results) fetch and decode full-resolution images without specifying explicit target pixel dimensions (`size(width, height)`), ballooning JVM heap memory when rapidly scrolling through long lists.
+
+**Severity:** Minor (Memory Churn)
+
+**Fix:** Apply explicit `size(width, height)` parameters or downsampling `ImageRequest` transformations inside grid poster `AsyncImage` calls.
+
+**Fix now or after alpha?** After alpha / Phase 2.
+
+---
+
 ## Issue Classification by Origin
 
 Before using the summary table, understand which category each issue falls into. **Only Category 1 issues are safe to fix without auditing the plugin API boundary.**
@@ -836,7 +953,7 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 
 | ID  | Area                                                           | Severity     | Fix When     | Category | Status |
 |-----|----------------------------------------------------------------|--------------|--------------|----------|--------|
-| A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | Partial |
+| ✅ A01 | `GlobalDetailsCache` God Object                                | Major        | After alpha  | 2        | **FIXED** |
 | ✅ A02 | `TmdbRateLimiter` race condition                               | **Major**    | **Now**      | **1**    | **FIXED** |
 | ✅ A03 | Mutable `LoadResponse` on IO thread                            | **Critical** | **Now**      | **1**    | **FIXED** |
 | ✅ A04 | `DetailsViewModel` scope leak                                  | **Major**    | **Now**      | **1**    | **FIXED** |
@@ -852,6 +969,10 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | A14 | ~~Android extension functions in `DataStore`~~                 | ~~Minor~~    | **RETRACTED**| **3**    | **RETRACTED** |
 | ✅ A15 | Auto-update loop inside composable (runs 4×)                   | **Major**    | **Now**      | **1**    | **FIXED** |
 | ✅ A16 | `GlobalDetailsCache.cache` is public mutable                   | Minor        | After alpha  | 1        | **FIXED** |
+| A17 | UI -> Infrastructure direct coupling (`DesktopDataStore` in UI)  | **Major**    | Before beta  | 1        | **OPEN** |
+| A18 | Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` | **Major**    | Before beta  | 1        | **OPEN** |
+| C01 | Recomposition forcing via `.hashCode()` hack (`SettingsGeneral`) | **Major**    | **Now**      | 1        | **OPEN** |
+| C02 | Uncontrolled `LaunchedEffect` loops (`HomeHeroCarousel`)       | **Major**    | **Now**      | 1        | **OPEN** |
 | ✅ P01 | `getAllWatchHistory()` full scan on recomposition               | Major        | After alpha  | 2        | **FIXED** |
 | ✅ P02 | Duplicate `historyUpdatesVal` subscription                     | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ P03 | Full image re-download + decode for color extraction           | Major        | After alpha  | 2        | **FIXED** |
@@ -860,6 +981,8 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 | ✅ P06 | Ambient glow redraws uncached every frame                      | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ P07 | `gridScale` subscribed per poster card                         | Minor        | After alpha  | **1**    | **FIXED** |
 | ✅ P08 | `LazyColumn` items missing stable keys                         | Minor        | After alpha  | **1**    | **FIXED** |
+| P09 | Un-cached Skia `Brush.gradient` in 60 FPS transitions          | Minor        | After alpha  | 1        | **OPEN** |
+| P10 | Unbounded `AsyncImage` bitmap decoding in grid lists           | Minor        | After alpha  | 1        | **OPEN** |
 | ✅ M01 | `ComposeNativeWebPlayer` deduplication                         | Major        | After alpha  | 1        | **FIXED** |
 | ✅ M02 | `Main.kt` acknowledged ball-of-mud                             | Minor        | After alpha  | 1        | **FIXED** |
 | ✅ M03 | Dock position as magic strings                                 | Minor        | After alpha  | 1        | **FIXED** |
@@ -869,7 +992,7 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 
 ---
 
-## Fix-Now Priority Order
+## Fix-Now Priority Order (Phase 1 — 100% Completed)
 
 1. ~~**A03** — Data race on mutable model (correctness, undefined behavior)~~ ✅ **FIXED**
 2. ~~**A02** — Rate limiter race condition (operational, TMDB 429 cascades)~~ ✅ **FIXED**
@@ -880,3 +1003,14 @@ Initially flagged but incorrect given the Android-port or client-side UX context
 6. ~~**A13** — DataStore synchronous file write on UI thread (UI jank)~~ ✅ **FIXED**
 7. ~~**A15** — Auto-update loop ×4 (redundant network, wasted resources)~~ ✅ **FIXED**
 8. ~~**A04** — DetailsViewModel scope leak (ghost network requests)~~ ✅ **FIXED**
+
+---
+
+## Phase 2 Fix Priority Order (Red Team Findings)
+
+1. **C01** — Recomposition forcing via `.hashCode()` hack (`SettingsGeneral.kt`) (`[OPEN]`)
+2. **C02** — Uncontrolled inline `LaunchedEffect` loops & race conditions (`HomeHeroCarousel.kt`) (`[OPEN]`)
+3. **A18** — Public mutable sets (`failedIconUrls`) & unbounded `HeroCache` (`[OPEN]`)
+4. **A17** — UI -> Infrastructure direct coupling (`DesktopDataStore` & `DesktopRepositoryManager` in `@Composable`) (`[OPEN]`)
+5. **P09** — Un-cached Skia `Brush.gradient` allocations during 60 FPS hero transitions (`[OPEN]`)
+6. **P10** — Unbounded `AsyncImage` bitmap decoding across large grid lists (`[OPEN]`)
