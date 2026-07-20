@@ -34,7 +34,12 @@ fun HomeCategorySection(
     provider: MainAPI,
     isFirstPage: Boolean = false,
     parentScope: CoroutineScope,
-    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
+    heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
+    heroColorMap: Map<String, androidx.compose.ui.graphics.Color>,
+    allBookmarks: Map<String, com.lagradost.common.storage.DesktopBookmark>,
+    onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
+    onSetCurrentHeroColor: (String?) -> Unit,
+    onUpdateHeroColor: (String?) -> Unit,
     afterHeroContent: @Composable () -> Unit = {},
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
@@ -117,7 +122,12 @@ fun HomeCategorySection(
                     HomeHeroCarousel(
                         items = section.list,
                         provider = provider,
-                        viewModel = viewModel,
+                        heroMetaMap = heroMetaMap,
+                        heroColorMap = heroColorMap,
+                        allBookmarks = allBookmarks,
+                        onPrefetchHeroItem = onPrefetchHeroItem,
+                        onSetCurrentHeroColor = onSetCurrentHeroColor,
+                        onUpdateHeroColor = onUpdateHeroColor,
                         onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
                     )
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

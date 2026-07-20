@@ -38,9 +38,10 @@ fun WindowControlsPill(isHome: Boolean = false) {
 
     // Fetch provider states for the global pill
     val homeViewModel = com.lagradost.cloudstream3.desktop.ui.LocalHomeViewModel.current
-    val providers by homeViewModel.providers.collectAsState()
-    val selectedProviderName by homeViewModel.selectedProviderName.collectAsState()
-    val mergedPluginIcons by homeViewModel.mergedPluginIcons.collectAsState()
+    val uiState by homeViewModel.uiState.collectAsState()
+    val providers = uiState.providers
+    val selectedProviderName = uiState.selectedProviderName
+    val mergedPluginIcons = uiState.mergedPluginIcons
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")

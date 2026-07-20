@@ -18,6 +18,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 fun HomeSearchResults(
     searchResultsGrouped: List<Pair<MainAPI, List<SearchResponse>>>?,
     isLoadingSearch: Boolean,
+    heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta> = emptyMap(),
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?) -> Unit,
 ) {
@@ -45,7 +46,7 @@ fun HomeSearchResults(
                     ) {
                         items(items.size) { index ->
                             val item = items[index]
-                            val heroMeta = HeroCache.get("${provider.name}_${item.url}")
+                            val heroMeta = heroMetaMap[item.url]
                             PosterCard(item, provider) {
                                 onItemClick(provider, item, heroMeta?.backdropUrl)
                             }

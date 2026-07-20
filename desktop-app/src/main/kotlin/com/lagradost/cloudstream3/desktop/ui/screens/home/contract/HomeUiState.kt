@@ -5,7 +5,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
-import com.lagradost.cloudstream3.desktop.ui.screens.home.HeroMeta
+import com.lagradost.cloudstream3.desktop.repo.HeroMeta
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 

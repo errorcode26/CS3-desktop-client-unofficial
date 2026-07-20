@@ -103,6 +103,7 @@ fun ComposeHomeScreen(
             HomeSearchResults(
                 searchResultsGrouped = searchResultsGrouped,
                 isLoadingSearch = isLoadingSearch,
+                heroMetaMap = uiState.heroMetaMap,
                 onViewAll = { provider, title, items ->
                     navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                 },
@@ -126,7 +127,12 @@ fun ComposeHomeScreen(
                             provider = currentProvider,
                             isFirstPage = true,
                             parentScope = coroutineScope,
-                            viewModel = viewModel,
+                            heroMetaMap = uiState.heroMetaMap,
+                            heroColorMap = uiState.heroColorMap,
+                            allBookmarks = uiState.bookmarks,
+                            onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
+                            onSetCurrentHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(url)) },
+                            onUpdateHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(url)) },
                             afterHeroContent = {
                                 HomeHistoryRow(
                                     historyList = historyList,
@@ -156,7 +162,12 @@ fun ComposeHomeScreen(
                                 provider = currentProvider,
                                 isFirstPage = false,
                                 parentScope = coroutineScope,
-                                viewModel = viewModel,
+                                heroMetaMap = uiState.heroMetaMap,
+                                heroColorMap = uiState.heroColorMap,
+                                allBookmarks = uiState.bookmarks,
+                                onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
+                                onSetCurrentHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(url)) },
+                                onUpdateHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(url)) },
                                 onViewAll = { provider, title, items ->
                                     navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                                 },

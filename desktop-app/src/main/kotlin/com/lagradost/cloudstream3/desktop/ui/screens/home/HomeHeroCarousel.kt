@@ -46,77 +46,26 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 
-data class HeroMeta(
-    val title: String?,
-    val backdropUrl: String?,
-    val logoUrl: String?,
-    val tags: List<String>,
-    val plot: String?,
-    val score: String?,
-    val year: Int?,
-    val type: com.lagradost.cloudstream3.TvType?,
-    val contentRating: String?,
-    val duration: Int?,
-)
-
-object HeroCache {
-    private const val MAX_ENTRIES = 150
-    private val map = java.util.concurrent.ConcurrentHashMap<String, HeroMeta>()
-    private val accessOrder = java.util.concurrent.ConcurrentLinkedQueue<String>()
-
-    @Synchronized
-    fun put(key: String, value: HeroMeta) {
-        if (!map.containsKey(key)) {
-            accessOrder.add(key)
-        }
-        map[key] = value
-        while (accessOrder.size > MAX_ENTRIES) {
-            val oldest = accessOrder.poll()
-            if (oldest != null) {
-                map.remove(oldest)
-            }
-        }
-    }
-
-    fun get(key: String): HeroMeta? = map[key]
-
-    @Synchronized
-    fun remove(key: String): HeroMeta? {
-        accessOrder.remove(key)
-        return map.remove(key)
-    }
-
-    @Synchronized
-    fun clear() {
-        accessOrder.clear()
-        map.clear()
-    }
-}
-
-fun cleanHeroTitle(raw: String): String {
-    var cleaned = raw
-    cleaned = cleaned.replace(Regex("""\s*\(\d{4}\).*"""), "")
-    cleaned = cleaned.replace(Regex("""\[.*?\]|\(.*?\)|\{.*?\}"""), " ")
-    cleaned = cleaned.replace(Regex("""(?i)\b(dual audio|720p|1080p|480p|2160p|webrip|web-dl|hdtv|bluray)\b.*"""), "")
-    cleaned = cleaned.replace(Regex("""\s+"""), " ").trim()
-    cleaned = cleaned.split("|").firstOrNull()?.trim() ?: cleaned
-    return cleaned.takeIf { it.isNotBlank() } ?: raw.trim()
-}
-
 @OptIn(
     androidx.compose.foundation.ExperimentalFoundationApi::class,
     androidx.compose.ui.ExperimentalComposeUiApi::class,
 )
 @Composable
-fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel, onItemClick: (SearchResponse, String?, Boolean) -> Unit) {
+fun HomeHeroCarousel(
+    items: List<SearchResponse>, 
+    provider: MainAPI?, 
+    heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
+    heroColorMap: Map<String, androidx.compose.ui.graphics.Color>,
+    allBookmarks: Map<String, DesktopBookmark>,
+    onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
+    onSetCurrentHeroColor: (String?) -> Unit,
+    onUpdateHeroColor: (String?) -> Unit,
+    onItemClick: (SearchResponse, String?, Boolean) -> Unit
+) {
     if (items.isEmpty()) return
 
     val displayItems = items.take(10)
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
-    val heroMetaMap = uiState.heroMetaMap
-    val heroColorMap = uiState.heroColorMap
-    val allBookmarks = uiState.bookmarks
     val scope = rememberCoroutineScope()
     var globalIndex by remember(displayItems.size) {
         mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
@@ -135,16 +84,16 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
     LaunchedEffect(displayItems) {
         for (item in displayItems) {
-            viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(provider, item))
+            onPrefetchHeroItem(provider, item)
         }
     }
 
     LaunchedEffect(currentIndex) {
         val currentItem = displayItems.getOrNull(currentIndex)
-        viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(currentItem?.url))
+        onSetCurrentHeroColor(currentItem?.url)
         val currentMeta = currentItem?.let { heroMetaMap[it.url] }
         val colorSourceUrl = currentMeta?.backdropUrl ?: provider?.fixUrlNull(currentItem?.posterUrl)
-        viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(colorSourceUrl))
+        onUpdateHeroColor(colorSourceUrl)
     }
 
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
@@ -278,7 +227,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                             modifier = Modifier.fillMaxWidth(0.5f), // Leave right side for thumbnails
                         ) {
                             if (!meta?.logoUrl.isNullOrBlank()) {
-                                val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
+                                val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
                                 Box(
                                     modifier = Modifier
                                         .widthIn(
@@ -339,7 +288,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     )
                                 }
                             } else {
-                                val displayTitle = meta?.title ?: cleanHeroTitle(item.name)
+                                val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
                                 if (displayTitle.isNotBlank()) {
                                     Text(
                                         text = displayTitle,
