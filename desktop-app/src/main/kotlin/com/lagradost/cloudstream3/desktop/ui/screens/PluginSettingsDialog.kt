@@ -185,7 +185,7 @@ fun PluginSettingsDialog(
                                     }
                                 }
 
-                                items(grouped[category]!!, key = { it.key }) { schema ->
+                                items(grouped[category].orEmpty(), key = { it.key }) { schema ->
                                     val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
                                     val currentValue = currentValues[fullKey]
                                     com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingItem(

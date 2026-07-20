@@ -324,7 +324,7 @@ fun LinksSidePanel(
                 AlertDialog(
                     onDismissRequest = { playerLaunchError = null },
                     title = { Text("Player error") },
-                    text = { Text(playerLaunchError!!) },
+                    text = { Text(playerLaunchError ?: "") },
                     confirmButton = {
                         TextButton(onClick = { playerLaunchError = null }) { Text("OK") }
                     },

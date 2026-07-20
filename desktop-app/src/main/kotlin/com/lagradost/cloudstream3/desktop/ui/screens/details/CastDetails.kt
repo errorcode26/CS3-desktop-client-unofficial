@@ -109,7 +109,7 @@ fun CastDetailsDialog(
                             )
                         }
                     } else {
-                        val d = details!!
+                        val d = details ?: return@Box
                         val coroutineScope = rememberCoroutineScope()
 
                         Column(modifier = Modifier.fillMaxSize()) {

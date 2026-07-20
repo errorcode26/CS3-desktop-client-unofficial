@@ -182,7 +182,8 @@ object TmdbEnrichmentService {
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
 
                                 // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
-                                if (resultYear != null && loaded.year != null && Math.abs(resultYear - loaded.year!!) > 1) continue
+                                val loadedYear = loaded.year
+                                if (resultYear != null && loadedYear != null && Math.abs(resultYear - loadedYear) > 1) continue
 
                                 possible.add(result)
                             }
@@ -428,7 +429,7 @@ object TmdbEnrichmentService {
                                         if (loaded.tags.isNullOrEmpty()) {
                                             loaded.tags = tmdbTags
                                         } else {
-                                            loaded.tags = (loaded.tags!! + tmdbTags).distinct()
+                                            loaded.tags = (loaded.tags.orEmpty() + tmdbTags).distinct()
                                         }
                                     }
                                 }
@@ -490,7 +491,7 @@ object TmdbEnrichmentService {
                                         if (loaded.actors.isNullOrEmpty()) {
                                             loaded.actors = actors
                                         } else {
-                                            val merged = loaded.actors!!.toMutableList()
+                                            val merged = loaded.actors.orEmpty().toMutableList()
                                             actors.forEach { tmdbActor ->
                                                 val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
                                                 if (existingIdx == -1) {

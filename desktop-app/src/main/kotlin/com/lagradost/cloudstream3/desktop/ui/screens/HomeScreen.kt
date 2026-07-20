@@ -62,7 +62,7 @@ fun ComposeHomeScreen(
     // Animate the raw extracted color — keep full saturation, we control opacity in drawBehind directly
     val animatedHeroColor by animateColorAsState(
         targetValue = if (dynamicColorEnabled && !isLightMode && heroColor != null) {
-            heroColor!!
+            heroColor
         } else {
             Color.Transparent
         },
@@ -110,8 +110,8 @@ fun ComposeHomeScreen(
                     navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop))
                 },
             )
-        } else if (selectedProvider != null && selectedProvider!!.hasMainPage && selectedProvider!!.mainPage.isNotEmpty()) {
-            val currentProvider = selectedProvider!!
+        } else if (selectedProvider != null && selectedProvider.hasMainPage && selectedProvider.mainPage.isNotEmpty()) {
+            val currentProvider = selectedProvider
             val listState = rememberLazyListState()
 
             LazyColumn(

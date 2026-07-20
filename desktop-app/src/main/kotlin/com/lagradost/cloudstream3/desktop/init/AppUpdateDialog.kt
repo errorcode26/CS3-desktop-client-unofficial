@@ -54,7 +54,9 @@ fun AppUpdateDialog() {
             Button(onClick = {
                 try {
                     Desktop.getDesktop().browse(URI(release.html_url))
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
+                }
                 showUpdateDialog = false
             }) { Text("Download") }
         },

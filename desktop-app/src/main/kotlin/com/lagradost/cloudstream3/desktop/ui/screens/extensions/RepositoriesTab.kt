@@ -104,8 +104,8 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             }
         }
 
-        if (selectedRepoForDetail != null) {
-            val repo = selectedRepoForDetail!!
+        val repo = selectedRepoForDetail
+        if (repo != null) {
             val repoPlugins = remember(allPlugins, repo.name, repoSearchQuery) {
                 allPlugins
                     .filter { it.first == repo.name }

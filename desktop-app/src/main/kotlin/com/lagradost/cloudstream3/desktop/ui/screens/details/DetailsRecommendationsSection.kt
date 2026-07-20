@@ -61,15 +61,17 @@ fun DetailsRecommendationsSection(
             },
         ) {
             items(validRecs.take(18)) { rec ->
-                val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName)!!
-                PosterCard(
-                    item = rec,
-                    provider = recProvider,
-                    itemWidth = 150.dp,
-                    onClick = {
-                        onNavigate(Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
-                    },
-                )
+                val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName)
+                if (recProvider != null) {
+                    PosterCard(
+                        item = rec,
+                        provider = recProvider,
+                        itemWidth = 150.dp,
+                        onClick = {
+                            onNavigate(Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+                        },
+                    )
+                }
             }
         }
 

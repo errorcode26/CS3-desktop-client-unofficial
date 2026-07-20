@@ -280,7 +280,7 @@ fun DetailsMetadata(
 
                 if (!isLoading && !data.tags.isNullOrEmpty()) {
                     Text(
-                        text = data.tags!!.take(6).joinToString(" • "),
+                        text = data.tags?.take(6)?.joinToString(" • ") ?: "",
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -596,9 +596,10 @@ fun DetailsCastSection(
         }
     }
 
-    if (selectedActor != null) {
+    val actor = selectedActor
+    if (actor != null) {
         CastDetailsDialog(
-            actor = selectedActor!!,
+            actor = actor,
             onDismiss = { selectedActor = null },
             onMovieClick = onMovieClick,
         )

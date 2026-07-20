@@ -109,8 +109,10 @@ fun HomeCategorySection(
                     showLargeHeader = !isFirstPage,
                 )
             }
-        } else if (homePage != null && homePage!!.items.isNotEmpty()) {
-            homePage!!.items.forEachIndexed { sectionIndex, section ->
+        } else {
+            val hp = homePage
+            if (hp != null && hp.items.isNotEmpty()) {
+                hp.items.forEachIndexed { sectionIndex, section ->
                 if (isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
                     HomeHeroCarousel(
                         items = section.list,
@@ -210,20 +212,21 @@ fun HomeCategorySection(
                         }
                     }
                 }
-            }
-        } else {
-            val minHeight = if (isFirstPage) 350.dp else 150.dp
-            val topPadding = if (isFirstPage) 80.dp else 0.dp
-            Box(modifier = Modifier.fillMaxWidth().height(minHeight).padding(top = topPadding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        errorMessage ?: "Failed to load category.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedButton(onClick = { fetchPage() }) {
-                        Text("Retry")
+                }
+            } else {
+                val minHeight = if (isFirstPage) 350.dp else 150.dp
+                val topPadding = if (isFirstPage) 80.dp else 0.dp
+                Box(modifier = Modifier.fillMaxWidth().height(minHeight).padding(top = topPadding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            errorMessage ?: "Failed to load category.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.OutlinedButton(onClick = { fetchPage() }) {
+                            Text("Retry")
+                        }
                     }
                 }
             }

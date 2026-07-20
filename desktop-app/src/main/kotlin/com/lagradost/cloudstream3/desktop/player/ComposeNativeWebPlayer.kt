@@ -161,7 +161,9 @@ fun ComposeNativeWebPlayer(
                 currentlyLoading = isBuf
                 isAppScraping = currentIsLoading
                 escapedLoadingText = currentLoadingStatusText?.replace("\"", "\\\"")?.replace("\n", "\\n")
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+                com.lagradost.common.logging.AppLogger.e("Error escaping loading text", e)
+            }
 
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
 

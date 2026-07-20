@@ -315,7 +315,7 @@ fun EpisodeCard(
             Text(
                 text = when {
                     shouldHideSpoilers -> "Description hidden."
-                    hasDesc -> ep.description!!
+                    hasDesc -> ep.description ?: ""
                     runTimeStr != null -> "Runtime: $runTimeStr"
                     else -> "No description available."
                 },
@@ -387,7 +387,7 @@ fun toggleEpisodeWatched(provider: MainAPI, data: LoadResponse, ep: Episode, isW
         showUrl = data.url,
     )
     val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-    val dur = if ((saved?.duration ?: 0L) > 0L) saved!!.duration else 60_000L
+    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
     val newPos = if (isWatched) 0L else dur
     val history = WatchHistory(
         parentId = parentId,

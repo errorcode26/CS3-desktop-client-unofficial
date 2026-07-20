@@ -17,9 +17,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
@@ -89,7 +89,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
 
     val animatedHeroColor by androidx.compose.animation.animateColorAsState(
         targetValue = if (dynamicColorEnabled && !isLightMode && heroExtractedColor != null) {
-            heroExtractedColor!!
+            heroExtractedColor
         } else {
             androidx.compose.ui.graphics.Color.Transparent
         },
@@ -151,7 +151,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
 
         LaunchedEffect(response) {
             if (autoPlay && !hasAutoPlayed && response != null) {
-                val resp = response!!
+                val resp = response
                 val firstEp = if (resp is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
                     resp.episodes.firstOrNull()
                 } else if (resp is com.lagradost.cloudstream3.AnimeLoadResponse) {
@@ -202,7 +202,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData!!, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -211,7 +211,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response!!, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -255,7 +255,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                         modifier = Modifier
                             .padding(top = 24.dp)
                             .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                            .clickable { if (isPanelOpen) viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) else viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(activeLinkData!!)) }
+                            .clickable { if (isPanelOpen) viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) else viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(activeLinkData)) }
                             .padding(16.dp),
                     ) {
                         Icon(
@@ -449,7 +449,7 @@ fun DetailsContent(
             onClick = { navController.goBack() },
             modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
         }
 
         Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
@@ -703,7 +703,7 @@ fun DetailsSkeletonPlaceholder(
                 .align(Alignment.TopStart),
         ) {
             Icon(
-                Icons.Default.ArrowBack,
+                Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onSurface,
             )

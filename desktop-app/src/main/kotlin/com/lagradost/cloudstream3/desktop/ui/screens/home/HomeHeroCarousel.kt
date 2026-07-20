@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -288,7 +290,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                 ) {
                                     coil3.compose.AsyncImage(
                                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                            .data(meta!!.logoUrl)
+                                            .data(meta?.logoUrl)
                                             .size(1600, 800)
                                             .build(),
                                         contentDescription = null,
@@ -308,7 +310,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     )
                                     coil3.compose.SubcomposeAsyncImage(
                                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                            .data(meta!!.logoUrl)
+                                            .data(meta?.logoUrl)
                                             .size(1600, 800)
                                             .build(),
                                         contentDescription = "Logo",
@@ -406,7 +408,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                             .padding(horizontal = 6.dp, vertical = 2.dp),
                                     ) {
                                         Text(
-                                            text = meta!!.contentRating!!,
+                                            text = meta?.contentRating ?: "",
                                             color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
@@ -431,7 +433,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     Spacer(Modifier.width(14.dp))
                                 }
                                 if (!meta?.tags.isNullOrEmpty()) {
-                                    val tagsText = meta!!.tags.distinct().take(3).joinToString(" • ")
+                                    val tagsText = meta?.tags?.distinct()?.take(3)?.joinToString(" • ") ?: ""
                                     Text(
                                         text = tagsText,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -453,7 +455,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                             if (!meta?.plot.isNullOrBlank()) {
                                 Spacer(Modifier.height(12.dp))
                                 Text(
-                                    text = meta!!.plot!!,
+                                    text = meta?.plot ?: "",
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                     fontSize = 16.sp,
                                     maxLines = 3,
@@ -560,7 +562,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                                         id = bookmarkId,
                                                         name = item.name,
                                                         url = item.url,
-                                                        apiName = provider!!.name,
+                                                        apiName = provider?.name ?: "",
                                                         posterUrl = item.posterUrl,
                                                         watchType = type.id,
                                                     )
@@ -617,7 +619,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         onClick = { if (displayItems.isNotEmpty()) globalIndex-- },
                         modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape),
                     ) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White)
                     }
 
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
@@ -688,7 +690,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         onClick = { if (displayItems.isNotEmpty()) globalIndex++ },
                         modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape),
                     ) {
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Next", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next", tint = Color.White)
                     }
                 }
             }
