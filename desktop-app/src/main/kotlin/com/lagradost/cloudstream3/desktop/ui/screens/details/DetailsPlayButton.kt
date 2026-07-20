@@ -29,7 +29,7 @@ fun DetailsPlayButton(
     data: LoadResponse,
     provider: MainAPI,
     latestHistory: WatchHistory? = null,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -76,7 +76,7 @@ fun DetailsPlayButton(
 
         val onPlayClick = {
             if (targetEp != null) {
-                navigateToPlay(provider, data, targetEp, onPlay)
+                onPlay(targetEp)
             } else {
                 val ep = when (data) {
                     is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
@@ -97,7 +97,7 @@ fun DetailsPlayButton(
                     else -> null
                 }
                 if (ep != null) {
-                    navigateToPlay(provider, data, ep, onPlay)
+                    onPlay(ep)
                 }
             }
         }

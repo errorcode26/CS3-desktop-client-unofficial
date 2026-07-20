@@ -53,7 +53,7 @@ fun DetailsBackdrop(
     modifier: Modifier = Modifier,
     dynamicColorEnabled: Boolean = false,
     animatedHeroColor: Color = Color.Transparent,
-    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState? = null,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
     Box(
         modifier = modifier
@@ -136,7 +136,7 @@ fun DetailsMetadata(
     heroAction: @Composable () -> Unit = {},
     enrichmentTrigger: Int,
     isLoading: Boolean = false,
-    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState? = null,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
@@ -725,7 +725,7 @@ private fun ActorCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailsStatsSection(
-    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState?,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
 ) {
     if (uiState == null) return
 

@@ -46,7 +46,8 @@ fun EpisodeCard(
     data: LoadResponse,
     isAntiSpoiler: Boolean = false,
     modifier: Modifier = Modifier,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
 ) {
     var isHovered by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
@@ -98,7 +99,7 @@ fun EpisodeCard(
                 shape = RoundedCornerShape(10.dp),
             )
             .clip(RoundedCornerShape(10.dp))
-            .clickable { navigateToPlay(provider, data, ep, onPlay) },
+            .clickable { onPlay(ep) },
     ) {
         // Background image
         if (epImg != null || fallbackImg != null) {
@@ -256,7 +257,7 @@ fun EpisodeCard(
                         DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
                     } else {
                         // Watch: Mark completely watched
-                        toggleEpisodeWatched(provider, data, ep, isWatched = false)
+                        onToggleWatched(ep, false)
                     }
                 }
                 .padding(6.dp),
@@ -378,70 +379,9 @@ fun EpisodeCard(
     }
 }
 
-fun toggleEpisodeWatched(provider: MainAPI, data: LoadResponse, ep: Episode, isWatched: Boolean) {
-    val parentId = DesktopDataStore.watchHistoryId(
-        apiName = provider.name,
-        showUrl = data.url,
-    )
-    val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
-    val newPos = if (isWatched) 0L else dur
-    val history = WatchHistory(
-        parentId = parentId,
-        showName = data.name,
-        showUrl = data.url,
-        apiName = provider.name,
-        posterUrl = data.posterUrl,
-        episodeThumbnailUrl = ep.posterUrl,
-        screenshotUrl = saved?.screenshotUrl,
-        episode = ep.episode,
-        season = ep.season,
-        episodeId = ep.data,
-        position = newPos,
-        duration = dur,
-    )
-    DesktopDataStore.setLastWatched(history)
-}
-
-fun navigateToPlay(provider: MainAPI, data: LoadResponse, ep: Episode, onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit) {
-    val parentId = DesktopDataStore.watchHistoryId(
-        apiName = provider.name,
-        showUrl = data.url,
-    )
-    val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-    val resumePos = PlayerLinkHandler.resumeStartSeconds(
-        saved?.position ?: 0L,
-        saved?.duration ?: 0L,
-    )
-    val history = WatchHistory(
-        parentId = parentId,
-        showName = data.name,
-        showUrl = data.url,
-        apiName = provider.name,
-        posterUrl = data.posterUrl,
-        episodeThumbnailUrl = ep.posterUrl,
-        screenshotUrl = saved?.screenshotUrl,
-        episode = ep.episode,
-        season = ep.season,
-        episodeId = ep.data,
-        position = resumePos,
-        duration = saved?.duration ?: 0L,
-    )
-    var patchedData = ep.data
-    if (patchedData.startsWith("{") && patchedData.endsWith("}")) {
-        if (!patchedData.contains("\"title\"")) {
-            val titleStr = data.name.replace("\"", "\\\"")
-            patchedData = patchedData.replaceFirst("{", "{\"title\":\"$titleStr\",")
-        }
-        if (!patchedData.contains("\"tvtype\"")) {
-            patchedData = patchedData.replaceFirst("{", "{\"tvtype\":\"\",")
-        }
-    }
-    onPlay(Triple(provider, patchedData, history))
-}
 
 @Composable
-fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: LoadResponse, onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit) {
+fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: LoadResponse, onPlay: (com.lagradost.cloudstream3.Episode) -> Unit) {
     var isHovered by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(200))
     val elevation by animateDpAsState(if (isHovered) 12.dp else 4.dp, animationSpec = tween(200))
@@ -462,7 +402,7 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                 }
             }
             .scale(scale)
-            .clickable { navigateToPlay(provider, data, ep, onPlay) },
+            .clickable { onPlay(ep) },
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(16.dp),

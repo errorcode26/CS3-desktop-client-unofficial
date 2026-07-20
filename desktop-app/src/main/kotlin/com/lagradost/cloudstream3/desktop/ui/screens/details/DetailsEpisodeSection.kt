@@ -40,7 +40,8 @@ fun DetailsEpisodeSection(
     isMovieLike: Boolean,
     isLoading: Boolean,
     coroutineScope: CoroutineScope,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
 ) {
     if (isMovieLike) return
     val hasEpisodes = when (data) {
@@ -172,12 +173,7 @@ fun DetailsEpisodeSection(
                                         backupSeasonHistory.clear()
                                         currentSeasonEpisodes.forEach { ep ->
                                             backupSeasonHistory[ep.data] = showHistory.values.find { it.episodeId == ep.data }
-                                            toggleEpisodeWatched(
-                                                provider = provider,
-                                                data = data,
-                                                ep = ep,
-                                                isWatched = false, // We are marking it watched
-                                            )
+                                            onToggleWatched(ep, false)
                                         }
                                     } else {
                                         // Unmarking. Restore from backup.
@@ -374,6 +370,7 @@ fun DetailsEpisodeSection(
                             isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
+                            onToggleWatched = onToggleWatched,
                         )
                         if (!isEpisodesStackedView) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -527,6 +524,7 @@ fun DetailsEpisodeSection(
                             isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
+                            onToggleWatched = onToggleWatched,
                         )
                         if (!isEpisodesStackedView) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -565,7 +563,8 @@ private fun RenderEpisodesSection(
     data: LoadResponse,
     isAntiSpoiler: Boolean,
     coroutineScope: CoroutineScope,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
 ) {
     if (isEpisodesStackedView) {
         // BoxWithConstraints gives us the real available pixel width so we can
@@ -596,6 +595,7 @@ private fun RenderEpisodesSection(
                         isAntiSpoiler = isAntiSpoiler,
                         modifier = Modifier.width(cardWidth),
                         onPlay = onPlay,
+                        onToggleWatched = onToggleWatched,
                     )
                 }
             }
@@ -615,7 +615,7 @@ private fun RenderEpisodesSection(
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                 val history = showHistory.values.find { it.episodeId == ep.data }
-                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(400.dp), onPlay = onPlay)
+                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(400.dp), onPlay = onPlay, onToggleWatched = onToggleWatched)
             }
         }
     }

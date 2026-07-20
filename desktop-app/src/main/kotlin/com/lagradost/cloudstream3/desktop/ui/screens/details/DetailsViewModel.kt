@@ -6,16 +6,14 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
-import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-typealias DetailsUiState = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
+typealias DetailsUiStateAlias = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
 
 class DetailsViewModel(
     private val provider: MainAPI,
@@ -23,12 +21,13 @@ class DetailsViewModel(
     private val preloadedName: String? = null,
     private val preloadedPoster: String? = null,
     private val preloadedBg: String? = null,
-) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
-    initialState = DetailsUiState(
+) : BaseMviViewModel<DetailsUiStateAlias, DetailsUiEvent, DetailsUiEffect>(
+    initialState = DetailsUiStateAlias(
         response = DetailsCache.get(url),
         enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
         enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
-        isLoading = DetailsCache.get(url) == null
+        isLoading = DetailsCache.get(url) == null,
+        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
     )
 ) {
     private val _isInitialized = MutableStateFlow(false)
@@ -55,138 +54,222 @@ class DetailsViewModel(
             is DetailsUiEvent.OnRetry -> retry()
             is DetailsUiEvent.OnOpenLinksPanel -> openLinksPanel(event.data)
             is DetailsUiEvent.OnCloseLinksPanel -> closeLinksPanel()
+            is DetailsUiEvent.OnRequestAutoPlay -> handleAutoPlay()
+            is DetailsUiEvent.OnPlayEpisode -> handlePlayEpisode(event.ep)
+            is DetailsUiEvent.OnToggleEpisodeWatched -> handleToggleEpisodeWatched(event.ep, event.isWatched)
         }
     }
 
     fun load() {
         if (_isInitialized.value) return
         _isInitialized.value = true
-        val currentResp = uiState.value.response
-        extractColor(preloadedBg ?: preloadedPoster ?: currentResp?.backgroundPosterUrl ?: currentResp?.posterUrl)
         loadDetails()
     }
 
-    private fun extractColor(imageUrl: String?) {
-        if (imageUrl.isNullOrBlank()) return
-        ImageColorExtractor.getCachedColor(imageUrl)?.let { color ->
-            updateState { copy(heroColor = color) }
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            val color = ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
-            if (color != null) {
-                updateState { copy(heroColor = color) }
-            }
-        }
-    }
-
     fun loadDetails() {
-        viewModelScope.launch {
-            updateState { copy(fetchFailed = false) }
-            if (uiState.value.response == null) {
-                if (preloadedName != null) {
-                    val fake = provider.newMovieLoadResponse(
-                        name = preloadedName,
-                        url = url,
-                        type = TvType.Movie,
-                        dataUrl = url,
-                    ) {
-                        this.posterUrl = preloadedPoster
-                        this.backgroundPosterUrl = preloadedBg
-                    }
-                    updateState { copy(fakeData = fake) }
+        viewModelScope.launch(Dispatchers.IO) {
+            updateState { copy(fetchFailed = false, isLoading = true, error = null, errorMessage = null) }
+            
+            if (uiState.value.response == null && preloadedName != null) {
+                val fake = provider.newMovieLoadResponse(
+                    name = preloadedName,
+                    url = url,
+                    type = TvType.Movie,
+                    dataUrl = url,
+                ) {
+                    this.posterUrl = preloadedPoster
+                    this.backgroundPosterUrl = preloadedBg
                 }
+                updateState { copy(fakeData = fake) }
+            }
 
-                try {
-                    val rawData = DetailsRepository.fetchRaw(provider, url, fallbackName = preloadedName)
-                    if (rawData != null) {
+            GetEnrichedDetailsUseCase(provider, url, preloadedName, preloadedPoster, preloadedBg).collect { update ->
+                when (update) {
+                    is EnrichmentUpdate.RawData -> {
                         updateState {
                             copy(
-                                response = rawData,
+                                response = update.response,
                                 isLoading = false,
-                                enrichedLogoUrl = rawData.logoUrl,
-                                enrichedBackdropUrl = rawData.backgroundPosterUrl,
+                                enrichedLogoUrl = update.response.logoUrl,
+                                enrichedBackdropUrl = update.response.backgroundPosterUrl,
                                 isEnriching = true
                             )
                         }
-                        extractColor(rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster)
-                    } else {
+                    }
+                    is EnrichmentUpdate.ExtractedColor -> {
+                        updateState { copy(heroColor = update.color) }
+                    }
+                    is EnrichmentUpdate.LogoLoaded -> {
+                        updateState { copy(enrichedLogoUrl = update.url) }
+                    }
+                    is EnrichmentUpdate.BackdropLoaded -> {
+                        updateState { copy(enrichedBackdropUrl = update.url) }
+                    }
+                    is EnrichmentUpdate.ScreenshotsLoaded -> {
+                        updateState { copy(screenshots = update.urls) }
+                    }
+                    is EnrichmentUpdate.MetadataLoaded -> {
+                        updateState {
+                            copy(
+                                enrichedTagline = update.tagline,
+                                enrichedStatus = update.status,
+                                enrichedStudios = update.studios,
+                                enrichedCollectionName = update.collName,
+                                enrichedCollectionBackdrop = update.collBg,
+                                enrichedSeasonsCount = update.seasons,
+                                enrichedEpisodesCount = update.episodes,
+                                enrichedOriginalLanguage = update.lang,
+                                enrichedReleaseDate = update.relDate,
+                                enrichedCountry = update.country,
+                                enrichedCollectionItems = update.collItems,
+                                enrichedBudget = update.budget,
+                                enrichedRevenue = update.revenue,
+                                enrichedNetworks = update.networks ?: emptyList()
+                            )
+                        }
+                    }
+                    is EnrichmentUpdate.FullyEnriched -> {
+                        updateState { copy(isEnriching = false, enrichmentTrigger = enrichmentTrigger + 1) }
+                    }
+                    is EnrichmentUpdate.Error -> {
+                        AppLogger.e("DetailsViewModel", "Error loading details: ${update.message}")
                         updateState {
                             copy(
                                 fetchFailed = true,
                                 isLoading = false,
-                                error = "Failed to fetch raw details",
-                                errorMessage = "Failed to fetch raw details"
+                                error = update.message,
+                                errorMessage = update.message
                             )
                         }
-                        return@launch
                     }
-                } catch (e: Throwable) {
-                    AppLogger.e("Error loading details", e)
-                    updateState {
-                        copy(
-                            fetchFailed = true,
-                            isLoading = false,
-                            error = e.message,
-                            errorMessage = e.message
-                        )
-                    }
-                    return@launch
                 }
             }
+        }
+    }
 
-            val currentData = uiState.value.response
-            if (currentData != null) {
-                if (!preloadedName.isNullOrBlank() && currentData.name.isBlank()) {
-                    withContext(Dispatchers.Main.immediate) {
-                        currentData.name = preloadedName
-                    }
-                }
-                if (uiState.value.heroColor == null) {
-                    extractColor(currentData.backgroundPosterUrl ?: currentData.posterUrl ?: preloadedBg ?: preloadedPoster)
-                }
-                updateState { copy(isEnriching = true) }
-                val targetEnrichUrl = if (currentData.url.isNotBlank() && !currentData.url.contains("themoviedb.org")) currentData.url else url
-                TmdbEnrichmentService.enrich(
-                    loaded = currentData,
-                    url = targetEnrichUrl,
-                    onScreenshotsLoaded = { images ->
-                        updateState { copy(screenshots = images) }
-                    },
-                    onMetadataLoaded = { tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks ->
-                        updateState {
-                            copy(
-                                enrichedTagline = tagline,
-                                enrichedStatus = status,
-                                enrichedStudios = studios,
-                                enrichedCollectionName = collName,
-                                enrichedCollectionBackdrop = collBg,
-                                enrichedSeasonsCount = seasons,
-                                enrichedEpisodesCount = episodes,
-                                enrichedOriginalLanguage = lang,
-                                enrichedReleaseDate = relDate,
-                                enrichedCountry = country,
-                                enrichedCollectionItems = collItems,
-                                enrichedBudget = budget,
-                                enrichedRevenue = revenue,
-                                enrichedNetworks = networks ?: emptyList()
-                            )
-                        }
-                    },
-                    onEnrichmentComplete = {
-                        extractColor(currentData.backgroundPosterUrl ?: currentData.posterUrl ?: preloadedBg ?: preloadedPoster)
-                        updateState {
-                            copy(
-                                enrichmentTrigger = enrichmentTrigger + 1,
-                                response = currentData,
-                                enrichedLogoUrl = currentData.logoUrl,
-                                enrichedBackdropUrl = currentData.backgroundPosterUrl,
-                                isEnriching = false
-                            )
-                        }
-                    },
-                )
+    private fun handleAutoPlay() {
+        val resp = uiState.value.response ?: uiState.value.fakeData ?: return
+        
+        val firstEp = if (resp is TvSeriesLoadResponse) {
+            resp.episodes.firstOrNull()
+        } else if (resp is AnimeLoadResponse) {
+            resp.episodes.values.firstOrNull()?.firstOrNull()
+        } else if (resp is MovieLoadResponse) {
+            provider.newEpisode(resp.dataUrl) {
+                this.name = resp.name
+                this.posterUrl = resp.posterUrl
             }
+        } else null
+        
+        if (firstEp != null) {
+            val history = buildWatchHistory(firstEp, resp)
+            val patchedData = patchEpisodeData(firstEp, resp)
+            handlePlayRequest(Triple(provider, patchedData, history))
+        }
+    }
+    
+    private fun buildWatchHistory(ep: Episode, data: LoadResponse): WatchHistory {
+        val parentId = DesktopDataStore.watchHistoryId(
+            apiName = provider.name,
+            showUrl = data.url,
+        )
+        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+        val resumePos = com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(
+            saved?.position ?: 0L,
+            saved?.duration ?: 0L,
+        )
+        return WatchHistory(
+            parentId = parentId,
+            showName = data.name,
+            showUrl = data.url,
+            apiName = provider.name,
+            posterUrl = data.posterUrl,
+            episodeThumbnailUrl = ep.posterUrl,
+            screenshotUrl = saved?.screenshotUrl,
+            episode = ep.episode,
+            season = ep.season,
+            episodeId = ep.data,
+            position = resumePos,
+            duration = saved?.duration ?: 0L,
+        )
+    }
+
+    private fun patchEpisodeData(ep: Episode, data: LoadResponse): String {
+        var patchedData = ep.data
+        if (patchedData.startsWith("{") && patchedData.endsWith("}")) {
+            if (!patchedData.contains("\"title\"")) {
+                val titleStr = data.name.replace("\"", "\\\"")
+                patchedData = patchedData.replaceFirst("{", "{\"title\":\"$titleStr\",")
+            }
+            if (!patchedData.contains("\"tvtype\"")) {
+                patchedData = patchedData.replaceFirst("{", "{\"tvtype\":\"\",")
+            }
+        }
+        return patchedData
+    }
+
+    private fun handlePlayEpisode(ep: Episode) {
+        val data = uiState.value.response ?: uiState.value.fakeData ?: return
+        val history = buildWatchHistory(ep, data)
+        val patchedData = patchEpisodeData(ep, data)
+        handlePlayRequest(Triple(provider, patchedData, history))
+    }
+
+    private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
+        val data = uiState.value.response ?: uiState.value.fakeData ?: return
+        val parentId = DesktopDataStore.watchHistoryId(
+            apiName = provider.name,
+            showUrl = data.url,
+        )
+        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+        val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
+        val newPos = if (isWatched) 0L else dur
+        val history = WatchHistory(
+            parentId = parentId,
+            showName = data.name,
+            showUrl = data.url,
+            apiName = provider.name,
+            posterUrl = data.posterUrl,
+            episodeThumbnailUrl = ep.posterUrl,
+            screenshotUrl = saved?.screenshotUrl,
+            episode = ep.episode,
+            season = ep.season,
+            episodeId = ep.data,
+            position = newPos,
+            duration = dur,
+        )
+        DesktopDataStore.setLastWatched(history)
+    }
+
+    private fun handlePlayRequest(data: Triple<MainAPI, String, WatchHistory>) {
+        if (uiState.value.autoPlayEnabled) {
+            val linkHistory = data.third
+            val epTitle = buildString {
+                append(linkHistory.showName)
+                if (linkHistory.season != null && linkHistory.episode != null) {
+                    append(" - S${linkHistory.season}E${linkHistory.episode}")
+                } else if (linkHistory.episode != null) {
+                    append(" - E${linkHistory.episode}")
+                }
+            }
+            val response = uiState.value.response ?: uiState.value.fakeData
+            val isLive = response?.type == TvType.Live
+            val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
+            
+            sendEffect(DetailsUiEffect.NavigateToPlayer(
+                com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
+                    links = emptyList(),
+                    initialIndex = 0,
+                    title = epTitle,
+                    subtitles = emptyList(),
+                    startPositionMs = resumeMs,
+                    history = linkHistory,
+                    loadResponse = response,
+                    onError = { err -> sendEffect(DetailsUiEffect.ShowErrorDialog(err)) }
+                )
+            ))
+        } else {
+            handleEvent(DetailsUiEvent.OnOpenLinksPanel(data))
         }
     }
 

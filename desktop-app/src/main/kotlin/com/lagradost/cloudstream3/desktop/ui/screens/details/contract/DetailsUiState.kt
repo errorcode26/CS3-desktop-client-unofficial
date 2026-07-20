@@ -38,5 +38,6 @@ data class DetailsUiState(
     val enrichedBudget: Long? = null,
     val enrichedRevenue: Long? = null,
     val enrichedNetworks: List<String> = emptyList(),
-    val bookmarks: Map<String, DesktopBookmark> = emptyMap()
+    val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
+    val autoPlayEnabled: Boolean = true
 ) : UiState

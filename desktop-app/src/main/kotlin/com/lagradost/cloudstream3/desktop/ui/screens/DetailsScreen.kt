@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -100,33 +102,21 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
 
-    val handlePlay: (Triple<MainAPI, String, WatchHistory>) -> Unit = { (linkProvider, linkUrl, linkHistory) ->
-        val autoPlay = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-        if (autoPlay) {
-            val epTitle = buildString {
-                append(linkHistory.showName)
-                if (linkHistory.season != null && linkHistory.episode != null) {
-                    append(" - S${linkHistory.season}E${linkHistory.episode}")
-                } else if (linkHistory.episode != null) {
-                    append(" - E${linkHistory.episode}")
-                }
+    val handlePlay: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
+        viewModel.onEvent(DetailsUiEvent.OnPlayEpisode(ep))
+    }
+
+    val handleToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit = { ep, isWatched ->
+        viewModel.onEvent(DetailsUiEvent.OnToggleEpisodeWatched(ep, isWatched))
+    }
+
+    LaunchedEffect(viewModel.effectFlow) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is DetailsUiEffect.NavigateToPlayer -> playVideo(effect.launchData)
+                is DetailsUiEffect.ShowErrorDialog -> playbackError = effect.message
+                is DetailsUiEffect.ShowToast -> {} // Handled elsewhere or not needed
             }
-            val isLive = (response ?: fakeData)?.type == com.lagradost.cloudstream3.TvType.Live
-            val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
-            playVideo(
-                com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
-                    links = emptyList(),
-                    initialIndex = 0,
-                    title = epTitle,
-                    subtitles = emptyList(),
-                    startPositionMs = resumeMs,
-                    history = linkHistory,
-                    loadResponse = response ?: fakeData,
-                    onError = { err -> playbackError = err },
-                ),
-            )
-        } else {
-            viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(Triple(linkProvider, linkUrl, linkHistory)))
         }
     }
 
@@ -150,26 +140,9 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         var hasAutoPlayed by remember { mutableStateOf(false) }
 
         LaunchedEffect(response) {
-            if (autoPlay && !hasAutoPlayed && response != null) {
-                val resp = response
-                val firstEp = if (resp is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                    resp.episodes.firstOrNull()
-                } else if (resp is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                    resp.episodes.values.firstOrNull()?.firstOrNull()
-                } else {
-                    null
-                }
-                if (firstEp != null) {
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, resp, firstEp, handlePlay)
-                    hasAutoPlayed = true
-                } else if (resp is com.lagradost.cloudstream3.MovieLoadResponse) {
-                    val ep = provider.newEpisode(resp.dataUrl) {
-                        this.name = resp.name
-                        this.posterUrl = resp.posterUrl
-                    }
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.navigateToPlay(provider, resp, ep, handlePlay)
-                    hasAutoPlayed = true
-                }
+            if (!hasAutoPlayed && response != null) {
+                viewModel.onEvent(DetailsUiEvent.OnRequestAutoPlay)
+                hasAutoPlayed = true
             }
         }
 
@@ -202,7 +175,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -211,7 +184,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -304,10 +277,11 @@ fun DetailsContent(
     screenshots: List<String>?,
     enrichmentTrigger: Int,
     isLoading: Boolean = false,
-    onPlay: (Triple<MainAPI, String, WatchHistory>) -> Unit,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     dynamicColorEnabled: Boolean = false,
     animatedHeroColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Transparent,
-    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsUiState? = null,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
 ) {
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -315,9 +289,8 @@ fun DetailsContent(
     val backupSeasonHistory = remember { mutableMapOf<String, com.lagradost.common.storage.WatchHistory?>() }
     val hazeState = remember { HazeState() }
 
-    val historyUpdatesVal = com.lagradost.common.storage.DesktopDataStore.historyUpdates.collectAsState().value
-    val latestHistory = remember(data.url, historyUpdatesVal) {
-        com.lagradost.common.storage.DesktopDataStore.getLatestWatchHistoryForShow(data.url)
+    val latestHistory = remember(data.url, uiState?.watchHistory) {
+        uiState?.watchHistory?.values?.maxByOrNull { it.position }
     }
 
 
@@ -378,6 +351,7 @@ fun DetailsContent(
                     isLoading = isLoading,
                     coroutineScope = coroutineScope,
                     onPlay = onPlay,
+                    onToggleWatched = onToggleWatched
                 )
             }
 
