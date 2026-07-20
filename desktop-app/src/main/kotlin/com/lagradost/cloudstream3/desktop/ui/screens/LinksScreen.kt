@@ -43,7 +43,12 @@ fun LinksSidePanel(
     onClose: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember(coroutineScope) { LinksViewModel(coroutineScope) }
+    val viewModel = remember { LinksViewModel() }
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
+        }
+    }
     
     val vlcPlayer = remember { VlcPlayer() }
     DisposableEffect(vlcPlayer) {

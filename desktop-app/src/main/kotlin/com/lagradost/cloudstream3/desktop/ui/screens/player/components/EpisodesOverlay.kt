@@ -109,7 +109,10 @@ fun EpisodesOverlay(
                             .clip(RoundedCornerShape(8.dp)),
                     ) {
                         coil3.compose.AsyncImage(
-                            model = headerImg,
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(headerImg)
+                                .size(1600, 800)
+                                .build(),
                             contentDescription = "Show Backdrop",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -328,7 +331,10 @@ fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Bool
             val fallback = episode.posterUrl ?: showPosterUrl
             if (fallback != null) {
                 coil3.compose.AsyncImage(
-                    model = fallback,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(fallback)
+                        .size(320, 180)
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,

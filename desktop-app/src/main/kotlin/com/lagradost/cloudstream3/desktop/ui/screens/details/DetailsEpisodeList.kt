@@ -102,8 +102,12 @@ fun EpisodeCard(
     ) {
         // Background image
         if (epImg != null || fallbackImg != null) {
+            val targetUrl = epImg ?: fallbackImg
             SubcomposeAsyncImage(
-                model = epImg ?: fallbackImg,
+                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    .data(targetUrl)
+                    .size(320, 180)
+                    .build(),
                 contentDescription = ep.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -113,7 +117,10 @@ fun EpisodeCard(
                 loading = {
                     if (fallbackImg != null) {
                         AsyncImage(
-                            model = fallbackImg,
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(fallbackImg)
+                                .size(320, 180)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().blur(if (shouldHideSpoilers) 16.dp else 8.dp),
@@ -123,7 +130,10 @@ fun EpisodeCard(
                 error = {
                     if (fallbackImg != null) {
                         AsyncImage(
-                            model = fallbackImg,
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(fallbackImg)
+                                .size(320, 180)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -467,8 +477,12 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
             val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
 
             if (epImg != null || fallbackImg != null) {
+                val targetUrl = epImg ?: fallbackImg
                 SubcomposeAsyncImage(
-                    model = epImg ?: fallbackImg,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(targetUrl)
+                        .size(2560, 1440)
+                        .build(),
                     contentDescription = ep.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().run {
@@ -481,7 +495,10 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                     loading = {
                         if (fallbackImg != null) {
                             AsyncImage(
-                                model = fallbackImg,
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(fallbackImg)
+                                    .size(2560, 1440)
+                                    .build(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize().blur(8.dp),
@@ -491,7 +508,10 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                     error = {
                         if (fallbackImg != null) {
                             AsyncImage(
-                                model = fallbackImg,
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(fallbackImg)
+                                    .size(2560, 1440)
+                                    .build(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),

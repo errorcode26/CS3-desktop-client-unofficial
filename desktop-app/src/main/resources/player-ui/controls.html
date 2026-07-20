@@ -1334,6 +1334,9 @@
             document.body.classList.remove('hidden-controls');
             return;
         }
+        if (overlay.style.opacity === '0' && videoEndedOverlay.style.display !== 'flex') {
+            overlay.style.opacity = '';
+        }
         overlay.classList.remove('hidden-controls');
         document.body.classList.remove('hidden-controls');
         clearTimeout(hideTimer);
@@ -1754,6 +1757,9 @@
                 if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
                 resumeHandled = false;
                 userDismissedProbing = false;
+                if (videoEndedOverlay.style.display !== 'flex') {
+                    document.getElementById('overlay').style.opacity = '';
+                }
             }
             titleDisplay.innerText = meta.title;
             document.getElementById('resumeTitle').innerText = meta.title;
@@ -2230,7 +2236,15 @@
         doRelativeSeek(10000);
         triggerActionFeedback(SVGS.forward10, 'right');
     });
-    nextEpBtn.addEventListener('click', e => { e.stopPropagation(); send('loadNextEpisode'); });
+
+    const triggerNextEpisode = () => {
+        if (endCountdownTimer) clearInterval(endCountdownTimer);
+        videoEndedOverlay.style.display = 'none';
+        document.getElementById('overlay').style.opacity = '';
+        forceShowLoading();
+        send('loadNextEpisode');
+    };
+    nextEpBtn.addEventListener('click', e => { e.stopPropagation(); triggerNextEpisode(); });
 
     episodesBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel('episodesPanel'); });
     document.getElementById('serversBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('serversPanel'); });
@@ -2415,18 +2429,14 @@
             endCountdownTimer = setInterval(() => {
                 currentEndCountdown--;
                 if (currentEndCountdown <= 0) {
-                    clearInterval(endCountdownTimer);
-                    send('nextEpisode');
-                    videoEndedOverlay.style.display = 'none';
+                    triggerNextEpisode();
                 } else {
                     btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
                 }
             }, 1000);
             
             btnNextEpisode.onclick = () => {
-                clearInterval(endCountdownTimer);
-                send('nextEpisode');
-                videoEndedOverlay.style.display = 'none';
+                triggerNextEpisode();
             };
         } else {
             btnNextEpisode.style.display = 'none';
@@ -2435,8 +2445,10 @@
         
         btnReplay.onclick = () => {
             if (endCountdownTimer) clearInterval(endCountdownTimer);
-            send('replayEpisode');
             videoEndedOverlay.style.display = 'none';
+            document.getElementById('overlay').style.opacity = '';
+            forceShowLoading();
+            send('replayEpisode');
         };
         
         btnExitPlayer.onclick = () => {

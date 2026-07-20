@@ -9,12 +9,21 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
-class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
+class EmbeddedPlayerViewModel {
+    private val coroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+
+    fun dispose() {
+        coroutineScope.cancel()
+    }
 
     private val _launchData = MutableStateFlow<VideoLaunchData?>(null)
     val launchData: StateFlow<VideoLaunchData?> = _launchData.asStateFlow()
@@ -67,7 +76,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
                     _nextEpisodeLinks.value = emptyList()
                     _nextEpisodeSubtitles.value = adjustedData.subtitles
 
-                    var hasStartedPlaying = false
+                    val hasStartedPlaying = AtomicBoolean(false)
 
                     loadLinksJob = coroutineScope.launch(Dispatchers.IO) {
                         try {
@@ -75,55 +84,53 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
                                 data = adjustedData.history.episodeId!!,
                                 isCasting = false,
                                 subtitleCallback = { sub ->
-                                    if (!hasStartedPlaying) {
-                                        _nextEpisodeSubtitles.value = _nextEpisodeSubtitles.value + sub
+                                    if (!hasStartedPlaying.get()) {
+                                        _nextEpisodeSubtitles.update { it + sub }
                                     } else {
-                                        coroutineScope.launch(Dispatchers.Main) {
-                                            val current = _launchData.value
+                                        _launchData.update { current ->
                                             if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
-                                                _launchData.value = current.copy(subtitles = current.subtitles + sub)
+                                                current.copy(subtitles = current.subtitles + sub)
+                                            } else {
+                                                current
                                             }
                                         }
                                     }
                                 },
                                 callback = { link ->
-                                    if (!hasStartedPlaying) {
-                                        _nextEpisodeLinks.value = _nextEpisodeLinks.value + link
-                                        hasStartedPlaying = true
-                                        coroutineScope.launch(Dispatchers.Main) {
-                                            val newLaunchData = adjustedData.copy(
-                                                links = _nextEpisodeLinks.value.toList(),
-                                                subtitles = _nextEpisodeSubtitles.value.toList(),
-                                                initialIndex = 0,
-                                            )
-                                            _launchData.value = newLaunchData
-                                            _isLoadingNextEpisode.value = false
-                                        }
+                                    _nextEpisodeLinks.update { it + link }
+                                    if (hasStartedPlaying.compareAndSet(false, true)) {
+                                        val newLaunchData = adjustedData.copy(
+                                            links = _nextEpisodeLinks.value.toList(),
+                                            subtitles = _nextEpisodeSubtitles.value.toList(),
+                                            initialIndex = 0,
+                                        )
+                                        _launchData.value = newLaunchData
+                                        _targetEpisodeData.value = null
+                                        _isLoadingNextEpisode.value = false
                                     } else {
-                                        coroutineScope.launch(Dispatchers.Main) {
-                                            val current = _launchData.value
+                                        _launchData.update { current ->
                                             if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
-                                                _launchData.value = current.copy(links = current.links + link)
+                                                current.copy(links = current.links + link)
+                                            } else {
+                                                current
                                             }
                                         }
                                     }
                                 },
                             )
 
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                _isScrapingLinks.value = false
-                                if (!hasStartedPlaying) {
-                                    _isLoadingNextEpisode.value = false
-                                }
+                            _isScrapingLinks.value = false
+                            if (!hasStartedPlaying.get()) {
+                                _targetEpisodeData.value = null
+                                _isLoadingNextEpisode.value = false
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: Exception) {
                             e.printStackTrace()
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                _isScrapingLinks.value = false
-                                _isLoadingNextEpisode.value = false
-                            }
+                            _isScrapingLinks.value = false
+                            _targetEpisodeData.value = null
+                            _isLoadingNextEpisode.value = false
                         }
                     }
                 }
@@ -145,7 +152,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
         val apiName = currentData.loadResponse?.apiName
         val provider = APIHolder.getApiFromNameNull(apiName ?: "")
 
-        var hasStartedPlaying = false
+        val hasStartedPlaying = AtomicBoolean(false)
 
         if (provider != null && episode.data.isNotBlank()) {
             loadLinksJob = coroutineScope.launch(Dispatchers.IO) {
@@ -154,57 +161,55 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
                         data = episode.data,
                         isCasting = false,
                         subtitleCallback = { sub ->
-                            if (!hasStartedPlaying) {
-                                _nextEpisodeSubtitles.value = _nextEpisodeSubtitles.value + sub
+                            if (!hasStartedPlaying.get()) {
+                                _nextEpisodeSubtitles.update { it + sub }
                             } else {
-                                coroutineScope.launch(Dispatchers.Main) {
-                                    val current = _launchData.value
+                                _launchData.update { current ->
                                     if (current != null && current.history.episodeId == episode.data) {
-                                        _launchData.value = current.copy(subtitles = current.subtitles + sub)
+                                        current.copy(subtitles = current.subtitles + sub)
+                                    } else {
+                                        current
                                     }
                                 }
                             }
                         },
                         callback = { link ->
-                            if (!hasStartedPlaying) {
-                                _nextEpisodeLinks.value = _nextEpisodeLinks.value + link
-                                hasStartedPlaying = true
-                                coroutineScope.launch(Dispatchers.Main) {
-                                    playLoadedEpisode()
-                                    _isLoadingNextEpisode.value = false
-                                }
+                            _nextEpisodeLinks.update { it + link }
+                            if (hasStartedPlaying.compareAndSet(false, true)) {
+                                playLoadedEpisode()
+                                _isLoadingNextEpisode.value = false
                             } else {
-                                coroutineScope.launch(Dispatchers.Main) {
-                                    val current = _launchData.value
+                                _launchData.update { current ->
                                     if (current != null && current.history.episodeId == episode.data) {
-                                        _launchData.value = current.copy(links = current.links + link)
+                                        current.copy(links = current.links + link)
+                                    } else {
+                                        current
                                     }
                                 }
                             }
                         },
                     )
 
-                    kotlinx.coroutines.withContext(Dispatchers.Main) {
-                        _isScrapingLinks.value = false
-                        if (!hasStartedPlaying) {
-                            _isLoadingNextEpisode.value = false
-                            _nextEpisodeError.value = "No links found for this episode."
-                        }
+                    _isScrapingLinks.value = false
+                    if (!hasStartedPlaying.get()) {
+                        _targetEpisodeData.value = null
+                        _isLoadingNextEpisode.value = false
+                        _nextEpisodeError.value = "No links found for this episode."
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    kotlinx.coroutines.withContext(Dispatchers.Main) {
-                        _isScrapingLinks.value = false
-                        if (!hasStartedPlaying) {
-                            _isLoadingNextEpisode.value = false
-                            _nextEpisodeError.value = "Failed to load links: ${e.message}"
-                        }
+                    _isScrapingLinks.value = false
+                    if (!hasStartedPlaying.get()) {
+                        _targetEpisodeData.value = null
+                        _isLoadingNextEpisode.value = false
+                        _nextEpisodeError.value = "Failed to load links: ${e.message}"
                     }
                 }
             }
         } else {
+            _targetEpisodeData.value = null
             _isLoadingNextEpisode.value = false
             _isScrapingLinks.value = false
         }
@@ -212,6 +217,7 @@ class EmbeddedPlayerViewModel(private val coroutineScope: CoroutineScope) {
 
     fun cancelLoading() {
         loadLinksJob?.cancel()
+        _targetEpisodeData.value = null
         _isLoadingNextEpisode.value = false
         _nextEpisodeError.value = null
     }

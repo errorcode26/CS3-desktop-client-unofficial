@@ -51,6 +51,7 @@ fun BaseMpvPlayer(
     // and also returns to idle-active=yes after stop(), so we must not check until
     // AFTER loadfile has been issued and had time to take effect.
     var loadfileIssuedAt by remember { mutableStateOf(0L) }
+    var lastEofReached by remember { mutableStateOf(false) }
 
     val currentOnPlaybackReady by rememberUpdatedState(onPlaybackReady)
     val currentOnPlaybackError by rememberUpdatedState(onPlaybackError)
@@ -78,7 +79,6 @@ fun BaseMpvPlayer(
 
                 var lastPos = 0.0
                 var lastDur = 0.0
-                var lastEofReached = false
                 // Separate timers so heavy track-list polling never blocks position updates
                 var lastPositionPollMs = 0L  // 100ms cadence — governs seek-bar smoothness
                 var lastTrackPollMs = 0L     // 2000ms cadence — track list / stats are slow
@@ -86,6 +86,7 @@ fun BaseMpvPlayer(
                 var diagnosticLogged = false
                 var playbackStartedAt = 0L
                 var lastErrorLoadfileAt = -1L
+                var lastProcessedLoadfileAt = 0L
 
                 while (isActive) {
                     try {
@@ -103,6 +104,7 @@ fun BaseMpvPlayer(
                                 6 -> { // MPV_EVENT_START_FILE — a new file is being loaded
                                     waitingForTimePosReset = false
                                     hasEverPlayed = false
+                                    lastEofReached = false
                                     playbackStartedAt = 0L
                                     diagnosticLogged = false
                                 }
@@ -124,6 +126,7 @@ fun BaseMpvPlayer(
 
                                 // MPV_EVENT_FILE_LOADED (8) or MPV_EVENT_PLAYBACK_RESTART (21)
                                 8, 21 -> {
+                                    lastEofReached = false
                                     if (!hasEverPlayed && !waitingForTimePosReset) {
                                         hasEverPlayed = true
                                         playbackStartedAt = System.currentTimeMillis()
@@ -194,7 +197,13 @@ fun BaseMpvPlayer(
                                                     }
                                                 }
                                                 "eof-reached" -> {
-                                                    if (prop.format == 3) lastEofReached = prop.data!!.getInt(0) != 0
+                                                    if (prop.format == 3) {
+                                                        val eofValue = prop.data!!.getInt(0) != 0
+                                                        val isSeekingNow = MpvLibrary.getPropertyString(h, "seeking") == "yes" || (playerState?.isSeekingInProgress() == true)
+                                                        if (!isSeekingNow || !eofValue) {
+                                                            lastEofReached = eofValue
+                                                        }
+                                                    }
                                                 }
                                                 "mute" -> {
                                                     if (prop.format == 3) playerState?.isMuted?.value = prop.data!!.getInt(0) != 0
@@ -260,8 +269,23 @@ fun BaseMpvPlayer(
 
                             // Completion / fast-fail / timeout checks
                             val currentLoad = loadfileIssuedAt
+                            if (currentLoad > 0 && currentLoad != lastProcessedLoadfileAt) {
+                                lastProcessedLoadfileAt = currentLoad
+                                lastEofReached = false
+                                hasEverPlayed = false
+                                playbackStartedAt = 0L
+                                waitingForTimePosReset = false
+                                diagnosticLogged = false
+                            }
+
                             if (lastErrorLoadfileAt != currentLoad && currentLoad > 0) {
-                                if (lastEofReached) {
+                                val isSeeking = MpvLibrary.getPropertyString(h, "seeking") == "yes" || (playerState?.isSeekingInProgress() == true)
+                                if (isSeeking && lastEofReached) {
+                                    if (lastDur > 0 && (lastDur - lastPos > 5.0)) {
+                                        lastEofReached = false
+                                    }
+                                }
+                                if (lastEofReached && !isSeeking) {
                                     val isSeekable = MpvLibrary.getPropertyString(h, "seekable") == "yes"
                                     if (isSeekable) {
                                         val timeSinceLoad = System.currentTimeMillis() - loadStartTime
@@ -387,7 +411,17 @@ fun BaseMpvPlayer(
         }
     }
 
-    LaunchedEffect(link, title, mpvHandle) {
+    LaunchedEffect(title, mpvHandle) {
+        val handle = mpvHandle ?: return@LaunchedEffect
+        if (!title.isNullOrBlank()) {
+            val lib = MpvLibrary.INSTANCE
+            val safeTitle = title ?: ""
+            lib.mpv_set_property_string(handle, "force-media-title", safeTitle)
+            lib.mpv_set_property_string(handle, "title", safeTitle)
+        }
+    }
+
+    LaunchedEffect(link, mpvHandle) {
         // Reset guards IMMEDIATELY so the concurrent event loop never sees stale state
         // from the previous link attempt when event 8 fires for the new link.
         hasEverPlayed = false
@@ -395,7 +429,14 @@ fun BaseMpvPlayer(
         loadfileIssuedAt = 0L
 
         val handle = mpvHandle ?: return@LaunchedEffect
-        if (link == null) return@LaunchedEffect // Idle state — WebView player while scraping
+        if (link == null) {
+            MpvLibrary.INSTANCE.mpv_command_string(handle, "stop")
+            MpvLibrary.INSTANCE.mpv_set_property_string(handle, "pause", "yes")
+            playerState?.isPaused?.value = true
+            lastEofReached = false
+            hasEverPlayed = false
+            return@LaunchedEffect // Idle state — WebView player while scraping
+        }
 
         val validated = PlayerLinkHandler.validate(link, title).getOrElse {
             currentOnPlaybackError(it.message ?: "Validation failed")
@@ -547,6 +588,9 @@ fun BaseMpvPlayer(
             waitAttempts++
         }
 
+        lastEofReached = false
+        hasEverPlayed = false
+        waitingForTimePosReset = true
         loadStartTime = System.currentTimeMillis()   // Reset buffering timeout clock
         loadfileIssuedAt = System.currentTimeMillis() // Mark that loadfile is about to be sent
 
@@ -800,10 +844,14 @@ fun BaseMpvPlayer(
                 // DEFERRED CLEANUP: Wait 150ms for Compose/Skia to draw the DetailsScreen
                 // over the empty space before actually destroying the native window.
                 if (h != null) {
-                    Thread {
-                        Thread.sleep(150)
-                        MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
-                    }.start()
+                    com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        kotlinx.coroutines.delay(150)
+                        try {
+                            MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
+                        } catch (e: Throwable) {
+                            com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer", "Failed to destroy mpv handle: ${e.message}")
+                        }
+                    }
                 }
                 super.removeNotify()
             }

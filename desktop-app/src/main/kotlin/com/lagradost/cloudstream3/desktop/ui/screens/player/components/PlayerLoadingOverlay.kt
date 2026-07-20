@@ -60,7 +60,10 @@ fun StreamLoadingOverlay(
     ) {
         if (backdropUrl != null) {
             coil3.compose.AsyncImage(
-                model = backdropUrl,
+                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    .data(backdropUrl)
+                    .size(2560, 1440)
+                    .build(),
                 contentDescription = "Backdrop",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().blur(24.dp),
@@ -200,7 +203,10 @@ fun PlayerLoadingOverlay(
     ) {
         if (backdropUrl != null) {
             coil3.compose.AsyncImage(
-                model = backdropUrl,
+                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    .data(backdropUrl)
+                    .size(2560, 1440)
+                    .build(),
                 contentDescription = "Backdrop",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -240,7 +246,10 @@ fun PlayerLoadingOverlay(
         ) {
             if (!logoUrl.isNullOrBlank()) {
                 coil3.compose.AsyncImage(
-                    model = logoUrl,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(logoUrl)
+                        .size(1600, 800)
+                        .build(),
                     contentDescription = "Logo",
                     modifier = Modifier
                         .heightIn(max = 180.dp)

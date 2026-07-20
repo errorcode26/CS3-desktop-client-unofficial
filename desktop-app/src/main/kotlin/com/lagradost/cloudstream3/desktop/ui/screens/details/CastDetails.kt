@@ -117,7 +117,10 @@ fun CastDetailsDialog(
                             Row(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                                 if (d.profilePath != null) {
                                     AsyncImage(
-                                        model = d.profilePath,
+                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                            .data(d.profilePath)
+                                            .size(240, 240)
+                                            .build(),
                                         contentDescription = d.name,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
@@ -217,7 +220,10 @@ fun CastDetailsDialog(
                                                     },
                                             ) {
                                                 AsyncImage(
-                                                    model = item.posterUrl,
+                                                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                                        .data(item.posterUrl)
+                                                        .size(320, 480)
+                                                        .build(),
                                                     contentDescription = item.name,
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier

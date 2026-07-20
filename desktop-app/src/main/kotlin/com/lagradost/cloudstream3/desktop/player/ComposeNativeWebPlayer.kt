@@ -36,6 +36,8 @@ private fun extractJsonValue(json: String, key: String): String {
     return numRegex.find(json)?.groupValues?.getOrNull(1) ?: ""
 }
 
+private val playerObjectMapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+
 @Composable
 fun ComposeNativeWebPlayer(
     modifier: Modifier = Modifier.fillMaxSize(),
@@ -102,7 +104,6 @@ fun ComposeNativeWebPlayer(
 
     LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title) {
         if (isUiReady) {
-            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val payload = mapOf(
                 "type" to "metadata_update",
                 "isProbing" to isProbing,
@@ -143,7 +144,7 @@ fun ComposeNativeWebPlayer(
                 "startPositionMs" to startPositionMs,
                 "title" to (title ?: "CloudStream"),
             )
-            NativePlayerBridge.postMessage(mapper.writeValueAsString(payload))
+            NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         }
     }
 
@@ -240,9 +241,9 @@ fun ComposeNativeWebPlayer(
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val cleanValue = value.replace(Regex("[\\x00-\\x1F]"), "")
-                                    val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
+                                    val rootPayload = playerObjectMapper.readTree(cleanValue)
                                     val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
-                                    val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
+                                    val parsed = playerObjectMapper.readTree(innerJson)
 
                                     val query = parsed["query"]?.asText() ?: ""
                                     val lang = parsed["lang"]?.asText()?.takeIf { it.isNotBlank() }
@@ -278,7 +279,7 @@ fun ComposeNativeWebPlayer(
                                         }
                                     }
 
-                                    val json = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                                    val json = playerObjectMapper.writeValueAsString(
                                         mapOf("type" to "subtitle_search_results", "results" to allResults),
                                     )
                                     NativePlayerBridge.postMessage(json)
@@ -291,9 +292,9 @@ fun ComposeNativeWebPlayer(
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
                                     val cleanValue = value.replace(Regex("[\\x00-\\x1F]"), "")
-                                    val rootPayload = com.fasterxml.jackson.databind.ObjectMapper().readTree(cleanValue)
+                                    val rootPayload = playerObjectMapper.readTree(cleanValue)
                                     val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
-                                    val parsed = com.fasterxml.jackson.databind.ObjectMapper().readTree(innerJson)
+                                    val parsed = playerObjectMapper.readTree(innerJson)
 
                                     val idPrefix = parsed["idPrefix"]?.asText() ?: return@launch
                                     val data = parsed["data"]?.asText() ?: return@launch
@@ -356,7 +357,7 @@ fun ComposeNativeWebPlayer(
                                             }
                                             MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
 
-                                            val toastJson = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                                            val toastJson = playerObjectMapper.writeValueAsString(
                                                 mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle"),
                                             )
                                             NativePlayerBridge.postMessage(toastJson)
@@ -370,30 +371,23 @@ fun ComposeNativeWebPlayer(
                         "seekTo" -> {
                             val pos = eventValue.toDoubleOrNull()
                             if (pos != null) {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_command_string(h, "seek $pos absolute")
-                                }
+                                playerState?.positionMs?.value = pos.toLong()
                             }
                         }
                         "seekBy" -> {
                             val offset = eventValue.toDoubleOrNull()
                             if (offset != null) {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_command_string(h, "seek $offset relative")
-                                }
+                                val current = playerState?.positionMs?.value ?: 0L
+                                playerState?.positionMs?.value = current + offset.toLong()
                             }
                         }
                         "toggleMute" -> {
-                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
-                            }
+                            playerState?.let { it.isMuted.value = !it.isMuted.value }
                         }
                         "setVolume" -> {
                             val vol = eventValue.toDoubleOrNull()
                             if (vol != null) {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_command_string(h, "set volume $vol")
-                                }
+                                playerState?.volume?.value = vol.toFloat()
                             }
                         }
                         "toggleFullscreen" -> {
@@ -464,7 +458,7 @@ fun ComposeNativeWebPlayer(
                                 playerState?.setSubtitleTrack(id)
                             }
                         }
-                        "loadNextEpisode" -> {
+                        "loadNextEpisode", "nextEpisode" -> {
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onNextEpisode?.invoke()
                             }
@@ -508,8 +502,8 @@ fun ComposeNativeWebPlayer(
                 onDispose {
                     videoCanvas.removeComponentListener(componentListener)
                     NativePlayerBridge.resizeWebView(0, 0)
-                    NativePlayerBridge.destroyWebView()
                     NativePlayerBridge.stopMpvSync()
+                    NativePlayerBridge.destroyWebView()
                 }
             }
 

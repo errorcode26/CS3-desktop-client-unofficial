@@ -14,8 +14,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -45,14 +47,22 @@ object DesktopRepositoryManager {
     private val reposFile by lazy { File(getExtensionsDir(), "repos.json") }
     private val repoCacheFile by lazy { File(getExtensionsDir(), "repo_cache.json") }
     private val pluginsCacheFile by lazy { File(getExtensionsDir(), "plugins_cache.json") }
-    private val repoCache = mutableMapOf<String, Repository>()
-    private val pluginsCache = mutableMapOf<String, List<SitePlugin>>()
+    private val repoCache = java.util.concurrent.ConcurrentHashMap<String, Repository>()
+    private val pluginsCache = java.util.concurrent.ConcurrentHashMap<String, List<SitePlugin>>()
 
     private val _savedRepositories = MutableStateFlow<List<RepositoryData>>(emptyList())
     val savedRepositories: StateFlow<List<RepositoryData>> = _savedRepositories.asStateFlow()
 
-    val remotePluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
-    val syncGeneration = MutableStateFlow(0)
+    private val _remotePluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
+    val remotePluginIcons: StateFlow<Map<String, String>> = _remotePluginIcons.asStateFlow()
+
+    private val _syncGeneration = MutableStateFlow(0)
+    val syncGeneration: StateFlow<Int> = _syncGeneration.asStateFlow()
+    fun incrementSyncGeneration() { _syncGeneration.update { it + 1 } }
+
+    private val fetchMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
+    private val autoUpdateMutex = Mutex()
+
     private val _failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     fun isIconFailed(url: String): Boolean = _failedIconUrls.contains(url)
     fun markIconFailed(url: String) { _failedIconUrls.add(url) }
@@ -94,11 +104,12 @@ object DesktopRepositoryManager {
         }
     }
 
+    @Synchronized
     private fun saveCachesToDisk() {
         try {
             repoCacheFile.parentFile?.mkdirs()
-            mapper.writeValue(repoCacheFile, repoCache)
-            mapper.writeValue(pluginsCacheFile, pluginsCache)
+            mapper.writeValue(repoCacheFile, HashMap(repoCache))
+            mapper.writeValue(pluginsCacheFile, HashMap(pluginsCache))
         } catch (e: Exception) {
             AppLogger.e("Failed to save repository caches to disk", e)
         }
@@ -269,12 +280,17 @@ object DesktopRepositoryManager {
     }
 
     suspend fun getCachedPlugins(listUrl: String): List<SitePlugin> {
-        if (pluginsCache.containsKey(listUrl)) return pluginsCache[listUrl]!!
-        val plugins = fetchPlugins(listUrl).filter { it.status != 0 }
-        pluginsCache[listUrl] = plugins
-        saveCachesToDisk()
+        pluginsCache[listUrl]?.let { return it }
+        val mutex = fetchMutexes.computeIfAbsent(listUrl) { Mutex() }
+        val plugins = mutex.withLock {
+            pluginsCache[listUrl]?.let { return@withLock it }
+            val fetched = fetchPlugins(listUrl).filter { it.status != 0 }
+            pluginsCache[listUrl] = fetched
+            saveCachesToDisk()
+            fetched
+        }
 
-        val newIcons = remotePluginIcons.value.toMutableMap()
+        val newIcons = _remotePluginIcons.value.toMutableMap()
         plugins.forEach { remotePlugin ->
             val remoteIcon = remotePlugin.iconUrl
             if (!remoteIcon.isNullOrEmpty()) {
@@ -282,7 +298,7 @@ object DesktopRepositoryManager {
                 newIcons[remotePlugin.name] = remoteIcon
             }
         }
-        remotePluginIcons.value = newIcons
+        _remotePluginIcons.value = newIcons
 
         return plugins
     }
@@ -510,7 +526,7 @@ object DesktopRepositoryManager {
         if (updatedCount > 0) {
             AppLogger.i("Auto-updated $updatedCount plugins successfully.")
             // Trigger a UI refresh if active
-            syncGeneration.value = syncGeneration.value + 1
+            _syncGeneration.update { it + 1 }
         }
     }
 
@@ -594,35 +610,37 @@ object DesktopRepositoryManager {
             }.awaitAll()
         }
 
-        remotePluginIcons.value = iconMap + scanLocalPluginIcons()
+        _remotePluginIcons.value = iconMap + scanLocalPluginIcons()
         total.get()
     }
 
-    private var lastAutoUpdateTime = 0L
+    private val lastAutoUpdateTime = AtomicLong(0L)
     private val autoUpdateCooldown = 15 * 60 * 1000L // 15 minutes
 
     suspend fun autoUpdatePlugins(): List<com.lagradost.common.storage.PluginUpdateRecord> = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        if (now - lastAutoUpdateTime < autoUpdateCooldown) {
-            return@withContext emptyList()
-        }
-        lastAutoUpdateTime = now
+        autoUpdateMutex.withLock {
+            val now = System.currentTimeMillis()
+            val last = lastAutoUpdateTime.get()
+            if (now - last < autoUpdateCooldown) {
+                return@withContext emptyList()
+            }
+            lastAutoUpdateTime.set(now)
 
-        val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()
-        val savedRepos = getSavedRepositories()
-        val extensionsDir = getExtensionsDir()
+            val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()
+            val savedRepos = getSavedRepositories()
+            val extensionsDir = getExtensionsDir()
 
-        savedRepos.forEach { saved ->
-            try {
-                val repo = fetchRepository(saved.url) ?: return@forEach
+            savedRepos.forEach { saved ->
+                try {
+                    val repo = fetchRepository(saved.url) ?: return@forEach
 
-                val remotePlugins = coroutineScope {
-                    repo.pluginLists.map { listUrl ->
-                        async {
-                            pluginsCache[listUrl] ?: fetchPlugins(listUrl).also { pluginsCache[listUrl] = it }
-                        }
-                    }.awaitAll().flatten()
-                }.distinctBy { it.internalName }
+                    val remotePlugins = coroutineScope {
+                        repo.pluginLists.map { listUrl ->
+                            async {
+                                getCachedPlugins(listUrl)
+                            }
+                        }.awaitAll().flatten()
+                    }.distinctBy { it.internalName }
 
                 val repoDirName = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
                 val repoDir = File(extensionsDir, repoDirName)
@@ -637,7 +655,7 @@ object DesktopRepositoryManager {
                         if (remotePlugin.version > localVersion) {
                             AppLogger.i("Auto-Updater: Updating ${remotePlugin.name} from v$localVersion to v${remotePlugin.version}")
 
-                            val iconUrl = remotePlugin.iconUrl ?: remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
+                            val iconUrl = remotePlugin.iconUrl ?: _remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
                             updatedList.add(
                                 com.lagradost.common.storage.PluginUpdateRecord(
                                     pluginName = remotePlugin.name,
@@ -677,6 +695,7 @@ object DesktopRepositoryManager {
         }
         updatedList
     }
+    }
 
     fun getAllPlugins(): List<Pair<String, SitePlugin>> {
         val list = mutableListOf<Pair<String, SitePlugin>>()
@@ -699,9 +718,9 @@ object DesktopRepositoryManager {
             val catalogPlugins = rebuildRemotePluginCatalog()
             val pluginsUpdated = autoUpdatePlugins()
             val newPluginsLoaded = com.lagradost.runtime.loader.ExtensionLoader.rescanAndLoadNewPlugins(getExtensionsDir())
-            val iconsCached = remotePluginIcons.value.size
+            val iconsCached = _remotePluginIcons.value.size
 
-            syncGeneration.value = syncGeneration.value + 1
+            _syncGeneration.update { it + 1 }
             saveCachesToDisk()
             AppLogger.i("=== Desktop sync finished ===")
 

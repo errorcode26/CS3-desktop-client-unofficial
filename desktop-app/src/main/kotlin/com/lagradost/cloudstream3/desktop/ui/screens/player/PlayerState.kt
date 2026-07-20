@@ -43,8 +43,13 @@ class PlayerState {
     val showStats = MutableStateFlow(false)
 
     private var mpvHandle: com.sun.jna.Pointer? = null
-    private var lastSeekTime = 0L
-    private var targetSeekMs = -1L
+    internal var lastSeekTime = 0L
+    internal var targetSeekMs = -1L
+
+    fun isSeekingInProgress(): Boolean {
+        val now = System.currentTimeMillis()
+        return targetSeekMs != -1L || (now - lastSeekTime < 2000L)
+    }
 
     fun attachMpv(handle: com.sun.jna.Pointer) {
         mpvHandle = handle

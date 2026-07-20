@@ -78,7 +78,10 @@ fun DetailsBackdrop(
 
         if (bgUrl != null) {
             AsyncImage(
-                model = bgUrl,
+                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    .data(bgUrl)
+                    .size(2560, 1440)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -179,8 +182,12 @@ fun DetailsMetadata(
                                 .heightIn(max = DesktopDimens.HeroLogoMaxHeight),
                             contentAlignment = Alignment.BottomStart,
                         ) {
+                            val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(activeLogoUrl)
+                                .size(1600, 800)
+                                .build()
                             AsyncImage(
-                                model = activeLogoUrl,
+                                model = logoRequest,
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -197,7 +204,7 @@ fun DetailsMetadata(
                                 colorFilter = DesktopDimens.LogoShadowFilter,
                             )
                             coil3.compose.SubcomposeAsyncImage(
-                                model = activeLogoUrl,
+                                model = logoRequest,
                                 contentDescription = data.name,
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize(),
@@ -630,7 +637,10 @@ private fun ActorCard(
             val actorImg = provider.fixUrlNull(mainImgRaw)
             if (actorImg != null) {
                 AsyncImage(
-                    model = actorImg,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(actorImg)
+                        .size(192, 192)
+                        .build(),
                     contentDescription = mainName,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
@@ -666,7 +676,10 @@ private fun ActorCard(
                         .clickable { onInvertToggle() },
                 ) {
                     AsyncImage(
-                        model = voiceActorImg,
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(voiceActorImg)
+                            .size(80, 80)
+                            .build(),
                         contentDescription = subName,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().clip(CircleShape),

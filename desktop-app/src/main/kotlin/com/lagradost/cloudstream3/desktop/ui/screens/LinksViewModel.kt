@@ -9,12 +9,19 @@ import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class LinksViewModel(private val viewModelScope: CoroutineScope) {
+class LinksViewModel {
+    private val viewModelScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+
+    fun dispose() {
+        viewModelScope.cancel()
+    }
 
     private val _links = MutableStateFlow<List<ExtractorLink>>(emptyList())
     val links: StateFlow<List<ExtractorLink>> = _links.asStateFlow()

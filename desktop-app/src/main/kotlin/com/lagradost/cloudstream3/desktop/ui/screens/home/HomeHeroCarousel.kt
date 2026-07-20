@@ -203,7 +203,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                         AsyncImage(
                             model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                 .data(ambientBg)
-                                .size(1280, 720)
+                                .size(2560, 1440)
                                 .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
@@ -286,7 +286,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     coil3.compose.AsyncImage(
                                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                             .data(meta!!.logoUrl)
-                                            .size(400, 200)
+                                            .size(1600, 800)
                                             .build(),
                                         contentDescription = null,
                                         modifier = Modifier
@@ -306,7 +306,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
                                     coil3.compose.SubcomposeAsyncImage(
                                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                             .data(meta!!.logoUrl)
-                                            .size(400, 200)
+                                            .size(1600, 800)
                                             .build(),
                                         contentDescription = "Logo",
                                         modifier = Modifier.fillMaxSize(),

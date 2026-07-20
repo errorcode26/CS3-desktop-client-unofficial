@@ -72,7 +72,10 @@ fun PausedDetailsOverlay(
             val logoUrl = loadResponse?.logoUrl
             if (!logoUrl.isNullOrBlank()) {
                 coil3.compose.AsyncImage(
-                    model = logoUrl,
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(logoUrl)
+                        .size(1600, 800)
+                        .build(),
                     contentDescription = "Show Logo",
                     modifier = Modifier.heightIn(max = 140.dp).fillMaxWidth(0.8f),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,

@@ -90,7 +90,10 @@ fun ExtensionCard(
 
                 if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(iconUrl)) {
                     coil3.compose.SubcomposeAsyncImage(
-                        model = iconUrl,
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(iconUrl)
+                            .size(128, 128)
+                            .build(),
                         contentDescription = null,
                         modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,

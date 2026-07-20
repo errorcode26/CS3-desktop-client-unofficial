@@ -5,7 +5,10 @@ import com.lagradost.cloudstream3.desktop.repo.SitePlugin
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,7 +27,13 @@ data class LocalPlugin(
     val fileSize: Long = 0L,
 )
 
-class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
+class ExtensionsViewModel {
+    private val coroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+
+    fun dispose() {
+        coroutineScope.cancel()
+    }
+
     private val _isFetching = MutableStateFlow(false)
     val isFetching = _isFetching.asStateFlow()
 
@@ -43,7 +52,8 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
     private val _pluginRequiringPermission = MutableStateFlow<Triple<String, SitePlugin, String>?>(null)
     val pluginRequiringPermission = _pluginRequiringPermission.asStateFlow()
 
-    val inspectedRepoName = MutableStateFlow<String?>(null)
+    private val _inspectedRepoName = MutableStateFlow<String?>(null)
+    val inspectedRepoName: StateFlow<String?> = _inspectedRepoName.asStateFlow()
 
     val savedRepositories = DesktopRepositoryManager.savedRepositories
     val remotePluginIcons = DesktopRepositoryManager.remotePluginIcons
@@ -72,7 +82,7 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
     fun markIconFailed(url: String) = DesktopRepositoryManager.markIconFailed(url)
 
     fun inspectRepository(repoName: String) {
-        inspectedRepoName.value = repoName
+        _inspectedRepoName.value = repoName
     }
 
     fun fetchPlugins() {
@@ -181,8 +191,7 @@ class ExtensionsViewModel(private val coroutineScope: CoroutineScope) {
                         ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true)
                     }
                     refreshInstalled()
-                    val currentSync = DesktopRepositoryManager.syncGeneration.value
-                    DesktopRepositoryManager.syncGeneration.value = currentSync + 1
+                    DesktopRepositoryManager.incrementSyncGeneration()
                 }
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)

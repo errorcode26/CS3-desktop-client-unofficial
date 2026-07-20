@@ -27,7 +27,12 @@ fun EmbeddedVideoPlayer(
     onClose: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { EmbeddedPlayerViewModel(coroutineScope) }
+    val viewModel = remember { EmbeddedPlayerViewModel() }
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
+        }
+    }
 
     LaunchedEffect(launchData) {
         viewModel.init(launchData)
@@ -196,8 +201,28 @@ fun EmbeddedVideoPlayer(
                     }
 
                     val autoPlay = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+                    val isSwitchingEpisode = isLoadingNextEpisode
                     val shouldWaitForScrape = isScrapingLinks && !userSkippedScraping && !autoPlay
-                    val safeLink = if (shouldWaitForScrape || isExiting) null else activelyPlayingLink
+                    val safeLink = if (shouldWaitForScrape || isExiting || isSwitchingEpisode) null else activelyPlayingLink
+
+                    val displayTitle = if (targetEpisodeData != null) {
+                        buildString {
+                            append(actualLaunchData.history.showName)
+                            val s = targetEpisodeData?.season
+                            val e = targetEpisodeData?.episode
+                            if (s != null && e != null) {
+                                append(" - S${s}E${e}")
+                            } else if (e != null) {
+                                append(" - E${e}")
+                            }
+                            val name = targetEpisodeData?.name
+                            if (!name.isNullOrBlank() && name != "Episode $e") {
+                                append(" - $name")
+                            }
+                        }
+                    } else actualLaunchData.title
+
+                    val displayEpisodeId = targetEpisodeData?.data ?: actualLaunchData.history.episodeId
 
                     val episodes = viewModel.getEpisodesList()
                     val backdropUrl = actualLaunchData.loadResponse?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
@@ -206,7 +231,7 @@ fun EmbeddedVideoPlayer(
 
                     ComposeNativeWebPlayer(
                         link = safeLink,
-                        title = actualLaunchData.title,
+                        title = displayTitle,
                         seriesPosterUrl = actualLaunchData.loadResponse?.posterUrl,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
@@ -215,7 +240,7 @@ fun EmbeddedVideoPlayer(
                         links = actualLaunchData.links,
                         currentLinkIndex = currentLinkIndex,
                         episodes = episodes,
-                        currentEpisodeId = actualLaunchData.history.episodeId,
+                        currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
                         isProbing = !isExiting && isProbingOverlay,
                         failedLinks = failedLinks,
@@ -229,15 +254,23 @@ fun EmbeddedVideoPlayer(
                         },
                         onEpisodeChange = { epId ->
                             playerState.pause()
+                            isLoading = true
+                            isProbingOverlay = true
                             val targetEp = episodes.find { it.data == epId }
                             if (targetEp != null) {
                                 viewModel.loadEpisode(targetEp)
                             }
                         },
                         onNextEpisode = {
+                            playerState.pause()
+                            isLoading = true
+                            isProbingOverlay = true
                             viewModel.loadNextEpisode()
                         },
                         onReplayEpisode = {
+                            playerState.pause()
+                            isLoading = true
+                            isProbingOverlay = true
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
                                 viewModel.loadEpisode(currentEp)

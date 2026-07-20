@@ -2,7 +2,7 @@ package com.lagradost.cloudstream3.desktop.repo
 
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.CoroutineScope
+import com.lagradost.cloudstream3.desktop.utils.appScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +16,7 @@ object BookmarksRepository {
     val bookmarksFlow: StateFlow<Map<String, DesktopBookmark>> = _bookmarksFlow.asStateFlow()
 
     init {
-        CoroutineScope(Dispatchers.IO).launch {
+        appScope.launch(Dispatchers.IO) {
             refresh()
         }
     }
@@ -31,7 +31,7 @@ object BookmarksRepository {
     }
 
     fun addBookmark(bookmark: DesktopBookmark) {
-        CoroutineScope(Dispatchers.IO).launch {
+        appScope.launch(Dispatchers.IO) {
             try {
                 DesktopDataStore.addBookmark(bookmark)
                 _bookmarksFlow.update { it + (bookmark.id to bookmark) }
@@ -43,7 +43,7 @@ object BookmarksRepository {
     }
 
     fun removeBookmark(id: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        appScope.launch(Dispatchers.IO) {
             try {
                 DesktopDataStore.removeBookmark(id)
                 _bookmarksFlow.update { it - id }

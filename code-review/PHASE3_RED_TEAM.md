@@ -10,14 +10,15 @@
 
 | ID | Category | Component / File | Severity | Status |
 |---|---|---|---|---|
-| **R01** | Threading / Player | `BaseMpvPlayer.kt:L803` | **Critical** | **OPEN** |
-| **R02** | MVVM / Lifecycle | `ExtensionsViewModel`, `LinksViewModel`, `EmbeddedPlayerViewModel` | **Critical** | **OPEN** |
-| **R03** | Coroutines / Repo | `BookmarksRepository.kt:L19, L34, L46` | **Critical** | **OPEN** |
-| **R04** | Concurrency / Repo | `DesktopRepositoryManager.kt:L601, L622` | **Major** | **OPEN** |
-| **R05** | MVVM / Encapsulation | `DesktopRepositoryManager` (`L54-55`), `ExtensionsViewModel` (`L46`) | **Major** | **OPEN** |
-| **R06** | Memory / Player | `DesktopPlayerShield.kt:L13` | **Major** | **OPEN** |
-| **R07** | Coroutines / MVVM | `EmbeddedPlayerViewModel.kt:L81, L93` | **Major** | **OPEN** |
-| **R08** | Compose / Memory | `DetailsHeader`, `DetailsEpisodeList`, `CastDetails`, `ExtensionCard`, Overlays | **Major** | **OPEN** |
+| **R01** | Threading / Player | `BaseMpvPlayer.kt:L803` | **Critical** | **FIXED ✅** |
+| **R02** | MVVM / Lifecycle | `ExtensionsViewModel`, `LinksViewModel`, `EmbeddedPlayerViewModel` | **Critical** | **FIXED ✅** |
+| **R03** | Coroutines / Repo | `BookmarksRepository.kt:L19, L34, L46` | **Critical** | **FIXED ✅** |
+| **R04** | Concurrency / Repo | `DesktopRepositoryManager.kt:L601, L622` | **Major** | **FIXED ✅** |
+| **R05** | MVVM / Encapsulation | `DesktopRepositoryManager` (`L54-55`), `ExtensionsViewModel` (`L46`) | **Major** | **FIXED ✅** |
+| **R06** | Memory / Player | `DesktopPlayerShield.kt:L13` | **Major** | **FIXED ✅** |
+| **R07** | Coroutines / MVVM | `EmbeddedPlayerViewModel.kt:L81, L93` | **Major** | **FIXED ✅** |
+| **R08** | Compose / Memory | `DetailsHeader`, `DetailsEpisodeList`, `CastDetails`, `ExtensionCard`, Overlays | **Major** | **FIXED ✅** |
+| **R09** | Bridge & Player UI | `ComposeNativeWebPlayer.kt`, `controls.html` | **Major** | **FIXED ✅** |
 
 ---
 
@@ -99,11 +100,12 @@
 ---
 
 ## ✅ Progress Checklist
-- [ ] `R01` — Replace raw `Thread` inside `BaseMpvPlayer.removeNotify()` with structured coroutine cleanup
-- [ ] `R02` — Refactor `ExtensionsViewModel`, `LinksViewModel`, and `EmbeddedPlayerViewModel` to own internal scopes (`SupervisorJob()`) + `dispose()`
-- [ ] `R03` — Replace `CoroutineScope(Dispatchers.IO).launch` in `BookmarksRepository.kt` with `appScope.launch`
-- [ ] `R04` — Synchronize `lastAutoUpdateTime` (`AtomicLong`) and `pluginsCache` (`computeIfAbsent` / lock) in `DesktopRepositoryManager.kt`
-- [ ] `R05` — Encapsulate public `MutableStateFlow` across `DesktopRepositoryManager` and `ExtensionsViewModel` with `asStateFlow()`
-- [ ] `R06` — Add `shieldWindow?.dispose()` and clean memory lifecycle in `DesktopPlayerShield.kt`
-- [ ] `R07` — Remove redundant `coroutineScope.launch(Dispatchers.Main)` calls inside `EmbeddedPlayerViewModel.kt` IO callbacks
-- [ ] `R08` — Enforce explicit downsampled `size()` limits on all `AsyncImage` / `SubcomposeAsyncImage` decodes across secondary screens
+- [x] `R01` — Replace raw `Thread` inside `BaseMpvPlayer.removeNotify()` with structured coroutine cleanup & EOF sync (`lastEofReached`)
+- [x] `R02` — Refactor `ExtensionsViewModel`, `LinksViewModel`, and `EmbeddedPlayerViewModel` to own internal scopes (`SupervisorJob()`) + `dispose()`
+- [x] `R03` — Replace `CoroutineScope(Dispatchers.IO).launch` in `BookmarksRepository.kt` with `appScope.launch`
+- [x] `R04` — Synchronize `lastAutoUpdateTime` (`AtomicLong`) and `pluginsCache` (`computeIfAbsent` / lock) in `DesktopRepositoryManager.kt` (`ConcurrentHashMap` promotion, double-fetch guard, and snapshot save completed ✅)
+- [x] `R05` — Encapsulate public `MutableStateFlow` across `DesktopRepositoryManager` and `ExtensionsViewModel` with `asStateFlow()` (Completed ✅)
+- [x] `R06` — Add `shieldWindow?.dispose()` and clean memory lifecycle (`WeakReference<JWindow>`) in `DesktopPlayerShield.kt` (Completed ✅)
+- [x] `R07` — Remove redundant `coroutineScope.launch(Dispatchers.Main)` calls inside `EmbeddedPlayerViewModel.kt` IO callbacks (`hasStartedPlaying` promoted to `AtomicBoolean` ✅)
+- [x] `R08` — Enforce explicit downsampled `size()` limits on all `AsyncImage` / `SubcomposeAsyncImage` decodes across secondary screens (`ExtensionCard`, `CastDetails`, `DetailsEpisodeList`, `DetailsHeader`, and player overlays completed ✅)
+- [x] `R09` — Promote `ObjectMapper` to singleton `playerObjectMapper`, reorder `onDispose`, and fix `#overlay` opacity in `controls.html`

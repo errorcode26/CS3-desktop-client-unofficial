@@ -4,13 +4,14 @@ import java.awt.Color
 import java.awt.KeyboardFocusManager
 import java.awt.Rectangle
 import java.awt.Window
+import java.lang.ref.WeakReference
 import javax.swing.JWindow
 import javax.swing.RootPaneContainer
 import javax.swing.SwingUtilities
 import javax.swing.Timer
 
 object DesktopPlayerShield {
-    private var shieldWindow: JWindow? = null
+    private var shieldWindow: WeakReference<JWindow>? = null
     private var hideTimer: Timer? = null
 
     fun showForActiveWindow() {
@@ -23,12 +24,18 @@ object DesktopPlayerShield {
             hideTimer?.stop()
             hideTimer = null
 
-            val shield = shieldWindow?.takeIf { it.owner === owner } ?: JWindow(owner).also { window ->
-                window.background = Color.BLACK
-                window.contentPane.background = Color.BLACK
-                window.focusableWindowState = false
-                window.setType(Window.Type.POPUP)
-                shieldWindow = window
+            val currentShield = shieldWindow?.get()
+            val shield = if (currentShield != null && currentShield.owner === owner) {
+                currentShield
+            } else {
+                currentShield?.dispose()
+                JWindow(owner).also { window ->
+                    window.background = Color.BLACK
+                    window.contentPane.background = Color.BLACK
+                    window.focusableWindowState = false
+                    window.setType(Window.Type.POPUP)
+                    shieldWindow = WeakReference(window)
+                }
             }
             shield.bounds = bounds
             if (!shield.isVisible) {
@@ -59,10 +66,12 @@ object DesktopPlayerShield {
     }
 
     private fun hideNow() {
-        val shield = shieldWindow ?: return
+        val shield = shieldWindow?.get() ?: return
         if (shield.isVisible) {
             shield.isVisible = false
         }
+        shield.dispose()
+        shieldWindow = null
     }
 
     private fun activeOwnerWindow(): Window? {

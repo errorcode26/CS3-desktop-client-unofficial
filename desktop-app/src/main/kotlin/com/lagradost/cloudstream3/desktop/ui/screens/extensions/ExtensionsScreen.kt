@@ -20,7 +20,10 @@ fun ComposeExtensionScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Browse", "Installed", "Repositories")
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { ExtensionsViewModel(coroutineScope) }
+    val viewModel = remember { ExtensionsViewModel() }
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.dispose() }
+    }
     val syncGen by viewModel.syncGeneration.collectAsState()
     val inspectedRepoName by viewModel.inspectedRepoName.collectAsState()
 
