@@ -186,6 +186,7 @@ fun DetailsMetadata(
                                 .data(activeLogoUrl)
                                 .size(1600, 800)
                                 .build()
+                            val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
                             AsyncImage(
                                 model = logoRequest,
                                 contentDescription = null,
@@ -205,13 +206,13 @@ fun DetailsMetadata(
                             )
                             coil3.compose.SubcomposeAsyncImage(
                                 model = logoRequest,
-                                contentDescription = data.name,
+                                contentDescription = displayName,
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize(),
                                 alignment = Alignment.BottomStart,
                                 error = {
                                     Text(
-                                        text = data.name,
+                                        text = displayName,
                                         style = MaterialTheme.typography.displayLarge,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color.White,
@@ -220,8 +221,9 @@ fun DetailsMetadata(
                             )
                         }
                     } else {
+                        val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
                         Text(
-                            text = data.name,
+                            text = displayName,
                             style = MaterialTheme.typography.displayLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,

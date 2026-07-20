@@ -127,9 +127,7 @@ fun EmbeddedVideoPlayer(
                     screenshotUrl = "file:///$screenshotPath",
                     updateTime = System.currentTimeMillis(),
                 )
-                com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                    DesktopDataStore.setLastWatched(updatedHistory)
-                }
+                viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
             }
             playerState.detachMpv()
         }
@@ -163,7 +161,6 @@ fun EmbeddedVideoPlayer(
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    var saveJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
                     var activelyPlayingLink by remember { mutableStateOf<com.lagradost.cloudstream3.utils.ExtractorLink?>(null) }
                     var lastLinkIndex by remember { mutableStateOf(-1) }
                     var lastEpisodeId by remember { mutableStateOf<String?>(null) }
@@ -202,7 +199,7 @@ fun EmbeddedVideoPlayer(
                         activelyPlayingLink = null
                     }
 
-                    val autoPlay = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+                    val autoPlay = uiState.autoPlayEnabled
                     val isSwitchingEpisode = isLoadingNextEpisode
                     val shouldWaitForScrape = isScrapingLinks && !userSkippedScraping && !autoPlay
                     val safeLink = if (shouldWaitForScrape || isExiting || isSwitchingEpisode) null else activelyPlayingLink
@@ -299,44 +296,7 @@ fun EmbeddedVideoPlayer(
                                     duration = currentDurSec,
                                     updateTime = System.currentTimeMillis(),
                                 )
-                                saveJob?.cancel()
-                                saveJob = coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    delay(2000)
-                                    val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
-                                    if (percentage >= 0.90f) {
-                                        val hasNext = viewModel.hasNextEpisode()
-                                        if (hasNext) {
-                                            val nextEp = viewModel.getNextEpisode()
-                                            if (nextEp != null) {
-                                                // Save current episode
-                                                DesktopDataStore.setLastWatched(updatedHistory)
-                                                // Queue next episode
-                                                val nextEpHistory = com.lagradost.common.storage.WatchHistory(
-                                                    parentId = actualLaunchData.history.parentId,
-                                                    showName = actualLaunchData.history.showName,
-                                                    showUrl = actualLaunchData.history.showUrl,
-                                                    apiName = actualLaunchData.history.apiName,
-                                                    posterUrl = actualLaunchData.history.posterUrl,
-                                                    episodeThumbnailUrl = nextEp.posterUrl,
-                                                    screenshotUrl = null,
-                                                    episode = nextEp.episode,
-                                                    season = nextEp.season,
-                                                    episodeId = nextEp.data,
-                                                    position = 0,
-                                                    duration = 0,
-                                                    updateTime = System.currentTimeMillis() + 1000, // Ensure it stays most recent
-                                                )
-                                                DesktopDataStore.setLastWatched(nextEpHistory)
-                                            } else {
-                                                DesktopDataStore.setLastWatched(updatedHistory)
-                                            }
-                                        } else {
-                                            DesktopDataStore.setLastWatched(updatedHistory)
-                                        }
-                                    } else {
-                                        DesktopDataStore.setLastWatched(updatedHistory)
-                                    }
-                                }
+                                viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
                             }
                         },
                         onCloseRequest = {

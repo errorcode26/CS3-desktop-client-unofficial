@@ -14,7 +14,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffect>(
-    initialState = LinksUiState()
+    initialState = LinksUiState(
+        preferredPlayer = DesktopDataStore.getKey<String>("preferred_player") ?: "mpv",
+        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+    )
 ) {
     private var scrapeJob: Job? = null
 
@@ -24,6 +27,12 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
             is LinksUiEvent.OnCancelScrape -> cancelScrape()
             is LinksUiEvent.OnStatusTextChanged -> updateState { copy(statusText = event.text) }
             is LinksUiEvent.OnSaveWatchPosition -> saveWatchPosition(event.history, event.positionMs, event.durationMs)
+            is LinksUiEvent.OnPreferredPlayerChanged -> {
+                updateState { copy(preferredPlayer = event.player) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey("preferred_player", event.player)
+                }
+            }
         }
     }
 

@@ -68,7 +68,7 @@ fun LinksSidePanel(
 
     // Local UI-only state (player launch feedback, filters)
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
-    var selectedPlayer by remember { mutableStateOf(DesktopDataStore.getKey<String>("preferred_player") ?: "mpv") }
+    val selectedPlayer = uiState.preferredPlayer
     var isLaunchingPlayer by remember { mutableStateOf(false) }
     var playerLaunchError by remember { mutableStateOf<String?>(null) }
     var embeddedError by remember { mutableStateOf<String?>(null) }
@@ -148,7 +148,7 @@ fun LinksSidePanel(
     LaunchedEffect(vlcState.error, embeddedError) {
         val errorMessage = vlcState.error ?: embeddedError
         if (errorMessage != null) {
-            val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+            val autoPlay = uiState.autoPlayEnabled
             val currentIndex = filteredLinks.indexOfFirst { it.url == currentPlayingUrl }
             val isVlcError = vlcState.error != null
             if (autoPlay && isVlcError && currentIndex != -1 && currentIndex + 1 < filteredLinks.size) {
@@ -223,8 +223,7 @@ fun LinksSidePanel(
                 PlayerSelector(
                     selectedPlayer = selectedPlayer,
                     onSelect = { player ->
-                        selectedPlayer = player
-                        DesktopDataStore.setKey("preferred_player", player)
+                        viewModel.onEvent(LinksUiEvent.OnPreferredPlayerChanged(player))
                     },
                 )
 

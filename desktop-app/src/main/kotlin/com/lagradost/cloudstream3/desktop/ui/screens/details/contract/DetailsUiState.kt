@@ -9,6 +9,7 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 
 data class DetailsUiState(
+    val preloadedName: String? = null,
     val response: LoadResponse? = null,
     val fakeData: LoadResponse? = null,
     val isLoading: Boolean = true,

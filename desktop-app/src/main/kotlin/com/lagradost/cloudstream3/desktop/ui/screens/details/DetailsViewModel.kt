@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
@@ -23,6 +24,7 @@ class DetailsViewModel(
     private val preloadedBg: String? = null,
 ) : BaseMviViewModel<DetailsUiStateAlias, DetailsUiEvent, DetailsUiEffect>(
     initialState = DetailsUiStateAlias(
+        preloadedName = preloadedName,
         response = DetailsCache.get(url),
         enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
         enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
@@ -148,23 +150,25 @@ class DetailsViewModel(
     }
 
     private fun handleAutoPlay() {
-        val resp = uiState.value.response ?: uiState.value.fakeData ?: return
-        
-        val firstEp = if (resp is TvSeriesLoadResponse) {
-            resp.episodes.firstOrNull()
-        } else if (resp is AnimeLoadResponse) {
-            resp.episodes.values.firstOrNull()?.firstOrNull()
-        } else if (resp is MovieLoadResponse) {
-            provider.newEpisode(resp.dataUrl) {
-                this.name = resp.name
-                this.posterUrl = resp.posterUrl
+        viewModelScope.launch(Dispatchers.IO) {
+            val resp = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            
+            val firstEp = if (resp is TvSeriesLoadResponse) {
+                resp.episodes.firstOrNull()
+            } else if (resp is AnimeLoadResponse) {
+                resp.episodes.values.firstOrNull()?.firstOrNull()
+            } else if (resp is MovieLoadResponse) {
+                provider.newEpisode(resp.dataUrl) {
+                    this.name = resp.name
+                    this.posterUrl = resp.posterUrl
+                }
+            } else null
+            
+            if (firstEp != null) {
+                val history = buildWatchHistory(firstEp, resp)
+                val patchedData = patchEpisodeData(firstEp, resp)
+                handlePlayRequest(Triple(provider, patchedData, history))
             }
-        } else null
-        
-        if (firstEp != null) {
-            val history = buildWatchHistory(firstEp, resp)
-            val patchedData = patchEpisodeData(firstEp, resp)
-            handlePlayRequest(Triple(provider, patchedData, history))
         }
     }
     
@@ -195,50 +199,60 @@ class DetailsViewModel(
     }
 
     private fun patchEpisodeData(ep: Episode, data: LoadResponse): String {
-        var patchedData = ep.data
+        val patchedData = ep.data
         if (patchedData.startsWith("{") && patchedData.endsWith("}")) {
-            if (!patchedData.contains("\"title\"")) {
-                val titleStr = data.name.replace("\"", "\\\"")
-                patchedData = patchedData.replaceFirst("{", "{\"title\":\"$titleStr\",")
-            }
-            if (!patchedData.contains("\"tvtype\"")) {
-                patchedData = patchedData.replaceFirst("{", "{\"tvtype\":\"\",")
+            return try {
+                val map = mapper.readValue(patchedData, object : TypeReference<MutableMap<String, Any>>() {})
+                if (!map.containsKey("title")) {
+                    map["title"] = data.name
+                }
+                if (!map.containsKey("tvtype")) {
+                    map["tvtype"] = ""
+                }
+                mapper.writeValueAsString(map)
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Failed to patch episode data", e)
+                patchedData
             }
         }
         return patchedData
     }
 
     private fun handlePlayEpisode(ep: Episode) {
-        val data = uiState.value.response ?: uiState.value.fakeData ?: return
-        val history = buildWatchHistory(ep, data)
-        val patchedData = patchEpisodeData(ep, data)
-        handlePlayRequest(Triple(provider, patchedData, history))
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val history = buildWatchHistory(ep, data)
+            val patchedData = patchEpisodeData(ep, data)
+            handlePlayRequest(Triple(provider, patchedData, history))
+        }
     }
 
     private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
-        val data = uiState.value.response ?: uiState.value.fakeData ?: return
-        val parentId = DesktopDataStore.watchHistoryId(
-            apiName = provider.name,
-            showUrl = data.url,
-        )
-        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-        val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
-        val newPos = if (isWatched) 0L else dur
-        val history = WatchHistory(
-            parentId = parentId,
-            showName = data.name,
-            showUrl = data.url,
-            apiName = provider.name,
-            posterUrl = data.posterUrl,
-            episodeThumbnailUrl = ep.posterUrl,
-            screenshotUrl = saved?.screenshotUrl,
-            episode = ep.episode,
-            season = ep.season,
-            episodeId = ep.data,
-            position = newPos,
-            duration = dur,
-        )
-        DesktopDataStore.setLastWatched(history)
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val parentId = DesktopDataStore.watchHistoryId(
+                apiName = provider.name,
+                showUrl = data.url,
+            )
+            val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+            val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
+            val newPos = if (isWatched) 0L else dur
+            val history = WatchHistory(
+                parentId = parentId,
+                showName = data.name,
+                showUrl = data.url,
+                apiName = provider.name,
+                posterUrl = data.posterUrl,
+                episodeThumbnailUrl = ep.posterUrl,
+                screenshotUrl = saved?.screenshotUrl,
+                episode = ep.episode,
+                season = ep.season,
+                episodeId = ep.data,
+                position = newPos,
+                duration = dur,
+            )
+            DesktopDataStore.setLastWatched(history)
+        }
     }
 
     private fun handlePlayRequest(data: Triple<MainAPI, String, WatchHistory>) {

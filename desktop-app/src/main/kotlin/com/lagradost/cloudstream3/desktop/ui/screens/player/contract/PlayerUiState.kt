@@ -14,4 +14,5 @@ data class PlayerUiState(
     val nextEpisodeSubtitles: List<SubtitleFile> = emptyList(),
     val isScrapingLinks: Boolean = false,
     val targetEpisodeData: Episode? = null,
+    val autoPlayEnabled: Boolean = true,
 ) : UiState

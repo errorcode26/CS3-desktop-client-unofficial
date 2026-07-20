@@ -59,10 +59,6 @@ object GetEnrichedDetailsUseCase {
             return@callbackFlow
         }
 
-        if (!preloadedName.isNullOrBlank() && rawData.name.isBlank()) {
-            rawData.name = preloadedName
-        }
-
         trySend(EnrichmentUpdate.RawData(rawData))
 
         val imageUrl = rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster

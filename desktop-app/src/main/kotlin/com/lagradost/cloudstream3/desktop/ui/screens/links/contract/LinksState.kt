@@ -7,6 +7,8 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 data class LinksUiState(
     val links: List<ExtractorLink> = emptyList(),
     val subtitles: List<SubtitleFile> = emptyList(),
-    val statusText: String = "Finding streams for you...",
-    val isScraping: Boolean = true,
+    val statusText: String = "",
+    val isScraping: Boolean = false,
+    val preferredPlayer: String = "mpv",
+    val autoPlayEnabled: Boolean = true,
 ) : UiState
