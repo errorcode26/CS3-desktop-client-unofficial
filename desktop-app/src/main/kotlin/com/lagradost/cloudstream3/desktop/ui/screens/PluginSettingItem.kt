@@ -21,7 +21,7 @@ fun PluginSettingItem(
     currentValue: Any?,
     pluginName: String,
     jarFile: File?,
-    onValueChanged: (Any?) -> Unit
+    onValueChanged: (Any?) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -260,7 +260,7 @@ fun PluginSettingItem(
                                                     if (checked) newSet.add(option) else newSet.remove(option)
                                                 }
                                                 onValueChanged(newSet)
-                                            }
+                                            },
                                         )
                                     }
                                 }

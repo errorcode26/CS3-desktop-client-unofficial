@@ -15,11 +15,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
-import kotlinx.coroutines.Dispatchers
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
@@ -250,10 +248,12 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         onInstallClick = {
                                             isInstalling = true
                                             installStatus = "Installing..."
-                                            viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
-                                                isInstalling = false
-                                                installStatus = result
-                                            })
+                                            viewModel.onEvent(
+                                                ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
+                                                    isInstalling = false
+                                                    installStatus = result
+                                                },
+                                            )
                                         },
                                         onUninstallClick = {
                                             viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))

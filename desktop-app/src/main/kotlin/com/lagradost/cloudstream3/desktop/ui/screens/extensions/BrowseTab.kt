@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
@@ -274,10 +274,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     onInstallClick = {
                         isInstalling = true
                         installStatus = "Installing..."
-                        viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { result ->
-                            isInstalling = false
-                            installStatus = result
-                        })
+                        viewModel.onEvent(
+                            ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { result ->
+                                isInstalling = false
+                                installStatus = result
+                            },
+                        )
                     },
                     onUninstallClick = {
                         viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))

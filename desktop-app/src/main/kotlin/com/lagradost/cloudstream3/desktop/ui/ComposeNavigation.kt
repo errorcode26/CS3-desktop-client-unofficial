@@ -32,24 +32,24 @@ data class VideoLaunchData(
     val startPositionMs: Long,
     val history: WatchHistory,
     val loadResponse: com.lagradost.cloudstream3.LoadResponse? = null,
-    val onError: ((String) -> Unit)? = null,
-    val onClosed: (() -> Unit)? = null,
 )
 
 val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoLaunchData?) -> Unit> { { } }
+val LocalVideoPlayerActive = androidx.compose.runtime.staticCompositionLocalOf<Boolean> { false }
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
 
 @androidx.compose.runtime.Stable
 class SearchUiState(
     isSearchForced: Boolean = false,
-    searchFocusTrigger: Int = 0
+    searchFocusTrigger: Int = 0,
 ) {
     var isSearchForced by androidx.compose.runtime.mutableStateOf(isSearchForced)
     var searchFocusTrigger by androidx.compose.runtime.mutableStateOf(searchFocusTrigger)
 }
 val LocalSearchUiState = androidx.compose.runtime.staticCompositionLocalOf<SearchUiState> { error("No SearchUiState provided") }
-val LocalHomeViewModel = androidx.compose.runtime.staticCompositionLocalOf<com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel> { error("No DesktopHomeViewModel provided") }
+val LocalHomeUiState = androidx.compose.runtime.staticCompositionLocalOf<com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState> { error("No HomeUiState provided") }
+val LocalHomeActionDispatcher = androidx.compose.runtime.staticCompositionLocalOf<(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit> { { } }
 
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
@@ -105,10 +105,15 @@ fun CloudstreamApp() {
 
     val searchUiState = remember { SearchUiState() }
 
+    val homeUiState by homeViewModel.uiState.collectAsState()
+    val homeActionDispatcher: (com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit = { homeViewModel.onEvent(it) }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
+        LocalVideoPlayerActive provides (currentVideo != null),
         LocalSearchUiState provides searchUiState,
-        LocalHomeViewModel provides homeViewModel,
+        LocalHomeUiState provides homeUiState,
+        LocalHomeActionDispatcher provides homeActionDispatcher,
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)
@@ -309,6 +314,10 @@ fun CloudstreamApp() {
                                 isExiting = false,
                                 onClose = {
                                     showExitFade = true
+                                },
+                                onError = { err ->
+                                    com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
+                                    showErrorsDialog = true
                                 },
                             )
                         }

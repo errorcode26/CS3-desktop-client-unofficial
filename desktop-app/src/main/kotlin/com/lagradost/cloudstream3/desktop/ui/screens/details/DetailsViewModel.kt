@@ -29,10 +29,10 @@ class DetailsViewModel(
         enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
         enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
         isLoading = DetailsCache.get(url) == null,
-        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-    )
+        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+    ),
 ) {
-    private val _isInitialized = MutableStateFlow(false)
+    private val isInitialized = MutableStateFlow(false)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -63,15 +63,15 @@ class DetailsViewModel(
     }
 
     fun load() {
-        if (_isInitialized.value) return
-        _isInitialized.value = true
+        if (isInitialized.value) return
+        isInitialized.value = true
         loadDetails()
     }
 
     fun loadDetails() {
         viewModelScope.launch(Dispatchers.IO) {
-            updateState { copy(fetchFailed = false, isLoading = true, error = null, errorMessage = null) }
-            
+            updateState { copy(fetchFailed = false, isLoading = true, error = null) }
+
             if (uiState.value.response == null && preloadedName != null) {
                 val fake = provider.newMovieLoadResponse(
                     name = preloadedName,
@@ -94,7 +94,8 @@ class DetailsViewModel(
                                 isLoading = false,
                                 enrichedLogoUrl = update.response.logoUrl,
                                 enrichedBackdropUrl = update.response.backgroundPosterUrl,
-                                isEnriching = true
+                                isEnriching = true,
+                                enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.InProgress,
                             )
                         }
                     }
@@ -126,12 +127,12 @@ class DetailsViewModel(
                                 enrichedCollectionItems = update.collItems,
                                 enrichedBudget = update.budget,
                                 enrichedRevenue = update.revenue,
-                                enrichedNetworks = update.networks ?: emptyList()
+                                enrichedNetworks = update.networks ?: emptyList(),
                             )
                         }
                     }
                     is EnrichmentUpdate.FullyEnriched -> {
-                        updateState { copy(isEnriching = false, enrichmentTrigger = enrichmentTrigger + 1) }
+                        updateState { copy(isEnriching = false, enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete) }
                     }
                     is EnrichmentUpdate.Error -> {
                         AppLogger.e("DetailsViewModel", "Error loading details: ${update.message}")
@@ -140,7 +141,6 @@ class DetailsViewModel(
                                 fetchFailed = true,
                                 isLoading = false,
                                 error = update.message,
-                                errorMessage = update.message
                             )
                         }
                     }
@@ -152,7 +152,7 @@ class DetailsViewModel(
     private fun handleAutoPlay() {
         viewModelScope.launch(Dispatchers.IO) {
             val resp = uiState.value.response ?: uiState.value.fakeData ?: return@launch
-            
+
             val firstEp = if (resp is TvSeriesLoadResponse) {
                 resp.episodes.firstOrNull()
             } else if (resp is AnimeLoadResponse) {
@@ -162,8 +162,10 @@ class DetailsViewModel(
                     this.name = resp.name
                     this.posterUrl = resp.posterUrl
                 }
-            } else null
-            
+            } else {
+                null
+            }
+
             if (firstEp != null) {
                 val history = buildWatchHistory(firstEp, resp)
                 val patchedData = patchEpisodeData(firstEp, resp)
@@ -171,7 +173,7 @@ class DetailsViewModel(
             }
         }
     }
-    
+
     private fun buildWatchHistory(ep: Episode, data: LoadResponse): WatchHistory {
         val parentId = DesktopDataStore.watchHistoryId(
             apiName = provider.name,
@@ -269,19 +271,20 @@ class DetailsViewModel(
             val response = uiState.value.response ?: uiState.value.fakeData
             val isLive = response?.type == TvType.Live
             val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
-            
-            sendEffect(DetailsUiEffect.NavigateToPlayer(
-                com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
-                    links = emptyList(),
-                    initialIndex = 0,
-                    title = epTitle,
-                    subtitles = emptyList(),
-                    startPositionMs = resumeMs,
-                    history = linkHistory,
-                    loadResponse = response,
-                    onError = { err -> sendEffect(DetailsUiEffect.ShowErrorDialog(err)) }
-                )
-            ))
+
+            sendEffect(
+                DetailsUiEffect.NavigateToPlayer(
+                    com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
+                        links = emptyList(),
+                        initialIndex = 0,
+                        title = epTitle,
+                        subtitles = emptyList(),
+                        startPositionMs = resumeMs,
+                        history = linkHistory,
+                        loadResponse = response,
+                    ),
+                ),
+            )
         } else {
             handleEvent(DetailsUiEvent.OnOpenLinksPanel(data))
         }

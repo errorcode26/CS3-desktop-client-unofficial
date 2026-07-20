@@ -17,9 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
@@ -27,6 +25,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 object DesktopRepositoryManager {
     private val client by lazy {
@@ -58,14 +57,18 @@ object DesktopRepositoryManager {
 
     private val _syncGeneration = MutableStateFlow(0)
     val syncGeneration: StateFlow<Int> = _syncGeneration.asStateFlow()
-    fun incrementSyncGeneration() { _syncGeneration.update { it + 1 } }
+    fun incrementSyncGeneration() {
+        _syncGeneration.update { it + 1 }
+    }
 
     private val fetchMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
     private val autoUpdateMutex = Mutex()
 
     private val _failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     fun isIconFailed(url: String): Boolean = _failedIconUrls.contains(url)
-    fun markIconFailed(url: String) { _failedIconUrls.add(url) }
+    fun markIconFailed(url: String) {
+        _failedIconUrls.add(url)
+    }
 
     data class SyncReport(
         val reposRefreshed: Int,
@@ -104,7 +107,6 @@ object DesktopRepositoryManager {
         }
     }
 
-    @Synchronized
     private fun saveCachesToDisk() {
         try {
             repoCacheFile.parentFile?.mkdirs()
@@ -152,7 +154,6 @@ object DesktopRepositoryManager {
         }
     }
 
-    @Synchronized
     private fun writeRepositoriesToDisk(repos: List<RepositoryData>) {
         reposFile.parentFile?.mkdirs()
         mapper.writeValue(reposFile, repos)
@@ -165,8 +166,7 @@ object DesktopRepositoryManager {
         return data.copy(iconUrl = icon, name = name)
     }
 
-    @Synchronized
-    fun saveRepository(repository: RepositoryData) {
+    suspend fun saveRepository(repository: RepositoryData) = syncMutex.withLock {
         val incoming = normalizeRepositoryData(repository)
         val current = readRepositoriesFromDisk().toMutableList()
         val index = current.indexOfFirst { it.url == incoming.url }
@@ -182,8 +182,7 @@ object DesktopRepositoryManager {
         writeRepositoriesToDisk(current.distinctBy { it.url })
     }
 
-    @Synchronized
-    fun removeRepository(url: String) {
+    suspend fun removeRepository(url: String) = syncMutex.withLock {
         val current = readRepositoriesFromDisk().filter { it.url != url }
         writeRepositoriesToDisk(current)
         val repo = repoCache.remove(url)
@@ -443,7 +442,7 @@ object DesktopRepositoryManager {
                             FileOutputStream(jvmTempFile).use { out ->
                                 response.body.byteStream().copyTo(out)
                             }
-                            
+
                             val downloadHash = sha256(jvmTempFile)
                             if (plugin.jarHash != downloadHash) {
                                 throw IllegalStateException("JVM Extension hash mismatch when validating '${jvmDestFile.name}'! Expected: '${plugin.jarHash}', got: '$downloadHash'.")
@@ -642,59 +641,60 @@ object DesktopRepositoryManager {
                         }.awaitAll().flatten()
                     }.distinctBy { it.internalName }
 
-                val repoDirName = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                val repoDir = File(extensionsDir, repoDirName)
-                if (!repoDir.exists()) repoDir.mkdirs()
+                    val repoDirName = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                    val repoDir = File(extensionsDir, repoDirName)
+                    if (!repoDir.exists()) repoDir.mkdirs()
 
-                remotePlugins.forEach { remotePlugin ->
-                    val localJar = File(repoDir, "${remotePlugin.internalName}.jar")
-                    if (localJar.exists()) {
-                        val manifest = readPluginManifest(localJar)
-                        val localVersion = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
+                    remotePlugins.forEach { remotePlugin ->
+                        val localJar = File(repoDir, "${remotePlugin.internalName}.jar")
+                        if (localJar.exists()) {
+                            val manifest = readPluginManifest(localJar)
+                            val localVersion = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
 
-                        if (remotePlugin.version > localVersion) {
-                            AppLogger.i("Auto-Updater: Updating ${remotePlugin.name} from v$localVersion to v${remotePlugin.version}")
+                            if (remotePlugin.version > localVersion) {
+                                AppLogger.i("Auto-Updater: Updating ${remotePlugin.name} from v$localVersion to v${remotePlugin.version}")
 
-                            val iconUrl = remotePlugin.iconUrl ?: _remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
-                            updatedList.add(
-                                com.lagradost.common.storage.PluginUpdateRecord(
-                                    pluginName = remotePlugin.name,
-                                    version = remotePlugin.version,
-                                    iconUrl = iconUrl,
-                                ),
-                            )
+                                val iconUrl = remotePlugin.iconUrl ?: _remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
+                                updatedList.add(
+                                    com.lagradost.common.storage.PluginUpdateRecord(
+                                        pluginName = remotePlugin.name,
+                                        version = remotePlugin.version,
+                                        iconUrl = iconUrl,
+                                    ),
+                                )
 
-                            com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
+                                com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
 
-                            localJar.delete()
-                            File(repoDir, "${remotePlugin.internalName}-jvm.jar").delete()
-                            File(repoDir, "${remotePlugin.internalName}.dex").delete()
+                                localJar.delete()
+                                File(repoDir, "${remotePlugin.internalName}-jvm.jar").delete()
+                                File(repoDir, "${remotePlugin.internalName}.dex").delete()
 
-                            val newJar = downloadPlugin(repo.name, remotePlugin)
+                                val newJar = downloadPlugin(repo.name, remotePlugin)
 
-                            if (newJar != null && newJar.exists()) {
-                                try {
-                                    com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
-                                    AppLogger.i("Auto-Updater: Successfully hot-reloaded ${remotePlugin.name}")
-                                } catch (e: Exception) {
-                                    AppLogger.i("Auto-Updater: Failed to hot-reload ${remotePlugin.name}")
-                                    AppLogger.e("Auto-Updater", e)
+                                if (newJar != null && newJar.exists()) {
+                                    try {
+                                        com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
+                                        AppLogger.i("Auto-Updater: Successfully hot-reloaded ${remotePlugin.name}")
+                                    } catch (e: Exception) {
+                                        AppLogger.i("Auto-Updater: Failed to hot-reload ${remotePlugin.name}")
+                                        AppLogger.e("Auto-Updater", e)
+                                    }
                                 }
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    AppLogger.i("Auto-Updater: Error checking repository ${saved.url}")
+                    AppLogger.e("Auto-Updater", e)
                 }
-            } catch (e: Exception) {
-                AppLogger.i("Auto-Updater: Error checking repository ${saved.url}")
-                e.printStackTrace()
             }
+            if (updatedList.isNotEmpty()) {
+                com.lagradost.common.storage.DesktopDataStore.addUpdateHistory(updatedList)
+                com.lagradost.common.storage.DesktopDataStore.setUnreadUpdates(true)
+            }
+            updatedList
         }
-        if (updatedList.isNotEmpty()) {
-            com.lagradost.common.storage.DesktopDataStore.addUpdateHistory(updatedList)
-            com.lagradost.common.storage.DesktopDataStore.setUnreadUpdates(true)
-        }
-        updatedList
-    }
     }
 
     fun getAllPlugins(): List<Pair<String, SitePlugin>> {

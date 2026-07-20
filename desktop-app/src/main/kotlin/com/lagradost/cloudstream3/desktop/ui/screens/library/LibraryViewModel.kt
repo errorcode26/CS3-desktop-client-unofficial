@@ -8,12 +8,11 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiE
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import kotlinx.coroutines.launch
 
 class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, LibraryUiEffect>(
-    initialState = LibraryUiState()
+    initialState = LibraryUiState(),
 ) {
     init {
         viewModelScope.launch {
@@ -23,7 +22,7 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
                     val currentTab = selectedTab
                     copy(
                         bookmarks = allList,
-                        filteredBookmarks = allList.filter { it.watchType == currentTab.id }
+                        filteredBookmarks = allList.filter { it.watchType == currentTab.id },
                     )
                 }
             }
@@ -48,7 +47,7 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
         updateState {
             copy(
                 selectedTab = tab,
-                filteredBookmarks = bookmarks.filter { it.watchType == tab.id }
+                filteredBookmarks = bookmarks.filter { it.watchType == tab.id },
             )
         }
     }

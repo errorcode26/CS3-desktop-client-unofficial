@@ -26,7 +26,7 @@ data class LocalPlugin(
 )
 
 class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEvent, ExtensionsUiEffect>(
-    initialState = ExtensionsUiState()
+    initialState = ExtensionsUiState(),
 ) {
     val savedRepositories = DesktopRepositoryManager.savedRepositories
     val remotePluginIcons = DesktopRepositoryManager.remotePluginIcons
@@ -216,9 +216,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             for (plugin in plugins) {
                 try {
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
-
-                    System.gc()
-                    kotlinx.coroutines.delay(100)
 
                     val parentDir = plugin.file.parentFile
                     val jvmFile = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar")

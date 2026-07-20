@@ -379,7 +379,6 @@ fun EpisodeCard(
     }
 }
 
-
 @Composable
 fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: LoadResponse, onPlay: (com.lagradost.cloudstream3.Episode) -> Unit) {
     var isHovered by remember { mutableStateOf(false) }

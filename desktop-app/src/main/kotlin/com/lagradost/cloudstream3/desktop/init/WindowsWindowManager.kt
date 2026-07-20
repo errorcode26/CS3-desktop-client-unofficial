@@ -21,7 +21,7 @@ fun initWindowsEnvironment() {
                 com.sun.jna.WString("00000000"),
             )
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "initWindowsEnvironment failed", e)
         }
     }
 }
@@ -47,7 +47,7 @@ fun enterWindowsFullscreen(frame: javax.swing.JFrame) {
         AppLogger.i("Entered borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
     } catch (e: Exception) {
         AppLogger.e("enterWindowsFullscreen failed: ${e.message}")
-        e.printStackTrace()
+        AppLogger.e("WindowsWindowManager", "enterWindowsFullscreen failed", e)
         runCatching {
             java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.fullScreenWindow = frame
         }
@@ -72,7 +72,7 @@ fun exitWindowsFullscreen(frame: javax.swing.JFrame) {
         AppLogger.i("Exited borderless fullscreen via C++ bridge (hwnd=0x${hwnd.toString(16)})")
     } catch (e: Exception) {
         AppLogger.e("exitWindowsFullscreen failed: ${e.message}")
-        e.printStackTrace()
+        AppLogger.e("WindowsWindowManager", "exitWindowsFullscreen failed", e)
         runCatching {
             java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.fullScreenWindow = null
         }
@@ -95,6 +95,6 @@ fun setWindowsDarkMode(window: java.awt.Window) {
             textColorRgb = WINDOW_TEXT_RGB,
         )
     } catch (e: Throwable) {
-        e.printStackTrace()
+        com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "setWindowsDarkMode failed", e)
     }
 }

@@ -118,110 +118,110 @@ fun HomeCategorySection(
             val hp = homePage
             if (hp != null && hp.items.isNotEmpty()) {
                 hp.items.forEachIndexed { sectionIndex, section ->
-                if (isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
-                    HomeHeroCarousel(
-                        items = section.list,
-                        provider = provider,
-                        heroMetaMap = heroMetaMap,
-                        heroColorMap = heroColorMap,
-                        allBookmarks = allBookmarks,
-                        onPrefetchHeroItem = onPrefetchHeroItem,
-                        onSetCurrentHeroColor = onSetCurrentHeroColor,
-                        onUpdateHeroColor = onUpdateHeroColor,
-                        onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
-                    )
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Box(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
-                            afterHeroContent()
-                        }
-                    }
-                } else {
-                    val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
-                    val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
-
-                    // Calculate horizontal padding so items align with the constrained header.
-                    // The LazyRow itself fills full width (no clipping), using contentPadding
-                    // to indent items. This way edge cards are never cut off.
-                    val rowPadding = if (maxWidthConstraint == androidx.compose.ui.unit.Dp.Unspecified) {
-                        androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
-                    } else {
-                        // Let Compose compute the side insets reactively
-                        androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
-                    }
-
-                    // Header row — constrained to maxWidthConstraint and centered
-                    if (showLargeHeader) {
+                    if (isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
+                        HomeHeroCarousel(
+                            items = section.list,
+                            provider = provider,
+                            heroMetaMap = heroMetaMap,
+                            heroColorMap = heroColorMap,
+                            allBookmarks = allBookmarks,
+                            onPrefetchHeroItem = onPrefetchHeroItem,
+                            onSetCurrentHeroColor = onSetCurrentHeroColor,
+                            onUpdateHeroColor = onUpdateHeroColor,
+                            onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
+                        )
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Column(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
-                                Text(
-                                    text = pageData.name,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 0.dp),
-                                )
+                            Box(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
+                                afterHeroContent()
                             }
                         }
-                    }
+                    } else {
+                        val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
+                        val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
 
-                    val isLoop = section.list.size >= 4
+                        // Calculate horizontal padding so items align with the constrained header.
+                        // The LazyRow itself fills full width (no clipping), using contentPadding
+                        // to indent items. This way edge cards are never cut off.
+                        val rowPadding = if (maxWidthConstraint == androidx.compose.ui.unit.Dp.Unspecified) {
+                            androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                        } else {
+                            // Let Compose compute the side insets reactively
+                            androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                        }
 
-                    // The category row header (title + chevrons) is constrained; the LazyRow
-                    // extends full-width with BoxWithConstraints-derived padding so items align.
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
-                            val availableWidth = this.maxWidth
-                            val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
-                            val baseWidth = when (gridScale) {
-                                "Compact" -> 150.dp
-                                "Large" -> 220.dp
-                                else -> 190.dp
-                            }
-
-                            // Subtract 20.dp from availableWidth so we have 10.dp padding on left and right inside the centered container.
-                            // Because 10.dp is less than the 12.dp item spacing, adjacent cards start outside the bounds (no peeking!),
-                            // while still giving 10.dp buffer for the 5% hover scale (no clipping!).
-                            val netWidth = availableWidth - 20.dp
-                            val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
-                            val columns = exactColumns.toInt().coerceAtLeast(1)
-                            val optimalItemWidth = ((netWidth + 12.dp) / columns) - 12.dp
-
-                            CategoryRowWithHeader(
-                                title = titleStr,
-                                itemCount = section.list.size,
-                                isInfinite = isLoop,
-                                onViewAll = { onViewAll(provider, section.name, section.list) },
-                                rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                    horizontal = 10.dp,
-                                    vertical = 16.dp,
-                                ),
-                                headerPadding = androidx.compose.foundation.layout.PaddingValues(
-                                    start = 10.dp,
-                                    end = 10.dp,
-                                    top = 12.dp,
-                                    bottom = 8.dp,
-                                ),
-                            ) {
-                                items(
-                                    count = if (isLoop) Int.MAX_VALUE else section.list.size,
-                                    key = { index ->
-                                        val itemIndex = if (isLoop) index % section.list.size else index
-                                        "${section.list[itemIndex].url}_$index"
-                                    },
-                                ) { index ->
-                                    val itemIndex = if (isLoop) index % section.list.size else index
-                                    val posterItem = section.list[itemIndex]
-                                    PosterCard(
-                                        item = posterItem,
-                                        provider = provider,
-                                        itemWidth = optimalItemWidth,
-                                        onClick = { onItemClick(provider, posterItem, null, false) },
+                        // Header row — constrained to maxWidthConstraint and centered
+                        if (showLargeHeader) {
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Column(modifier = Modifier.widthIn(max = maxWidthConstraint)) {
+                                    Text(
+                                        text = pageData.name,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 0.dp),
                                     )
                                 }
                             }
                         }
+
+                        val isLoop = section.list.size >= 4
+
+                        // The category row header (title + chevrons) is constrained; the LazyRow
+                        // extends full-width with BoxWithConstraints-derived padding so items align.
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
+                                val availableWidth = this.maxWidth
+                                val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
+                                val baseWidth = when (gridScale) {
+                                    "Compact" -> 150.dp
+                                    "Large" -> 220.dp
+                                    else -> 190.dp
+                                }
+
+                                // Subtract 20.dp from availableWidth so we have 10.dp padding on left and right inside the centered container.
+                                // Because 10.dp is less than the 12.dp item spacing, adjacent cards start outside the bounds (no peeking!),
+                                // while still giving 10.dp buffer for the 5% hover scale (no clipping!).
+                                val netWidth = availableWidth - 20.dp
+                                val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
+                                val columns = exactColumns.toInt().coerceAtLeast(1)
+                                val optimalItemWidth = ((netWidth + 12.dp) / columns) - 12.dp
+
+                                CategoryRowWithHeader(
+                                    title = titleStr,
+                                    itemCount = section.list.size,
+                                    isInfinite = isLoop,
+                                    onViewAll = { onViewAll(provider, section.name, section.list) },
+                                    rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        horizontal = 10.dp,
+                                        vertical = 16.dp,
+                                    ),
+                                    headerPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        start = 10.dp,
+                                        end = 10.dp,
+                                        top = 12.dp,
+                                        bottom = 8.dp,
+                                    ),
+                                ) {
+                                    items(
+                                        count = if (isLoop) Int.MAX_VALUE else section.list.size,
+                                        key = { index ->
+                                            val itemIndex = if (isLoop) index % section.list.size else index
+                                            "${section.list[itemIndex].url}_$index"
+                                        },
+                                    ) { index ->
+                                        val itemIndex = if (isLoop) index % section.list.size else index
+                                        val posterItem = section.list[itemIndex]
+                                        PosterCard(
+                                            item = posterItem,
+                                            provider = provider,
+                                            itemWidth = optimalItemWidth,
+                                            onClick = { onItemClick(provider, posterItem, null, false) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
                 }
             } else {
                 val minHeight = if (isFirstPage) 350.dp else 150.dp

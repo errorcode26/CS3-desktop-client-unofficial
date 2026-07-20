@@ -522,6 +522,6 @@ fun ComposeNativeWebPlayer(
                 factory = { videoCanvas },
                 modifier = Modifier.fillMaxSize(),
             )
-        }
+        },
     )
 }

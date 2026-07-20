@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffect>(
     initialState = LinksUiState(
         preferredPlayer = DesktopDataStore.getKey<String>("preferred_player") ?: "mpv",
-        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-    )
+        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+    ),
 ) {
     private var scrapeJob: Job? = null
 
@@ -46,7 +46,7 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                 links = emptyList(),
                 subtitles = emptyList(),
                 isScraping = true,
-                statusText = "Finding streams for you..."
+                statusText = "Finding streams for you...",
             )
         }
 

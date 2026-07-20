@@ -209,7 +209,7 @@ fun PluginSettingsDialog(
                                                     com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, newValue)
                                                 }
                                             }
-                                        }
+                                        },
                                     )
                                 }
                             }

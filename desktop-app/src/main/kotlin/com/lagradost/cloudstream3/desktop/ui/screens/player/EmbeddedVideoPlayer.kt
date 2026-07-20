@@ -14,11 +14,10 @@ import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -26,6 +25,7 @@ fun EmbeddedVideoPlayer(
     launchData: VideoLaunchData,
     isExiting: Boolean = false,
     onClose: () -> Unit,
+    onError: (String) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { EmbeddedPlayerViewModel() }
@@ -103,7 +103,7 @@ fun EmbeddedVideoPlayer(
 
     LaunchedEffect(nextEpisodeError) {
         if (nextEpisodeError != null) {
-            actualLaunchData.onError?.invoke(nextEpisodeError!!)
+            onError(nextEpisodeError!!)
             onClose()
         }
     }
@@ -210,20 +210,22 @@ fun EmbeddedVideoPlayer(
                             val s = targetEpisodeData?.season
                             val e = targetEpisodeData?.episode
                             if (s != null && e != null) {
-                                append(" - S${s}E${e}")
+                                append(" - S${s}E$e")
                             } else if (e != null) {
-                                append(" - E${e}")
+                                append(" - E$e")
                             }
                             val name = targetEpisodeData?.name
                             if (!name.isNullOrBlank() && name != "Episode $e") {
                                 append(" - $name")
                             }
                         }
-                    } else actualLaunchData.title
+                    } else {
+                        actualLaunchData.title
+                    }
 
                     val displayEpisodeId = targetEpisodeData?.data ?: actualLaunchData.history.episodeId
 
-                    val episodes = viewModel.getEpisodesList()
+                    val episodes = uiState.episodes
                     val backdropUrl = actualLaunchData.loadResponse?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
                         ?: actualLaunchData.loadResponse?.posterUrl
                     val logoUrl = actualLaunchData.loadResponse?.logoUrl
@@ -300,14 +302,13 @@ fun EmbeddedVideoPlayer(
                             }
                         },
                         onCloseRequest = {
-                            actualLaunchData.onClosed?.invoke()
                             onClose()
                         },
                         onSkipScraping = {
                             userSkippedScraping = true
                         },
                         onFinished = {
-                            val hasNext = viewModel.hasNextEpisode()
+                            val hasNext = uiState.hasNextEpisode
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext);")
                         },
                         onPlaybackError = { err ->
@@ -329,7 +330,7 @@ fun EmbeddedVideoPlayer(
                                     } else {
                                         // All sources failed — dismiss overlay and show error
                                         isProbingOverlay = false
-                                        actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
+                                        onError("All sources failed. Please try again later.")
                                         onClose()
                                     }
                                 }
@@ -346,7 +347,7 @@ fun EmbeddedVideoPlayer(
                                         } else {
                                             // All sources exhausted — dismiss overlay and show error
                                             isProbingOverlay = false
-                                            actualLaunchData.onError?.invoke("All sources failed. Please try again later.")
+                                            onError("All sources failed. Please try again later.")
                                             onClose()
                                         }
                                     }
@@ -383,7 +384,6 @@ fun EmbeddedVideoPlayer(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(onClick = {
-                        actualLaunchData.onClosed?.invoke()
                         onClose()
                     }) {
                         Text("Close Player")

@@ -1,20 +1,16 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
-import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.desktop.repo.HeroRepository.HeroUpdate
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
-import com.lagradost.cloudstream3.fixUrlNull
-import com.lagradost.cloudstream3.newMovieLoadResponse
-import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -38,7 +34,7 @@ fun MainAPI.isRealProvider(): Boolean {
 typealias HomeUiState = com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
 
 class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
-    initialState = HomeUiState()
+    initialState = HomeUiState(),
 ) {
     private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
@@ -127,6 +123,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             is HomeUiEvent.OnPrefetchHeroItem -> prefetchHeroItem(event.provider, event.item)
             is HomeUiEvent.OnSetCurrentHeroColor -> setCurrentHeroColor(event.itemUrl)
             is HomeUiEvent.OnUpdateHeroColor -> updateHeroColor(event.imageUrl, event.itemUrl)
+            is HomeUiEvent.OnProviderRefresh -> reloadProvider()
         }
     }
 
@@ -192,17 +189,19 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     fun prefetchHeroItem(provider: MainAPI?, item: SearchResponse) {
         viewModelScope.launch {
-            com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchHeroItem(
-                provider = provider,
-                item = item,
-                currentMetaMap = uiState.value.heroMetaMap,
-                onMetaUpdate = { url, meta ->
-                    updateState { copy(heroMetaMap = heroMetaMap + (url to meta)) }
-                },
-                onColorUpdate = { url, colorUrl ->
-                    updateHeroColor(colorUrl, itemUrl = url)
+            com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchHeroItem(provider, item)
+                .collect { update ->
+                    when (update) {
+                        is HeroUpdate.Meta -> {
+                            updateState {
+                                copy(heroMetaMap = heroMetaMap.toMutableMap().apply { put(update.url, update.meta) })
+                            }
+                        }
+                        is HeroUpdate.ColorTarget -> {
+                            updateHeroColor(update.posterUrl, itemUrl = update.url)
+                        }
+                    }
                 }
-            )
         }
     }
 

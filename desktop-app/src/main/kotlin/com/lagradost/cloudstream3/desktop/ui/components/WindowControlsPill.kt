@@ -15,7 +15,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 
@@ -37,8 +35,8 @@ fun WindowControlsPill(isHome: Boolean = false) {
     val theme = LocalDesktopTheme.current
 
     // Fetch provider states for the global pill
-    val homeViewModel = com.lagradost.cloudstream3.desktop.ui.LocalHomeViewModel.current
-    val uiState by homeViewModel.uiState.collectAsState()
+    val uiState = com.lagradost.cloudstream3.desktop.ui.LocalHomeUiState.current
+    val actionDispatcher = com.lagradost.cloudstream3.desktop.ui.LocalHomeActionDispatcher.current
     val providers = uiState.providers
     val selectedProviderName = uiState.selectedProviderName
     val mergedPluginIcons = uiState.mergedPluginIcons
@@ -173,7 +171,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
                                 val pluginIcon = mergedPluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
                                 androidx.compose.material.DropdownMenuItem(
                                     onClick = {
-                                        homeViewModel.setSelectedProvider(provider.name)
+                                        actionDispatcher(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnSelectProvider(provider.name))
                                         isDropdownExpanded.value = false
                                     },
                                 ) {
@@ -214,7 +212,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
             }
 
             IconButton(
-                onClick = { homeViewModel.reloadProvider() },
+                onClick = { actionDispatcher(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh) },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(18.dp))

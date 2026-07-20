@@ -8,18 +8,23 @@ import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 
+sealed interface EnrichmentPhase {
+    data object Idle : EnrichmentPhase
+    data object InProgress : EnrichmentPhase
+    data object Complete : EnrichmentPhase
+}
+
 data class DetailsUiState(
     val preloadedName: String? = null,
     val response: LoadResponse? = null,
     val fakeData: LoadResponse? = null,
     val isLoading: Boolean = true,
     val fetchFailed: Boolean = false,
-    val errorMessage: String? = null,
     val watchHistory: Map<String, WatchHistory> = emptyMap(),
     val activeLinkData: Triple<MainAPI, String, WatchHistory>? = null,
     val isPanelOpen: Boolean = false,
     val screenshots: List<String>? = null,
-    val enrichmentTrigger: Int = 0,
+    val enrichmentPhase: EnrichmentPhase = EnrichmentPhase.Idle,
     val enrichedLogoUrl: String? = null,
     val enrichedBackdropUrl: String? = null,
     val enrichedTagline: String? = null,
@@ -40,5 +45,5 @@ data class DetailsUiState(
     val enrichedRevenue: Long? = null,
     val enrichedNetworks: List<String> = emptyList(),
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
-    val autoPlayEnabled: Boolean = true
+    val autoPlayEnabled: Boolean = true,
 ) : UiState

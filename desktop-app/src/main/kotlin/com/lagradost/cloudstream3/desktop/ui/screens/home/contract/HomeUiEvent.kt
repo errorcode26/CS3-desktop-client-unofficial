@@ -14,4 +14,5 @@ sealed interface HomeUiEvent : UiEvent {
     data class OnPrefetchHeroItem(val provider: MainAPI?, val item: SearchResponse) : HomeUiEvent
     data class OnSetCurrentHeroColor(val itemUrl: String?) : HomeUiEvent
     data class OnUpdateHeroColor(val imageUrl: String?, val itemUrl: String? = null) : HomeUiEvent
+    data object OnProviderRefresh : HomeUiEvent
 }

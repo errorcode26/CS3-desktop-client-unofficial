@@ -39,7 +39,6 @@ import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
-import com.lagradost.common.storage.DesktopDataStore
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
@@ -49,7 +48,7 @@ fun DetailsBackdrop(
     data: LoadResponse,
     scrollState: LazyListState,
     hazeState: HazeState,
-    enrichmentTrigger: Int,
+    enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     modifier: Modifier = Modifier,
     dynamicColorEnabled: Boolean = false,
     animatedHeroColor: Color = Color.Transparent,
@@ -67,9 +66,9 @@ fun DetailsBackdrop(
             }
             .haze(state = hazeState),
     ) {
-        val currentTrigger = enrichmentTrigger
+        val currentPhase = enrichmentPhase
         val isFallback = data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
-        val bgUrl = remember(data, currentTrigger, uiState) {
+        val bgUrl = remember(data, currentPhase, uiState) {
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: data.backgroundPosterUrl?.takeIf { it.isNotBlank() }
                 ?: data.posterUrl?.takeIf { it.isNotBlank() }
@@ -134,7 +133,7 @@ fun DetailsMetadata(
     data: LoadResponse,
     hazeState: HazeState,
     heroAction: @Composable () -> Unit = {},
-    enrichmentTrigger: Int,
+    enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     isLoading: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
@@ -166,8 +165,8 @@ fun DetailsMetadata(
                         Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
                     }
                 } else {
-                    val currentTrigger = enrichmentTrigger
-                    val activeLogoUrl = remember(data, currentTrigger, uiState) {
+                    val currentPhase = enrichmentPhase
+                    val activeLogoUrl = remember(data, currentPhase, uiState) {
                         uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
                             ?: data.logoUrl?.takeIf { it.isNotBlank() }
                             ?: provider.fixUrlNull(data.logoUrl)

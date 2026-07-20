@@ -1,14 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.newMovieSearchResponse
-import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.Collections
 import java.util.LinkedHashMap
 
@@ -23,8 +19,12 @@ object DetailsCache {
         },
     )
     fun get(url: String): LoadResponse? = _cache[url]
-    fun put(url: String, response: LoadResponse) { _cache[url] = response }
-    fun remove(url: String) { _cache.remove(url) }
+    fun put(url: String, response: LoadResponse) {
+        _cache[url] = response
+    }
+    fun remove(url: String) {
+        _cache.remove(url)
+    }
     fun containsKey(url: String): Boolean = _cache.containsKey(url)
 }
 
@@ -95,4 +95,3 @@ object DetailsRepository {
 }
 
 // TmdbEnrichmentService extracted to TmdbEnrichmentService.kt
-

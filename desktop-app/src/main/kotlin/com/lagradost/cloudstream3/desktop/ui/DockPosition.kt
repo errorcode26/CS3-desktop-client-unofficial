@@ -4,7 +4,8 @@ enum class DockPosition(val label: String) {
     LEFT("Left"),
     RIGHT("Right"),
     TOP("Top"),
-    BOTTOM("Bottom");
+    BOTTOM("Bottom"),
+    ;
 
     companion object {
         fun fromString(value: String): DockPosition {

@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DetailsRecommendationsSection(
     validRecs: List<SearchResponse>,
-    onNavigate: (Screen) -> Unit
+    onNavigate: (Screen) -> Unit,
 ) {
     val similarScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()

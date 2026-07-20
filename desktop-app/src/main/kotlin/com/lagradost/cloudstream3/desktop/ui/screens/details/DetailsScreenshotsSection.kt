@@ -40,7 +40,7 @@ fun DetailsScreenshotsSection(
     screenshots: List<String>,
     screenshotsExpanded: Boolean,
     onToggleExpand: () -> Unit,
-    onScreenshotClick: (String) -> Unit
+    onScreenshotClick: (String) -> Unit,
 ) {
     val screenshotsScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()

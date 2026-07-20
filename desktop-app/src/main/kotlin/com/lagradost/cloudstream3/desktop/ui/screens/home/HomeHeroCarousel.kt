@@ -41,9 +41,7 @@ import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
-import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.common.storage.DesktopBookmark
-import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 
 @OptIn(
@@ -52,15 +50,15 @@ import kotlinx.coroutines.delay
 )
 @Composable
 fun HomeHeroCarousel(
-    items: List<SearchResponse>, 
-    provider: MainAPI?, 
+    items: List<SearchResponse>,
+    provider: MainAPI?,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
     heroColorMap: Map<String, androidx.compose.ui.graphics.Color>,
     allBookmarks: Map<String, DesktopBookmark>,
     onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
     onSetCurrentHeroColor: (String?) -> Unit,
     onUpdateHeroColor: (String?) -> Unit,
-    onItemClick: (SearchResponse, String?, Boolean) -> Unit
+    onItemClick: (SearchResponse, String?, Boolean) -> Unit,
 ) {
     if (items.isEmpty()) return
 

@@ -2,14 +2,12 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
-import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
-import com.lagradost.cloudstream3.utils.ExtractorLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -17,8 +15,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
     initialState = PlayerUiState(
-        autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-    )
+        autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+    ),
 ) {
     private var loadLinksJob: Job? = null
     private var saveJob: Job? = null
@@ -50,9 +48,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             val currentPosSec = history.position
             val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
             if (percentage >= 0.90f) {
-                val hasNext = hasNextEpisode()
+                val hasNext = uiState.value.hasNextEpisode
                 if (hasNext) {
-                    val nextEp = getNextEpisode()
+                    val nextEp = uiState.value.nextEpisodeData
                     if (nextEp != null) {
                         com.lagradost.common.storage.DesktopDataStore.setLastWatched(history)
                         val nextEpHistory = com.lagradost.common.storage.WatchHistory(
@@ -217,20 +215,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun getEpisodesList(): List<Episode> {
-        val currentData = uiState.value.launchData ?: return emptyList()
-        return when (val resp = currentData.loadResponse) {
-            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> resp.episodes
-            is com.lagradost.cloudstream3.AnimeLoadResponse -> {
-                val dub = resp.episodes.entries.firstOrNull { entry -> entry.value.any { it.data == currentData.history.episodeId } }?.key
-                resp.episodes[dub] ?: emptyList()
-            }
-            else -> emptyList()
-        }
-    }
-
     private fun loadNextEpisode() {
-        val episodes = getEpisodesList()
+        val episodes = uiState.value.episodes
         val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         val nextEpisode = if (currentIndex != -1 && currentIndex + 1 < episodes.size) episodes[currentIndex + 1] else null
@@ -241,7 +227,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun loadPrevEpisode() {
-        val episodes = getEpisodesList()
+        val episodes = uiState.value.episodes
         val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         val prevEpisode = if (currentIndex > 0) episodes[currentIndex - 1] else null
@@ -249,27 +235,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         if (prevEpisode != null) {
             loadEpisode(prevEpisode)
         }
-    }
-
-    fun hasNextEpisode(): Boolean {
-        val episodes = getEpisodesList()
-        val currentData = uiState.value.launchData ?: return false
-        val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
-        return currentIndex != -1 && currentIndex + 1 < episodes.size
-    }
-
-    fun getNextEpisode(): com.lagradost.cloudstream3.Episode? {
-        val episodes = getEpisodesList()
-        val currentData = uiState.value.launchData ?: return null
-        val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
-        return if (currentIndex != -1 && currentIndex + 1 < episodes.size) episodes[currentIndex + 1] else null
-    }
-
-    fun hasPrevEpisode(): Boolean {
-        val episodes = getEpisodesList()
-        val currentData = uiState.value.launchData ?: return false
-        val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
-        return currentIndex > 0
     }
 
     private fun cancelScraping() {
@@ -286,7 +251,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         provider: com.lagradost.cloudstream3.MainAPI,
         targetEpisodeId: String,
         baseLaunchData: VideoLaunchData,
-        targetEpisodeData: Episode? = null
+        targetEpisodeData: Episode? = null,
     ) {
         val hasStartedPlaying = AtomicBoolean(false)
         try {
@@ -314,7 +279,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         val newLinks = nextEpisodeLinks + link
                         if (hasStartedPlaying.compareAndSet(false, true)) {
                             val current = launchData ?: baseLaunchData
-                            
+
                             val newLaunchData = if (targetEpisodeData != null) {
                                 val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
                                     parentId = current.history.parentId,
@@ -384,7 +349,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         isScrapingLinks = false,
                         targetEpisodeData = null,
                         isLoadingNextEpisode = false,
-                        nextEpisodeError = "No links found for this episode."
+                        nextEpisodeError = "No links found for this episode.",
                     )
                 } else {
                     copy(isScrapingLinks = false)
@@ -399,7 +364,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     isScrapingLinks = false,
                     targetEpisodeData = null,
                     isLoadingNextEpisode = false,
-                    nextEpisodeError = "Failed to load links: ${e.message}"
+                    nextEpisodeError = "Failed to load links: ${e.message}",
                 )
             }
         }

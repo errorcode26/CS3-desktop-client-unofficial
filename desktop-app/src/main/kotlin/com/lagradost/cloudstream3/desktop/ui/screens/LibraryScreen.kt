@@ -36,17 +36,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
-import com.lagradost.common.storage.DesktopBookmark
-import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
+import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.common.storage.DesktopWatchType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

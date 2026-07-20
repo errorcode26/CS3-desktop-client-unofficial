@@ -80,8 +80,8 @@ fun BaseMpvPlayer(
                 var lastPos = 0.0
                 var lastDur = 0.0
                 // Separate timers so heavy track-list polling never blocks position updates
-                var lastPositionPollMs = 0L  // 100ms cadence — governs seek-bar smoothness
-                var lastTrackPollMs = 0L     // 2000ms cadence — track list / stats are slow
+                var lastPositionPollMs = 0L // 100ms cadence — governs seek-bar smoothness
+                var lastTrackPollMs = 0L // 2000ms cadence — track list / stats are slow
                 var lastUiPositionEmit = 0L
                 var diagnosticLogged = false
                 var playbackStartedAt = 0L
@@ -591,7 +591,7 @@ fun BaseMpvPlayer(
         lastEofReached = false
         hasEverPlayed = false
         waitingForTimePosReset = true
-        loadStartTime = System.currentTimeMillis()   // Reset buffering timeout clock
+        loadStartTime = System.currentTimeMillis() // Reset buffering timeout clock
         loadfileIssuedAt = System.currentTimeMillis() // Mark that loadfile is about to be sent
 
         lib.mpv_command_string(handle, "loadfile \"$safeUrl\"")

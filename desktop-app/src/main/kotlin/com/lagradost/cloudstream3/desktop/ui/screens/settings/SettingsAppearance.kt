@@ -171,7 +171,7 @@ fun SettingsAppearance() {
                     com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT to "Left",
                     com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP to "Top",
                     com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM to "Bottom",
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT to "Right"
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT to "Right",
                 ),
                 currentValue = dockPosition,
                 onSelectionChanged = { AppearanceConfig.setDockPosition(it) },

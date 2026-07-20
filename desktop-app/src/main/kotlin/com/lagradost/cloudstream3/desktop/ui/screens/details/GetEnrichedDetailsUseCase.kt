@@ -5,10 +5,10 @@ import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.channels.awaitClose
 
 sealed interface EnrichmentUpdate {
     data class RawData(val response: LoadResponse) : EnrichmentUpdate
@@ -30,7 +30,7 @@ sealed interface EnrichmentUpdate {
         val collItems: List<SearchResponse>,
         val budget: Long?,
         val revenue: Long?,
-        val networks: List<String>?
+        val networks: List<String>?,
     ) : EnrichmentUpdate
     data object FullyEnriched : EnrichmentUpdate
     data class Error(val message: String) : EnrichmentUpdate
@@ -38,13 +38,12 @@ sealed interface EnrichmentUpdate {
 
 object GetEnrichedDetailsUseCase {
     operator fun invoke(
-        provider: MainAPI, 
-        url: String, 
-        preloadedName: String? = null, 
-        preloadedPoster: String? = null, 
-        preloadedBg: String? = null
+        provider: MainAPI,
+        url: String,
+        preloadedName: String? = null,
+        preloadedPoster: String? = null,
+        preloadedBg: String? = null,
     ): Flow<EnrichmentUpdate> = callbackFlow {
-        
         val rawData = try {
             DetailsRepository.fetchRaw(provider, url, fallbackName = preloadedName)
         } catch (e: Exception) {
@@ -52,7 +51,7 @@ object GetEnrichedDetailsUseCase {
             close()
             return@callbackFlow
         }
-        
+
         if (rawData == null) {
             trySend(EnrichmentUpdate.Error("Failed to fetch raw details"))
             close()
@@ -81,7 +80,7 @@ object GetEnrichedDetailsUseCase {
                 url = targetEnrichUrl,
                 onEnrichmentComplete = {
                     trySend(EnrichmentUpdate.FullyEnriched)
-                    
+
                     if (rawData.backgroundPosterUrl != null) {
                         launch {
                             val color = ImageColorExtractor.extractDominantColorFromUrl(rawData.backgroundPosterUrl!!)
@@ -97,10 +96,10 @@ object GetEnrichedDetailsUseCase {
                 },
                 onMetadataLoaded = { tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks ->
                     trySend(EnrichmentUpdate.MetadataLoaded(tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks))
-                }
+                },
             )
         }
-        
+
         awaitClose { }
     }
 }

@@ -1,68 +1,51 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
-import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.details.*
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
-import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: String, preloadedName: String? = null, preloadedPoster: String? = null, preloadedBg: String? = null, autoPlay: Boolean = false) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember(url) { DetailsViewModel(provider, url, preloadedName, preloadedPoster, preloadedBg) }
-    
+
     DisposableEffect(viewModel) {
         onDispose {
             viewModel.dispose()
@@ -80,10 +63,11 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val response = uiState.response
     val fakeData = uiState.fakeData
     val isLoading = uiState.isLoading
-    val errorMessage = uiState.errorMessage
-    val activeLinkData = uiState.activeLinkData
+    val error = uiState.error
+    val watchHistory = uiState.watchHistory
     val isPanelOpen = uiState.isPanelOpen
-    val enrichmentTrigger = uiState.enrichmentTrigger
+    val enrichmentPhase = uiState.enrichmentPhase
+    val activeLinkData = uiState.activeLinkData
     val screenshots = uiState.screenshots
     val heroExtractedColor = uiState.heroColor
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
@@ -175,7 +159,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentTrigger, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -184,12 +168,12 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentTrigger, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = if (errorMessage != null) "Error: $errorMessage" else "Failed to load details.",
+                            text = if (error != null) "Error: $error" else "Failed to load details.",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.titleMedium,
                         )
@@ -275,7 +259,7 @@ fun DetailsContent(
     provider: MainAPI,
     data: LoadResponse,
     screenshots: List<String>?,
-    enrichmentTrigger: Int,
+    enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     isLoading: Boolean = false,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
@@ -292,8 +276,6 @@ fun DetailsContent(
     val latestHistory = remember(data.url, uiState?.watchHistory) {
         uiState?.watchHistory?.values?.maxByOrNull { it.position }
     }
-
-
 
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(false) }
@@ -315,7 +297,7 @@ fun DetailsContent(
                 data = data,
                 provider = provider,
                 latestHistory = latestHistory,
-                onPlay = onPlay
+                onPlay = onPlay,
             )
         }
 
@@ -331,13 +313,13 @@ fun DetailsContent(
                         data = data,
                         scrollState = scrollState,
                         hazeState = hazeState,
-                        enrichmentTrigger = enrichmentTrigger,
+                        enrichmentPhase = enrichmentPhase,
                         modifier = Modifier.fillMaxSize(),
                         dynamicColorEnabled = dynamicColorEnabled,
                         animatedHeroColor = animatedHeroColor,
                         uiState = uiState,
                     )
-                    DetailsMetadata(provider = provider, data = data, hazeState = hazeState, heroAction = heroAction, enrichmentTrigger = enrichmentTrigger, isLoading = isLoading, uiState = uiState)
+                    DetailsMetadata(provider = provider, data = data, hazeState = hazeState, heroAction = heroAction, enrichmentPhase = enrichmentPhase, isLoading = isLoading, uiState = uiState)
                 }
             }
 
@@ -351,7 +333,7 @@ fun DetailsContent(
                     isLoading = isLoading,
                     coroutineScope = coroutineScope,
                     onPlay = onPlay,
-                    onToggleWatched = onToggleWatched
+                    onToggleWatched = onToggleWatched,
                 )
             }
 
@@ -386,7 +368,7 @@ fun DetailsContent(
                         collBg = collBg,
                         collItems = collItems,
                         provider = provider,
-                        onNavigate = { screen -> navController.navigate(screen) }
+                        onNavigate = { screen -> navController.navigate(screen) },
                     )
                 }
             }
@@ -397,7 +379,7 @@ fun DetailsContent(
                         screenshots = screenshots,
                         screenshotsExpanded = screenshotsExpanded,
                         onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
-                        onScreenshotClick = { selectedScreenshot = it }
+                        onScreenshotClick = { selectedScreenshot = it },
                     )
                 }
             }
@@ -408,7 +390,7 @@ fun DetailsContent(
                 item(key = "RecommendationsSection") {
                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
                         validRecs = validRecs,
-                        onNavigate = { screen -> navController.navigate(screen) }
+                        onNavigate = { screen -> navController.navigate(screen) },
                     )
                 }
             }

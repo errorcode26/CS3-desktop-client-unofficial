@@ -1,8 +1,8 @@
 package com.lagradost.cloudstream3.desktop.repo
 
+import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.cloudstream3.desktop.utils.appScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +26,7 @@ object BookmarksRepository {
             val list = DesktopDataStore.getBookmarks()
             _bookmarksFlow.value = list.associateBy { it.id }
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.lagradost.common.logging.AppLogger.e("BookmarksRepository", "refresh failed", e)
         }
     }
 
@@ -36,7 +36,7 @@ object BookmarksRepository {
                 DesktopDataStore.addBookmark(bookmark)
                 _bookmarksFlow.update { it + (bookmark.id to bookmark) }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.lagradost.common.logging.AppLogger.e("BookmarksRepository", "addBookmark failed", e)
                 refresh()
             }
         }
@@ -48,7 +48,7 @@ object BookmarksRepository {
                 DesktopDataStore.removeBookmark(id)
                 _bookmarksFlow.update { it - id }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.lagradost.common.logging.AppLogger.e("BookmarksRepository", "removeBookmark failed", e)
                 refresh()
             }
         }

@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -33,7 +32,7 @@ fun DetailsCollectionSection(
     collBg: String?,
     collItems: List<SearchResponse>,
     provider: MainAPI,
-    onNavigate: (Screen) -> Unit
+    onNavigate: (Screen) -> Unit,
 ) {
     val collScrollState = rememberLazyListState()
     Column(
@@ -99,7 +98,7 @@ fun DetailsCollectionSection(
                                 itemWidth = 125.dp,
                                 onClick = {
                                     onNavigate(Screen.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, false))
-                                }
+                                },
                             )
                         }
                     }
