@@ -48,6 +48,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.details.*
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -67,22 +68,22 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     }
 
     LaunchedEffect(viewModel) {
-        viewModel.load()
+        viewModel.onEvent(DetailsUiEvent.OnLoad)
     }
 
-    val fetchFailed by viewModel.fetchFailed.collectAsState()
-    val showHistory by viewModel.watchHistory.collectAsState()
-
-    val response by viewModel.response.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
-    val fakeData by viewModel.fakeData.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
-    val activeLinkData by viewModel.activeLinkData.collectAsState()
-    val isPanelOpen by viewModel.isPanelOpen.collectAsState()
-    val enrichmentTrigger by viewModel.enrichmentTrigger.collectAsState()
-    val screenshots by viewModel.screenshots.collectAsState()
-    val heroExtractedColor by viewModel.heroExtractedColor.collectAsState()
+    val fetchFailed = uiState.fetchFailed
+    val showHistory = uiState.watchHistory
+
+    val response = uiState.response
+    val fakeData = uiState.fakeData
+    val isLoading = uiState.isLoading
+    val errorMessage = uiState.errorMessage
+    val activeLinkData = uiState.activeLinkData
+    val isPanelOpen = uiState.isPanelOpen
+    val enrichmentTrigger = uiState.enrichmentTrigger
+    val screenshots = uiState.screenshots
+    val heroExtractedColor = uiState.heroColor
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
 
@@ -125,7 +126,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                 ),
             )
         } else {
-            viewModel.openLinksPanel(Triple(linkProvider, linkUrl, linkHistory))
+            viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(Triple(linkProvider, linkUrl, linkHistory)))
         }
     }
 
@@ -236,12 +237,12 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.4f))
-                        .clickable { viewModel.closeLinksPanel() },
+                        .clickable { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
                 )
             }
 
             if (activeLinkData != null) {
-                val offsetX by animateDpAsState(
+                val offsetX by androidx.compose.animation.core.animateDpAsState(
                     targetValue = if (isPanelOpen) 0.dp else 450.dp,
                     animationSpec = tween(300),
                 )
@@ -254,7 +255,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                         modifier = Modifier
                             .padding(top = 24.dp)
                             .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                            .clickable { if (isPanelOpen) viewModel.closeLinksPanel() else viewModel.openLinksPanel(activeLinkData!!) }
+                            .clickable { if (isPanelOpen) viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) else viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(activeLinkData!!)) }
                             .padding(16.dp),
                     ) {
                         Icon(
@@ -284,7 +285,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                                 dataUrl = linkUrl,
                                 history = linkHistory,
                                 loadResponse = response, // Passed from ComposeDetailsScreen
-                                onClose = { viewModel.closeLinksPanel() },
+                                onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
                             )
                         }
                     }

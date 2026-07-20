@@ -1,43 +1,20 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
+import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
+import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import java.awt.image.BufferedImage
-import javax.imageio.ImageIO
 
-data class DetailsUiState(
-    val response: LoadResponse? = null,
-    val enrichedLogoUrl: String? = null,
-    val enrichedBackdropUrl: String? = null,
-    val enrichedTagline: String? = null,
-    val enrichedStatus: String? = null,
-    val enrichedStudios: List<String> = emptyList(),
-    val enrichedCollectionName: String? = null,
-    val enrichedCollectionBackdrop: String? = null,
-    val enrichedSeasonsCount: Int? = null,
-    val enrichedEpisodesCount: Int? = null,
-    val enrichedOriginalLanguage: String? = null,
-    val enrichedReleaseDate: String? = null,
-    val enrichedCountry: String? = null,
-    val enrichedCollectionItems: List<com.lagradost.cloudstream3.SearchResponse> = emptyList(),
-    val heroColor: androidx.compose.ui.graphics.Color? = null,
-    val isEnriching: Boolean = false,
-    val error: String? = null,
-    val enrichedBudget: Long? = null,
-    val enrichedRevenue: Long? = null,
-    val enrichedNetworks: List<String> = emptyList(),
-)
+typealias DetailsUiState = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
 
 class DetailsViewModel(
     private val provider: MainAPI,
@@ -45,99 +22,64 @@ class DetailsViewModel(
     private val preloadedName: String? = null,
     private val preloadedPoster: String? = null,
     private val preloadedBg: String? = null,
-) {
-    private val viewModelScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
-
-    fun dispose() {
-        viewModelScope.cancel()
-    }
-
-    private val _uiState = MutableStateFlow(
-        DetailsUiState(
-            response = DetailsCache.get(url),
-            enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
-            enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
-        ),
+) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
+    initialState = DetailsUiState(
+        response = DetailsCache.get(url),
+        enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
+        enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
+        isLoading = DetailsCache.get(url) == null
     )
-    val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()
-
-    private val _watchHistory = MutableStateFlow<Map<String, WatchHistory>>(emptyMap())
-    val watchHistory: StateFlow<Map<String, WatchHistory>> = _watchHistory.asStateFlow()
+) {
+    private val _isInitialized = MutableStateFlow(false)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.historyUpdates.collect {
-                val historyMap = com.lagradost.common.storage.DesktopDataStore.getAllWatchHistory()
+            DesktopDataStore.historyUpdates.collect {
+                val historyMap = DesktopDataStore.getAllWatchHistory()
                     .filter { it.showUrl == url }
                     .associateBy { it.episodeId ?: it.parentId }
-                _watchHistory.value = historyMap
+                updateState { copy(watchHistory = historyMap) }
             }
         }
     }
 
-    private val _response = MutableStateFlow<LoadResponse?>(DetailsCache.get(url))
-    val response: StateFlow<LoadResponse?> = _response.asStateFlow()
-
-    private val _enrichmentTrigger = MutableStateFlow(0)
-    val enrichmentTrigger: StateFlow<Int> = _enrichmentTrigger.asStateFlow()
-
-    private val _fakeData = MutableStateFlow<LoadResponse?>(null)
-    val fakeData: StateFlow<LoadResponse?> = _fakeData.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(_response.value == null)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _fetchFailed = MutableStateFlow(false)
-    val fetchFailed: StateFlow<Boolean> = _fetchFailed.asStateFlow()
-
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
-    private val _activeLinkData = MutableStateFlow<Triple<MainAPI, String, WatchHistory>?>(null)
-    val activeLinkData: StateFlow<Triple<MainAPI, String, WatchHistory>?> = _activeLinkData.asStateFlow()
-
-    private val _isPanelOpen = MutableStateFlow(false)
-    val isPanelOpen: StateFlow<Boolean> = _isPanelOpen.asStateFlow()
-
-    private val _screenshots = MutableStateFlow<List<String>?>(null)
-    val screenshots: StateFlow<List<String>?> = _screenshots.asStateFlow()
-
-    private val _heroExtractedColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
-    val heroExtractedColor: StateFlow<androidx.compose.ui.graphics.Color?> = _heroExtractedColor.asStateFlow()
-
-
-
-    private fun extractColor(imageUrl: String?) {
-        if (imageUrl.isNullOrBlank()) return
-        com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.getCachedColor(imageUrl)?.let {
-            _heroExtractedColor.value = it
-            _uiState.update { state -> state.copy(heroColor = it) }
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            val color = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
-            if (color != null) {
-                _heroExtractedColor.value = color
-                _uiState.update { state -> state.copy(heroColor = color) }
-            }
+    override fun handleEvent(event: DetailsUiEvent) {
+        when (event) {
+            is DetailsUiEvent.OnLoad -> load()
+            is DetailsUiEvent.OnRetry -> retry()
+            is DetailsUiEvent.OnOpenLinksPanel -> openLinksPanel(event.data)
+            is DetailsUiEvent.OnCloseLinksPanel -> closeLinksPanel()
         }
     }
-
-    private val _isInitialized = MutableStateFlow(false)
 
     fun load() {
         if (_isInitialized.value) return
         _isInitialized.value = true
-        extractColor(preloadedBg ?: preloadedPoster ?: _response.value?.backgroundPosterUrl ?: _response.value?.posterUrl)
+        val currentResp = uiState.value.response
+        extractColor(preloadedBg ?: preloadedPoster ?: currentResp?.backgroundPosterUrl ?: currentResp?.posterUrl)
         loadDetails()
+    }
+
+    private fun extractColor(imageUrl: String?) {
+        if (imageUrl.isNullOrBlank()) return
+        ImageColorExtractor.getCachedColor(imageUrl)?.let { color ->
+            updateState { copy(heroColor = color) }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val color = ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
+            if (color != null) {
+                updateState { copy(heroColor = color) }
+            }
+        }
     }
 
     fun loadDetails() {
         viewModelScope.launch {
-            _fetchFailed.value = false
-            if (_response.value == null) {
+            updateState { copy(fetchFailed = false) }
+            if (uiState.value.response == null) {
                 if (preloadedName != null) {
-                    _fakeData.value = provider.newMovieLoadResponse(
+                    val fake = provider.newMovieLoadResponse(
                         name = preloadedName,
                         url = url,
                         type = TvType.Movie,
@@ -146,57 +88,68 @@ class DetailsViewModel(
                         this.posterUrl = preloadedPoster
                         this.backgroundPosterUrl = preloadedBg
                     }
+                    updateState { copy(fakeData = fake) }
                 }
 
                 try {
                     val rawData = DetailsRepository.fetchRaw(provider, url, fallbackName = preloadedName)
                     if (rawData != null) {
-                        _response.value = rawData
-                        _isLoading.value = false
-                        _uiState.update {
-                            it.copy(
+                        updateState {
+                            copy(
                                 response = rawData,
+                                isLoading = false,
                                 enrichedLogoUrl = rawData.logoUrl,
                                 enrichedBackdropUrl = rawData.backgroundPosterUrl,
-                                isEnriching = true,
+                                isEnriching = true
                             )
                         }
                         extractColor(rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster)
                     } else {
-                        _fetchFailed.value = true
-                        _isLoading.value = false
-                        _uiState.update { it.copy(error = "Failed to fetch raw details") }
+                        updateState {
+                            copy(
+                                fetchFailed = true,
+                                isLoading = false,
+                                error = "Failed to fetch raw details",
+                                errorMessage = "Failed to fetch raw details"
+                            )
+                        }
                         return@launch
                     }
                 } catch (e: Throwable) {
-                    com.lagradost.common.logging.AppLogger.e("Error loading details", e)
-                    _errorMessage.value = e.message
-                    _fetchFailed.value = true
-                    _isLoading.value = false
-                    _uiState.update { it.copy(error = e.message) }
+                    AppLogger.e("Error loading details", e)
+                    updateState {
+                        copy(
+                            fetchFailed = true,
+                            isLoading = false,
+                            error = e.message,
+                            errorMessage = e.message
+                        )
+                    }
                     return@launch
                 }
             }
 
-            val currentData = _response.value
+            val currentData = uiState.value.response
             if (currentData != null) {
                 if (!preloadedName.isNullOrBlank() && currentData.name.isBlank()) {
                     withContext(Dispatchers.Main.immediate) {
                         currentData.name = preloadedName
                     }
                 }
-                if (_heroExtractedColor.value == null) {
+                if (uiState.value.heroColor == null) {
                     extractColor(currentData.backgroundPosterUrl ?: currentData.posterUrl ?: preloadedBg ?: preloadedPoster)
                 }
-                _uiState.update { it.copy(isEnriching = true) }
+                updateState { copy(isEnriching = true) }
                 val targetEnrichUrl = if (currentData.url.isNotBlank() && !currentData.url.contains("themoviedb.org")) currentData.url else url
                 TmdbEnrichmentService.enrich(
                     loaded = currentData,
                     url = targetEnrichUrl,
-                    onScreenshotsLoaded = { images -> _screenshots.value = images },
+                    onScreenshotsLoaded = { images ->
+                        updateState { copy(screenshots = images) }
+                    },
                     onMetadataLoaded = { tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks ->
-                        _uiState.update {
-                            it.copy(
+                        updateState {
+                            copy(
                                 enrichedTagline = tagline,
                                 enrichedStatus = status,
                                 enrichedStudios = studios,
@@ -210,20 +163,19 @@ class DetailsViewModel(
                                 enrichedCollectionItems = collItems,
                                 enrichedBudget = budget,
                                 enrichedRevenue = revenue,
-                                enrichedNetworks = networks ?: emptyList(),
+                                enrichedNetworks = networks ?: emptyList()
                             )
                         }
                     },
                     onEnrichmentComplete = {
-                        _enrichmentTrigger.value++
                         extractColor(currentData.backgroundPosterUrl ?: currentData.posterUrl ?: preloadedBg ?: preloadedPoster)
-                        _uiState.update {
-                            it.copy(
+                        updateState {
+                            copy(
+                                enrichmentTrigger = enrichmentTrigger + 1,
                                 response = currentData,
                                 enrichedLogoUrl = currentData.logoUrl,
                                 enrichedBackdropUrl = currentData.backgroundPosterUrl,
-                                heroColor = _heroExtractedColor.value,
-                                isEnriching = false,
+                                isEnriching = false
                             )
                         }
                     },
@@ -233,18 +185,16 @@ class DetailsViewModel(
     }
 
     fun retry() {
-        _fetchFailed.value = false
-        _isLoading.value = true
+        updateState { copy(fetchFailed = false, isLoading = true) }
         DetailsCache.remove(url)
         loadDetails()
     }
 
     fun openLinksPanel(data: Triple<MainAPI, String, WatchHistory>) {
-        _activeLinkData.value = data
-        _isPanelOpen.value = true
+        updateState { copy(activeLinkData = data, isPanelOpen = true) }
     }
 
     fun closeLinksPanel() {
-        _isPanelOpen.value = false
+        updateState { copy(isPanelOpen = false) }
     }
 }

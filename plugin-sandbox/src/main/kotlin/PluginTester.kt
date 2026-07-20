@@ -111,9 +111,11 @@ fun main(args: Array<String>) {
         mapper.registerModule(fallbackModule)
 
         // Initialize WebViewResolver
+        /*
         com.lagradost.cloudstream3.network.WebViewResolver.webViewHandler = { request, callback ->
             com.lagradost.cloudstream3.desktop.network.CdpResolverImpl.resolve(request, callback)
         }
+        */
 
         try {
             // Load Plugin Safely (using ExtensionLoader to trigger StaticVerifier)

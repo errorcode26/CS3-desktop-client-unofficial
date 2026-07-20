@@ -16,6 +16,7 @@ import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -35,19 +36,20 @@ fun EmbeddedVideoPlayer(
     }
 
     LaunchedEffect(launchData) {
-        viewModel.init(launchData)
+        viewModel.onEvent(PlayerUiEvent.OnInit(launchData))
     }
 
-    val currentLaunchData by viewModel.launchData.collectAsState()
-    val isLoadingNextEpisode by viewModel.isLoadingNextEpisode.collectAsState()
-    val nextEpisodeError by viewModel.nextEpisodeError.collectAsState()
-    val nextEpisodeLinks by viewModel.nextEpisodeLinks.collectAsState()
-    val targetEpisodeData by viewModel.targetEpisodeData.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val currentLaunchData = uiState.launchData
+    val isLoadingNextEpisode = uiState.isLoadingNextEpisode
+    val nextEpisodeError = uiState.nextEpisodeError
+    val nextEpisodeLinks = uiState.nextEpisodeLinks
+    val targetEpisodeData = uiState.targetEpisodeData
 
     if (currentLaunchData == null) return
 
     val actualLaunchData = currentLaunchData!!
-    val isScrapingLinks by viewModel.isScrapingLinks.collectAsState()
+    val isScrapingLinks = uiState.isScrapingLinks
 
     var isInitialLoad by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var userSkippedScraping by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
@@ -155,7 +157,7 @@ fun EmbeddedVideoPlayer(
                             countdownToNextEpisode = countdownToNextEpisode!! - 1
                         } else {
                             countdownToNextEpisode = null
-                            viewModel.loadNextEpisode()
+                            viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
                         }
                     }
                 }
@@ -258,14 +260,14 @@ fun EmbeddedVideoPlayer(
                             isProbingOverlay = true
                             val targetEp = episodes.find { it.data == epId }
                             if (targetEp != null) {
-                                viewModel.loadEpisode(targetEp)
+                                viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(targetEp))
                             }
                         },
                         onNextEpisode = {
                             playerState.pause()
                             isLoading = true
                             isProbingOverlay = true
-                            viewModel.loadNextEpisode()
+                            viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
                         },
                         onReplayEpisode = {
                             playerState.pause()
@@ -273,7 +275,7 @@ fun EmbeddedVideoPlayer(
                             isProbingOverlay = true
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
-                                viewModel.loadEpisode(currentEp)
+                                viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(currentEp))
                             }
                         },
                         onPlaybackReady = {

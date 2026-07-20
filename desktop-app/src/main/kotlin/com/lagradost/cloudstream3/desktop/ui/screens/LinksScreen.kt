@@ -29,6 +29,8 @@ import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import com.lagradost.player.impl.VlcPlayer
+import com.lagradost.cloudstream3.desktop.ui.screens.links.LinksViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -57,11 +59,12 @@ fun LinksSidePanel(
         }
     }
 
-    // Observe ViewModel state
-    val links by viewModel.links.collectAsState()
-    val subtitles by viewModel.subtitles.collectAsState()
-    val statusText by viewModel.statusText.collectAsState()
-    val isScraping by viewModel.isScraping.collectAsState()
+    // Observe unified MVI state
+    val uiState by viewModel.uiState.collectAsState()
+    val links = uiState.links
+    val subtitles = uiState.subtitles
+    val statusText = uiState.statusText
+    val isScraping = uiState.isScraping
 
     // Local UI-only state (player launch feedback, filters)
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
@@ -103,7 +106,7 @@ fun LinksSidePanel(
 
     // Kick off scraping whenever dataUrl changes
     LaunchedEffect(dataUrl) {
-        viewModel.scrapeLinks(provider, dataUrl)
+        viewModel.onEvent(LinksUiEvent.OnScrape(provider, dataUrl))
     }
 
     // VLC state observations
@@ -118,7 +121,7 @@ fun LinksSidePanel(
             val posSec = posMs / 1000L
             if (kotlin.math.abs(posSec - lastVlcSavedPositionSec) >= 5) {
                 lastVlcSavedPositionSec = posSec
-                viewModel.saveWatchPosition(history, posMs, durMs)
+                viewModel.onEvent(LinksUiEvent.OnSaveWatchPosition(history, posMs, durMs))
             }
         }
     }
@@ -126,7 +129,7 @@ fun LinksSidePanel(
     DisposableEffect(isAnyPlaying) {
         onDispose {
             if (!isAnyPlaying && vlcState.position > 0 && vlcState.duration > 0) {
-                viewModel.saveWatchPosition(history, vlcState.position, vlcState.duration)
+                viewModel.onEvent(LinksUiEvent.OnSaveWatchPosition(history, vlcState.position, vlcState.duration))
             }
         }
     }
@@ -134,7 +137,7 @@ fun LinksSidePanel(
     LaunchedEffect(isAnyPlaying) {
         if (!isAnyPlaying) {
             if (statusText == "Player started." || statusText.startsWith("Playing:")) {
-                viewModel.setStatus("Ready — ${links.size} stream${if (links.size == 1) "" else "s"} available.")
+                viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Ready — ${links.size} stream${if (links.size == 1) "" else "s"} available."))
             }
             isLaunchingPlayer = false
             currentPlayingUrl = null
@@ -150,7 +153,7 @@ fun LinksSidePanel(
             val isVlcError = vlcState.error != null
             if (autoPlay && isVlcError && currentIndex != -1 && currentIndex + 1 < filteredLinks.size) {
                 val nextLink = filteredLinks[currentIndex + 1]
-                viewModel.setStatus("Link failed. Auto-trying next: ${nextLink.name}")
+                viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Link failed. Auto-trying next: ${nextLink.name}"))
                 embeddedError = null
                 playerLaunchError = null
                 delay(800)
@@ -169,14 +172,14 @@ fun LinksSidePanel(
                     coroutineScope = coroutineScope,
                     vlcPlayer = vlcPlayer,
                     playVideo = playVideo,
-                    onStatusChange = { viewModel.setStatus(it) },
+                    onStatusChange = { viewModel.onEvent(LinksUiEvent.OnStatusTextChanged(it)) },
                     onLaunching = { isLaunchingPlayer = it },
                     onCurrentUrl = { currentPlayingUrl = it },
                     onEmbeddedError = { embeddedError = it },
                 )
             } else {
                 playerLaunchError = errorMessage
-                viewModel.setStatus("Playback failed: $errorMessage")
+                viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Playback failed: $errorMessage"))
                 isLaunchingPlayer = false
                 currentPlayingUrl = null
                 embeddedError = null
@@ -214,7 +217,7 @@ fun LinksSidePanel(
                     statusText = statusText,
                     isLoading = isScraping || isLaunchingPlayer,
                     isScraping = isScraping,
-                    onStop = { viewModel.cancelScrape() },
+                    onStop = { viewModel.onEvent(LinksUiEvent.OnCancelScrape) },
                 )
 
                 PlayerSelector(
@@ -298,7 +301,7 @@ fun LinksSidePanel(
                                     coroutineScope = coroutineScope,
                                     vlcPlayer = vlcPlayer,
                                     playVideo = playVideo,
-                                    onStatusChange = { viewModel.setStatus(it) },
+                                    onStatusChange = { viewModel.onEvent(LinksUiEvent.OnStatusTextChanged(it)) },
                                     onLaunching = { isLaunchingPlayer = it },
                                     onCurrentUrl = { currentPlayingUrl = it },
                                     onEmbeddedError = { embeddedError = it },
@@ -308,7 +311,7 @@ fun LinksSidePanel(
                                 if (link.url.isNotBlank()) {
                                     val selection = java.awt.datatransfer.StringSelection(link.url)
                                     java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
-                                    viewModel.setStatus("URL copied to clipboard.")
+                                    viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("URL copied to clipboard."))
                                 }
                             },
                         )

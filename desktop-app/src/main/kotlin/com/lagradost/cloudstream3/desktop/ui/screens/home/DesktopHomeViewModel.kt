@@ -1,25 +1,24 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
+import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.cancel
-import java.awt.Color
-import java.awt.image.BufferedImage
-import javax.imageio.ImageIO
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 const val PREF_GLOBAL_SEARCH = "global_search_enabled"
@@ -35,98 +34,61 @@ fun MainAPI.isRealProvider(): Boolean {
     return true
 }
 
-class DesktopHomeViewModel {
-    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+typealias HomeUiState = com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
+
+class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
+    initialState = HomeUiState()
+) {
     private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-    private val _providers = MutableStateFlow<List<MainAPI>>(emptyList())
-    val providers = _providers.asStateFlow()
+    val providers: StateFlow<List<MainAPI>> = uiState.map { it.providers }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.providers)
 
-    private val _selectedProviderName = MutableStateFlow<String?>(null)
-    val selectedProviderName = _selectedProviderName.asStateFlow()
+    val selectedProviderName: StateFlow<String?> = uiState.map { it.selectedProviderName }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.selectedProviderName)
 
-    val selectedProvider: StateFlow<MainAPI?> = combine(_providers, _selectedProviderName) { provs, name ->
-        provs.firstOrNull { it.name == name }
-    }.stateIn(coroutineScope, SharingStarted.Eagerly, null)
+    val selectedProvider: StateFlow<MainAPI?> = uiState.map { it.selectedProvider }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.selectedProvider)
 
-    private val _searchResultsGrouped = MutableStateFlow<List<Pair<MainAPI, List<SearchResponse>>>?>(null)
-    val searchResultsGrouped = _searchResultsGrouped.asStateFlow()
+    val searchResultsGrouped: StateFlow<List<Pair<MainAPI, List<SearchResponse>>>?> = uiState.map { it.searchResultsGrouped }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.searchResultsGrouped)
 
-    private val _isLoadingSearch = MutableStateFlow(false)
-    val isLoadingSearch = _isLoadingSearch.asStateFlow()
+    val isLoadingSearch: StateFlow<Boolean> = uiState.map { it.isLoadingSearch }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isLoadingSearch)
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
+    val searchQuery: StateFlow<String> = uiState.map { it.searchQuery }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.searchQuery)
 
-    private val _isGlobalSearchEnabled = MutableStateFlow(false)
-    val isGlobalSearchEnabled = _isGlobalSearchEnabled.asStateFlow()
+    val isGlobalSearchEnabled: StateFlow<Boolean> = uiState.map { it.isGlobalSearchEnabled }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isGlobalSearchEnabled)
 
-    private val _errorSnapshot = MutableStateFlow(DesktopErrorReporter.getSnapshot())
-    val errorSnapshot = _errorSnapshot.asStateFlow()
+    val errorSnapshot: StateFlow<String> = uiState.map { it.errorSnapshot }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.errorSnapshot)
 
-    private val _historyList = MutableStateFlow<List<com.lagradost.common.storage.WatchHistory>>(emptyList())
-    val historyList = _historyList.asStateFlow()
+    val historyList: StateFlow<List<com.lagradost.common.storage.WatchHistory>> = uiState.map { it.historyList }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.historyList)
 
-    private val _mergedPluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
-    val mergedPluginIcons = _mergedPluginIcons.asStateFlow()
+    val mergedPluginIcons: StateFlow<Map<String, String>> = uiState.map { it.mergedPluginIcons }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.mergedPluginIcons)
 
-    private val _heroMetaMap = MutableStateFlow<Map<String, HeroMeta>>(emptyMap())
-    val heroMetaMap = _heroMetaMap.asStateFlow()
+    val heroMetaMap: StateFlow<Map<String, HeroMeta>> = uiState.map { it.heroMetaMap }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.heroMetaMap)
 
-    // The dominant vibrant color extracted from the currently featured hero image
-    private val _heroExtractedColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
-    val heroExtractedColor = _heroExtractedColor.asStateFlow()
+    val heroExtractedColor: StateFlow<Color?> = uiState.map { it.heroExtractedColor }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.heroExtractedColor)
 
-    // Per-item color map so each hero page has its OWN preloaded color — no cross-bleed during transitions
-    private val _heroColorMap = MutableStateFlow<Map<String, androidx.compose.ui.graphics.Color>>(emptyMap())
-    val heroColorMap = _heroColorMap.asStateFlow()
-
-    fun updateHeroColor(imageUrl: String?, itemUrl: String? = null) {
-        if (imageUrl == null) {
-            if (itemUrl == null) _heroExtractedColor.value = null
-            return
-        }
-        // Return cached result immediately from global cache if available
-        com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.getCachedColor(imageUrl)?.let { cached ->
-            if (itemUrl == null) {
-                // Called for current displayed item — update live color
-                _heroExtractedColor.value = cached
-            } else {
-                // Called for a prefetched item — only populate the per-item map, NEVER override live color
-                _heroColorMap.update { map -> map + (itemUrl to cached) }
-            }
-            return
-        }
-        coroutineScope.launch(Dispatchers.IO) {
-            val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl) ?: return@launch
-            if (itemUrl == null) {
-                _heroExtractedColor.value = dominant
-            } else {
-                _heroColorMap.update { map -> map + (itemUrl to dominant) }
-            }
-        }
-    }
-
-    fun setCurrentHeroColor(itemUrl: String?) {
-        if (itemUrl != null) {
-            _heroColorMap.value[itemUrl]?.let { _heroExtractedColor.value = it }
-        }
-    }
-
-
+    val heroColorMap: StateFlow<Map<String, Color>> = uiState.map { it.heroColorMap }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.heroColorMap)
 
     init {
-        // Initialize providers
         updateProviders()
 
-        // Load saved provider preference
         val savedName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
         if (savedName != null && APIHolder.allProviders.any { it.name == savedName && it.isRealProvider() }) {
-            _selectedProviderName.value = savedName
+            updateState { copy(selectedProviderName = savedName) }
         }
 
-        // Save selected provider when it changes
-        coroutineScope.launch {
+        viewModelScope.launch {
             selectedProviderName.collect { name ->
                 if (!name.isNullOrBlank()) {
                     DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, name)
@@ -136,37 +98,33 @@ class DesktopHomeViewModel {
             }
         }
 
-        // Initialize and persist global search toggle
-        _isGlobalSearchEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_GLOBAL_SEARCH) ?: false
-        coroutineScope.launch {
+        updateState { copy(isGlobalSearchEnabled = DesktopDataStore.getKey<Boolean>(PREF_GLOBAL_SEARCH) ?: false) }
+        viewModelScope.launch {
             isGlobalSearchEnabled.collect { enabled ->
                 DesktopDataStore.setKey(PREF_GLOBAL_SEARCH, enabled)
             }
         }
 
-        // Poll for provider updates
-        coroutineScope.launch {
+        viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(1000)
                 updateProviders()
             }
         }
 
-        // Auto-search on typing
-        coroutineScope.launch {
+        viewModelScope.launch {
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             searchQuery.debounce(500)
                 .collectLatest { query ->
                     if (query.isBlank()) {
-                        _searchResultsGrouped.value = null
+                        updateState { copy(searchResultsGrouped = null) }
                     } else {
                         search()
                     }
                 }
         }
 
-        // Listen for sync generation updates
-        coroutineScope.launch {
+        viewModelScope.launch {
             DesktopRepositoryManager.syncGeneration.collect { syncGen ->
                 if (syncGen > 0) {
                     updateProviders()
@@ -175,32 +133,80 @@ class DesktopHomeViewModel {
             }
         }
 
-        // Handle history updates
-        coroutineScope.launch {
+        viewModelScope.launch {
             combine(selectedProvider, DesktopDataStore.historyUpdates) { _, _ -> }.collect {
                 updateHistory()
             }
         }
 
-
-
         updateHistory()
         reloadIcons()
     }
 
+    override fun handleEvent(event: HomeUiEvent) {
+        when (event) {
+            is HomeUiEvent.OnSearchQueryChange -> setSearchQuery(event.query)
+            is HomeUiEvent.OnSearch -> search()
+            is HomeUiEvent.OnClearSearch -> {
+                setSearchQuery("")
+                clearSearchResults()
+            }
+            is HomeUiEvent.OnSelectProvider -> {
+                setSelectedProvider(event.providerName)
+                clearSearchResults()
+            }
+            is HomeUiEvent.OnClearHistory -> clearHistory()
+            is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
+            is HomeUiEvent.OnPrefetchHeroItem -> prefetchHeroItem(event.provider, event.item)
+            is HomeUiEvent.OnSetCurrentHeroColor -> setCurrentHeroColor(event.itemUrl)
+            is HomeUiEvent.OnUpdateHeroColor -> updateHeroColor(event.imageUrl, event.itemUrl)
+        }
+    }
+
+    fun updateHeroColor(imageUrl: String?, itemUrl: String? = null) {
+        if (imageUrl == null) {
+            if (itemUrl == null) updateState { copy(heroExtractedColor = null) }
+            return
+        }
+        com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.getCachedColor(imageUrl)?.let { cached ->
+            if (itemUrl == null) {
+                updateState { copy(heroExtractedColor = cached) }
+            } else {
+                updateState { copy(heroColorMap = heroColorMap + (itemUrl to cached)) }
+            }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val dominant = com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor.extractDominantColorFromUrl(imageUrl) ?: return@launch
+            if (itemUrl == null) {
+                updateState { copy(heroExtractedColor = dominant) }
+            } else {
+                updateState { copy(heroColorMap = heroColorMap + (itemUrl to dominant)) }
+            }
+        }
+    }
+
+    fun setCurrentHeroColor(itemUrl: String?) {
+        if (itemUrl != null) {
+            uiState.value.heroColorMap[itemUrl]?.let { color ->
+                updateState { copy(heroExtractedColor = color) }
+            }
+        }
+    }
+
     private fun updateProviders() {
         val currentProviders = APIHolder.allProviders.filter { it.isRealProvider() }
-        if (currentProviders.size != providers.value.size || !currentProviders.containsAll(providers.value)) {
-            _providers.value = currentProviders
-            val currentSelection = selectedProviderName.value
+        val currentProvState = uiState.value.providers
+        if (currentProviders.size != currentProvState.size || !currentProviders.containsAll(currentProvState)) {
+            val currentSelection = uiState.value.selectedProviderName
             if (currentSelection != null && currentProviders.none { it.name == currentSelection }) {
-                _selectedProviderName.value = currentProviders.firstOrNull()?.name
-                _searchResultsGrouped.value = null
-            } else if (selectedProviderName.value == null && currentProviders.isNotEmpty()) {
+                updateState { copy(providers = currentProviders, selectedProviderName = currentProviders.firstOrNull()?.name, searchResultsGrouped = null) }
+            } else if (currentSelection == null && currentProviders.isNotEmpty()) {
                 val restored = currentProviders.firstOrNull { it.name == DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER) }
-                if (restored != null) {
-                    _selectedProviderName.value = restored.name
-                }
+                val targetName = restored?.name
+                updateState { copy(providers = currentProviders, selectedProviderName = targetName ?: selectedProviderName) }
+            } else {
+                updateState { copy(providers = currentProviders) }
             }
         }
     }
@@ -214,15 +220,15 @@ class DesktopHomeViewModel {
                 val percentage = if (it.duration > 0) (it.position.toFloat() / it.duration) else 0f
                 percentage < 0.90f
             }
-        _historyList.value = newHistory
+        updateState { copy(historyList = newHistory) }
         prefetchTopHistory(newHistory.take(3))
     }
 
     private fun prefetchTopHistory(topHistory: List<com.lagradost.common.storage.WatchHistory>) {
         if (topHistory.isEmpty()) return
-        coroutineScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO) {
             for (history in topHistory) {
-                val provider = providers.value.find { it.name == history.apiName }
+                val provider = uiState.value.providers.find { it.name == history.apiName }
                 if (provider != null && !com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache.containsKey(history.showUrl)) {
                     try {
                         val raw = com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository.fetchRaw(provider, history.showUrl)
@@ -230,7 +236,7 @@ class DesktopHomeViewModel {
                             com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(raw, history.showUrl, onScreenshotsLoaded = {})
                         }
                     } catch (e: Exception) {
-                        com.lagradost.common.logging.AppLogger.e("HomeScreen", "Failed to prefetch history item", e)
+                        AppLogger.e("HomeScreen", "Failed to prefetch history item", e)
                     }
                 }
             }
@@ -239,17 +245,17 @@ class DesktopHomeViewModel {
 
     fun prefetchHeroItem(provider: MainAPI?, item: SearchResponse) {
         val cacheKey = "${provider?.name}_${item.url}"
-        if (heroMetaMap.value.containsKey(item.url)) return
+        if (uiState.value.heroMetaMap.containsKey(item.url)) return
 
         val existing = HeroCache.get(cacheKey)
         if (existing != null) {
-            _heroMetaMap.update { it + (item.url to existing) }
+            updateState { copy(heroMetaMap = heroMetaMap + (item.url to existing)) }
             return
         }
 
         if (!prefetchingUrls.add(cacheKey)) return
 
-        coroutineScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val dummyTitle = cleanHeroTitle(item.name)
 
@@ -270,21 +276,18 @@ class DesktopHomeViewModel {
                     val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: cleanHeroTitle(item.name)
                     val tags = dummy.tags?.take(4) ?: emptyList()
                     val plot = dummy.plot?.take(200)
-                    val score = dummy.score?.toString() // Fallback if toStringNull isn't strictly available here
+                    val score = dummy.score?.toString()
 
                     val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
                     HeroCache.put(cacheKey, meta)
-                    _heroMetaMap.update { it + (item.url to meta) }
-
-                    // Pre-calculate the dominant color in the background so it's ready instantly when this item is displayed
+                    updateState { copy(heroMetaMap = heroMetaMap + (item.url to meta)) }
                     updateHeroColor(backdropUrl ?: provider.fixUrlNull(item.posterUrl), itemUrl = item.url)
                 } else {
                     val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
                     HeroCache.put(cacheKey, meta)
-                    _heroMetaMap.update { it + (item.url to meta) }
+                    updateState { copy(heroMetaMap = heroMetaMap + (item.url to meta)) }
                 }
 
-                // SLOW PATH
                 if (provider != null) {
                     var details: com.lagradost.cloudstream3.LoadResponse? = null
                     var attempt = 0
@@ -305,9 +308,7 @@ class DesktopHomeViewModel {
                     }
 
                     if (details != null) {
-                        val currentMeta = heroMetaMap.value[item.url]
-
-                        // Initial update with raw scraped data while we wait for TMDB
+                        val currentMeta = uiState.value.heroMetaMap[item.url]
                         val cleanDetailsName = cleanHeroTitle(details.name)
                         val newTitle = cleanDetailsName.takeIf { it.isNotBlank() } ?: currentMeta?.title
                         val newBackdrop = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.backdropUrl
@@ -322,25 +323,22 @@ class DesktopHomeViewModel {
 
                         val rawMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
                         HeroCache.put(cacheKey, rawMeta)
-                        _heroMetaMap.update { it + (item.url to rawMeta) }
+                        updateState { copy(heroMetaMap = heroMetaMap + (item.url to rawMeta)) }
                         if (newBackdrop != null) updateHeroColor(newBackdrop, itemUrl = item.url)
 
-                        // Launch background TMDB enrichment and update UI when finished!
                         com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(
                             loaded = details,
                             url = item.url,
                             onScreenshotsLoaded = {},
                             onEnrichmentComplete = {
-                                // TMDB finished! Overwrite with beautiful enriched data (logo, backdrop, title)
-                                val enrichedMeta = heroMetaMap.value[item.url] ?: rawMeta
+                                val enrichedMeta = uiState.value.heroMetaMap[item.url] ?: rawMeta
                                 val finalMeta = enrichedMeta.copy(
                                     title = cleanHeroTitle(details.name).takeIf { it.isNotBlank() } ?: enrichedMeta.title,
                                     backdropUrl = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.backdropUrl,
                                     logoUrl = details.logoUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.logoUrl,
                                 )
                                 HeroCache.put(cacheKey, finalMeta)
-                                _heroMetaMap.update { it + (item.url to finalMeta) }
-                                // Re-extract color now that we have the real high-quality backdrop
+                                updateState { copy(heroMetaMap = heroMetaMap + (item.url to finalMeta)) }
                                 if (finalMeta.backdropUrl != null) updateHeroColor(finalMeta.backdropUrl, itemUrl = item.url)
                             },
                         )
@@ -349,9 +347,8 @@ class DesktopHomeViewModel {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // If all retries fail, clear the dummy cache so we can attempt fetching again next time they swipe here
                 HeroCache.remove(cacheKey)
-                _heroMetaMap.update { it - item.url }
+                updateState { copy(heroMetaMap = heroMetaMap - item.url) }
             } finally {
                 prefetchingUrls.remove(cacheKey)
             }
@@ -359,23 +356,23 @@ class DesktopHomeViewModel {
     }
 
     private fun reloadIcons() {
-        coroutineScope.launch(Dispatchers.IO) {
-            _mergedPluginIcons.value = DesktopRepositoryManager.remotePluginIcons.value
+        viewModelScope.launch(Dispatchers.IO) {
+            val icons = DesktopRepositoryManager.remotePluginIcons.value
+            updateState { copy(mergedPluginIcons = icons) }
         }
     }
 
     fun search() {
-        val query = searchQuery.value
+        val query = uiState.value.searchQuery
         if (query.isBlank()) return
 
-        coroutineScope.launch {
-            _isLoadingSearch.value = true
-            _searchResultsGrouped.value = emptyList()
+        viewModelScope.launch {
+            updateState { copy(isLoadingSearch = true, searchResultsGrouped = emptyList()) }
             try {
-                val activeProviders = if (isGlobalSearchEnabled.value) {
-                    providers.value.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
+                val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
+                    uiState.value.providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
                 } else {
-                    selectedProvider.value?.let { listOf(it) } ?: emptyList()
+                    uiState.value.selectedProvider?.let { listOf(it) } ?: emptyList()
                 }
 
                 val resultsArray = Array<Pair<MainAPI, List<SearchResponse>>?>(activeProviders.size) { null }
@@ -387,7 +384,8 @@ class DesktopHomeViewModel {
                                 val res = p.search(query, 1)
                                 if (res != null && res.items.isNotEmpty()) {
                                     resultsArray[index] = Pair(p, res.items)
-                                    _searchResultsGrouped.value = resultsArray.filterNotNull()
+                                    val nonNull = resultsArray.filterNotNull()
+                                    updateState { copy(searchResultsGrouped = nonNull) }
                                 }
                             } catch (e: kotlinx.coroutines.CancellationException) {
                                 throw e
@@ -400,14 +398,14 @@ class DesktopHomeViewModel {
             } catch (e: Throwable) {
                 DesktopErrorReporter.report("Search failed", e)
             } finally {
-                _isLoadingSearch.value = false
+                updateState { copy(isLoadingSearch = false) }
             }
         }
     }
 
     fun clearHistory() {
         DesktopDataStore.clearAllWatchHistory()
-        _historyList.value = emptyList()
+        updateState { copy(historyList = emptyList()) }
     }
 
     fun removeHistoryItem(parentId: String) {
@@ -416,33 +414,34 @@ class DesktopHomeViewModel {
     }
 
     fun refreshErrorSnapshot() {
-        _errorSnapshot.value = DesktopErrorReporter.getSnapshot()
+        updateState { copy(errorSnapshot = DesktopErrorReporter.getSnapshot()) }
     }
 
     fun reloadProvider() {
-        val current = selectedProviderName.value
+        val current = uiState.value.selectedProviderName
         if (current != null) {
-            coroutineScope.launch {
-                _selectedProviderName.value = null
+            viewModelScope.launch {
+                updateState { copy(selectedProviderName = null) }
                 kotlinx.coroutines.delay(10)
-                _selectedProviderName.value = current
+                updateState { copy(selectedProviderName = current) }
             }
         }
     }
 
     fun setSearchQuery(query: String) {
-        _searchQuery.value = query
+        updateState { copy(searchQuery = query) }
     }
 
     fun clearSearchResults() {
-        _searchResultsGrouped.value = null
+        updateState { copy(searchResultsGrouped = null) }
     }
 
     fun setSelectedProvider(name: String?) {
-        _selectedProviderName.value = name
+        updateState { copy(selectedProviderName = name) }
     }
 
-    fun dispose() {
-        coroutineScope.cancel()
+    override fun dispose() {
+        super.dispose()
+        prefetchingUrls.clear()
     }
 }

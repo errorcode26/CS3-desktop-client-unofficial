@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
@@ -32,14 +33,16 @@ fun ComposeHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
 
-    val providers by viewModel.providers.collectAsState()
-    val selectedProvider by viewModel.selectedProvider.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchResultsGrouped by viewModel.searchResultsGrouped.collectAsState()
-    val isLoadingSearch by viewModel.isLoadingSearch.collectAsState()
-    val historyList by viewModel.historyList.collectAsState()
-    val mergedPluginIcons by viewModel.mergedPluginIcons.collectAsState()
-    val errorSnapshot by viewModel.errorSnapshot.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val providers = uiState.providers
+    val selectedProvider = uiState.selectedProvider
+    val searchQuery = uiState.searchQuery
+    val searchResultsGrouped = uiState.searchResultsGrouped
+    val isLoadingSearch = uiState.isLoadingSearch
+    val historyList = uiState.historyList
+    val mergedPluginIcons = uiState.mergedPluginIcons
+    val errorSnapshot = uiState.errorSnapshot
+    val heroColor = uiState.heroExtractedColor
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
@@ -49,7 +52,6 @@ fun ComposeHomeScreen(
         .map { DesktopDataStore.getUpdatesHistory() }
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
 
-    val heroColor by viewModel.heroExtractedColor.collectAsState()
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
@@ -129,8 +131,8 @@ fun ComposeHomeScreen(
                                 HomeHistoryRow(
                                     historyList = historyList,
                                     providers = providers,
-                                    onClearHistory = { viewModel.clearHistory() },
-                                    onRemoveHistoryItem = { viewModel.removeHistoryItem(it) },
+                                    onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
+                                    onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
                                     onItemClick = { prov, hist ->
                                         navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
                                     },
@@ -209,19 +211,17 @@ fun ComposeHomeScreen(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             AnimatedSearchOverlay(
                 searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.setSearchQuery(it) },
-                onSearch = { viewModel.search() },
+                onSearchQueryChange = { viewModel.onEvent(HomeUiEvent.OnSearchQueryChange(it)) },
+                onSearch = { viewModel.onEvent(HomeUiEvent.OnSearch) },
                 onClose = {
-                    viewModel.setSearchQuery("")
-                    viewModel.clearSearchResults()
+                    viewModel.onEvent(HomeUiEvent.OnClearSearch)
                     searchUiState.isSearchForced = false
                 },
                 isSearchActive = isSearchActive,
                 providers = providers,
                 selectedProvider = selectedProvider,
                 onProviderSelected = {
-                    viewModel.setSelectedProvider(it)
-                    viewModel.clearSearchResults()
+                    viewModel.onEvent(HomeUiEvent.OnSelectProvider(it))
                 },
                 mergedPluginIcons = mergedPluginIcons,
             )

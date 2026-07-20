@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,7 +26,8 @@ fun ComposeExtensionScreen(navController: NavController) {
         onDispose { viewModel.dispose() }
     }
     val syncGen by viewModel.syncGeneration.collectAsState()
-    val inspectedRepoName by viewModel.inspectedRepoName.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val inspectedRepoName = uiState.inspectedRepoName
 
     LaunchedEffect(inspectedRepoName) {
         if (!inspectedRepoName.isNullOrBlank()) {
@@ -34,8 +36,8 @@ fun ComposeExtensionScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
-        viewModel.loadPluginsFromManager()
-        viewModel.refreshInstalled()
+        viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
+        viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
     }
 
     Row(

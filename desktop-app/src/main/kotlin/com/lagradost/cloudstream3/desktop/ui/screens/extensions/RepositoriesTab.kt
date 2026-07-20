@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,7 +50,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 repoUrl = ""
                                 val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
                                 statusText = "Added ${addedRepos.size} repository(s): $repoNames. Syncing..."
-                                viewModel.loadPluginsFromManager()
+                                viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
                                 statusText = "Repositories added and synced successfully."
                             } else {
                                 statusText = "Failed to load repository. Check the URL and try again."
@@ -87,9 +88,10 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             else -> 320.dp
         }
 
-        val allPlugins by viewModel.plugins.collectAsState()
-        val installedPlugins by viewModel.installedPlugins.collectAsState()
-        val inspectedRepoName by viewModel.inspectedRepoName.collectAsState()
+        val uiState by viewModel.uiState.collectAsState()
+        val allPlugins = uiState.plugins
+        val installedPlugins = uiState.installedPlugins
+        val inspectedRepoName = uiState.inspectedRepoName
         var selectedRepoForDetail by remember { mutableStateOf<com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData?>(null) }
         var repoSearchQuery by remember { mutableStateOf("") }
 
@@ -122,7 +124,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 onDismissRequest = {
                     selectedRepoForDetail = null
                     repoSearchQuery = ""
-                    viewModel.inspectRepository("")
+                    viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
                 },
                 properties = DialogProperties(usePlatformDefaultWidth = false),
                 modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.90f),
@@ -248,13 +250,13 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         onInstallClick = {
                                             isInstalling = true
                                             installStatus = "Installing..."
-                                            viewModel.installPlugin(repo.name, plugin) { result ->
+                                            viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
                                                 isInstalling = false
                                                 installStatus = result
-                                            }
+                                            })
                                         },
                                         onUninstallClick = {
-                                            viewModel.uninstallByInternalName(plugin.internalName)
+                                            viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))
                                             installStatus = ""
                                         },
                                         description = plugin.description,
@@ -269,7 +271,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                     TextButton(onClick = {
                         selectedRepoForDetail = null
                         repoSearchQuery = ""
-                        viewModel.inspectRepository("")
+                        viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
                     }) {
                         Text("Close")
                     }
@@ -277,9 +279,9 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 dismissButton = {
                     TextButton(
                         onClick = {
-                            viewModel.removeRepository(repo.url)
+                            viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
                             selectedRepoForDetail = null
-                            viewModel.inspectRepository("")
+                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
                         },
                     ) {
                         Text("Remove Repository", color = MaterialTheme.colorScheme.error)
@@ -379,7 +381,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             }
                             TextButton(
                                 onClick = {
-                                    viewModel.removeRepository(repo.url)
+                                    viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp),

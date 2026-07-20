@@ -2,14 +2,12 @@ package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.SitePlugin
+import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
 import com.lagradost.runtime.loader.ExtensionLoader
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -27,44 +25,37 @@ data class LocalPlugin(
     val fileSize: Long = 0L,
 )
 
-class ExtensionsViewModel {
-    private val coroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
-
-    fun dispose() {
-        coroutineScope.cancel()
-    }
-
-    private val _isFetching = MutableStateFlow(false)
-    val isFetching = _isFetching.asStateFlow()
-
-    private val _statusText = MutableStateFlow("Press Sync (sidebar) or Fetch below to load plugins from your repositories.")
-    val statusText = _statusText.asStateFlow()
-
-    private val _plugins = MutableStateFlow<List<Pair<String, SitePlugin>>>(emptyList())
-    val plugins = _plugins.asStateFlow()
-
-    private val _installedPlugins = MutableStateFlow<List<LocalPlugin>>(emptyList())
-    val installedPlugins = _installedPlugins.asStateFlow()
-
-    private val _pluginRequiringBypass = MutableStateFlow<Pair<String, SitePlugin>?>(null)
-    val pluginRequiringBypass = _pluginRequiringBypass.asStateFlow()
-
-    private val _pluginRequiringPermission = MutableStateFlow<Triple<String, SitePlugin, String>?>(null)
-    val pluginRequiringPermission = _pluginRequiringPermission.asStateFlow()
-
-    private val _inspectedRepoName = MutableStateFlow<String?>(null)
-    val inspectedRepoName: StateFlow<String?> = _inspectedRepoName.asStateFlow()
-
+class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEvent, ExtensionsUiEffect>(
+    initialState = ExtensionsUiState()
+) {
     val savedRepositories = DesktopRepositoryManager.savedRepositories
     val remotePluginIcons = DesktopRepositoryManager.remotePluginIcons
     val syncGeneration = DesktopRepositoryManager.syncGeneration
+
+    override fun handleEvent(event: ExtensionsUiEvent) {
+        when (event) {
+            is ExtensionsUiEvent.OnFetchPlugins -> fetchPlugins()
+            is ExtensionsUiEvent.OnLoadPluginsFromManager -> loadPluginsFromManager()
+            is ExtensionsUiEvent.OnRefreshInstalled -> refreshInstalled()
+            is ExtensionsUiEvent.OnInspectRepository -> inspectRepository(event.repoName)
+            is ExtensionsUiEvent.OnInstallPlugin -> installPlugin(event.repoName, event.plugin, event.onResult)
+            is ExtensionsUiEvent.OnUninstallPlugins -> uninstallPlugins(event.plugins)
+            is ExtensionsUiEvent.OnUninstallByInternalName -> uninstallByInternalName(event.internalName)
+            is ExtensionsUiEvent.OnLoadLocalPlugin -> loadLocalPlugin(event.file)
+            is ExtensionsUiEvent.OnRemoveRepository -> removeRepository(event.url)
+            is ExtensionsUiEvent.OnClearBypass -> clearBypass()
+            is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin)
+            is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
+            is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName)
+        }
+    }
 
     suspend fun addRepositoryFromInput(input: String): List<com.lagradost.cloudstream3.desktop.repo.Repository>? = withContext(Dispatchers.IO) {
         DesktopRepositoryManager.addRepositoryFromInput(input)
     }
 
-    fun removeRepository(url: String) {
-        coroutineScope.launch(Dispatchers.IO) {
+    private fun removeRepository(url: String) {
+        viewModelScope.launch(Dispatchers.IO) {
             DesktopRepositoryManager.removeRepository(url)
         }
     }
@@ -81,34 +72,35 @@ class ExtensionsViewModel {
 
     fun markIconFailed(url: String) = DesktopRepositoryManager.markIconFailed(url)
 
-    fun inspectRepository(repoName: String) {
-        _inspectedRepoName.value = repoName
+    private fun inspectRepository(repoName: String?) {
+        updateState { copy(inspectedRepoName = repoName) }
     }
 
-    fun fetchPlugins() {
-        _isFetching.value = true
-        _statusText.value = "Fetching plugins from repositories..."
-        coroutineScope.launch {
+    private fun fetchPlugins() {
+        updateState { copy(isFetching = true, statusText = "Fetching plugins from repositories...") }
+        viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.syncAll()
                 }
-                _plugins.value = DesktopRepositoryManager.getAllPlugins()
-                _statusText.value = "Fetched ${_plugins.value.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+                val allPlugins = DesktopRepositoryManager.getAllPlugins()
+                val text = "Fetched ${allPlugins.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+                updateState { copy(plugins = allPlugins, statusText = text) }
             } catch (e: Throwable) {
-                _statusText.value = "Error: ${e.message}"
+                updateState { copy(statusText = "Error: ${e.message}") }
             } finally {
-                _isFetching.value = false
+                updateState { copy(isFetching = false) }
             }
         }
     }
 
-    fun loadPluginsFromManager() {
-        _plugins.value = DesktopRepositoryManager.getAllPlugins()
-        _statusText.value = "Showing ${_plugins.value.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+    private fun loadPluginsFromManager() {
+        val allPlugins = DesktopRepositoryManager.getAllPlugins()
+        val text = "Showing ${allPlugins.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+        updateState { copy(plugins = allPlugins, statusText = text) }
     }
 
-    fun refreshInstalled() {
+    private fun refreshInstalled() {
         val list = mutableListOf<LocalPlugin>()
         val extensionsDir = DesktopRepositoryManager.getExtensionsDir()
         val allRemote = DesktopRepositoryManager.getAllPlugins()
@@ -138,11 +130,11 @@ class ExtensionsViewModel {
                     list.add(LocalPlugin(jar, name, internalName, version, iconUrl, repoName, language, tvTypes, description, jar.length()))
                 }
         }
-        _installedPlugins.value = list
+        updateState { copy(installedPlugins = list) }
     }
 
-    fun installPlugin(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
-        coroutineScope.launch {
+    private fun installPlugin(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
+        viewModelScope.launch {
             try {
                 val jarFile = withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.downloadPlugin(repoName, plugin)
@@ -159,11 +151,11 @@ class ExtensionsViewModel {
                 }
             } catch (e: com.lagradost.runtime.security.RequiresPermissionException) {
                 com.lagradost.common.logging.AppLogger.e("Permission required for plugin", e)
-                _pluginRequiringPermission.value = Triple(repoName, plugin, e.permissionName)
+                updateState { copy(pluginRequiringPermission = Triple(repoName, plugin, e.permissionName)) }
                 onResult("Requires Permission")
             } catch (e: java.lang.SecurityException) {
                 com.lagradost.common.logging.AppLogger.e("Security exception removing plugin", e)
-                _pluginRequiringBypass.value = Pair(repoName, plugin)
+                updateState { copy(pluginRequiringBypass = Pair(repoName, plugin)) }
                 onResult("Blocked (Security)")
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
@@ -178,9 +170,9 @@ class ExtensionsViewModel {
         }
     }
 
-    fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin) {
-        _pluginRequiringBypass.value = null
-        coroutineScope.launch {
+    private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin) {
+        updateState { copy(pluginRequiringBypass = null) }
+        viewModelScope.launch {
             try {
                 val jarFile = withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.downloadPlugin(repoName, plugin)
@@ -205,28 +197,26 @@ class ExtensionsViewModel {
         }
     }
 
-    fun clearBypass() {
-        _pluginRequiringBypass.value = null
+    private fun clearBypass() {
+        updateState { copy(pluginRequiringBypass = null) }
     }
 
-    fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
-        _pluginRequiringPermission.value = null
+    private fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
+        updateState { copy(pluginRequiringPermission = null) }
         com.lagradost.runtime.permission.PluginPermissionAPI.grantPermission(plugin.internalName, permissionName)
-        // Now that PluginSecurityVerifier checks PluginPermissionAPI, we can retry standard installation
         installPlugin(repoName, plugin) {}
     }
 
-    fun clearPermissionRequest() {
-        _pluginRequiringPermission.value = null
+    private fun clearPermissionRequest() {
+        updateState { copy(pluginRequiringPermission = null) }
     }
 
-    fun uninstallPlugins(plugins: List<LocalPlugin>) {
-        coroutineScope.launch(Dispatchers.IO) {
+    private fun uninstallPlugins(plugins: List<LocalPlugin>) {
+        viewModelScope.launch(Dispatchers.IO) {
             for (plugin in plugins) {
                 try {
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
-                    // Windows file lock release workaround
                     System.gc()
                     kotlinx.coroutines.delay(100)
 
@@ -260,17 +250,17 @@ class ExtensionsViewModel {
         }
     }
 
-    fun uninstallByInternalName(internalName: String) {
-        coroutineScope.launch(Dispatchers.IO) {
-            val installedMatch = _installedPlugins.value.find { it.internalName == internalName }
+    private fun uninstallByInternalName(internalName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val installedMatch = uiState.value.installedPlugins.find { it.internalName == internalName }
             if (installedMatch != null) {
                 uninstallPlugins(listOf(installedMatch))
             }
         }
     }
 
-    fun loadLocalPlugin(file: File) {
-        coroutineScope.launch(Dispatchers.IO) {
+    private fun loadLocalPlugin(file: File) {
+        viewModelScope.launch(Dispatchers.IO) {
             val targetDir = File(DesktopRepositoryManager.getExtensionsDir(), "Local_Sandbox")
             targetDir.mkdirs()
             val targetFile = File(targetDir, file.name)

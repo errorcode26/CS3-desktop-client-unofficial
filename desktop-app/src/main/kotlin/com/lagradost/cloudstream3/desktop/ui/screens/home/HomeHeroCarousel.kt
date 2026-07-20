@@ -39,6 +39,7 @@ import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
@@ -110,8 +111,9 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
     val displayItems = items.take(10)
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
-    val heroMetaMap by viewModel.heroMetaMap.collectAsState()
-    val heroColorMap by viewModel.heroColorMap.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val heroMetaMap = uiState.heroMetaMap
+    val heroColorMap = uiState.heroColorMap
     val scope = rememberCoroutineScope()
     var globalIndex by remember(displayItems.size) {
         mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
@@ -130,16 +132,16 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
     LaunchedEffect(displayItems) {
         for (item in displayItems) {
-            viewModel.prefetchHeroItem(provider, item)
+            viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(provider, item))
         }
     }
 
     LaunchedEffect(currentIndex) {
         val currentItem = displayItems.getOrNull(currentIndex)
-        viewModel.setCurrentHeroColor(currentItem?.url)
+        viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(currentItem?.url))
         val currentMeta = currentItem?.let { heroMetaMap[it.url] }
         val colorSourceUrl = currentMeta?.backdropUrl ?: provider?.fixUrlNull(currentItem?.posterUrl)
-        viewModel.updateHeroColor(colorSourceUrl)
+        viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(colorSourceUrl))
     }
 
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current

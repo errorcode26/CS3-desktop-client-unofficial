@@ -44,14 +44,36 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.DesktopWatchType
+import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeLibraryScreen(navController: NavController) {
-    val bookmarksMap by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
-    val bookmarksList = remember(bookmarksMap) { bookmarksMap.values.toList() }
+    val viewModel = remember { LibraryViewModel() }
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
+        }
+    }
 
-    var showError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is LibraryUiEffect.Navigate -> {
+                    navController.navigate(effect.screen)
+                }
+            }
+        }
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+    val bookmarksList = uiState.bookmarks
+    val filteredBookmarks = uiState.filteredBookmarks
+    val selectedTab = uiState.selectedTab
+    val showError = uiState.showError
+    val gridScale = uiState.gridScale
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (bookmarksList.isEmpty()) {
@@ -71,11 +93,6 @@ fun ComposeLibraryScreen(navController: NavController) {
                 }
             }
         } else {
-            var selectedTab by remember { mutableStateOf(DesktopWatchType.WATCHING) }
-            val filteredBookmarks = remember(bookmarksList, selectedTab) {
-                bookmarksList.filter { it.watchType == selectedTab.id }
-            }
-
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier
@@ -87,7 +104,7 @@ fun ComposeLibraryScreen(navController: NavController) {
                     DesktopWatchType.entries.forEach { tab ->
                         FilterChip(
                             selected = selectedTab == tab,
-                            onClick = { selectedTab = tab },
+                            onClick = { viewModel.onEvent(LibraryUiEvent.OnSelectTab(tab)) },
                             label = {
                                 Text(
                                     text = tab.stringRes,
@@ -110,7 +127,6 @@ fun ComposeLibraryScreen(navController: NavController) {
                         )
                     }
                 } else {
-                    val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
                     val minSize = when (gridScale) {
                         "Compact" -> 150.dp
                         "Large" -> 220.dp
@@ -128,15 +144,10 @@ fun ComposeLibraryScreen(navController: NavController) {
                             BookmarkCard(
                                 bookmark = bookmark,
                                 onClick = {
-                                    val provider = APIHolder.getApiFromNameNull(bookmark.apiName)
-                                    if (provider != null) {
-                                        navController.navigate(Screen.Details(provider.name, bookmark.url))
-                                    } else {
-                                        showError = "The provider '${bookmark.apiName}' is not loaded. Please install or enable it first."
-                                    }
+                                    viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark.apiName, bookmark.url))
                                 },
                                 onDelete = {
-                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmark.id)
+                                    viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
                                 },
                             )
                         }
@@ -148,11 +159,11 @@ fun ComposeLibraryScreen(navController: NavController) {
 
     if (showError != null) {
         AlertDialog(
-            onDismissRequest = { showError = null },
+            onDismissRequest = { viewModel.onEvent(LibraryUiEvent.OnDismissError) },
             title = { Text("Provider Missing") },
-            text = { Text(showError!!) },
+            text = { Text(showError) },
             confirmButton = {
-                Button(onClick = { showError = null }) { Text("OK") }
+                Button(onClick = { viewModel.onEvent(LibraryUiEvent.OnDismissError) }) { Text("OK") }
             },
         )
     }

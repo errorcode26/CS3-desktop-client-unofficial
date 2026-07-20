@@ -21,6 +21,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 
 @Composable
 fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
@@ -29,11 +30,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     var categoryFilter by remember { mutableStateOf("All") }
     var repoFilter by remember { mutableStateOf("All") }
 
-    val plugins by viewModel.plugins.collectAsState()
-    val isFetching by viewModel.isFetching.collectAsState()
-    val statusText by viewModel.statusText.collectAsState()
-    val pluginRequiringBypass by viewModel.pluginRequiringBypass.collectAsState()
-    val pluginRequiringPermission by viewModel.pluginRequiringPermission.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val plugins = uiState.plugins
+    val isFetching = uiState.isFetching
+    val statusText = uiState.statusText
+    val pluginRequiringBypass = uiState.pluginRequiringBypass
+    val pluginRequiringPermission = uiState.pluginRequiringPermission
 
     val languages = remember(plugins) {
         listOf("All") + plugins.mapNotNull { it.second.language?.takeIf { l -> l.isNotBlank() } }.distinct().sorted()
@@ -51,7 +53,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
 
     LaunchedEffect(syncGeneration) {
         if (syncGeneration > 0) {
-            viewModel.loadPluginsFromManager()
+            viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
         }
     }
 
@@ -78,7 +80,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             Spacer(modifier = Modifier.width(16.dp))
 
             Button(
-                onClick = { viewModel.fetchPlugins() },
+                onClick = { viewModel.onEvent(ExtensionsUiEvent.OnFetchPlugins) },
                 enabled = !isFetching,
                 modifier = Modifier.height(52.dp),
             ) {
@@ -272,38 +274,38 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     onInstallClick = {
                         isInstalling = true
                         installStatus = "Installing..."
-                        viewModel.installPlugin(repoName, plugin) { result ->
+                        viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { result ->
                             isInstalling = false
                             installStatus = result
-                        }
+                        })
                     },
                     onUninstallClick = {
-                        viewModel.uninstallByInternalName(plugin.internalName)
+                        viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))
                         installStatus = ""
                     },
                     description = plugin.description,
                     fileSize = plugin.fileSize,
-                    onRepoClick = { viewModel.inspectRepository(repoName) },
+                    onRepoClick = { viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(repoName)) },
                 )
             }
         }
 
         pluginRequiringBypass?.let { (bypassRepo, bypassPlugin) ->
             AlertDialog(
-                onDismissRequest = { viewModel.clearBypass() },
+                onDismissRequest = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
                 title = { Text("Advanced Bytecode Detected") },
                 text = { Text("Advanced or unverified bytecode patterns were detected in ${bypassPlugin.name}.\n\nThis plugin uses reflection or APIs outside standard verified CloudStream templates. While this is common in complex or third-party plugins, our desktop runtime will continue to run it inside the secure sandbox.\n\nWould you like to trust and install this plugin?") },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.bypassSecurityAndInstall(bypassRepo, bypassPlugin)
+                            viewModel.onEvent(ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin))
                         },
                     ) {
                         Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.clearBypass() }) {
+                    TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
                         Text("Cancel")
                     }
                 },
@@ -312,20 +314,20 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
 
         pluginRequiringPermission?.let { (reqRepo, reqPlugin, reqPermission) ->
             AlertDialog(
-                onDismissRequest = { viewModel.clearPermissionRequest() },
+                onDismissRequest = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) },
                 title = { Text("Permission Required") },
                 text = { Text("The plugin '${reqPlugin.name}' requires the following permission to function:\n\n• $reqPermission\n\nDo you want to grant this permission and install the plugin?") },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.grantPermissionAndInstall(reqRepo, reqPlugin, reqPermission)
+                            viewModel.onEvent(ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission))
                         },
                     ) {
                         Text("Grant & Install", color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.clearPermissionRequest() }) {
+                    TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) }) {
                         Text("Cancel")
                     }
                 },

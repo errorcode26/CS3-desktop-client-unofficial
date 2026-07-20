@@ -4,52 +4,66 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
-class EmbeddedPlayerViewModel {
-    private val coroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
+    initialState = PlayerUiState()
+) {
+    val launchData: StateFlow<VideoLaunchData?> = uiState.map { it.launchData }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.launchData)
 
-    fun dispose() {
-        coroutineScope.cancel()
-    }
+    val isLoadingNextEpisode: StateFlow<Boolean> = uiState.map { it.isLoadingNextEpisode }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isLoadingNextEpisode)
 
-    private val _launchData = MutableStateFlow<VideoLaunchData?>(null)
-    val launchData: StateFlow<VideoLaunchData?> = _launchData.asStateFlow()
+    val nextEpisodeError: StateFlow<String?> = uiState.map { it.nextEpisodeError }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeError)
 
-    private val _isLoadingNextEpisode = MutableStateFlow(false)
-    val isLoadingNextEpisode: StateFlow<Boolean> = _isLoadingNextEpisode.asStateFlow()
+    val nextEpisodeLinks: StateFlow<List<ExtractorLink>> = uiState.map { it.nextEpisodeLinks }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeLinks)
 
-    private val _nextEpisodeError = MutableStateFlow<String?>(null)
-    val nextEpisodeError: StateFlow<String?> = _nextEpisodeError.asStateFlow()
+    val nextEpisodeSubtitles: StateFlow<List<SubtitleFile>> = uiState.map { it.nextEpisodeSubtitles }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeSubtitles)
 
-    private val _nextEpisodeLinks = MutableStateFlow<List<ExtractorLink>>(emptyList())
-    val nextEpisodeLinks: StateFlow<List<ExtractorLink>> = _nextEpisodeLinks.asStateFlow()
+    val isScrapingLinks: StateFlow<Boolean> = uiState.map { it.isScrapingLinks }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isScrapingLinks)
 
-    private val _nextEpisodeSubtitles = MutableStateFlow<List<SubtitleFile>>(emptyList())
-    val nextEpisodeSubtitles: StateFlow<List<SubtitleFile>> = _nextEpisodeSubtitles.asStateFlow()
-
-    private val _isScrapingLinks = MutableStateFlow(false)
-    val isScrapingLinks: StateFlow<Boolean> = _isScrapingLinks.asStateFlow()
-
-    private val _targetEpisodeData = MutableStateFlow<Episode?>(null)
-    val targetEpisodeData: StateFlow<Episode?> = _targetEpisodeData.asStateFlow()
+    val targetEpisodeData: StateFlow<Episode?> = uiState.map { it.targetEpisodeData }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.targetEpisodeData)
 
     private var loadLinksJob: Job? = null
 
+    override fun dispose() {
+        super.dispose()
+        loadLinksJob?.cancel()
+    }
+
+    override fun handleEvent(event: PlayerUiEvent) {
+        when (event) {
+            is PlayerUiEvent.OnInit -> init(event.launchData)
+            is PlayerUiEvent.OnLoadEpisode -> loadEpisode(event.episode)
+            is PlayerUiEvent.OnLoadNextEpisode -> loadNextEpisode()
+            is PlayerUiEvent.OnLoadPrevEpisode -> loadPrevEpisode()
+            is PlayerUiEvent.OnPlayLoadedEpisode -> playLoadedEpisode()
+            is PlayerUiEvent.OnCancelLoading -> cancelLoading()
+            is PlayerUiEvent.OnCancelScraping -> cancelScraping()
+        }
+    }
+
     fun init(initialData: VideoLaunchData) {
-        if (_launchData.value == null) {
+        if (uiState.value.launchData == null) {
             val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
             val adjustedData = if (isFinished) {
                 initialData.copy(
@@ -59,78 +73,101 @@ class EmbeddedPlayerViewModel {
             } else {
                 initialData
             }
-            _launchData.value = adjustedData
+            updateState { copy(launchData = adjustedData) }
 
             // Auto-scrape initial episode if links are empty
             if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
                 val apiName = adjustedData.loadResponse?.apiName
                 val provider = APIHolder.getApiFromNameNull(apiName ?: "")
                 if (provider != null) {
-                    _isLoadingNextEpisode.value = true
-                    _isScrapingLinks.value = true
-                    _targetEpisodeData.value = provider.newEpisode(adjustedData.history.episodeId!!) {
+                    val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
                         this.name = adjustedData.history.showName
                         this.season = adjustedData.history.season
                         this.episode = adjustedData.history.episode
                     }
-                    _nextEpisodeLinks.value = emptyList()
-                    _nextEpisodeSubtitles.value = adjustedData.subtitles
+                    updateState {
+                        copy(
+                            isLoadingNextEpisode = true,
+                            isScrapingLinks = true,
+                            targetEpisodeData = targetEp,
+                            nextEpisodeLinks = emptyList(),
+                            nextEpisodeSubtitles = adjustedData.subtitles,
+                        )
+                    }
 
                     val hasStartedPlaying = AtomicBoolean(false)
 
-                    loadLinksJob = coroutineScope.launch(Dispatchers.IO) {
+                    loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
                         try {
                             provider.loadLinks(
                                 data = adjustedData.history.episodeId!!,
                                 isCasting = false,
                                 subtitleCallback = { sub ->
-                                    if (!hasStartedPlaying.get()) {
-                                        _nextEpisodeSubtitles.update { it + sub }
-                                    } else {
-                                        _launchData.update { current ->
-                                            if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
+                                    updateState {
+                                        val newSubs = nextEpisodeSubtitles + sub
+                                        if (!hasStartedPlaying.get()) {
+                                            copy(nextEpisodeSubtitles = newSubs)
+                                        } else {
+                                            val current = launchData
+                                            val updatedLaunch = if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
                                                 current.copy(subtitles = current.subtitles + sub)
                                             } else {
                                                 current
                                             }
+                                            copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                                         }
                                     }
                                 },
                                 callback = { link ->
-                                    _nextEpisodeLinks.update { it + link }
-                                    if (hasStartedPlaying.compareAndSet(false, true)) {
-                                        val newLaunchData = adjustedData.copy(
-                                            links = _nextEpisodeLinks.value.toList(),
-                                            subtitles = _nextEpisodeSubtitles.value.toList(),
-                                            initialIndex = 0,
-                                        )
-                                        _launchData.value = newLaunchData
-                                        _targetEpisodeData.value = null
-                                        _isLoadingNextEpisode.value = false
-                                    } else {
-                                        _launchData.update { current ->
-                                            if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
+                                    updateState {
+                                        val newLinks = nextEpisodeLinks + link
+                                        if (hasStartedPlaying.compareAndSet(false, true)) {
+                                            val newLaunchData = adjustedData.copy(
+                                                links = newLinks,
+                                                subtitles = nextEpisodeSubtitles,
+                                                initialIndex = 0,
+                                            )
+                                            copy(
+                                                nextEpisodeLinks = newLinks,
+                                                launchData = newLaunchData,
+                                                targetEpisodeData = null,
+                                                isLoadingNextEpisode = false,
+                                            )
+                                        } else {
+                                            val current = launchData
+                                            val updatedLaunch = if (current != null && current.history.episodeId == adjustedData.history.episodeId) {
                                                 current.copy(links = current.links + link)
                                             } else {
                                                 current
                                             }
+                                            copy(nextEpisodeLinks = newLinks, launchData = updatedLaunch)
                                         }
                                     }
                                 },
                             )
 
-                            _isScrapingLinks.value = false
-                            if (!hasStartedPlaying.get()) {
-                                _targetEpisodeData.value = null
-                                _isLoadingNextEpisode.value = false
+                            updateState {
+                                if (!hasStartedPlaying.get()) {
+                                    copy(
+                                        isScrapingLinks = false,
+                                        targetEpisodeData = null,
+                                        isLoadingNextEpisode = false,
+                                    )
+                                } else {
+                                    copy(isScrapingLinks = false)
+                                }
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: Exception) {
                             e.printStackTrace()
-                            _isScrapingLinks.value = false
-                            _targetEpisodeData.value = null
-                            _isLoadingNextEpisode.value = false
+                            updateState {
+                                copy(
+                                    isScrapingLinks = false,
+                                    targetEpisodeData = null,
+                                    isLoadingNextEpisode = false,
+                                )
+                            }
                         }
                     }
                 }
@@ -139,15 +176,19 @@ class EmbeddedPlayerViewModel {
     }
 
     fun loadEpisode(episode: Episode) {
-        val currentData = _launchData.value ?: return
+        val currentData = uiState.value.launchData ?: return
 
         loadLinksJob?.cancel()
-        _isLoadingNextEpisode.value = true
-        _isScrapingLinks.value = true
-        _nextEpisodeError.value = null
-        _nextEpisodeLinks.value = emptyList()
-        _nextEpisodeSubtitles.value = emptyList()
-        _targetEpisodeData.value = episode
+        updateState {
+            copy(
+                isLoadingNextEpisode = true,
+                isScrapingLinks = true,
+                nextEpisodeError = null,
+                nextEpisodeLinks = emptyList(),
+                nextEpisodeSubtitles = emptyList(),
+                targetEpisodeData = episode,
+            )
+        }
 
         val apiName = currentData.loadResponse?.apiName
         val provider = APIHolder.getApiFromNameNull(apiName ?: "")
@@ -155,77 +196,152 @@ class EmbeddedPlayerViewModel {
         val hasStartedPlaying = AtomicBoolean(false)
 
         if (provider != null && episode.data.isNotBlank()) {
-            loadLinksJob = coroutineScope.launch(Dispatchers.IO) {
+            loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
                 try {
                     provider.loadLinks(
                         data = episode.data,
                         isCasting = false,
                         subtitleCallback = { sub ->
-                            if (!hasStartedPlaying.get()) {
-                                _nextEpisodeSubtitles.update { it + sub }
-                            } else {
-                                _launchData.update { current ->
-                                    if (current != null && current.history.episodeId == episode.data) {
+                            updateState {
+                                val newSubs = nextEpisodeSubtitles + sub
+                                if (!hasStartedPlaying.get()) {
+                                    copy(nextEpisodeSubtitles = newSubs)
+                                } else {
+                                    val current = launchData
+                                    val updatedLaunch = if (current != null && current.history.episodeId == episode.data) {
                                         current.copy(subtitles = current.subtitles + sub)
                                     } else {
                                         current
                                     }
+                                    copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                                 }
                             }
                         },
                         callback = { link ->
-                            _nextEpisodeLinks.update { it + link }
-                            if (hasStartedPlaying.compareAndSet(false, true)) {
-                                playLoadedEpisode()
-                                _isLoadingNextEpisode.value = false
-                            } else {
-                                _launchData.update { current ->
-                                    if (current != null && current.history.episodeId == episode.data) {
+                            updateState {
+                                val newLinks = nextEpisodeLinks + link
+                                if (hasStartedPlaying.compareAndSet(false, true)) {
+                                    val current = launchData
+                                    val epData = targetEpisodeData
+                                    if (current != null && epData != null && newLinks.isNotEmpty()) {
+                                        val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
+                                            parentId = current.history.parentId,
+                                            episodeId = epData.data,
+                                        )
+
+                                        val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
+                                            pastHistory.position * 1000L
+                                        } else {
+                                            0L
+                                        }
+
+                                        val newHistory = current.history.copy(
+                                            episodeId = epData.data,
+                                            episode = epData.episode,
+                                            season = epData.season,
+                                            position = startPos / 1000L,
+                                            duration = pastHistory?.duration ?: 0L,
+                                        )
+
+                                        val newLaunchData = current.copy(
+                                            links = newLinks,
+                                            subtitles = nextEpisodeSubtitles,
+                                            history = newHistory,
+                                            initialIndex = 0,
+                                            startPositionMs = startPos,
+                                            title = buildString {
+                                                append(newHistory.showName)
+                                                if (newHistory.season != null && newHistory.episode != null) {
+                                                    append(" - S${newHistory.season}E${newHistory.episode}")
+                                                } else if (newHistory.episode != null) {
+                                                    append(" - E${newHistory.episode}")
+                                                }
+                                            },
+                                        )
+
+                                        copy(
+                                            nextEpisodeLinks = newLinks,
+                                            isLoadingNextEpisode = false,
+                                            nextEpisodeError = null,
+                                            targetEpisodeData = null,
+                                            launchData = newLaunchData,
+                                        )
+                                    } else {
+                                        copy(
+                                            nextEpisodeLinks = newLinks,
+                                            isLoadingNextEpisode = false,
+                                        )
+                                    }
+                                } else {
+                                    val current = launchData
+                                    val updatedLaunch = if (current != null && current.history.episodeId == episode.data) {
                                         current.copy(links = current.links + link)
                                     } else {
                                         current
                                     }
+                                    copy(nextEpisodeLinks = newLinks, launchData = updatedLaunch)
                                 }
                             }
                         },
                     )
 
-                    _isScrapingLinks.value = false
-                    if (!hasStartedPlaying.get()) {
-                        _targetEpisodeData.value = null
-                        _isLoadingNextEpisode.value = false
-                        _nextEpisodeError.value = "No links found for this episode."
+                    updateState {
+                        if (!hasStartedPlaying.get()) {
+                            copy(
+                                isScrapingLinks = false,
+                                targetEpisodeData = null,
+                                isLoadingNextEpisode = false,
+                                nextEpisodeError = "No links found for this episode.",
+                            )
+                        } else {
+                            copy(isScrapingLinks = false)
+                        }
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    _isScrapingLinks.value = false
-                    if (!hasStartedPlaying.get()) {
-                        _targetEpisodeData.value = null
-                        _isLoadingNextEpisode.value = false
-                        _nextEpisodeError.value = "Failed to load links: ${e.message}"
+                    updateState {
+                        if (!hasStartedPlaying.get()) {
+                            copy(
+                                isScrapingLinks = false,
+                                targetEpisodeData = null,
+                                isLoadingNextEpisode = false,
+                                nextEpisodeError = "Failed to load links: ${e.message}",
+                            )
+                        } else {
+                            copy(isScrapingLinks = false)
+                        }
                     }
                 }
             }
         } else {
-            _targetEpisodeData.value = null
-            _isLoadingNextEpisode.value = false
-            _isScrapingLinks.value = false
+            updateState {
+                copy(
+                    targetEpisodeData = null,
+                    isLoadingNextEpisode = false,
+                    isScrapingLinks = false,
+                )
+            }
         }
     }
 
     fun cancelLoading() {
         loadLinksJob?.cancel()
-        _targetEpisodeData.value = null
-        _isLoadingNextEpisode.value = false
-        _nextEpisodeError.value = null
+        updateState {
+            copy(
+                targetEpisodeData = null,
+                isLoadingNextEpisode = false,
+                nextEpisodeError = null,
+            )
+        }
     }
 
     fun playLoadedEpisode() {
-        val currentData = _launchData.value ?: return
-        val epData = _targetEpisodeData.value ?: return
-        if (_nextEpisodeLinks.value.isEmpty()) return
+        val currentData = uiState.value.launchData ?: return
+        val epData = uiState.value.targetEpisodeData ?: return
+        val currentLinks = uiState.value.nextEpisodeLinks
+        if (currentLinks.isEmpty()) return
 
         val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
             parentId = currentData.history.parentId,
@@ -247,11 +363,11 @@ class EmbeddedPlayerViewModel {
         )
 
         val newLaunchData = currentData.copy(
-            links = _nextEpisodeLinks.value.toList(),
-            subtitles = _nextEpisodeSubtitles.value.toList(),
+            links = currentLinks,
+            subtitles = uiState.value.nextEpisodeSubtitles,
             history = newHistory,
             initialIndex = 0,
-            startPositionMs = startPos, // Resume exactly where they left off
+            startPositionMs = startPos,
             title = buildString {
                 append(newHistory.showName)
                 if (newHistory.season != null && newHistory.episode != null) {
@@ -262,16 +378,20 @@ class EmbeddedPlayerViewModel {
             },
         )
 
-        _isLoadingNextEpisode.value = false
-        _nextEpisodeError.value = null
-        _targetEpisodeData.value = null
-        _nextEpisodeLinks.value = emptyList()
-        _nextEpisodeSubtitles.value = emptyList()
-        _launchData.value = newLaunchData
+        updateState {
+            copy(
+                isLoadingNextEpisode = false,
+                nextEpisodeError = null,
+                targetEpisodeData = null,
+                nextEpisodeLinks = emptyList(),
+                nextEpisodeSubtitles = emptyList(),
+                launchData = newLaunchData,
+            )
+        }
     }
 
     fun getEpisodesList(): List<Episode> {
-        val currentData = _launchData.value ?: return emptyList()
+        val currentData = uiState.value.launchData ?: return emptyList()
         return when (val resp = currentData.loadResponse) {
             is com.lagradost.cloudstream3.TvSeriesLoadResponse -> resp.episodes
             is com.lagradost.cloudstream3.AnimeLoadResponse -> {
@@ -284,7 +404,7 @@ class EmbeddedPlayerViewModel {
 
     fun loadNextEpisode() {
         val episodes = getEpisodesList()
-        val currentData = _launchData.value ?: return
+        val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         val nextEpisode = if (currentIndex != -1 && currentIndex + 1 < episodes.size) episodes[currentIndex + 1] else null
 
@@ -295,7 +415,7 @@ class EmbeddedPlayerViewModel {
 
     fun loadPrevEpisode() {
         val episodes = getEpisodesList()
-        val currentData = _launchData.value ?: return
+        val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         val prevEpisode = if (currentIndex > 0) episodes[currentIndex - 1] else null
 
@@ -306,28 +426,32 @@ class EmbeddedPlayerViewModel {
 
     fun hasNextEpisode(): Boolean {
         val episodes = getEpisodesList()
-        val currentData = _launchData.value ?: return false
+        val currentData = uiState.value.launchData ?: return false
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         return currentIndex != -1 && currentIndex + 1 < episodes.size
     }
 
     fun getNextEpisode(): com.lagradost.cloudstream3.Episode? {
         val episodes = getEpisodesList()
-        val currentData = _launchData.value ?: return null
+        val currentData = uiState.value.launchData ?: return null
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         return if (currentIndex != -1 && currentIndex + 1 < episodes.size) episodes[currentIndex + 1] else null
     }
 
     fun hasPrevEpisode(): Boolean {
         val episodes = getEpisodesList()
-        val currentData = _launchData.value ?: return false
+        val currentData = uiState.value.launchData ?: return false
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
         return currentIndex > 0
     }
 
     fun cancelScraping() {
         loadLinksJob?.cancel()
-        _isScrapingLinks.value = false
-        _isLoadingNextEpisode.value = false
+        updateState {
+            copy(
+                isScrapingLinks = false,
+                isLoadingNextEpisode = false,
+            )
+        }
     }
 }

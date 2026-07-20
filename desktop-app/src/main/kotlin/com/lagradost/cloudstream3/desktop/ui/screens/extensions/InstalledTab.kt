@@ -13,10 +13,12 @@ import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.runtime.loader.ExtensionLoader
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 
 @Composable
 fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
-    val installedPlugins by viewModel.installedPlugins.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val installedPlugins = uiState.installedPlugins
     var selectedPlugins by remember { mutableStateOf(setOf<LocalPlugin>()) }
     val remoteIcons by viewModel.remotePluginIcons.collectAsState()
 
@@ -24,7 +26,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     var showUnsupportedWarning by remember { mutableStateOf(false) }
 
     LaunchedEffect(syncGeneration) {
-        viewModel.refreshInstalled()
+        viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
     }
 
     if (showUnsupportedWarning) {
@@ -51,7 +53,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         showDeleteConfirm = false
                         val toDelete = selectedPlugins.toList()
                         if (toDelete.isNotEmpty()) {
-                            viewModel.uninstallPlugins(toDelete)
+                            viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugins(toDelete))
                             selectedPlugins = emptySet()
                         }
                     },
@@ -83,7 +85,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         dialog.isVisible = true
                         if (dialog.file != null) {
                             val sourceFile = java.io.File(dialog.directory, dialog.file)
-                            viewModel.loadLocalPlugin(sourceFile)
+                            viewModel.onEvent(ExtensionsUiEvent.OnLoadLocalPlugin(sourceFile))
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
@@ -141,10 +143,10 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     installStatus = "Installed",
                     isInstalling = false,
                     onInstallClick = { },
-                    onUninstallClick = { viewModel.uninstallPlugins(listOf(plugin)) },
+                    onUninstallClick = { viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugins(listOf(plugin))) },
                     description = plugin.description,
                     fileSize = plugin.fileSize,
-                    onRepoClick = { viewModel.inspectRepository(plugin.repoName) },
+                    onRepoClick = { viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(plugin.repoName)) },
                     showCheckbox = true,
                     isChecked = selectedPlugins.contains(plugin),
                     onCheckedChange = { isChecked ->
