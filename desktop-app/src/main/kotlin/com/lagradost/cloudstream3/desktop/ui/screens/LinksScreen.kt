@@ -27,7 +27,6 @@ import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.screens.links.LinksViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import com.lagradost.player.impl.VlcPlayer
@@ -377,9 +376,8 @@ private fun resolvePlayer(selectedPlayer: String, link: ExtractorLink): String {
 }
 
 private fun resolveStartPosition(history: WatchHistory, loadResponse: com.lagradost.cloudstream3.LoadResponse?): Long {
-    val latestHistory = DesktopDataStore.getEpisodeWatched(history.parentId, history.episodeId) ?: history
     val isLive = loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
-    val startSec = if (isLive) 0L else PlayerLinkHandler.resumeStartSeconds(latestHistory.position, latestHistory.duration)
+    val startSec = if (isLive) 0L else PlayerLinkHandler.resumeStartSeconds(history.position, history.duration)
     return startSec * 1000L
 }
 

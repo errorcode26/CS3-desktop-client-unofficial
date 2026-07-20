@@ -46,4 +46,5 @@ data class DetailsUiState(
     val enrichedNetworks: List<String> = emptyList(),
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val autoPlayEnabled: Boolean = true,
+    val isEpisodesStackedView: Boolean = false,
 ) : UiState

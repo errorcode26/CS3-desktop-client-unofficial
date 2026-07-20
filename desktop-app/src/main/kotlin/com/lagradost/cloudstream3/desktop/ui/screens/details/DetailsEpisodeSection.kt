@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
-import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +39,11 @@ fun DetailsEpisodeSection(
     isMovieLike: Boolean,
     isLoading: Boolean,
     coroutineScope: CoroutineScope,
+    isEpisodesStackedView: Boolean,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
+    onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
+    onToggleEpisodesStackedView: (Boolean) -> Unit,
 ) {
     if (isMovieLike) return
     val hasEpisodes = when (data) {
@@ -50,7 +52,6 @@ fun DetailsEpisodeSection(
         else -> false
     }
     if (!isLoading && !hasEpisodes) return
-    val backupSeasonHistory = remember { mutableMapOf<String, WatchHistory?>() }
 
     val dubStatuses = remember(data) { if (data is AnimeLoadResponse) data.episodes.keys.toList() else emptyList() }
     var selectedDub by remember(latestHistory?.episodeId, data) {
@@ -77,7 +78,6 @@ fun DetailsEpisodeSection(
     LaunchedEffect(selectedSeason, selectedDub, isSortAscending) {
         selectedEpisodeChunk = 0
     }
-    var isEpisodesStackedView by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false) }
     var isAntiSpoiler by remember { mutableStateOf(true) }
     val episodesScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
 
@@ -169,25 +169,9 @@ fun DetailsEpisodeSection(
                                 )
                                 .clickable {
                                     if (!isSeasonWatched) {
-                                        // Marking as watched. Save backup of current states.
-                                        backupSeasonHistory.clear()
-                                        currentSeasonEpisodes.forEach { ep ->
-                                            backupSeasonHistory[ep.data] = showHistory.values.find { it.episodeId == ep.data }
-                                            onToggleWatched(ep, false)
-                                        }
+                                        onToggleSeasonWatched(currentSeasonEpisodes, false)
                                     } else {
-                                        // Unmarking. Restore from backup.
-                                        val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
-                                        currentSeasonEpisodes.forEach { ep ->
-                                            val backup = backupSeasonHistory[ep.data]
-                                            if (backup != null) {
-                                                DesktopDataStore.setLastWatched(backup)
-                                            } else {
-                                                // If there was no backup, it means it was previously unwatched. Delete the fake history entry.
-                                                DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
-                                            }
-                                        }
-                                        backupSeasonHistory.clear()
+                                        onToggleSeasonWatched(currentSeasonEpisodes, true)
                                     }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -334,8 +318,7 @@ fun DetailsEpisodeSection(
                             }
                             IconButton(
                                 onClick = {
-                                    isEpisodesStackedView = !isEpisodesStackedView
-                                    DesktopDataStore.setKey("pref_episodes_stacked_view", isEpisodesStackedView)
+                                    onToggleEpisodesStackedView(!isEpisodesStackedView)
                                 },
                             ) {
                                 Icon(
@@ -488,8 +471,7 @@ fun DetailsEpisodeSection(
                             }
                             IconButton(
                                 onClick = {
-                                    isEpisodesStackedView = !isEpisodesStackedView
-                                    DesktopDataStore.setKey("pref_episodes_stacked_view", isEpisodesStackedView)
+                                    onToggleEpisodesStackedView(!isEpisodesStackedView)
                                 },
                             ) {
                                 Icon(

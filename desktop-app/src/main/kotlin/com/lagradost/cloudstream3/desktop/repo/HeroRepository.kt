@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.repo
 
-import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache
@@ -47,9 +46,9 @@ object HeroRepository {
         return title.replace(Regex("(?i)\\s*(?:tv|season|episode|\\d+).*$"), "").trim()
     }
 
-    suspend fun getHeroColor(imageUrl: String): Color? {
-        return ImageColorExtractor.getCachedColor(imageUrl)
-            ?: withContext(Dispatchers.IO) { ImageColorExtractor.extractDominantColorFromUrl(imageUrl) }
+    suspend fun getHeroColor(imageUrl: String): Long? {
+        return ImageColorExtractor.getCachedColor(imageUrl)?.value?.toLong()
+            ?: withContext(Dispatchers.IO) { ImageColorExtractor.extractDominantColorFromUrl(imageUrl)?.value?.toLong() }
     }
 
     suspend fun prefetchTopHistory(topHistory: List<WatchHistory>, providers: List<MainAPI>) {

@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
@@ -12,7 +11,7 @@ import kotlinx.coroutines.launch
 
 sealed interface EnrichmentUpdate {
     data class RawData(val response: LoadResponse) : EnrichmentUpdate
-    data class ExtractedColor(val color: Color) : EnrichmentUpdate
+    data class ExtractedColor(val color: Long) : EnrichmentUpdate
     data class LogoLoaded(val url: String) : EnrichmentUpdate
     data class BackdropLoaded(val url: String) : EnrichmentUpdate
     data class ScreenshotsLoaded(val urls: List<String>) : EnrichmentUpdate
@@ -61,20 +60,23 @@ object GetEnrichedDetailsUseCase {
         trySend(EnrichmentUpdate.RawData(rawData))
 
         val imageUrl = rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster
-        if (!imageUrl.isNullOrBlank()) {
+        val targetEnrichUrl = if (rawData.url.isNotBlank() && !rawData.url.contains("themoviedb.org")) rawData.url else url
+
+        val colorJob = if (!imageUrl.isNullOrBlank()) {
             launch {
                 val cachedColor = ImageColorExtractor.getCachedColor(imageUrl)
                 if (cachedColor != null) {
-                    trySend(EnrichmentUpdate.ExtractedColor(cachedColor))
+                    trySend(EnrichmentUpdate.ExtractedColor(cachedColor.value.toLong()))
                 } else {
                     val color = ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
-                    if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color))
+                    if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color.value.toLong()))
                 }
             }
+        } else {
+            null
         }
 
-        val targetEnrichUrl = if (rawData.url.isNotBlank() && !rawData.url.contains("themoviedb.org")) rawData.url else url
-        launch {
+        val enrichJob = launch {
             TmdbEnrichmentService.enrich(
                 loaded = rawData,
                 url = targetEnrichUrl,
@@ -84,7 +86,7 @@ object GetEnrichedDetailsUseCase {
                     if (rawData.backgroundPosterUrl != null) {
                         launch {
                             val color = ImageColorExtractor.extractDominantColorFromUrl(rawData.backgroundPosterUrl!!)
-                            if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color))
+                            if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color.value.toLong()))
                             close()
                         }
                     } else {
@@ -100,6 +102,9 @@ object GetEnrichedDetailsUseCase {
             )
         }
 
-        awaitClose { }
+        awaitClose {
+            colorJob?.cancel()
+            enrichJob.cancel()
+        }
     }
 }

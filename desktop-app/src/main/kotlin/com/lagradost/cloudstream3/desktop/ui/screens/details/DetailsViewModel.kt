@@ -30,9 +30,11 @@ class DetailsViewModel(
         enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
         isLoading = DetailsCache.get(url) == null,
         autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+        isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
     ),
 ) {
     private val isInitialized = MutableStateFlow(false)
+    private val backupSeasonHistory = mutableMapOf<String, WatchHistory?>()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -59,6 +61,8 @@ class DetailsViewModel(
             is DetailsUiEvent.OnRequestAutoPlay -> handleAutoPlay()
             is DetailsUiEvent.OnPlayEpisode -> handlePlayEpisode(event.ep)
             is DetailsUiEvent.OnToggleEpisodeWatched -> handleToggleEpisodeWatched(event.ep, event.isWatched)
+            is DetailsUiEvent.OnToggleSeasonWatched -> handleToggleSeasonWatched(event.episodes, event.isWatched)
+            is DetailsUiEvent.OnToggleEpisodesStackedView -> handleToggleEpisodesStackedView(event.isStacked)
         }
     }
 
@@ -100,7 +104,7 @@ class DetailsViewModel(
                         }
                     }
                     is EnrichmentUpdate.ExtractedColor -> {
-                        updateState { copy(heroColor = update.color) }
+                        updateState { copy(heroColor = androidx.compose.ui.graphics.Color(update.color.toULong())) }
                     }
                     is EnrichmentUpdate.LogoLoaded -> {
                         updateState { copy(enrichedLogoUrl = update.url) }
@@ -254,6 +258,56 @@ class DetailsViewModel(
                 duration = dur,
             )
             DesktopDataStore.setLastWatched(history)
+        }
+    }
+
+    private fun handleToggleSeasonWatched(episodes: List<Episode>, isWatched: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
+
+            if (!isWatched) {
+                // Marking as watched. Save backup of current states.
+                backupSeasonHistory.clear()
+                episodes.forEach { ep ->
+                    backupSeasonHistory[ep.data] = uiState.value.watchHistory.values.find { it.episodeId == ep.data }
+                    val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+                    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
+                    val history = WatchHistory(
+                        parentId = parentId,
+                        showName = data.name,
+                        showUrl = data.url,
+                        apiName = provider.name,
+                        posterUrl = data.posterUrl,
+                        episodeThumbnailUrl = ep.posterUrl,
+                        screenshotUrl = saved?.screenshotUrl,
+                        episode = ep.episode,
+                        season = ep.season,
+                        episodeId = ep.data,
+                        position = dur,
+                        duration = dur,
+                    )
+                    DesktopDataStore.setLastWatched(history)
+                }
+            } else {
+                // Unmarking. Restore from backup.
+                episodes.forEach { ep ->
+                    val backup = backupSeasonHistory[ep.data]
+                    if (backup != null) {
+                        DesktopDataStore.setLastWatched(backup)
+                    } else {
+                        DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
+                    }
+                }
+                backupSeasonHistory.clear()
+            }
+        }
+    }
+
+    private fun handleToggleEpisodesStackedView(isStacked: Boolean) {
+        updateState { copy(isEpisodesStackedView = isStacked) }
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey("pref_episodes_stacked_view", isStacked)
         }
     }
 

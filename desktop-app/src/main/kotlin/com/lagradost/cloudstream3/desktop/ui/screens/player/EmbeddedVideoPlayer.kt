@@ -16,7 +16,6 @@ import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.common.platform.PlatformPaths
-import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -88,9 +87,7 @@ fun EmbeddedVideoPlayer(
                 screenshotUrl = "file:///$screenshotPath",
                 updateTime = System.currentTimeMillis(),
             )
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                DesktopDataStore.setLastWatched(updatedHistory)
-            }
+            viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
         }
         lastSavedHistory = actualLaunchData.history
 

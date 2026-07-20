@@ -133,7 +133,8 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             return
         }
         viewModelScope.launch {
-            val color = com.lagradost.cloudstream3.desktop.repo.HeroRepository.getHeroColor(imageUrl) ?: return@launch
+            val colorLong = com.lagradost.cloudstream3.desktop.repo.HeroRepository.getHeroColor(imageUrl) ?: return@launch
+            val color = androidx.compose.ui.graphics.Color(colorLong.toULong())
             if (itemUrl == null) {
                 updateState { copy(heroExtractedColor = color) }
             } else {
