@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
@@ -39,6 +40,11 @@ class DetailsViewModel(
                     .filter { it.showUrl == url }
                     .associateBy { it.episodeId ?: it.parentId }
                 updateState { copy(watchHistory = historyMap) }
+            }
+        }
+        viewModelScope.launch {
+            BookmarksRepository.bookmarksFlow.collect { bookmarks ->
+                updateState { copy(bookmarks = bookmarks) }
             }
         }
     }

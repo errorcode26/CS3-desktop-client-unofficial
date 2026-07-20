@@ -114,6 +114,7 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
     val uiState by viewModel.uiState.collectAsState()
     val heroMetaMap = uiState.heroMetaMap
     val heroColorMap = uiState.heroColorMap
+    val allBookmarks = uiState.bookmarks
     val scope = rememberCoroutineScope()
     var globalIndex by remember(displayItems.size) {
         mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
@@ -504,7 +505,6 @@ fun HomeHeroCarousel(items: List<SearchResponse>, provider: MainAPI?, viewModel:
 
                                 val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
                                 var showBookmarkMenu by remember { mutableStateOf(false) }
-                                val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
                                 val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
 
                                 Box {

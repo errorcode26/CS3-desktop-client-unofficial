@@ -297,7 +297,7 @@ fun DetailsMetadata(
                     heroAction()
 
                     val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                    val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+                    val allBookmarks = uiState?.bookmarks ?: emptyMap()
                     val currentBookmark = allBookmarks[bookmarkId]
                     var showBookmarkMenu by remember { mutableStateOf(false) }
 

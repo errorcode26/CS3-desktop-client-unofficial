@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
+import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 
 data class DetailsUiState(
@@ -36,5 +37,6 @@ data class DetailsUiState(
     val error: String? = null,
     val enrichedBudget: Long? = null,
     val enrichedRevenue: Long? = null,
-    val enrichedNetworks: List<String> = emptyList()
+    val enrichedNetworks: List<String> = emptyList(),
+    val bookmarks: Map<String, DesktopBookmark> = emptyMap()
 ) : UiState

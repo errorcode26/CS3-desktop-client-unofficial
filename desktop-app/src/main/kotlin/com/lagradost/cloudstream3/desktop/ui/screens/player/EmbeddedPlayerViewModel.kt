@@ -12,37 +12,12 @@ import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
     initialState = PlayerUiState()
 ) {
-    val launchData: StateFlow<VideoLaunchData?> = uiState.map { it.launchData }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.launchData)
-
-    val isLoadingNextEpisode: StateFlow<Boolean> = uiState.map { it.isLoadingNextEpisode }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isLoadingNextEpisode)
-
-    val nextEpisodeError: StateFlow<String?> = uiState.map { it.nextEpisodeError }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeError)
-
-    val nextEpisodeLinks: StateFlow<List<ExtractorLink>> = uiState.map { it.nextEpisodeLinks }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeLinks)
-
-    val nextEpisodeSubtitles: StateFlow<List<SubtitleFile>> = uiState.map { it.nextEpisodeSubtitles }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.nextEpisodeSubtitles)
-
-    val isScrapingLinks: StateFlow<Boolean> = uiState.map { it.isScrapingLinks }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.isScrapingLinks)
-
-    val targetEpisodeData: StateFlow<Episode?> = uiState.map { it.targetEpisodeData }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.targetEpisodeData)
-
     private var loadLinksJob: Job? = null
 
     override fun dispose() {
@@ -62,7 +37,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun init(initialData: VideoLaunchData) {
+    private fun init(initialData: VideoLaunchData) {
         if (uiState.value.launchData == null) {
             val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
             val adjustedData = if (isFinished) {
@@ -175,7 +150,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun loadEpisode(episode: Episode) {
+    private fun loadEpisode(episode: Episode) {
         val currentData = uiState.value.launchData ?: return
 
         loadLinksJob?.cancel()
@@ -326,7 +301,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun cancelLoading() {
+    private fun cancelLoading() {
         loadLinksJob?.cancel()
         updateState {
             copy(
@@ -337,7 +312,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun playLoadedEpisode() {
+    private fun playLoadedEpisode() {
         val currentData = uiState.value.launchData ?: return
         val epData = uiState.value.targetEpisodeData ?: return
         val currentLinks = uiState.value.nextEpisodeLinks
@@ -402,7 +377,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun loadNextEpisode() {
+    private fun loadNextEpisode() {
         val episodes = getEpisodesList()
         val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
@@ -413,7 +388,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    fun loadPrevEpisode() {
+    private fun loadPrevEpisode() {
         val episodes = getEpisodesList()
         val currentData = uiState.value.launchData ?: return
         val currentIndex = episodes.indexOfFirst { it.data == currentData.history.episodeId }
@@ -445,7 +420,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         return currentIndex > 0
     }
 
-    fun cancelScraping() {
+    private fun cancelScraping() {
         loadLinksJob?.cancel()
         updateState {
             copy(

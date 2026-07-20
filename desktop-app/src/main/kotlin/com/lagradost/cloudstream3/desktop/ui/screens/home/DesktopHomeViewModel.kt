@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
+import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
@@ -82,6 +83,12 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     init {
         updateProviders()
+
+        viewModelScope.launch {
+            BookmarksRepository.bookmarksFlow.collect { bookmarks ->
+                updateState { copy(bookmarks = bookmarks) }
+            }
+        }
 
         val savedName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
         if (savedName != null && APIHolder.allProviders.any { it.name == savedName && it.isRealProvider() }) {

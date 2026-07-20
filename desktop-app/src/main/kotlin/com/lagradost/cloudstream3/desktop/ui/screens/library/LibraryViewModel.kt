@@ -10,24 +10,11 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiS
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, LibraryUiEffect>(
     initialState = LibraryUiState()
 ) {
-    val filteredBookmarks: StateFlow<List<DesktopBookmark>> = uiState.map { it.filteredBookmarks }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.filteredBookmarks)
-
-    val selectedTab: StateFlow<DesktopWatchType> = uiState.map { it.selectedTab }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.selectedTab)
-
-    val showError: StateFlow<String?> = uiState.map { it.showError }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState.value.showError)
-
     init {
         viewModelScope.launch {
             BookmarksRepository.bookmarksFlow.collect { bookmarksMap ->
@@ -57,7 +44,7 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
         }
     }
 
-    fun selectTab(tab: DesktopWatchType) {
+    private fun selectTab(tab: DesktopWatchType) {
         updateState {
             copy(
                 selectedTab = tab,
@@ -66,7 +53,7 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
         }
     }
 
-    fun handleBookmarkClick(apiName: String, url: String) {
+    private fun handleBookmarkClick(apiName: String, url: String) {
         val provider = APIHolder.getApiFromNameNull(apiName)
         if (provider != null) {
             sendEffect(LibraryUiEffect.Navigate(Screen.Details(provider.name, url)))
@@ -77,11 +64,11 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
         }
     }
 
-    fun deleteBookmark(bookmarkId: String) {
+    private fun deleteBookmark(bookmarkId: String) {
         BookmarksRepository.removeBookmark(bookmarkId)
     }
 
-    fun dismissError() {
+    private fun dismissError() {
         updateState { copy(showError = null) }
     }
 }
