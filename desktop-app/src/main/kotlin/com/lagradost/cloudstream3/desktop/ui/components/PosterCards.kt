@@ -78,7 +78,6 @@ fun PosterCard(
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(imgUrl)
-                        .size(320, 480)
                         .build(),
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,

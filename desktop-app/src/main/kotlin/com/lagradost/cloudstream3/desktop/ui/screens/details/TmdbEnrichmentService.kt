@@ -65,7 +65,7 @@ object TmdbEnrichmentService {
                 val pob = detailsData.get("place_of_birth")?.asText()?.takeIf { it.isNotBlank() }
                 val dday = detailsData.get("deathday")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                 val profilePath = detailsData.get("profile_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                val profileUrl = if (profilePath != null) "https://image.tmdb.org/t/p/w500$profilePath" else null
+                val profileUrl = if (profilePath != null) "https://image.tmdb.org/t/p/original$profilePath" else null
 
                 val castList = detailsData.get("combined_credits")?.get("cast")
                 val knownFor = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
@@ -75,7 +75,7 @@ object TmdbEnrichmentService {
                         val mediaType = credit.get("media_type")?.asText()
                         val title = credit.get("title")?.asText() ?: credit.get("name")?.asText() ?: return@forEach
                         val posterPath = credit.get("poster_path")?.asText()
-                        val posterUrl = if (posterPath != null && posterPath != "null") "https://image.tmdb.org/t/p/w500$posterPath" else null
+                        val posterUrl = if (posterPath != null && posterPath != "null") "https://image.tmdb.org/t/p/original$posterPath" else null
 
                         val recId = credit.get("id")?.asInt()
                         val recUrl = if (recId != null) "https://www.themoviedb.org/$mediaType/$recId" else ""
@@ -317,7 +317,7 @@ object TmdbEnrichmentService {
                                             val pTitle = p.get("title")?.asText() ?: p.get("name")?.asText() ?: return@forEach
                                             val pId = p.get("id")?.asInt() ?: return@forEach
                                             val pPosterPath = p.get("poster_path")?.asText()
-                                            val pPosterUrl = if (pPosterPath != null && pPosterPath != "null") "https://image.tmdb.org/t/p/w500$pPosterPath" else null
+                                            val pPosterUrl = if (pPosterPath != null && pPosterPath != "null") "https://image.tmdb.org/t/p/original$pPosterPath" else null
                                             val pUrl = "https://www.themoviedb.org/movie/$pId"
                                             collItems.add(
                                                 dummyApi.newMovieSearchResponse(pTitle, url = pUrl, com.lagradost.cloudstream3.TvType.Movie, false) {
@@ -376,7 +376,7 @@ object TmdbEnrichmentService {
                                 }
 
                                 if (loaded.posterUrl.isNullOrBlank() && posterPath != null && posterPath != "null") {
-                                    loaded.posterUrl = "https://image.tmdb.org/t/p/w500$posterPath"
+                                    loaded.posterUrl = "https://image.tmdb.org/t/p/original$posterPath"
                                 }
 
                                 val overview = tmdbData.get("overview")?.asText()
@@ -449,7 +449,7 @@ object TmdbEnrichmentService {
                                             val name = crew.get("name")?.asText()
                                             val profilePath = crew.get("profile_path")?.asText()
                                             if (!name.isNullOrBlank() && name != "null") {
-                                                val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/w500$profilePath" else null
+                                                val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/original$profilePath" else null
                                                 actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = "Director"))
                                             }
                                         }
@@ -462,7 +462,7 @@ object TmdbEnrichmentService {
                                         val name = creator.get("name")?.asText()
                                         val profilePath = creator.get("profile_path")?.asText()
                                         if (!name.isNullOrBlank() && name != "null") {
-                                            val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/w500$profilePath" else null
+                                            val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/original$profilePath" else null
                                             if (actors.none { it.actor.name.equals(name, ignoreCase = true) }) {
                                                 actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = "Creator"))
                                             }
@@ -479,7 +479,7 @@ object TmdbEnrichmentService {
                                         val character = cast.get("character")?.asText()
                                         if (!name.isNullOrBlank() && name != "null") {
                                             if (actors.none { it.actor.name.equals(name, ignoreCase = true) }) {
-                                                val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/w500$profilePath" else null
+                                                val profileUrl = if (profilePath != null && profilePath != "null") "https://image.tmdb.org/t/p/original$profilePath" else null
                                                 actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = character))
                                             }
                                         }
@@ -520,7 +520,7 @@ object TmdbEnrichmentService {
                                     val pPath = rec.get("poster_path")?.asText()
                                     val mType = rec.get("media_type")?.asText() ?: typeStr
                                     if (recId != null && !title.isNullOrBlank() && title != "null") {
-                                        val pUrl = if (pPath != null && pPath != "null") "https://image.tmdb.org/t/p/w500$pPath" else null
+                                        val pUrl = if (pPath != null && pPath != "null") "https://image.tmdb.org/t/p/original$pPath" else null
                                         val recUrl = "https://www.themoviedb.org/$mType/$recId"
                                         val dummyApi = object : com.lagradost.cloudstream3.MainAPI() {
                                             override var mainUrl = "https://www.themoviedb.org"
@@ -568,7 +568,7 @@ object TmdbEnrichmentService {
                                             if (epNode != null) {
                                                 val epPosterPath = epNode.get("still_path")?.asText()
                                                 if (epPosterPath != null && epPosterPath != "null") {
-                                                    ep.posterUrl = "https://image.tmdb.org/t/p/w780$epPosterPath"
+                                                    ep.posterUrl = "https://image.tmdb.org/t/p/original$epPosterPath"
                                                 }
                                                 val epOverview = epNode.get("overview")?.asText()
                                                 if (ep.description.isNullOrBlank() && !epOverview.isNullOrBlank() && epOverview != "null") {

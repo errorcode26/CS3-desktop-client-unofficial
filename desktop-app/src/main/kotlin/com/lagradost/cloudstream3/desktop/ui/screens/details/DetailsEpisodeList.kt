@@ -106,7 +106,6 @@ fun EpisodeCard(
             SubcomposeAsyncImage(
                 model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                     .data(targetUrl)
-                    .size(320, 180)
                     .build(),
                 contentDescription = ep.name,
                 contentScale = ContentScale.Crop,
@@ -119,7 +118,6 @@ fun EpisodeCard(
                         AsyncImage(
                             model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                 .data(fallbackImg)
-                                .size(320, 180)
                                 .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
@@ -132,7 +130,6 @@ fun EpisodeCard(
                         AsyncImage(
                             model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                 .data(fallbackImg)
-                                .size(320, 180)
                                 .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
