@@ -30,6 +30,10 @@ sealed interface EnrichmentUpdate {
         val budget: Long?,
         val revenue: Long?,
         val networks: List<String>?,
+        val year: Int?,
+        val duration: Int?,
+        val tags: List<String>?,
+        val actors: List<com.lagradost.cloudstream3.ActorData>?,
     ) : EnrichmentUpdate
     data object FullyEnriched : EnrichmentUpdate
     data class Error(val message: String) : EnrichmentUpdate
@@ -105,8 +109,12 @@ object GetEnrichedDetailsUseCase {
                 onScreenshotsLoaded = { screenshots ->
                     trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
                 },
-                onMetadataLoaded = { tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks ->
-                    trySend(EnrichmentUpdate.MetadataLoaded(tagline, status, studios, collName, collBg, seasons, episodes, lang, relDate, country, collItems, budget, revenue, networks))
+                onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
+                    trySend(
+                        EnrichmentUpdate.MetadataLoaded(
+                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors
+                        )
+                    )
                 },
             )
         }

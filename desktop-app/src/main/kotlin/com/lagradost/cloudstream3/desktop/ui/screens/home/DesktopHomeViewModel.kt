@@ -49,9 +49,11 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
         }
 
-        val savedName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
-        if (savedName != null && APIHolder.allProviders.any { it.name == savedName && it.isRealProvider() }) {
-            updateState { copy(selectedProviderName = savedName) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val savedName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
+            if (savedName != null && APIHolder.allProviders.any { it.name == savedName && it.isRealProvider() }) {
+                updateState { copy(selectedProviderName = savedName) }
+            }
         }
 
         viewModelScope.launch {

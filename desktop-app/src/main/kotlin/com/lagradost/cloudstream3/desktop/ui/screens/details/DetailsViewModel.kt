@@ -133,6 +133,10 @@ class DetailsViewModel(
                                 enrichedBudget = update.budget,
                                 enrichedRevenue = update.revenue,
                                 enrichedNetworks = update.networks ?: emptyList(),
+                                enrichedYear = update.year,
+                                enrichedDuration = update.duration,
+                                enrichedTags = update.tags,
+                                enrichedActors = update.actors,
                             )
                         }
                     }

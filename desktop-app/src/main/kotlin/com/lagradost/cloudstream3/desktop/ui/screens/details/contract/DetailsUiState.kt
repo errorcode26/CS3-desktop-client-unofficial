@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details.contract
 
 import androidx.compose.ui.graphics.Color
+import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
@@ -44,6 +45,10 @@ data class DetailsUiState(
     val enrichedBudget: Long? = null,
     val enrichedRevenue: Long? = null,
     val enrichedNetworks: List<String> = emptyList(),
+    val enrichedYear: Int? = null,
+    val enrichedDuration: Int? = null,
+    val enrichedTags: List<String>? = null,
+    val enrichedActors: List<ActorData>? = null,
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val autoPlayEnabled: Boolean = true,
     val isEpisodesStackedView: Boolean = false,

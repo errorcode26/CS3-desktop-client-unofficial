@@ -32,8 +32,11 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     private var lastSearchedQuery: String = ""
 
     init {
-        val selectedProviderName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
-        updateState { copy(isGlobalSearchEnabled = false, selectedProviderName = selectedProviderName) }
+        updateState { copy(isGlobalSearchEnabled = false) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val selectedProviderName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
+            updateState { copy(selectedProviderName = selectedProviderName) }
+        }
 
         viewModelScope.launch {
             uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { providerName ->

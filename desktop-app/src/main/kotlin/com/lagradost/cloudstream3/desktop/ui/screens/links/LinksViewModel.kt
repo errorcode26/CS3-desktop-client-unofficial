@@ -47,8 +47,6 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
 
     private fun scrapeLinks(provider: MainAPI, dataUrl: String) {
         scrapeJob?.cancel()
-        val linkBuffer = mutableListOf<ExtractorLink>()
-        val subBuffer = mutableListOf<SubtitleFile>()
 
         updateState {
             copy(
@@ -65,22 +63,25 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     data = dataUrl,
                     isCasting = false,
                     subtitleCallback = { sub: SubtitleFile ->
-                        subBuffer.add(sub)
-                        updateState { copy(subtitles = subBuffer.toList()) }
+                        updateState { copy(subtitles = subtitles + sub) }
                     },
                     callback = { link: ExtractorLink ->
-                        linkBuffer.add(link)
-                        val text = "Found ${linkBuffer.size} stream${if (linkBuffer.size == 1) "" else "s"}..."
-                        updateState { copy(links = linkBuffer.toList(), statusText = text) }
+                        updateState {
+                            val newLinks = links + link
+                            val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."
+                            copy(links = newLinks, statusText = text)
+                        }
                     },
                 )
+                val finalLinks = uiState.value.links
                 val finalText = when {
-                    linkBuffer.isEmpty() -> "No streams found for this title."
-                    else -> "Ready — ${linkBuffer.size} stream${if (linkBuffer.size == 1) "" else "s"} available."
+                    finalLinks.isEmpty() -> "No streams found for this title."
+                    else -> "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
                 }
                 updateState { copy(isScraping = false, statusText = finalText) }
             } catch (e: kotlinx.coroutines.CancellationException) {
-                val text = "Search stopped (${linkBuffer.size} found)."
+                val finalLinks = uiState.value.links
+                val text = "Search stopped (${finalLinks.size} found)."
                 updateState { copy(isScraping = false, statusText = text) }
             } catch (e: Throwable) {
                 AppLogger.e("Error loading links", e)

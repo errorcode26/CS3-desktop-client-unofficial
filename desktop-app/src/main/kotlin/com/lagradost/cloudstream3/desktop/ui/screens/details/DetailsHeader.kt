@@ -295,7 +295,8 @@ fun DetailsMetadata(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        data.year?.let {
+                        val finalYear = uiState?.enrichedYear ?: data.year
+                        finalYear?.let {
                             Text(text = it.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                         data.contentRating?.let { rating ->
@@ -325,9 +326,10 @@ fun DetailsMetadata(
                     Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                if (!isLoading && !data.tags.isNullOrEmpty()) {
+                val finalTags = uiState?.enrichedTags ?: data.tags
+                if (!isLoading && !finalTags.isNullOrEmpty()) {
                     Text(
-                        text = data.tags?.take(6)?.joinToString(" • ") ?: "",
+                        text = finalTags?.take(6)?.joinToString(" • ") ?: "",
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -613,9 +615,10 @@ fun DetailsCastSection(
     data: LoadResponse,
     provider: MainAPI,
     onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {},
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
     var selectedActor by remember { mutableStateOf<ActorData?>(null) }
-    val actors = data.actors ?: emptyList()
+    val actors = uiState?.enrichedActors ?: data.actors ?: emptyList()
 
     val directors = actors.filter {
         it.roleString?.equals("Director", ignoreCase = true) == true ||

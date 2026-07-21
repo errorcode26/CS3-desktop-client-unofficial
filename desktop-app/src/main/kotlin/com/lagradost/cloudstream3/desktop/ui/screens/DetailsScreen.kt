@@ -367,6 +367,7 @@ fun DetailsContent(
                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
                             data = data,
                             provider = provider,
+                            uiState = uiState,
                             onMovieClick = { rec ->
                                 val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
                                 navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))

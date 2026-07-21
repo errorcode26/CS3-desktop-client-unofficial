@@ -132,21 +132,28 @@ object TmdbEnrichmentService {
             budget: Long?,
             revenue: Long?,
             networks: List<String>?,
-        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            year: Int?,
+            duration: Int?,
+            tags: List<String>?,
+            actors: List<com.lagradost.cloudstream3.ActorData>?,
+        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
     ) {
         withContext(Dispatchers.IO) {
             try {
                 // Many providers fail to set loaded.year, but include the year in parentheses in the title (e.g., "Movie Name (2021)").
                 // If loaded.year is null, attempt to extract it here before we strip the title.
-                if (loaded.year == null) {
+                var tempYear: Int? = loaded.year
+                if (tempYear == null) {
                     val yearMatch = Regex("""\b(19\d{2}|20\d{2})\b""").find(loaded.name)
                     if (yearMatch != null) {
-                        withContext(Dispatchers.Main.immediate) {
-                            loaded.year = yearMatch.groupValues[1].toInt()
-                        }
+                        tempYear = yearMatch.groupValues[1].toInt()
                     }
                 }
+                
+                var tempDuration: Int? = loaded.duration
+                var tempTags: List<String>? = loaded.tags
+                var tempActors: List<com.lagradost.cloudstream3.ActorData>? = loaded.actors
 
                 val cleanName = loaded.name
                     // Keep stripping year at the end, as it helps with matching base titles
@@ -368,6 +375,10 @@ object TmdbEnrichmentService {
                                 budget,
                                 revenue,
                                 networksList,
+                                tempYear,
+                                tempDuration,
+                                tempTags,
+                                tempActors
                             )
 
                             val originalLanguage = tmdbData.get("original_language")?.asText()
@@ -417,8 +428,8 @@ object TmdbEnrichmentService {
                                     loaded.duration = runtime
                                 } else {
                                     val episodeRunTime = tmdbData.get("episode_run_time")?.get(0)?.asInt()
-                                    if (episodeRunTime != null && episodeRunTime > 0 && (loaded.duration == null || loaded.duration == 0)) {
-                                        loaded.duration = episodeRunTime
+                                    if (episodeRunTime != null && episodeRunTime > 0 && (tempDuration == null || tempDuration == 0)) {
+                                        tempDuration = episodeRunTime
                                     }
                                 }
 
@@ -433,10 +444,10 @@ object TmdbEnrichmentService {
                                         if (tmdbTags.any { it.equals("Animation", ignoreCase = true) } && originalLanguage == "ja") {
                                             tmdbIsAnime = true
                                         }
-                                        if (loaded.tags.isNullOrEmpty()) {
-                                            loaded.tags = tmdbTags
+                                        if (tempTags.isNullOrEmpty()) {
+                                            tempTags = tmdbTags
                                         } else {
-                                            loaded.tags = (loaded.tags.orEmpty() + tmdbTags).distinct()
+                                            tempTags = (tempTags.orEmpty() + tmdbTags).distinct()
                                         }
                                     }
                                 }
@@ -444,7 +455,7 @@ object TmdbEnrichmentService {
 
                             val castList = tmdbData.get("credits")?.get("cast")
                             val crewList = tmdbData.get("credits")?.get("crew")
-                            val hasPluginVoiceActors = loaded.actors?.any { it.voiceActor != null } == true
+                            val hasPluginVoiceActors = tempActors?.any { it.voiceActor != null } == true
                             if (!hasPluginVoiceActors) {
                                 val actors = mutableListOf<com.lagradost.cloudstream3.ActorData>()
 
@@ -479,7 +490,7 @@ object TmdbEnrichmentService {
 
                                 // Then, add regular cast (up to 150 to match all provider actors)
                                 if (castList != null && castList.isArray) {
-                                    val limit = if (loaded.actors.isNullOrEmpty()) 30 else 150
+                                    val limit = if (tempActors.isNullOrEmpty()) 30 else 150
                                     castList.take(limit).forEach { cast ->
                                         val name = cast.get("name")?.asText()
                                         val profilePath = cast.get("profile_path")?.asText()
@@ -494,26 +505,24 @@ object TmdbEnrichmentService {
                                 }
 
                                 if (actors.isNotEmpty()) {
-                                    withContext(Dispatchers.Main.immediate) {
-                                        if (loaded.actors.isNullOrEmpty()) {
-                                            loaded.actors = actors
-                                        } else {
-                                            val merged = loaded.actors.orEmpty().toMutableList()
-                                            actors.forEach { tmdbActor ->
-                                                val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
-                                                if (existingIdx == -1) {
-                                                    merged.add(tmdbActor)
-                                                } else {
-                                                    val existing = merged[existingIdx]
-                                                    // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
-                                                    merged[existingIdx] = existing.copy(
-                                                        actor = tmdbActor.actor,
-                                                        roleString = tmdbActor.roleString,
-                                                    )
-                                                }
+                                    if (tempActors.isNullOrEmpty()) {
+                                        tempActors = actors
+                                    } else {
+                                        val merged = tempActors.orEmpty().toMutableList()
+                                        actors.forEach { tmdbActor ->
+                                            val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
+                                            if (existingIdx == -1) {
+                                                merged.add(tmdbActor)
+                                            } else {
+                                                val existing = merged[existingIdx]
+                                                // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
+                                                merged[existingIdx] = existing.copy(
+                                                    actor = tmdbActor.actor,
+                                                    roleString = tmdbActor.roleString,
+                                                )
                                             }
-                                            loaded.actors = merged
                                         }
+                                        tempActors = merged
                                     }
                                 }
                             }
