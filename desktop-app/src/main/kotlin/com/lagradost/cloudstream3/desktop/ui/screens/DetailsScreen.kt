@@ -132,7 +132,9 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
 
         LaunchedEffect(response) {
             if (!hasAutoPlayed && response != null) {
-                viewModel.onEvent(DetailsUiEvent.OnRequestAutoPlay)
+                if (autoPlay) {
+                    viewModel.onEvent(DetailsUiEvent.OnRequestAutoPlay)
+                }
                 hasAutoPlayed = true
             }
         }
