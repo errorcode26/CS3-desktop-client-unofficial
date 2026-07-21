@@ -58,7 +58,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                         value = repoUrl,
                         onValueChange = { repoUrl = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Example: megarepo or https://...") },
+                        placeholder = { Text("Example: english-repo or https://...") },
                         singleLine = true,
                         shape = RoundedCornerShape(8.dp)
                     )
