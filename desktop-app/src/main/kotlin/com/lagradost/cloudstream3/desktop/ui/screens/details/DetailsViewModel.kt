@@ -34,7 +34,7 @@ class DetailsViewModel(
     ),
 ) {
     private val isInitialized = MutableStateFlow(false)
-    private val backupSeasonHistory = mutableMapOf<String, WatchHistory?>()
+    private val backupSeasonHistory = java.util.concurrent.ConcurrentHashMap<String, WatchHistory?>()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {

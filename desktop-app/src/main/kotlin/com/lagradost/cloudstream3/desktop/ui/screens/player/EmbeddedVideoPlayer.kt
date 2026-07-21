@@ -73,7 +73,6 @@ fun EmbeddedVideoPlayer(
     }
 
     var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
-    var failedLinks by remember { mutableStateOf(setOf<Int>()) }
     var showSources by remember { mutableStateOf(false) }
     var isFinished by remember { mutableStateOf(false) }
     var lastPositionSec by remember { mutableStateOf(0L) }

@@ -340,7 +340,6 @@ fun DetailsContent(
                     latestHistory = latestHistory,
                     isMovieLike = isMovieLike,
                     isLoading = isLoading,
-                    coroutineScope = coroutineScope,
                     isEpisodesStackedView = uiState?.isEpisodesStackedView ?: false,
                     onPlay = onPlay,
                     onToggleWatched = onToggleWatched,

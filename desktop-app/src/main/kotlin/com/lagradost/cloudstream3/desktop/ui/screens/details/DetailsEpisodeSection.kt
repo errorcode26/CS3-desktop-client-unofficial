@@ -38,13 +38,13 @@ fun DetailsEpisodeSection(
     latestHistory: WatchHistory?,
     isMovieLike: Boolean,
     isLoading: Boolean,
-    coroutineScope: CoroutineScope,
     isEpisodesStackedView: Boolean,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     if (isMovieLike) return
     val hasEpisodes = when (data) {
         is TvSeriesLoadResponse -> data.episodes.isNotEmpty()
