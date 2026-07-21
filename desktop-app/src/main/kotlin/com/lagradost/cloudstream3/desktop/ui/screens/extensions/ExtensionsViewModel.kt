@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,6 +44,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             DesktopRepositoryManager.syncGeneration.collect { gen ->
                 updateState { copy(syncGeneration = gen) }
             }
+        }
+        // Immediately populate the Installed tab on ViewModel creation
+        viewModelScope.launch(Dispatchers.IO) {
+            refreshInstalled()
         }
     }
 
@@ -250,32 +255,53 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         viewModelScope.launch(Dispatchers.IO) {
             for (plugin in plugins) {
                 try {
+                    // Step 1: Gracefully unload the plugin (calls beforeUnload, removes from APIHolder)
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
+                    // Step 2: Force JVM to release native Windows file handles.
+                    // URLClassLoader holds sun.misc.URLClassPath file handles that are only
+                    // released after the GC sweeps unreferenced class loaders. We force this
+                    // explicitly before attempting file deletion to prevent Windows ACCESS_DENIED.
+                    @Suppress("ExplicitGarbageCollectionCall")
+                    System.gc()
+                    Thread.sleep(150)
+                    @Suppress("deprecation")
+                    System.runFinalization()
+
+                    // Step 3: Reset the active provider if it was the plugin being removed.
+                    // This prevents the home/search screens from pointing to a dead provider.
+                    val activeProvider = DesktopDataStore.getKey<String>("preferred_provider_name")
+                    val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
+                        .filter { it.sourcePlugin == plugin.file.absolutePath }
+                        .map { it.name }
+                    if (activeProvider != null && pluginProviders.contains(activeProvider)) {
+                        DesktopDataStore.removeKey("preferred_provider_name")
+                        com.lagradost.common.logging.AppLogger.i(
+                            "Active provider '$activeProvider' belonged to removed plugin '${plugin.name}'. Cleared selection."
+                        )
+                    }
+
+                    // Step 4: Recursively delete the entire plugin directory — no orphans allowed.
                     val parentDir = plugin.file.parentFile
-                    val jvmFile = java.io.File(parentDir, plugin.file.nameWithoutExtension + "-jvm.jar")
-                    val dexFile = java.io.File(parentDir, plugin.file.nameWithoutExtension + ".dex")
-
-                    val cs3Deleted = plugin.file.delete()
-                    if (!cs3Deleted) plugin.file.deleteOnExit()
-
-                    val jvmDeleted = jvmFile.delete()
-                    if (!jvmDeleted && jvmFile.exists()) jvmFile.deleteOnExit()
-
-                    val dexDeleted = dexFile.delete()
-                    if (!dexDeleted && dexFile.exists()) dexFile.deleteOnExit()
-
-                    com.lagradost.common.logging.AppLogger.i("Uninstalled ${plugin.name}: cs3=$cs3Deleted, jvm=$jvmDeleted, dex=$dexDeleted")
-
-                    if (parentDir != null) {
-                        if (parentDir.listFiles()?.isEmpty() == true) {
-                            parentDir.delete()
-                        } else {
-                            parentDir.deleteOnExit()
+                    if (parentDir != null && parentDir.exists()) {
+                        val deleted = parentDir.deleteRecursively()
+                        com.lagradost.common.logging.AppLogger.i(
+                            "Uninstalled '${plugin.name}': full dir delete=$deleted (path=${parentDir.absolutePath})"
+                        )
+                        if (!deleted) {
+                            // Fallback: if recursive delete partially failed (still-locked files),
+                            // schedule each remaining file for deletion at JVM exit.
+                            parentDir.walkBottomUp().forEach { it.deleteOnExit() }
+                            com.lagradost.common.logging.AppLogger.i(
+                                "'${plugin.name}': Recursive delete incomplete — scheduled remaining files for deleteOnExit."
+                            )
                         }
+                    } else {
+                        // parentDir is null or gone — just try to delete the individual file.
+                        if (!plugin.file.delete()) plugin.file.deleteOnExit()
                     }
                 } catch (e: Throwable) {
-                    com.lagradost.common.logging.AppLogger.e("Error uninstalling plugin", e)
+                    com.lagradost.common.logging.AppLogger.e("Error uninstalling plugin '${plugin.name}'", e)
                 }
             }
             refreshInstalled()
