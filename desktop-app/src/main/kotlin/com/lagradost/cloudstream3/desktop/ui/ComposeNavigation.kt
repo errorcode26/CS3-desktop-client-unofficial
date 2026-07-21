@@ -282,7 +282,7 @@ fun CloudstreamApp() {
                                     title = "Extensions",
                                     onErrorLogs = { showErrorsDialog = true },
                                 ) {
-                                    ComposeExtensionScreen(navController)
+                                    ComposeExtensionScreen(navController, targetScreen.initialTab)
                                 }
                                 is Screen.Library -> DesktopAppShell(
                                     navController = navController,

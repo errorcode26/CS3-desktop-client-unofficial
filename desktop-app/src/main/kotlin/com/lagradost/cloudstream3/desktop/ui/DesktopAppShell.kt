@@ -236,7 +236,7 @@ private fun NavigationDock(
             selected = current is Screen.Extensions,
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
-            onClick = { onNavigate(Screen.Extensions) },
+            onClick = { onNavigate(Screen.Extensions()) },
         )
         DockItem(icon = PremiumIcons.Settings, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS, selected = current is Screen.Settings, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Settings) })
     }

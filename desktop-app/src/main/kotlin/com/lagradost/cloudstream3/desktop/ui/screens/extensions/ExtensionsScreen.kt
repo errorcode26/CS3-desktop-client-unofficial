@@ -18,8 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeExtensionScreen(navController: NavController) {
-    var selectedTab by remember { mutableStateOf(0) }
+fun ComposeExtensionScreen(navController: NavController, initialTab: Int = 0) {
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabs = listOf("Browse", "Installed", "Repositories")
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { ExtensionsViewModel() }

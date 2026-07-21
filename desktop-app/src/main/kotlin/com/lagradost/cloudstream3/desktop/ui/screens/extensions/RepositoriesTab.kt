@@ -18,6 +18,10 @@ import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     var repoUrl by remember { mutableStateOf("") }
@@ -27,25 +31,53 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
+        Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            OutlinedTextField(
-                value = repoUrl,
-                onValueChange = { repoUrl = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Short code or URL") },
-                singleLine = true,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = {
-                if (repoUrl.isNotBlank()) {
-                    viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
-                    repoUrl = ""
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    "Add Extension Repository",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "This app supports CloudStream extensions. Please enter a repository URL or short code below to add it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = repoUrl,
+                        onValueChange = { repoUrl = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Example: megarepo or https://...") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Button(
+                        onClick = {
+                            if (repoUrl.isNotBlank()) {
+                                viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                                repoUrl = ""
+                            }
+                        },
+                        modifier = Modifier.height(56.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add Repository")
+                    }
                 }
-            }) {
-                Text("Add")
             }
         }
 

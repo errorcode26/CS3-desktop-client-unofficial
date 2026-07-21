@@ -183,7 +183,7 @@ fun ComposeHomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { navController.navigate(Screen.Extensions) }) {
+                    Button(onClick = { navController.navigate(Screen.Extensions(initialTab = 2)) }) {
                         Text(com.lagradost.cloudstream3.desktop.utils.DesktopStrings.GO_TO_EXTENSIONS)
                     }
                 }

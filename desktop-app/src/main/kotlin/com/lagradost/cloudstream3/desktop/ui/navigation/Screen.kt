@@ -5,7 +5,7 @@ import com.lagradost.cloudstream3.SearchResponse
 sealed class Screen {
     object Home : Screen()
     object Search : Screen()
-    object Extensions : Screen()
+    data class Extensions(val initialTab: Int = 0) : Screen()
     object Library : Screen()
     object Settings : Screen()
     data class Details(val providerName: String, val url: String, val preloadedName: String? = null, val preloadedPoster: String? = null, val preloadedBg: String? = null, val autoPlay: Boolean = false) : Screen()
