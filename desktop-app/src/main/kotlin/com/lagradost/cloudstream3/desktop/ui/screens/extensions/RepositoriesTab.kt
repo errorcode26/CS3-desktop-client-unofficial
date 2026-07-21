@@ -17,12 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import kotlinx.coroutines.launch
 
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     var repoUrl by remember { mutableStateOf("") }
-    val repos by viewModel.savedRepositories.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val repos = uiState.savedRepositories
     var statusText by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
@@ -41,22 +41,8 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
                 if (repoUrl.isNotBlank()) {
-                    coroutineScope.launch {
-                        try {
-                            val addedRepos = viewModel.addRepositoryFromInput(repoUrl)
-                            if (addedRepos != null && addedRepos.isNotEmpty()) {
-                                repoUrl = ""
-                                val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
-                                statusText = "Added ${addedRepos.size} repository(s): $repoNames. Syncing..."
-                                viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
-                                statusText = "Repositories added and synced successfully."
-                            } else {
-                                statusText = "Failed to load repository. Check the URL and try again."
-                            }
-                        } catch (e: Throwable) {
-                            statusText = "Error: ${e.message}"
-                        }
-                    }
+                    viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                    repoUrl = ""
                 }
             }) {
                 Text("Add")
@@ -86,7 +72,6 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             else -> 320.dp
         }
 
-        val uiState by viewModel.uiState.collectAsState()
         val allPlugins = uiState.plugins
         val installedPlugins = uiState.installedPlugins
         val inspectedRepoName = uiState.inspectedRepoName
@@ -149,7 +134,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Surface(
                                         onClick = {
-                                            val installUrl = viewModel.getPluginsJsonUrl(repo.url)
+                                            val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
                                             val selection = java.awt.datatransfer.StringSelection(installUrl)
                                             java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
                                             copied = true
@@ -219,11 +204,11 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             ) {
                                 items(repoPlugins, key = { it.internalName }) { plugin ->
                                     val iconUrl = plugin.iconUrl
-                                        ?: viewModel.remotePluginIcons.value[plugin.internalName]
-                                        ?: viewModel.remotePluginIcons.value[plugin.name]
+                                        ?: uiState.remotePluginIcons[plugin.internalName]
+                                        ?: uiState.remotePluginIcons[plugin.name]
 
                                     val isInstalled = remember(plugin, installedPlugins) {
-                                        val ext = viewModel.getExtensionsDir()
+                                        val ext = uiState.extensionsDir
                                         val subDir = java.io.File(ext, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                                         java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
                                             java.io.File(ext, "${plugin.internalName}.jar").exists() ||
@@ -315,9 +300,11 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (!repo.iconUrl.isNullOrEmpty() && !viewModel.isIconFailed(repo.iconUrl)) {
+                            val manifest = remember(repo.url) { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getRepositoryManifest(repo.url) }
+                            val iconUrl = manifest?.iconUrl
+                            if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(iconUrl)) {
                                 coil3.compose.SubcomposeAsyncImage(
-                                    model = repo.iconUrl,
+                                    model = iconUrl,
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 14.dp).size(44.dp).clip(androidx.compose.foundation.shape.CircleShape),
                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -325,7 +312,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         RepoAvatarBox(repo.name)
                                     },
                                     error = {
-                                        viewModel.markIconFailed(repo.iconUrl)
+                                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.markIconFailed(iconUrl)
                                         RepoAvatarBox(repo.name)
                                     },
                                 )
@@ -358,7 +345,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             var cardCopied by remember(repo.url) { mutableStateOf(false) }
                             TextButton(
                                 onClick = {
-                                    val installUrl = viewModel.getPluginsJsonUrl(repo.url)
+                                    val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
                                     val selection = java.awt.datatransfer.StringSelection(installUrl)
                                     java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
                                     cardCopied = true

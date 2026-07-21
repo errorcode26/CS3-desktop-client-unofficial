@@ -119,6 +119,8 @@ object DesktopRepositoryManager {
 
     fun getSavedRepositories(): List<RepositoryData> = _savedRepositories.value
 
+    fun getRepositoryManifest(url: String): Repository? = repoCache[url]
+
     fun getPluginsJsonUrl(repoUrl: String): String {
         val cached = repoCache[repoUrl]?.pluginLists?.firstOrNull()
         if (!cached.isNullOrBlank()) return cached
@@ -676,6 +678,7 @@ object DesktopRepositoryManager {
                                         com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
                                         AppLogger.i("Auto-Updater: Successfully hot-reloaded ${remotePlugin.name}")
                                     } catch (e: Exception) {
+                                        if (e is kotlinx.coroutines.CancellationException) throw e
                                         AppLogger.i("Auto-Updater: Failed to hot-reload ${remotePlugin.name}")
                                         AppLogger.e("Auto-Updater", e)
                                     }

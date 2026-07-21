@@ -247,12 +247,12 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         ) {
             items(filteredPlugins, key = { "${it.first}-${it.second.internalName}" }) { (repoName, plugin) ->
                 val iconUrl = plugin.iconUrl
-                    ?: viewModel.remotePluginIcons.value[plugin.internalName]
-                    ?: viewModel.remotePluginIcons.value[plugin.name]
+                    ?: uiState.remotePluginIcons[plugin.internalName]
+                    ?: uiState.remotePluginIcons[plugin.name]
 
                 var isInstalling by remember { mutableStateOf(false) }
                 val isPluginInstalled = remember(plugin, syncGeneration) {
-                    val ext = viewModel.getExtensionsDir()
+                    val ext = uiState.extensionsDir
                     val subDir = java.io.File(ext, repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                     java.io.File(subDir, "${plugin.internalName}.jar").exists()
                 }

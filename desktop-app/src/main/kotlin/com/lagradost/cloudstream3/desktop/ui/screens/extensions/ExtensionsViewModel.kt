@@ -28,9 +28,23 @@ data class LocalPlugin(
 class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEvent, ExtensionsUiEffect>(
     initialState = ExtensionsUiState(),
 ) {
-    val savedRepositories = DesktopRepositoryManager.savedRepositories
-    val remotePluginIcons = DesktopRepositoryManager.remotePluginIcons
-    val syncGeneration = DesktopRepositoryManager.syncGeneration
+    init {
+        viewModelScope.launch {
+            DesktopRepositoryManager.savedRepositories.collect { repos ->
+                updateState { copy(savedRepositories = repos) }
+            }
+        }
+        viewModelScope.launch {
+            DesktopRepositoryManager.remotePluginIcons.collect { icons ->
+                updateState { copy(remotePluginIcons = icons) }
+            }
+        }
+        viewModelScope.launch {
+            DesktopRepositoryManager.syncGeneration.collect { gen ->
+                updateState { copy(syncGeneration = gen) }
+            }
+        }
+    }
 
     override fun handleEvent(event: ExtensionsUiEvent) {
         when (event) {
@@ -46,12 +60,30 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             is ExtensionsUiEvent.OnClearBypass -> clearBypass()
             is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin)
             is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
+            is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
             is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName)
+            is ExtensionsUiEvent.OnAddRepositoryFromInput -> addRepositoryFromInput(event.input)
+            is ExtensionsUiEvent.OnSyncAllRepos -> syncAllRepos()
         }
     }
 
-    suspend fun addRepositoryFromInput(input: String): List<com.lagradost.cloudstream3.desktop.repo.Repository>? = withContext(Dispatchers.IO) {
-        DesktopRepositoryManager.addRepositoryFromInput(input)
+    private fun addRepositoryFromInput(input: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val addedRepos = DesktopRepositoryManager.addRepositoryFromInput(input)
+                if (addedRepos != null && addedRepos.isNotEmpty()) {
+                    val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
+                    updateState { copy(statusText = "Added ${addedRepos.size} repository(s): $repoNames. Syncing...") }
+                    DesktopRepositoryManager.syncAll()
+                    val allPlugins = DesktopRepositoryManager.getAllPlugins()
+                    updateState { copy(plugins = allPlugins, statusText = "Repositories added and synced successfully.") }
+                } else {
+                    updateState { copy(statusText = "Failed to load repository. Check the URL and try again.") }
+                }
+            } catch (e: Throwable) {
+                updateState { copy(statusText = "Error: ${e.message}") }
+            }
+        }
     }
 
     private fun removeRepository(url: String) {
@@ -60,17 +92,20 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         }
     }
 
-    suspend fun syncAllRepos() = withContext(Dispatchers.IO) {
-        DesktopRepositoryManager.syncAll()
+    private fun syncAllRepos() {
+        viewModelScope.launch {
+            updateState { copy(isFetching = true, statusText = "Syncing repositories...") }
+            try {
+                withContext(Dispatchers.IO) { DesktopRepositoryManager.syncAll() }
+                val allPlugins = DesktopRepositoryManager.getAllPlugins()
+                updateState { copy(plugins = allPlugins, statusText = "Sync completed successfully.") }
+            } catch (e: Throwable) {
+                updateState { copy(statusText = "Error syncing: ${e.message}") }
+            } finally {
+                updateState { copy(isFetching = false) }
+            }
+        }
     }
-
-    fun getPluginsJsonUrl(url: String): String = DesktopRepositoryManager.getPluginsJsonUrl(url)
-
-    fun getExtensionsDir(): File = DesktopRepositoryManager.getExtensionsDir()
-
-    fun isIconFailed(url: String): Boolean = DesktopRepositoryManager.isIconFailed(url)
-
-    fun markIconFailed(url: String) = DesktopRepositoryManager.markIconFailed(url)
 
     private fun inspectRepository(repoName: String?) {
         updateState { copy(inspectedRepoName = repoName) }

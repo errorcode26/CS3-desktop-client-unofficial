@@ -20,7 +20,7 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     val uiState by viewModel.uiState.collectAsState()
     val installedPlugins = uiState.installedPlugins
     var selectedPlugins by remember { mutableStateOf(setOf<LocalPlugin>()) }
-    val remoteIcons by viewModel.remotePluginIcons.collectAsState()
+    val remoteIcons = uiState.remotePluginIcons
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showUnsupportedWarning by remember { mutableStateOf(false) }

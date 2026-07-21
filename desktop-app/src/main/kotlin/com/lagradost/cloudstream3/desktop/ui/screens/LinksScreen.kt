@@ -28,7 +28,6 @@ import com.lagradost.cloudstream3.desktop.ui.screens.links.LinksViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.storage.WatchHistory
-import com.lagradost.player.impl.PlayerLinkHandler
 import com.lagradost.player.impl.VlcPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -75,6 +74,33 @@ fun LinksSidePanel(
     var selectedQuality by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf("All") }
     val availableTypes = listOf("All", "HLS (Fast Stream)", "MP4 (Downloadable)")
+
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.ShowToast -> {} // Implement if needed
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.NotifyLaunching -> {
+                    isLaunchingPlayer = effect.isLaunching
+                }
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.NotifyCurrentUrl -> {
+                    currentPlayingUrl = effect.url
+                }
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.LaunchVlc -> {
+                    coroutineScope.launch {
+                        val result = vlcPlayer.play(effect.link, effect.displayTitle, effect.subtitles, effect.startMs)
+                        if (!result.isSuccess) {
+                            viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent.OnStatusTextChanged("Could not start player."))
+                            isLaunchingPlayer = false
+                            currentPlayingUrl = null
+                        }
+                    }
+                }
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.LaunchEmbeddedPlayer -> {
+                    playVideo(effect.launchData)
+                }
+            }
+        }
+    }
 
     val displayTitle = remember(history) {
         buildString {
@@ -156,24 +182,14 @@ fun LinksSidePanel(
                 embeddedError = null
                 playerLaunchError = null
                 delay(800)
-                playLink(
-                    link = nextLink,
-                    links = links,
-                    subtitles = subtitles.map { it.url }.filter { it.isNotBlank() },
-                    subtitleFiles = subtitles.filter { it.url.isNotBlank() },
-                    selectedPlayer = selectedPlayer,
-                    displayTitle = displayTitle,
-                    history = history,
-                    loadResponse = loadResponse,
-                    isLaunchingPlayer = isLaunchingPlayer,
-                    currentPlayingUrl = currentPlayingUrl,
-                    filteredLinks = filteredLinks,
-                    coroutineScope = coroutineScope,
-                    vlcPlayer = vlcPlayer,
-                    playVideo = playVideo,
-                    onStatusChange = { viewModel.onEvent(LinksUiEvent.OnStatusTextChanged(it)) },
-                    onLaunching = { isLaunchingPlayer = it },
-                    onCurrentUrl = { currentPlayingUrl = it },
+                viewModel.onEvent(
+                    com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent.OnPlayLink(
+                        link = nextLink,
+                        displayTitle = displayTitle,
+                        history = history,
+                        loadResponse = loadResponse,
+                        currentPlayingUrl = currentPlayingUrl,
+                    ),
                 )
             } else {
                 playerLaunchError = errorMessage
@@ -283,24 +299,14 @@ fun LinksSidePanel(
                             link = link,
                             isBusy = isLaunchingPlayer && currentPlayingUrl != link.url,
                             onPlay = {
-                                playLink(
-                                    link = link,
-                                    links = links,
-                                    subtitles = subtitles.map { it.url }.filter { it.isNotBlank() },
-                                    subtitleFiles = subtitles.filter { it.url.isNotBlank() },
-                                    selectedPlayer = selectedPlayer,
-                                    displayTitle = displayTitle,
-                                    history = history,
-                                    loadResponse = loadResponse,
-                                    isLaunchingPlayer = isLaunchingPlayer,
-                                    currentPlayingUrl = currentPlayingUrl,
-                                    filteredLinks = filteredLinks,
-                                    coroutineScope = coroutineScope,
-                                    vlcPlayer = vlcPlayer,
-                                    playVideo = playVideo,
-                                    onStatusChange = { viewModel.onEvent(LinksUiEvent.OnStatusTextChanged(it)) },
-                                    onLaunching = { isLaunchingPlayer = it },
-                                    onCurrentUrl = { currentPlayingUrl = it },
+                                viewModel.onEvent(
+                                    com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent.OnPlayLink(
+                                        link = link,
+                                        displayTitle = displayTitle,
+                                        history = history,
+                                        loadResponse = loadResponse,
+                                        currentPlayingUrl = currentPlayingUrl,
+                                    ),
                                 )
                             },
                             onCopy = {
@@ -328,106 +334,6 @@ fun LinksSidePanel(
             }
         }
     }
-}
-
-/** Pure function — no state. Handles player launch routing. */
-private fun playLink(
-    link: ExtractorLink,
-    links: List<ExtractorLink>,
-    subtitles: List<String>,
-    subtitleFiles: List<com.lagradost.cloudstream3.SubtitleFile>,
-    selectedPlayer: String,
-    displayTitle: String,
-    history: WatchHistory,
-    loadResponse: com.lagradost.cloudstream3.LoadResponse?,
-    isLaunchingPlayer: Boolean,
-    currentPlayingUrl: String?,
-    filteredLinks: List<ExtractorLink>,
-    coroutineScope: kotlinx.coroutines.CoroutineScope,
-    vlcPlayer: com.lagradost.player.impl.VlcPlayer,
-    playVideo: (com.lagradost.cloudstream3.desktop.ui.VideoLaunchData?) -> Unit,
-    onStatusChange: (String) -> Unit,
-    onLaunching: (Boolean) -> Unit,
-    onCurrentUrl: (String?) -> Unit,
-) {
-    if (isLaunchingPlayer && currentPlayingUrl == null) return
-    val validation = PlayerLinkHandler.validate(link, displayTitle)
-    if (validation.isFailure) {
-        onStatusChange(validation.exceptionOrNull()?.message ?: "Invalid stream")
-        return
-    }
-    onLaunching(true)
-    onCurrentUrl(link.url)
-
-    val effectivePlayer = resolvePlayer(selectedPlayer, link)
-    onStatusChange("Launching ${effectivePlayer.uppercase()}...")
-
-    val startMs = resolveStartPosition(history, loadResponse)
-
-    if (effectivePlayer == "vlc") {
-        launchVlcPlayer(link, displayTitle, subtitles, startMs, vlcPlayer, coroutineScope, onStatusChange, onLaunching, onCurrentUrl)
-    } else {
-        launchEmbeddedPlayer(link, links, displayTitle, subtitleFiles, startMs, history, loadResponse, playVideo, onStatusChange)
-    }
-}
-
-private fun resolvePlayer(selectedPlayer: String, link: ExtractorLink): String {
-    return if (selectedPlayer == "vlc" && PlayerLinkHandler.shouldPreferMpv(link)) "mpv" else selectedPlayer
-}
-
-private fun resolveStartPosition(history: WatchHistory, loadResponse: com.lagradost.cloudstream3.LoadResponse?): Long {
-    val isLive = loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
-    val startSec = if (isLive) 0L else PlayerLinkHandler.resumeStartSeconds(history.position, history.duration)
-    return startSec * 1000L
-}
-
-private fun launchVlcPlayer(
-    link: ExtractorLink,
-    displayTitle: String,
-    subtitles: List<String>,
-    startMs: Long,
-    vlcPlayer: com.lagradost.player.impl.VlcPlayer,
-    coroutineScope: kotlinx.coroutines.CoroutineScope,
-    onStatusChange: (String) -> Unit,
-    onLaunching: (Boolean) -> Unit,
-    onCurrentUrl: (String?) -> Unit,
-) {
-    coroutineScope.launch {
-        val result = vlcPlayer.play(link, displayTitle, subtitles, startMs)
-        if (result.isSuccess) {
-            onStatusChange("Playing: ${link.name}")
-        } else {
-            onStatusChange("Could not start player.")
-            onLaunching(false)
-            onCurrentUrl(null)
-        }
-    }
-}
-
-private fun launchEmbeddedPlayer(
-    link: ExtractorLink,
-    links: List<ExtractorLink>,
-    displayTitle: String,
-    subtitleFiles: List<com.lagradost.cloudstream3.SubtitleFile>,
-    startMs: Long,
-    history: WatchHistory,
-    loadResponse: com.lagradost.cloudstream3.LoadResponse?,
-    playVideo: (com.lagradost.cloudstream3.desktop.ui.VideoLaunchData?) -> Unit,
-    onStatusChange: (String) -> Unit,
-) {
-    val initialIndex = links.indexOfFirst { it.url == link.url }.coerceAtLeast(0)
-    playVideo(
-        com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
-            links = links,
-            initialIndex = initialIndex,
-            title = displayTitle,
-            subtitles = subtitleFiles,
-            startPositionMs = startMs,
-            history = history,
-            loadResponse = loadResponse,
-        ),
-    )
-    onStatusChange("Playing in embedded player: ${link.name}")
 }
 
 @Composable

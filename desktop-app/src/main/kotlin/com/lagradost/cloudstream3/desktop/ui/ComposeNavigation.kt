@@ -48,8 +48,6 @@ class SearchUiState(
     var searchFocusTrigger by androidx.compose.runtime.mutableStateOf(searchFocusTrigger)
 }
 val LocalSearchUiState = androidx.compose.runtime.staticCompositionLocalOf<SearchUiState> { error("No SearchUiState provided") }
-val LocalHomeUiState = androidx.compose.runtime.staticCompositionLocalOf<com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState> { error("No HomeUiState provided") }
-val LocalHomeActionDispatcher = androidx.compose.runtime.staticCompositionLocalOf<(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit> { { } }
 
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
@@ -112,8 +110,6 @@ fun CloudstreamApp() {
         LocalVideoPlayer provides { currentVideo = it },
         LocalVideoPlayerActive provides (currentVideo != null),
         LocalSearchUiState provides searchUiState,
-        LocalHomeUiState provides homeUiState,
-        LocalHomeActionDispatcher provides homeActionDispatcher,
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)
@@ -257,6 +253,8 @@ fun CloudstreamApp() {
                                     navController = navController,
                                     title = "Home",
                                     onErrorLogs = { showErrorsDialog = true },
+                                    homeUiState = homeUiState,
+                                    homeActionDispatcher = homeActionDispatcher,
                                 ) {
                                     ComposeHomeScreen(
                                         navController = navController,

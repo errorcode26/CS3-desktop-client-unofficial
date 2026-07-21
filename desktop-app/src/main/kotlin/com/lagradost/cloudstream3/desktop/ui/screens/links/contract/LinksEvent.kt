@@ -10,4 +10,11 @@ sealed interface LinksUiEvent : UiEvent {
     data class OnStatusTextChanged(val text: String) : LinksUiEvent
     data class OnSaveWatchPosition(val history: WatchHistory, val positionMs: Long, val durationMs: Long) : LinksUiEvent
     data class OnPreferredPlayerChanged(val player: String) : LinksUiEvent
+    data class OnPlayLink(
+        val link: com.lagradost.cloudstream3.utils.ExtractorLink,
+        val displayTitle: String,
+        val history: WatchHistory,
+        val loadResponse: com.lagradost.cloudstream3.LoadResponse?,
+        val currentPlayingUrl: String?,
+    ) : LinksUiEvent
 }

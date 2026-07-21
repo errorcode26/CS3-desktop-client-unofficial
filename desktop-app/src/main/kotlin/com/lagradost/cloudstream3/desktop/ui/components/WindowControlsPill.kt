@@ -27,7 +27,11 @@ import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 
 @Composable
-fun WindowControlsPill(isHome: Boolean = false) {
+fun WindowControlsPill(
+    isHome: Boolean = false,
+    homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
+    homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
+) {
     val windowState = LocalWindowState.current
     val fullscreenController = LocalFullscreenController.current
     val isFullscreen = fullscreenController?.isFullscreen ?: (windowState?.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen)
@@ -35,11 +39,9 @@ fun WindowControlsPill(isHome: Boolean = false) {
     val theme = LocalDesktopTheme.current
 
     // Fetch provider states for the global pill
-    val uiState = com.lagradost.cloudstream3.desktop.ui.LocalHomeUiState.current
-    val actionDispatcher = com.lagradost.cloudstream3.desktop.ui.LocalHomeActionDispatcher.current
-    val providers = uiState.providers
-    val selectedProviderName = uiState.selectedProviderName
-    val mergedPluginIcons = uiState.mergedPluginIcons
+    val providers = homeUiState?.providers ?: emptyList()
+    val selectedProviderName = homeUiState?.selectedProviderName
+    val mergedPluginIcons = homeUiState?.mergedPluginIcons ?: emptyMap()
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
@@ -171,7 +173,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
                                 val pluginIcon = mergedPluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
                                 androidx.compose.material.DropdownMenuItem(
                                     onClick = {
-                                        actionDispatcher(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnSelectProvider(provider.name))
+                                        homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnSelectProvider(provider.name))
                                         isDropdownExpanded.value = false
                                     },
                                 ) {
@@ -212,7 +214,7 @@ fun WindowControlsPill(isHome: Boolean = false) {
             }
 
             IconButton(
-                onClick = { actionDispatcher(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh) },
+                onClick = { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh) },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(18.dp))

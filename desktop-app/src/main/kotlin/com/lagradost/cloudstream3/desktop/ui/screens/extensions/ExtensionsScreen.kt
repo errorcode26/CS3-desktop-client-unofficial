@@ -24,8 +24,8 @@ fun ComposeExtensionScreen(navController: NavController) {
     DisposableEffect(viewModel) {
         onDispose { viewModel.dispose() }
     }
-    val syncGen by viewModel.syncGeneration.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val syncGen = uiState.syncGeneration
     val inspectedRepoName = uiState.inspectedRepoName
 
     LaunchedEffect(inspectedRepoName) {
@@ -98,7 +98,7 @@ fun ComposeExtensionScreen(navController: NavController) {
                         coroutineScope.launch(Dispatchers.IO) {
                             isSyncing = true
                             try {
-                                viewModel.syncAllRepos()
+                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
                             } catch (e: Exception) {
                                 // ignore
                             } finally {

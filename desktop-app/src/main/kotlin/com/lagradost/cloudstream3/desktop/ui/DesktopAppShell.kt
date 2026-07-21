@@ -31,9 +31,12 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun DesktopAppShell(
     navController: NavController,
-    title: String,
+    title: String? = null,
     showBack: Boolean = false,
+    applyMaxWidth: Boolean = true,
     onErrorLogs: () -> Unit = {},
+    homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
+    homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val current = navController.currentScreen
@@ -154,6 +157,8 @@ fun DesktopAppShell(
                     showBack = showBack,
                     onBack = { navController.goBack() },
                     isHome = current is Screen.Home,
+                    homeUiState = homeUiState,
+                    homeActionDispatcher = homeActionDispatcher,
                 )
 
                 SnackbarHost(

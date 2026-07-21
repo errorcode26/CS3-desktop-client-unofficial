@@ -20,7 +20,7 @@ object DatabaseFactory {
         } catch (e: Exception) {
             // Column already exists or other error, safe to ignore for migrations
         }
-        
+
         try {
             driver.execute(null, "ALTER TABLE WatchHistory ADD COLUMN episodeThumbnailUrl TEXT;", 0)
         } catch (e: Exception) {

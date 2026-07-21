@@ -38,6 +38,22 @@ fun EmbeddedVideoPlayer(
         viewModel.onEvent(PlayerUiEvent.OnInit(launchData))
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ShowToast -> {
+                    // Ignored for now or use a local toast
+                }
+                is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ClosePlayer -> {
+                    onClose()
+                }
+                is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ShowError -> {
+                    onError(effect.message)
+                }
+            }
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val currentLaunchData = uiState.launchData
     val isLoadingNextEpisode = uiState.isLoadingNextEpisode

@@ -20,6 +20,8 @@ fun TopBar(
     showBack: Boolean,
     onBack: () -> Unit,
     isHome: Boolean,
+    homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
+    homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
 ) {
     val bg = Color.Transparent
     Column(modifier = Modifier.fillMaxWidth().background(bg)) {
@@ -46,7 +48,11 @@ fun TopBar(
             }
             Spacer(Modifier.weight(1f))
 
-            WindowControlsPill(isHome = isHome)
+            WindowControlsPill(
+                isHome = isHome,
+                homeUiState = homeUiState,
+                homeActionDispatcher = homeActionDispatcher,
+            )
         }
         if (!isHome) {
             HorizontalDivider(color = LocalDesktopTheme.current.Divider, thickness = 0.5.dp)

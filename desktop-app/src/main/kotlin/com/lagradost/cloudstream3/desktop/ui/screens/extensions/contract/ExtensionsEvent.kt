@@ -9,6 +9,8 @@ sealed interface ExtensionsUiEvent : UiEvent {
     data object OnFetchPlugins : ExtensionsUiEvent
     data object OnLoadPluginsFromManager : ExtensionsUiEvent
     data object OnRefreshInstalled : ExtensionsUiEvent
+    data class OnAddRepositoryFromInput(val input: String) : ExtensionsUiEvent
+    data object OnSyncAllRepos : ExtensionsUiEvent
     data class OnInspectRepository(val repoName: String?) : ExtensionsUiEvent
     data class OnInstallPlugin(val repoName: String, val plugin: SitePlugin, val onResult: (String) -> Unit) : ExtensionsUiEvent
     data class OnUninstallPlugins(val plugins: List<LocalPlugin>) : ExtensionsUiEvent

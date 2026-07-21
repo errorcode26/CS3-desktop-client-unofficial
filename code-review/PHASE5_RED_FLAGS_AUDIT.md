@@ -294,38 +294,40 @@ Single occurrence missed among the otherwise correct `AppLogger` usage in the sa
 
 ## Summary Table
 
-| ID | Severity | File | Issue |
-|---|---|---|---|
-| RF-01 | 🔴 Critical | `DetailsViewModel.kt` | Sync disk I/O on main thread |
-| RF-02 | 🔴 Critical | `DetailsViewModel.kt` | Raw JSON string mutation (data corruption risk) |
-| RF-03 | 🔴 Critical | `EmbeddedPlayerViewModel.kt` | ~120 lines of duplicated link-scraping code |
-| RF-04 | 🔴 Critical | `GetEnrichedDetailsUseCase.kt` | `callbackFlow` leaks coroutines on cancellation |
-| RF-05 | 🔴 Critical | `GetEnrichedDetailsUseCase.kt` | Mutating shared cached `LoadResponse` object |
-| RF-21 | 🔴 Critical | `EmbeddedVideoPlayer.kt` | Sync DataStore read inside Compose render |
-| RF-22 | 🔴 Critical | `EmbeddedVideoPlayer.kt` | saveJob persistence management inside a Composable |
-| RF-23 | 🔴 Critical | `DetailsEpisodeSection.kt` | Direct DB writes inside a UI sub-component |
-| RF-24 | 🔴 Critical | `LinksScreen.kt` | DataStore read+write inside Composable and onClick |
-| RF-06 | 🟠 Arch | `HeroRepository.kt` | Compose `Color` type in a Repository |
-| RF-07 | 🟠 Arch | `GetEnrichedDetailsUseCase.kt` | Compose `Color` type in a UseCase |
-| RF-08 | 🟠 Arch | `ExtensionsViewModel.kt` | Raw `StateFlow`s bypassing MVI `uiState` |
-| RF-09 | 🟠 Arch | `ExtensionsViewModel.kt` | Public `suspend` functions on ViewModel |
-| RF-10 | 🟠 Arch | `ExtensionsViewModel.kt` | Utility passthrough getters on ViewModel |
-| RF-11 | 🟠 Arch | `EmbeddedPlayerViewModel.kt` | Imperative getter methods instead of pushed state |
-| RF-12 | 🟠 Arch | `ComposeNavigation.kt` | ViewModel exposed via `CompositionLocal` globally |
-| RF-13 | 🟠 Arch | `ComposeNavigation.kt` | Lambda callbacks inside a `data class` |
-| RF-14 | 🟠 Arch | `HeroRepository.kt` | Repository takes UI-update lambdas instead of returning Flow |
-| RF-26 | 🟠 Arch | `EmbeddedVideoPlayer.kt` | Composable calls imperative ViewModel getters during render |
-| RF-27 | 🟠 Arch | `LinksScreen.kt` | 18-parameter god function with business logic |
-| RF-28 | 🟠 Arch | `TmdbEnrichmentService.kt` | API key hardcoded in source code |
-| RF-29 | 🟠 Arch | `DesktopRepositoryManager.kt` | Mixed `@Synchronized` + coroutine `Mutex` locking |
-| RF-30 | 🟠 Arch | `DesktopRepositoryManager.kt` | `CancellationException` swallowed in update loop |
-| RF-15 | 🟡 Quality | `EmbeddedPlayerViewModel.kt` | `e.printStackTrace()` instead of `AppLogger` |
-| RF-16 | 🟡 Quality | `HeroRepository.kt` | Stale map snapshot in long-running suspend function |
-| RF-17 | 🟡 Quality | `DetailsUiState.kt` | Two redundant error fields (`error` + `errorMessage`) |
-| RF-18 | 🟡 Quality | `DetailsUiState.kt` | `enrichmentTrigger: Int` hack instead of proper state |
-| RF-19 | 🟡 Quality | `ExtensionsViewModel.kt` | `System.gc()` in plugin uninstall |
-| RF-20 | 🟡 Quality | `HeroRepository.kt` | Magic hardcoded delay retry loop |
-| RF-25 | 🟡 Quality | `DesktopRepositoryManager.kt` | `e.printStackTrace()` in `autoUpdatePlugins` |
+| ID | Severity | File | Issue | Status |
+|---|---|---|---|---|
+| RF-01 | 🔴 Critical | `DetailsViewModel.kt` | Sync disk I/O on main thread | ✅ Fixed |
+| RF-02 | 🔴 Critical | `DetailsViewModel.kt` | Raw JSON string mutation (data corruption risk) | ✅ Fixed |
+| RF-03 | 🔴 Critical | `EmbeddedPlayerViewModel.kt` | ~120 lines of duplicated link-scraping code | ✅ Fixed |
+| RF-04 | 🔴 Critical | `GetEnrichedDetailsUseCase.kt` | `callbackFlow` leaks coroutines on cancellation | ✅ Fixed |
+| RF-05 | 🔴 Critical | `GetEnrichedDetailsUseCase.kt` | Mutating shared cached `LoadResponse` object | ✅ Fixed |
+| RF-21 | 🔴 Critical | `EmbeddedVideoPlayer.kt` | Sync DataStore read inside Compose render | ✅ Fixed |
+| RF-22 | 🔴 Critical | `EmbeddedVideoPlayer.kt` | saveJob persistence management inside a Composable | ✅ Fixed |
+| RF-23 | 🔴 Critical | `DetailsEpisodeSection.kt` | Direct DB writes inside a UI sub-component | ✅ Fixed |
+| RF-24 | 🔴 Critical | `LinksScreen.kt` | DataStore read+write inside Composable and onClick | ✅ Fixed |
+| RF-06 | 🟠 Arch | `HeroRepository.kt` | Compose `Color` type in a Repository | ✅ Fixed |
+| RF-07 | 🟠 Arch | `GetEnrichedDetailsUseCase.kt` | Compose `Color` type in a UseCase | ✅ Fixed |
+| RF-08 | 🟠 Arch | `ExtensionsViewModel.kt` | Raw `StateFlow`s bypassing MVI `uiState` | ✅ Fixed |
+| RF-09 | 🟠 Arch | `ExtensionsViewModel.kt` | Public `suspend` functions on ViewModel | ✅ Fixed |
+| RF-10 | 🟠 Arch | `ExtensionsViewModel.kt` | Utility passthrough getters on ViewModel | ✅ Fixed |
+| RF-11 | 🟠 Arch | `EmbeddedPlayerViewModel.kt` | Imperative getter methods instead of pushed state | ✅ Fixed |
+| RF-12 | 🟠 Arch | `ComposeNavigation.kt` | ViewModel exposed via `CompositionLocal` globally | ✅ Fixed |
+| RF-13 | 🟠 Arch | `ComposeNavigation.kt` | Lambda callbacks inside a `data class` | ✅ Fixed |
+| RF-14 | 🟠 Arch | `HeroRepository.kt` | Repository takes UI-update lambdas instead of returning Flow | ✅ Fixed |
+| RF-26 | 🟠 Arch | `EmbeddedVideoPlayer.kt` | Composable calls imperative ViewModel getters during render | ✅ Fixed |
+| RF-27 | 🟠 Arch | `LinksScreen.kt` | 18-parameter god function with business logic | ✅ Fixed |
+| RF-28 | 🟠 Arch | `TmdbEnrichmentService.kt` | API key hardcoded in source code | ⚠️ Intentionally open (User Request) |
+| RF-29 | 🟠 Arch | `DesktopRepositoryManager.kt` | Mixed `@Synchronized` + coroutine `Mutex` locking | ✅ Fixed |
+| RF-30 | 🟠 Arch | `DesktopRepositoryManager.kt` | `CancellationException` swallowed in update loop | ✅ Fixed |
+| RF-15 | 🟡 Quality | `EmbeddedPlayerViewModel.kt` | `e.printStackTrace()` instead of `AppLogger` | ✅ Fixed |
+| RF-16 | 🟡 Quality | `HeroRepository.kt` | Stale map snapshot in long-running suspend function | ✅ Fixed |
+| RF-17 | 🟡 Quality | `DetailsUiState.kt` | Two redundant error fields (`error` + `errorMessage`) | ✅ Fixed |
+| RF-18 | 🟡 Quality | `DetailsUiState.kt` | `enrichmentTrigger: Int` hack instead of proper state | ✅ Fixed |
+| RF-19 | 🟡 Quality | `ExtensionsViewModel.kt` | `System.gc()` in plugin uninstall | ✅ Fixed |
+| RF-20 | 🟡 Quality | `HeroRepository.kt` | Magic hardcoded delay retry loop | ✅ Fixed |
+| RF-25 | 🟡 Quality | `DesktopRepositoryManager.kt` | `e.printStackTrace()` in `autoUpdatePlugins` | ✅ Fixed |
+
+**Progress: 29 / 30 fixed**
 
 ---
 

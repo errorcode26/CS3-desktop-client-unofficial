@@ -33,6 +33,7 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     DesktopDataStore.setKey("preferred_player", event.player)
                 }
             }
+            is LinksUiEvent.OnPlayLink -> handlePlayLink(event)
         }
     }
 
@@ -103,5 +104,55 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
     override fun dispose() {
         scrapeJob?.cancel()
         super.dispose()
+    }
+
+    private fun handlePlayLink(event: LinksUiEvent.OnPlayLink) {
+        val state = uiState.value
+        val isLaunchingPlayer = false // Actually, LinksScreen has this state locally, but we just check if it's currently launching to prevent double launch
+        if (event.currentPlayingUrl != null) return // Already playing something else, or launching
+
+        val link = event.link
+        val displayTitle = event.displayTitle
+        val history = event.history
+        val loadResponse = event.loadResponse
+
+        val validation = com.lagradost.player.impl.PlayerLinkHandler.validate(link, displayTitle)
+        if (validation.isFailure) {
+            updateState { copy(statusText = validation.exceptionOrNull()?.message ?: "Invalid stream") }
+            return
+        }
+
+        sendEffect(LinksUiEffect.NotifyLaunching(true))
+        sendEffect(LinksUiEffect.NotifyCurrentUrl(link.url))
+
+        val effectivePlayer = if (state.preferredPlayer == "vlc" && com.lagradost.player.impl.PlayerLinkHandler.shouldPreferMpv(link)) {
+            "mpv"
+        } else {
+            state.preferredPlayer
+        }
+
+        updateState { copy(statusText = "Launching ${effectivePlayer.uppercase()}...") }
+
+        val isLive = loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
+        val startSec = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(history.position, history.duration)
+        val startMs = startSec * 1000L
+
+        if (effectivePlayer == "vlc") {
+            val srtSubtitles = state.subtitles.filter { it.url.endsWith(".srt", ignoreCase = true) }.map { it.url }
+            sendEffect(LinksUiEffect.LaunchVlc(link, displayTitle, srtSubtitles, startMs))
+        } else {
+            val initialIndex = state.links.indexOfFirst { it.url == link.url }.coerceAtLeast(0)
+            val launchData = com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
+                links = state.links,
+                initialIndex = initialIndex,
+                title = displayTitle,
+                subtitles = state.subtitles,
+                startPositionMs = startMs,
+                history = history,
+                loadResponse = loadResponse,
+            )
+            sendEffect(LinksUiEffect.LaunchEmbeddedPlayer(launchData))
+            updateState { copy(statusText = "Playing in embedded player: ${link.name}") }
+        }
     }
 }

@@ -130,23 +130,7 @@ object HeroRepository {
             }
 
             if (provider != null) {
-                var details: com.lagradost.cloudstream3.LoadResponse? = null
-                var attempt = 0
-                while (attempt < MAX_RETRIES && details == null) {
-                    try {
-                        kotlinx.coroutines.delay(if (attempt == 0) INITIAL_RETRY_DELAY else SUBSEQUENT_RETRY_DELAY)
-                        details = if (!DetailsCache.containsKey(item.url)) {
-                            DetailsRepository.fetchRaw(provider, item.url)
-                        } else {
-                            DetailsCache.get(item.url)
-                        }
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        attempt++
-                        if (attempt >= MAX_RETRIES) throw e
-                    }
-                }
+                val details = fetchDetailsWithRetry(provider, item.url)
 
                 if (details != null) {
                     val currentMeta = HeroCache.get(cacheKey)
@@ -199,5 +183,27 @@ object HeroRepository {
             prefetchingUrls.remove(cacheKey)
         }
         awaitClose { }
+    }
+
+    private suspend fun fetchDetailsWithRetry(
+        provider: MainAPI,
+        url: String,
+    ): com.lagradost.cloudstream3.LoadResponse? {
+        var attempt = 0
+        while (attempt < MAX_RETRIES) {
+            try {
+                kotlinx.coroutines.delay(if (attempt == 0) INITIAL_RETRY_DELAY else SUBSEQUENT_RETRY_DELAY)
+                if (DetailsCache.containsKey(url)) {
+                    return DetailsCache.get(url)
+                }
+                return DetailsRepository.fetchRaw(provider, url)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                attempt++
+                if (attempt >= MAX_RETRIES) throw e
+            }
+        }
+        return null
     }
 }
