@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
+import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_SELECTED_PROVIDER
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
@@ -253,9 +254,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
 
     private fun uninstallPlugins(plugins: List<LocalPlugin>) {
         viewModelScope.launch(Dispatchers.IO) {
+            updateState { copy(isUninstalling = true) }
             for (plugin in plugins) {
                 try {
-                    // Step 1: Gracefully unload the plugin (calls beforeUnload, removes from APIHolder).
+                    // Step 1: Gracefully unload (calls beforeUnload, removes providers from APIHolder).
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
                     // Step 2: Force JVM to release native Windows file handles.
@@ -268,17 +270,16 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     @Suppress("deprecation")
                     System.runFinalization()
 
-                    // Step 3: Reset the active provider if it belonged to the plugin being removed.
-                    // This prevents the home/search screens from pointing to a dead provider.
-                    val activeProvider = DesktopDataStore.getKey<String>("preferred_provider_name")
+                    // Step 3: Check if this plugin owned the active provider.
+                    // Instead of writing to DataStore directly (which would break MVI boundaries),
+                    // we fire a ClearActiveProvider effect. The UI layer (ExtensionsScreen) handles
+                    // the actual DataStore write, keeping this ViewModel pure.
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
                         .filter { it.sourcePlugin == plugin.file.absolutePath }
                         .map { it.name }
+                    val activeProvider = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
                     if (activeProvider != null && pluginProviders.contains(activeProvider)) {
-                        DesktopDataStore.removeKey("preferred_provider_name")
-                        com.lagradost.common.logging.AppLogger.i(
-                            "Active provider '$activeProvider' belonged to removed plugin '${plugin.name}'. Cleared selection."
-                        )
+                        sendEffect(ExtensionsUiEffect.ClearActiveProvider(activeProvider))
                     }
 
                     // Step 4: Delete ONLY this plugin's own files.
@@ -306,6 +307,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 }
             }
             refreshInstalled()
+            updateState { copy(isUninstalling = false) }
         }
     }
 

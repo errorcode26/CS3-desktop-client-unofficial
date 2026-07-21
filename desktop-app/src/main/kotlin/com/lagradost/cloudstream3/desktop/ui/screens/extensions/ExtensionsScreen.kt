@@ -11,7 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
+import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -37,6 +39,25 @@ fun ComposeExtensionScreen(navController: NavController) {
     LaunchedEffect(Unit) {
         viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
         viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
+    }
+
+    // Collect one-shot effects from the ViewModel.
+    // ClearActiveProvider: the ViewModel detected the removed plugin owned the active provider,
+    // so we do the actual DataStore write here in the UI layer to stay within MVI boundaries.
+    LaunchedEffect(viewModel.effectFlow) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is ExtensionsUiEffect.ClearActiveProvider -> {
+                    kotlinx.coroutines.withContext(Dispatchers.IO) {
+                        DesktopDataStore.removeKey("preferred_provider_name")
+                    }
+                    com.lagradost.common.logging.AppLogger.i(
+                        "ExtensionsScreen: cleared active provider '${effect.removedProviderName}' after plugin removal."
+                    )
+                }
+                is ExtensionsUiEffect.ShowNotification -> { /* future: show snackbar */ }
+            }
+        }
     }
 
     Row(
@@ -82,14 +103,6 @@ fun ComposeExtensionScreen(navController: NavController) {
                 }
 
                 Spacer(Modifier.weight(1f))
-
-                Text(
-                    text = "If plugins don't show up in the list, please use the Update All button.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, start = 4.dp, end = 4.dp),
-                )
 
                 var isSyncing by remember { mutableStateOf(false) }
                 Button(
