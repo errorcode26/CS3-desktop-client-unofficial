@@ -1326,7 +1326,17 @@
     // Auto-hide Controls
     let hideTimer;
     let globalIsPlaying = false;
-    const showControls = () => {
+    let lastMouseX = -1;
+    let lastMouseY = -1;
+    
+    const showControls = (e) => {
+        if (e && e.type === 'mousemove') {
+            if (e.clientX === lastMouseX && e.clientY === lastMouseY) {
+                return; // Ignore synthesized mousemove where mouse didn't actually move
+            }
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        }
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
         if (resumeOverlay.style.display === 'flex' || isProbing) {

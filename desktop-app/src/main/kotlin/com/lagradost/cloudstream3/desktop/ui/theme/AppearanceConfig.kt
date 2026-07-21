@@ -17,6 +17,7 @@ object AppearanceConfig {
     private const val PREF_HERO_DYNAMIC_COLOR = "pref_hero_dynamic_color"
     private const val PREF_DOCK_POSITION = "pref_dock_position"
     private const val PREF_FONT = "pref_font"
+    private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -30,6 +31,7 @@ object AppearanceConfig {
     val heroDynamicColorEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_DYNAMIC_COLOR) ?: true)
     val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
+    val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
 
     fun setThemeAccent(colorName: String) {
         themeAccent.value = colorName
@@ -96,5 +98,10 @@ object AppearanceConfig {
     fun setSelectedFont(font: String) {
         selectedFont.value = font
         DesktopDataStore.setKey(PREF_FONT, font)
+    }
+
+    fun setScreensaverEnabled(enabled: Boolean) {
+        screensaverEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_SCREENSAVER_ENABLED, enabled)
     }
 }

@@ -7,9 +7,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 object DesktopDimens {
-    val HeroLogoMinWidth: Dp = 440.dp
-    val HeroLogoMaxWidth: Dp = 500.dp
-    val HeroLogoMaxHeight: Dp = 145.dp
+    val HeroLogoMinWidth: Dp = 0.dp // Allow natural wrapping
+    val HeroLogoMaxWidth: Dp = 800.dp // Increased significantly for wide text logos
+    val HeroLogoMaxHeight: Dp = 220.dp // Increased significantly for square/stacked logos
 
     val LogoShadowBlur: Dp = 12.dp
     val LogoShadowAlpha: Float = 0.75f

@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
-const val PREF_GLOBAL_SEARCH = "global_search_enabled"
 
 /**
  * Returns true only for real, user-facing content providers:
@@ -65,27 +64,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
         }
 
-        updateState { copy(isGlobalSearchEnabled = DesktopDataStore.getKey<Boolean>(PREF_GLOBAL_SEARCH) ?: false) }
-        viewModelScope.launch {
-            uiState.map { it.isGlobalSearchEnabled }.distinctUntilChanged().collect { enabled ->
-                DesktopDataStore.setKey(PREF_GLOBAL_SEARCH, enabled)
-            }
-        }
 
-        // The while(true) polling loop was successfully exterminated.
-        // We now rely solely on `DesktopRepositoryManager.syncGeneration` (below) to update providers.
-
-        viewModelScope.launch {
-            @OptIn(kotlinx.coroutines.FlowPreview::class)
-            uiState.map { it.searchQuery }.debounce(500)
-                .collectLatest { query ->
-                    if (query.isBlank()) {
-                        updateState { copy(searchResultsGrouped = null) }
-                    } else {
-                        search()
-                    }
-                }
-        }
 
         viewModelScope.launch {
             DesktopRepositoryManager.syncGeneration.collect { syncGen ->
@@ -108,15 +87,8 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     override fun handleEvent(event: HomeUiEvent) {
         when (event) {
-            is HomeUiEvent.OnSearchQueryChange -> setSearchQuery(event.query)
-            is HomeUiEvent.OnSearch -> search()
-            is HomeUiEvent.OnClearSearch -> {
-                setSearchQuery("")
-                clearSearchResults()
-            }
             is HomeUiEvent.OnSelectProvider -> {
                 setSelectedProvider(event.providerName)
-                clearSearchResults()
             }
             is HomeUiEvent.OnClearHistory -> clearHistory()
             is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
@@ -157,7 +129,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         if (currentProviders.size != currentProvState.size || !currentProviders.containsAll(currentProvState)) {
             val currentSelection = uiState.value.selectedProviderName
             if (currentSelection != null && currentProviders.none { it.name == currentSelection }) {
-                updateState { copy(providers = currentProviders, selectedProviderName = currentProviders.firstOrNull()?.name, searchResultsGrouped = null) }
+                updateState { copy(providers = currentProviders, selectedProviderName = currentProviders.firstOrNull()?.name) }
             } else if (currentSelection == null && currentProviders.isNotEmpty()) {
                 val restored = currentProviders.firstOrNull { it.name == DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER) }
                 val targetName = restored?.name
@@ -213,46 +185,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    fun search() {
-        val query = uiState.value.searchQuery
-        if (query.isBlank()) return
 
-        viewModelScope.launch {
-            updateState { copy(isLoadingSearch = true, searchResultsGrouped = emptyList()) }
-            try {
-                val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
-                    uiState.value.providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
-                } else {
-                    uiState.value.selectedProvider?.let { listOf(it) } ?: emptyList()
-                }
-
-                val resultsArray = Array<Pair<MainAPI, List<SearchResponse>>?>(activeProviders.size) { null }
-
-                withContext(Dispatchers.IO) {
-                    activeProviders.forEachIndexed { index, p ->
-                        launch {
-                            try {
-                                val res = p.search(query, 1)
-                                if (res != null && res.items.isNotEmpty()) {
-                                    resultsArray[index] = Pair(p, res.items)
-                                    val nonNull = resultsArray.filterNotNull()
-                                    updateState { copy(searchResultsGrouped = nonNull) }
-                                }
-                            } catch (e: kotlinx.coroutines.CancellationException) {
-                                throw e
-                            } catch (e: Throwable) {
-                                DesktopErrorReporter.report("Search provider ${p.name} failed", e)
-                            }
-                        }
-                    }
-                }
-            } catch (e: Throwable) {
-                DesktopErrorReporter.report("Search failed", e)
-            } finally {
-                updateState { copy(isLoadingSearch = false) }
-            }
-        }
-    }
 
     fun clearHistory() {
         DesktopDataStore.clearAllWatchHistory()
@@ -279,13 +212,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    fun setSearchQuery(query: String) {
-        updateState { copy(searchQuery = query) }
-    }
 
-    fun clearSearchResults() {
-        updateState { copy(searchResultsGrouped = null) }
-    }
 
     fun setSelectedProvider(name: String?) {
         updateState { copy(selectedProviderName = name) }

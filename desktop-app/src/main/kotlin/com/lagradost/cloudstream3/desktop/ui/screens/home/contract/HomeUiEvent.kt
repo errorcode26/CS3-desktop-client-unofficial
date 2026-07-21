@@ -5,9 +5,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 
 sealed interface HomeUiEvent : UiEvent {
-    data class OnSearchQueryChange(val query: String) : HomeUiEvent
-    data object OnSearch : HomeUiEvent
-    data object OnClearSearch : HomeUiEvent
+
     data class OnSelectProvider(val providerName: String?) : HomeUiEvent
     data object OnClearHistory : HomeUiEvent
     data class OnRemoveHistoryItem(val parentId: String) : HomeUiEvent

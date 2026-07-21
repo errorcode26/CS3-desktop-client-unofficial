@@ -84,6 +84,12 @@ fun CloudstreamApp() {
             homeViewModel.dispose()
         }
     }
+    val searchViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.search.SearchViewModel() }
+    androidx.compose.runtime.DisposableEffect(searchViewModel) {
+        onDispose {
+            searchViewModel.dispose()
+        }
+    }
     val navController = remember { NavController() }
     var showErrorsDialog by remember { mutableStateOf(false) }
     var currentVideo by remember { mutableStateOf<VideoLaunchData?>(null) }
@@ -259,6 +265,16 @@ fun CloudstreamApp() {
                                     ComposeHomeScreen(
                                         navController = navController,
                                         viewModel = homeViewModel,
+                                    )
+                                }
+                                is Screen.Search -> DesktopAppShell(
+                                    navController = navController,
+                                    title = "Search",
+                                    onErrorLogs = { showErrorsDialog = true },
+                                ) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
+                                        navController = navController,
+                                        viewModel = searchViewModel,
                                     )
                                 }
                                 is Screen.Extensions -> DesktopAppShell(

@@ -81,6 +81,15 @@ object GetEnrichedDetailsUseCase {
                 loaded = rawData,
                 url = targetEnrichUrl,
                 onEnrichmentComplete = {
+                    if (rawData.backgroundPosterUrl != null) {
+                        trySend(EnrichmentUpdate.BackdropLoaded(rawData.backgroundPosterUrl!!))
+                    }
+                    if (rawData.posterUrl != null) {
+                        // We don't have a PosterLoaded state, but we can just use BackdropLoaded for now or maybe we don't need it for UI.
+                    }
+                    if (rawData.logoUrl != null) {
+                        trySend(EnrichmentUpdate.LogoLoaded(rawData.logoUrl!!))
+                    }
                     trySend(EnrichmentUpdate.FullyEnriched)
 
                     if (rawData.backgroundPosterUrl != null) {

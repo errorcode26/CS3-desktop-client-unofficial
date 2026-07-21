@@ -54,8 +54,5 @@ fun TopBar(
                 homeActionDispatcher = homeActionDispatcher,
             )
         }
-        if (!isHome) {
-            HorizontalDivider(color = LocalDesktopTheme.current.Divider, thickness = 0.5.dp)
-        }
     }
 }

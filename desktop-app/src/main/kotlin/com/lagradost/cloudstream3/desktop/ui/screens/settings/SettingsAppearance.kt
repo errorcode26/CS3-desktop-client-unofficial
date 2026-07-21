@@ -29,6 +29,7 @@ fun SettingsAppearance() {
     val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
+    val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
 
     val accentColors = listOf(
         "Purple" to Color(0xFF7C6BFF),
@@ -207,5 +208,6 @@ fun SettingsAppearance() {
                 onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) },
             )
         }
+
     }
 }

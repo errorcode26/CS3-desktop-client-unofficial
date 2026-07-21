@@ -29,14 +29,9 @@ fun ComposeHomeScreen(
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
-
     val uiState by viewModel.uiState.collectAsState()
     val providers = uiState.providers
     val selectedProvider = uiState.selectedProvider
-    val searchQuery = uiState.searchQuery
-    val searchResultsGrouped = uiState.searchResultsGrouped
-    val isLoadingSearch = uiState.isLoadingSearch
     val historyList = uiState.historyList
     val mergedPluginIcons = uiState.mergedPluginIcons
     val errorSnapshot = uiState.errorSnapshot
@@ -54,8 +49,6 @@ fun ComposeHomeScreen(
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val isDockTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
-
-    val isSearchActive = searchQuery.isNotBlank() || searchResultsGrouped != null
 
     // Animate the raw extracted color — keep full saturation, we control opacity in drawBehind directly
     val animatedHeroColor by animateColorAsState(
@@ -97,19 +90,7 @@ fun ComposeHomeScreen(
             },
     ) {
         // Main content area
-        if (isSearchActive) {
-            HomeSearchResults(
-                searchResultsGrouped = searchResultsGrouped,
-                isLoadingSearch = isLoadingSearch,
-                heroMetaMap = uiState.heroMetaMap,
-                onViewAll = { provider, title, items ->
-                    navController.navigate(Screen.CategoryGrid(provider.name, title, items))
-                },
-                onItemClick = { provider, item, backdrop ->
-                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop))
-                },
-            )
-        } else if (selectedProvider != null && selectedProvider.hasMainPage && selectedProvider.mainPage.isNotEmpty()) {
+        if (selectedProvider != null && selectedProvider.hasMainPage && selectedProvider.mainPage.isNotEmpty()) {
             val currentProvider = selectedProvider
             val listState = rememberLazyListState()
 
@@ -216,24 +197,5 @@ fun ComposeHomeScreen(
             }
         }
 
-        // Single persistent search overlay - always mounted to prevent losing keyboard focus
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            AnimatedSearchOverlay(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.onEvent(HomeUiEvent.OnSearchQueryChange(it)) },
-                onSearch = { viewModel.onEvent(HomeUiEvent.OnSearch) },
-                onClose = {
-                    viewModel.onEvent(HomeUiEvent.OnClearSearch)
-                    searchUiState.isSearchForced = false
-                },
-                isSearchActive = isSearchActive,
-                providers = providers,
-                selectedProvider = selectedProvider,
-                onProviderSelected = {
-                    viewModel.onEvent(HomeUiEvent.OnSelectProvider(it))
-                },
-                mergedPluginIcons = mergedPluginIcons,
-            )
-        }
     }
 }

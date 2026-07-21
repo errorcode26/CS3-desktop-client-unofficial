@@ -19,15 +19,20 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.crossfade
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
@@ -68,21 +73,41 @@ fun DetailsBackdrop(
     ) {
         val currentPhase = enrichmentPhase
         val isFallback = data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
-        val bgUrl = remember(data, currentPhase, uiState) {
+        
+        val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+        val screenshots = uiState?.screenshots ?: emptyList()
+        var currentScreenshotIndex by remember { mutableStateOf(-1) }
+        
+        LaunchedEffect(screensaverEnabled, screenshots) {
+            if (screensaverEnabled && screenshots.isNotEmpty()) {
+                currentScreenshotIndex = 0
+                while (true) {
+                    kotlinx.coroutines.delay(10_000)
+                    currentScreenshotIndex = (currentScreenshotIndex + 1) % screenshots.size
+                }
+            } else {
+                currentScreenshotIndex = -1
+            }
+        }
+
+        val baseBgUrl = remember(data, currentPhase, uiState) {
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: data.backgroundPosterUrl?.takeIf { it.isNotBlank() }
                 ?: data.posterUrl?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
         }
+        
+        val bgUrl = if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) {
+            screenshots[currentScreenshotIndex]
+        } else {
+            baseBgUrl
+        }
 
         if (bgUrl != null) {
-            AsyncImage(
-                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                    .data(bgUrl)
-                    .size(2560, 1440)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            androidx.compose.animation.Crossfade(
+                targetState = bgUrl,
+                animationSpec = androidx.compose.animation.core.tween(2000),
+                label = "backdrop_crossfade",
                 modifier = Modifier
                     .fillMaxSize()
                     .run { if (isFallback) this.blur(80.dp) else this }
@@ -111,9 +136,20 @@ fun DetailsBackdrop(
                             drawRect(logoVignette)
                             drawRect(verticalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
                         }
-                    },
-                alignment = Alignment.TopCenter,
-            )
+                    }
+            ) { targetBgUrl ->
+                AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(targetBgUrl)
+                        .size(2560, 1440)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    alignment = Alignment.TopCenter,
+                )
+            }
         }
     }
 }
@@ -139,6 +175,11 @@ fun DetailsMetadata(
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
+    var isRightColumnHovered by remember { mutableStateOf(false) }
+    val rightColumnAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isRightColumnHovered) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+    )
     val coroutineScope = rememberCoroutineScope()
 
     Box(
@@ -184,6 +225,7 @@ fun DetailsMetadata(
                             val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                 .data(activeLogoUrl)
                                 .size(1600, 800)
+                                .crossfade(true)
                                 .build()
                             val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
                             AsyncImage(
@@ -231,18 +273,22 @@ fun DetailsMetadata(
                 }
                 val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
                 if (activeTagline != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "\"$activeTagline\"",
                         style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                        color = Color.White.copy(alpha = 0.75f),
+                        color = Color.White.copy(alpha = 0.85f),
                         fontWeight = FontWeight.Normal,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 4.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Start
                     )
+                } else {
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 if (!isLoading) {
                     Row(
@@ -428,7 +474,21 @@ fun DetailsMetadata(
             if (!isLoading) {
                 Spacer(modifier = Modifier.width(64.dp))
                 Column(
-                    modifier = Modifier.width(240.dp).padding(bottom = 12.dp),
+                    modifier = Modifier
+                        .width(240.dp)
+                        .padding(bottom = 12.dp)
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    when (event.type) {
+                                        androidx.compose.ui.input.pointer.PointerEventType.Enter -> isRightColumnHovered = true
+                                        androidx.compose.ui.input.pointer.PointerEventType.Exit -> isRightColumnHovered = false
+                                    }
+                                }
+                            }
+                        }
+                        .graphicsLayer { alpha = rightColumnAlpha },
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
                     // Status
@@ -476,6 +536,44 @@ fun DetailsMetadata(
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
+                                )
+                            }
+                        }
+                    }
+
+                    // Screensaver Toggle
+                    val screenshots = uiState?.screenshots ?: emptyList()
+                    val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+                    if (screenshots.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "CINEMATIC SLIDESHOW",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.Switch(
+                                    checked = screensaverEnabled,
+                                    onCheckedChange = { AppearanceConfig.setScreensaverEnabled(it) },
+                                    colors = androidx.compose.material3.SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = Color.White.copy(alpha = 0.3f),
+                                        uncheckedThumbColor = Color.White.copy(alpha = 0.5f),
+                                        uncheckedTrackColor = Color.Transparent,
+                                        uncheckedBorderColor = Color.White.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.graphicsLayer { scaleX = 0.8f; scaleY = 0.8f }.offset(x = (-8).dp)
+                                )
+                                Text(
+                                    text = if (screensaverEnabled) "Enabled" else "Disabled",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.offset(x = (-8).dp)
                                 )
                             }
                         }

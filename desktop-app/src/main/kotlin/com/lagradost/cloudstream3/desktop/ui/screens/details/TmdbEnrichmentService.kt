@@ -174,9 +174,16 @@ object TmdbEnrichmentService {
                             if (mediaType == "person") continue
                             val resultName = result.get("name")?.asText() ?: result.get("title")?.asText() ?: result.get("original_name")?.asText() ?: ""
                             val strippedResultName = resultName.replace(Regex("[^a-zA-Z0-9]"), "")
+                            
+                            val resultWords = resultName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
+                            val cleanWords = cleanName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
+                            val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
+                            val isSubsetMatch = resultWords.isNotEmpty() && cleanWords.isNotEmpty() && (cleanWords.containsAll(resultWords) || resultWords.containsAll(cleanWords))
+                            
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
-                            if (strippedResultName.equals(strippedCleanName, ignoreCase = true) && strippedCleanName.isNotEmpty()) {
+                            
+                            if ((isStrictMatch || isSubsetMatch) && strippedCleanName.isNotEmpty()) {
                                 // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
@@ -625,12 +632,13 @@ object TmdbEnrichmentService {
                             val backdropsNode = tmdbData.get("images")?.get("backdrops")
                             if (backdropsNode != null && backdropsNode.isArray) {
                                 val images = mutableListOf<String>()
-                                backdropsNode.take(15).forEach { img ->
-                                    val path = img.get("file_path")?.asText()
-                                    if (path != null && path != "null") {
-                                        images.add("https://image.tmdb.org/t/p/w1280$path")
+                                backdropsNode.filter { it.get("iso_639_1")?.isNull ?: true }
+                                    .take(15).forEach { img ->
+                                        val path = img.get("file_path")?.asText()
+                                        if (path != null && path != "null") {
+                                            images.add("https://image.tmdb.org/t/p/w1280$path")
+                                        }
                                     }
-                                }
                                 if (images.isNotEmpty()) {
                                     onScreenshotsLoaded(images)
                                 }

@@ -119,18 +119,7 @@ fun SettingsGeneral() {
             }
         }
 
-        SettingsGroupCard(title = "Search Settings") {
-            var isGlobalSearch by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("global_search_enabled") ?: false) }
-            SettingsToggleItem(
-                label = "Enable Advanced Global Search",
-                subtitle = "Query all available providers simultaneously instead of just your selected provider.",
-                checked = isGlobalSearch,
-                onCheckedChange = {
-                    isGlobalSearch = it
-                    com.lagradost.common.storage.DesktopDataStore.setKey("global_search_enabled", it)
-                },
-            )
-        }
+
 
         SettingsGroupCard(title = "Storage Directories") {
             Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

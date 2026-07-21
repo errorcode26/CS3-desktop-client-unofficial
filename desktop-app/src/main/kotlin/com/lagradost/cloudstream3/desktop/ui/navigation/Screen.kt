@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.SearchResponse
 
 sealed class Screen {
     object Home : Screen()
+    object Search : Screen()
     object Extensions : Screen()
     object Library : Screen()
     object Settings : Screen()

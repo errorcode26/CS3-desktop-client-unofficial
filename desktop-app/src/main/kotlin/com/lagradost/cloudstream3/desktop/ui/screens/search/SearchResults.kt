@@ -1,4 +1,4 @@
-package com.lagradost.cloudstream3.desktop.ui.screens.home
+package com.lagradost.cloudstream3.desktop.ui.screens.search
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,8 +15,9 @@ import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 
 @Composable
-fun HomeSearchResults(
+fun SearchResults(
     searchResultsGrouped: List<Pair<MainAPI, List<SearchResponse>>>?,
+    selectedCategory: com.lagradost.cloudstream3.TvType? = null,
     isLoadingSearch: Boolean,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta> = emptyMap(),
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
@@ -31,13 +32,30 @@ fun HomeSearchResults(
             }
         }
     } else if (searchResultsGrouped != null) {
-        if (searchResultsGrouped.isNotEmpty()) {
+        val filteredGrouped = if (selectedCategory != null) {
+            searchResultsGrouped.mapNotNull { (provider, items) ->
+                val filteredItems = items.filter { item ->
+                    try {
+                        val method = item.javaClass.getMethod("getType")
+                        val type = method.invoke(item)
+                        type == selectedCategory
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                if (filteredItems.isNotEmpty()) Pair(provider, filteredItems) else null
+            }
+        } else {
+            searchResultsGrouped
+        }
+
+        if (filteredGrouped.isNotEmpty()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 130.dp, bottom = 16.dp, start = 20.dp, end = 20.dp),
             ) {
-                items(searchResultsGrouped.size) { index ->
-                    val (provider, items) = searchResultsGrouped[index]
+                items(filteredGrouped.size) { index ->
+                    val (provider, items) = filteredGrouped[index]
                     CategoryRowWithHeader(
                         title = provider.name,
                         itemCount = items.size,

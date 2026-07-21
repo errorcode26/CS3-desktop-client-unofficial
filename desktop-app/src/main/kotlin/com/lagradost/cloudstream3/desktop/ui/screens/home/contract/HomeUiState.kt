@@ -12,10 +12,7 @@ import com.lagradost.common.storage.WatchHistory
 data class HomeUiState(
     val providers: List<MainAPI> = emptyList(),
     val selectedProviderName: String? = null,
-    val searchResultsGrouped: List<Pair<MainAPI, List<SearchResponse>>>? = null,
-    val isLoadingSearch: Boolean = false,
-    val searchQuery: String = "",
-    val isGlobalSearchEnabled: Boolean = false,
+
     val errorSnapshot: String = DesktopErrorReporter.getSnapshot(),
     val historyList: List<WatchHistory> = emptyList(),
     val mergedPluginIcons: Map<String, String> = emptyMap(),

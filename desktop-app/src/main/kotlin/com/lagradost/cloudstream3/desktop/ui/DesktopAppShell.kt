@@ -45,12 +45,8 @@ fun DesktopAppShell(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
     LaunchedEffect(current) {
-        if (current !is Screen.Home) {
-            searchUiState.isSearchForced = false
-            searchUiState.searchFocusTrigger = 0
-        }
+        // Nothing for search required anymore
     }
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
@@ -62,7 +58,6 @@ fun DesktopAppShell(
         .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val isSearchForced = searchUiState.isSearchForced
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
@@ -181,11 +176,7 @@ fun DesktopAppShell(
                 isSyncing = isSyncing,
                 onNavigate = { navController.navigateRoot(it) },
                 onSearchClick = {
-                    if (current !is Screen.Home) {
-                        navController.navigateRoot(Screen.Home)
-                    }
-                    searchUiState.isSearchForced = true
-                    searchUiState.searchFocusTrigger += 1
+                    navController.navigateRoot(Screen.Search)
                 },
             )
 
@@ -216,25 +207,21 @@ private fun NavigationDock(
     val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
     val isHorizontal = isBottom || isTop
 
-    val searchUiState = com.lagradost.cloudstream3.desktop.ui.LocalSearchUiState.current
-    val isSearchForced = searchUiState.isSearchForced
-
     val dockItems = @Composable {
         DockItem(
             icon = PremiumIcons.Home,
             label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
-            selected = current is Screen.Home && !isSearchForced,
+            selected = current is Screen.Home,
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = {
-                searchUiState.isSearchForced = false
                 onNavigate(Screen.Home)
             },
         )
         DockItem(
             icon = PremiumIcons.Search,
             label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
-            selected = current is Screen.Home && isSearchForced,
+            selected = current is Screen.Search,
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = onSearchClick,
