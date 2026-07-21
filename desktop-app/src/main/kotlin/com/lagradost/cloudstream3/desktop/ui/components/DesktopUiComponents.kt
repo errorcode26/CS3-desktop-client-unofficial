@@ -169,7 +169,12 @@ fun CategoryRowWithHeader(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = DesktopUi.TextPrimary,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
+
+            Spacer(modifier = Modifier.width(16.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (trailingHeaderExtra != null) {

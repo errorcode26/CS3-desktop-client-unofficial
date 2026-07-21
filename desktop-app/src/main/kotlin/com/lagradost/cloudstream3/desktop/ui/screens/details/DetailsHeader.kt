@@ -162,6 +162,38 @@ fun InfoPanelRow(label: String, value: String) {
     }
 }
 
+@Composable
+fun AdaptiveMetadataLayout(
+    isNarrow: Boolean,
+    modifier: Modifier = Modifier,
+    mainContent: @Composable () -> Unit,
+    sideContent: @Composable () -> Unit,
+) {
+    if (isNarrow) {
+        Column(
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            mainContent()
+            sideContent()
+        }
+    } else {
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                mainContent()
+            }
+            Spacer(modifier = Modifier.width(64.dp))
+            Box {
+                sideContent()
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailsMetadata(
@@ -182,407 +214,413 @@ fun DetailsMetadata(
     )
     val coroutineScope = rememberCoroutineScope()
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomStart,
     ) {
-        Row(
+        val isNarrow = maxWidth < 800.dp
+        
+        AdaptiveMetadataLayout(
+            isNarrow = isNarrow,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 64.dp, end = 64.dp, bottom = 108.dp, top = 160.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                if (isLoading) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                            Box(modifier = Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                            Box(modifier = Modifier.width(64.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                        Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                    }
-                } else {
-                    val currentPhase = enrichmentPhase
-                    val activeLogoUrl = remember(data, currentPhase, uiState) {
-                        uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
-                            ?: data.logoUrl?.takeIf { it.isNotBlank() }
-                            ?: provider.fixUrlNull(data.logoUrl)
-                    }
-                    if (!activeLogoUrl.isNullOrBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .widthIn(
-                                    min = DesktopDimens.HeroLogoMinWidth,
-                                    max = DesktopDimens.HeroLogoMaxWidth,
-                                )
-                                .heightIn(max = DesktopDimens.HeroLogoMaxHeight),
-                            contentAlignment = Alignment.BottomStart,
-                        ) {
-                            val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                .data(activeLogoUrl)
-                                .size(1600, 800)
-                                .crossfade(true)
-                                .build()
-                            val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
-                            AsyncImage(
-                                model = logoRequest,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .offset(
-                                        x = DesktopDimens.LogoShadowOffsetX,
-                                        y = DesktopDimens.LogoShadowOffsetY,
-                                    )
-                                    .blur(
-                                        DesktopDimens.LogoShadowBlur,
-                                        edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
-                                    ),
-                                contentScale = ContentScale.Fit,
-                                alignment = Alignment.BottomStart,
-                                colorFilter = DesktopDimens.LogoShadowFilter,
-                            )
-                            coil3.compose.SubcomposeAsyncImage(
-                                model = logoRequest,
-                                contentDescription = displayName,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize(),
-                                alignment = Alignment.BottomStart,
-                                error = {
-                                    Text(
-                                        text = displayName,
-                                        style = MaterialTheme.typography.displayLarge,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White,
-                                    )
-                                },
-                            )
+                .padding(start = if (isNarrow) 24.dp else 64.dp, end = if (isNarrow) 24.dp else 64.dp, bottom = 108.dp, top = if (isNarrow) 80.dp else 160.dp),
+            mainContent = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (isLoading) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                                Box(modifier = Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                                Box(modifier = Modifier.width(64.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                            Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
                         }
                     } else {
-                        val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.displayLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                        )
-                    }
-                }
-                val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
-                if (activeTagline != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "\"$activeTagline\"",
-                        style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 4.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Start
-                    )
-                } else {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (!isLoading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        val finalYear = uiState?.enrichedYear ?: data.year
-                        finalYear?.let {
-                            Text(text = it.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        val currentPhase = enrichmentPhase
+                        val activeLogoUrl = remember(data, currentPhase, uiState) {
+                            uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
+                                ?: data.logoUrl?.takeIf { it.isNotBlank() }
+                                ?: provider.fixUrlNull(data.logoUrl)
                         }
-                        data.contentRating?.let { rating ->
-                            Box(modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                Text(text = rating, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        val typeStr = when (data.type) {
-                            TvType.TvSeries -> "TV Series"
-                            TvType.Anime -> "Anime"
-                            TvType.Movie -> "Movie"
-                            TvType.AnimeMovie -> "Anime Movie"
-                            TvType.OVA -> "OVA"
-                            else -> data.type?.name?.replace(Regex("(?i)tv"), "TV")
-                        }
-                        if (!typeStr.isNullOrBlank()) {
-                            Text(text = typeStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        }
-                        data.score?.takeIf { it.toFloat(10) > 0f }?.let {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Star, "Rating", tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(text = it.toString(10), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-
-                val finalTags = uiState?.enrichedTags ?: data.tags
-                if (!isLoading && !finalTags.isNullOrEmpty()) {
-                    Text(
-                        text = finalTags?.take(6)?.joinToString(" • ") ?: "",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    heroAction()
-
-                    val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                    val allBookmarks = uiState?.bookmarks ?: emptyMap()
-                    val currentBookmark = allBookmarks[bookmarkId]
-                    var showBookmarkMenu by remember { mutableStateOf(false) }
-
-                    Box {
-                        Box(
-                            modifier = Modifier
-                                .height(56.dp)
-                                .widthIn(min = 160.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (currentBookmark != null) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        Color.White.copy(alpha = 0.18f)
-                                    },
-                                )
-                                .border(
-                                    1.2.dp,
-                                    if (currentBookmark != null) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        Color.White.copy(alpha = 0.35f)
-                                    },
-                                    RoundedCornerShape(12.dp),
-                                )
-                                .clickable { showBookmarkMenu = true }
-                                .padding(horizontal = 24.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                    contentDescription = "Library",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp),
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                val text = currentBookmark?.let { b ->
-                                    com.lagradost.common.storage.DesktopWatchType.entries.find { type -> type.id == b.watchType }?.stringRes
-                                } ?: "Add to Library"
-                                Text(
-                                    text = text,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showBookmarkMenu,
-                                onDismissRequest = { showBookmarkMenu = false },
+                        if (!activeLogoUrl.isNullOrBlank()) {
+                            Box(
                                 modifier = Modifier
-                                    .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .padding(4.dp),
+                                    .widthIn(
+                                        min = DesktopDimens.HeroLogoMinWidth,
+                                        max = DesktopDimens.HeroLogoMaxWidth,
+                                    )
+                                    .heightIn(max = DesktopDimens.HeroLogoMaxHeight),
+                                contentAlignment = Alignment.BottomStart,
                             ) {
-                                Text(
-                                    "Add to Library",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(activeLogoUrl)
+                                    .size(1600, 800)
+                                    .crossfade(true)
+                                    .build()
+                                val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
+                                AsyncImage(
+                                    model = logoRequest,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .offset(
+                                            x = DesktopDimens.LogoShadowOffsetX,
+                                            y = DesktopDimens.LogoShadowOffsetY,
+                                        )
+                                        .blur(
+                                            DesktopDimens.LogoShadowBlur,
+                                            edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
+                                        ),
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.BottomStart,
+                                    colorFilter = DesktopDimens.LogoShadowFilter,
                                 )
-                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                    val isSelected = currentBookmark?.watchType == type.id
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                type.stringRes,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            )
-                                        },
-                                        onClick = {
-                                            val newBookmark = DesktopBookmark(
-                                                id = bookmarkId,
-                                                name = data.name,
-                                                url = data.url,
-                                                apiName = provider.name,
-                                                posterUrl = data.posterUrl,
-                                                watchType = type.id,
-                                            )
-                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
-                                            showBookmarkMenu = false
-                                        },
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
-                                    )
+                                coil3.compose.SubcomposeAsyncImage(
+                                    model = logoRequest,
+                                    contentDescription = displayName,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize(),
+                                    alignment = Alignment.BottomStart,
+                                    error = {
+                                        Text(
+                                            text = displayName,
+                                            style = MaterialTheme.typography.displayLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White,
+                                        )
+                                    },
+                                )
+                            }
+                        } else {
+                            val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.displayLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                    val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
+                    if (activeTagline != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "\"$activeTagline\"",
+                            style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = if (isNarrow) 0.dp else 4.dp),
+                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+    
+                    Spacer(modifier = Modifier.height(24.dp))
+    
+                    if (!isLoading) {
+                        FlowRow(
+                            horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier
+                        ) {
+                            val finalYear = uiState?.enrichedYear ?: data.year
+                            finalYear?.let {
+                                Text(text = it.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            data.contentRating?.let { rating ->
+                                Box(modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                    Text(text = rating, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
-                                if (currentBookmark != null) {
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                                        },
-                                        onClick = {
-                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
-                                            showBookmarkMenu = false
-                                        },
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                                    )
+                            }
+                            val typeStr = when (data.type) {
+                                TvType.TvSeries -> "TV Series"
+                                TvType.Anime -> "Anime"
+                                TvType.Movie -> "Movie"
+                                TvType.AnimeMovie -> "Anime Movie"
+                                TvType.OVA -> "OVA"
+                                else -> data.type?.name?.replace(Regex("(?i)tv"), "TV")
+                            }
+                            if (!typeStr.isNullOrBlank()) {
+                                Text(text = typeStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            data.score?.takeIf { it.toFloat(10) > 0f }?.let {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, "Rating", tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(text = it.toString(10), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
+                        Spacer(modifier = Modifier.height(14.dp))
                     }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (!isLoading) {
-                    data.plot?.let {
+    
+                    val finalTags = uiState?.enrichedTags ?: data.tags
+                    if (!isLoading && !finalTags.isNullOrEmpty()) {
                         Text(
-                            text = it,
+                            text = finalTags?.take(6)?.joinToString(" • ") ?: "",
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 14.sp,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 22.sp,
-                            modifier = Modifier.widthIn(max = 900.dp),
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
-                }
-            }
-
-            if (!isLoading) {
-                Spacer(modifier = Modifier.width(64.dp))
-                Column(
-                    modifier = Modifier
-                        .width(240.dp)
-                        .padding(bottom = 12.dp)
-                        .pointerInput(Unit) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    when (event.type) {
-                                        androidx.compose.ui.input.pointer.PointerEventType.Enter -> isRightColumnHovered = true
-                                        androidx.compose.ui.input.pointer.PointerEventType.Exit -> isRightColumnHovered = false
+    
+                    FlowRow(
+                        horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier
+                    ) {
+                        heroAction()
+    
+                        val bookmarkId = "${provider.name}_${data.url.hashCode()}"
+                        val allBookmarks = uiState?.bookmarks ?: emptyMap()
+                        val currentBookmark = allBookmarks[bookmarkId]
+                        var showBookmarkMenu by remember { mutableStateOf(false) }
+    
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .height(56.dp)
+                                    .widthIn(min = 160.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (currentBookmark != null) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            Color.White.copy(alpha = 0.18f)
+                                        },
+                                    )
+                                    .border(
+                                        1.2.dp,
+                                        if (currentBookmark != null) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            Color.White.copy(alpha = 0.35f)
+                                        },
+                                        RoundedCornerShape(12.dp),
+                                    )
+                                    .clickable { showBookmarkMenu = true }
+                                    .padding(horizontal = 24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                                        contentDescription = "Library",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    val text = currentBookmark?.let { b ->
+                                        com.lagradost.common.storage.DesktopWatchType.entries.find { type -> type.id == b.watchType }?.stringRes
+                                    } ?: "Add to Library"
+                                    Text(
+                                        text = text,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showBookmarkMenu,
+                                    onDismissRequest = { showBookmarkMenu = false },
+                                    modifier = Modifier
+                                        .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                        .padding(4.dp),
+                                ) {
+                                    Text(
+                                        "Add to Library",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    )
+                                    com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                        val isSelected = currentBookmark?.watchType == type.id
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    type.stringRes,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                )
+                                            },
+                                            onClick = {
+                                                val newBookmark = DesktopBookmark(
+                                                    id = bookmarkId,
+                                                    name = data.name,
+                                                    url = data.url,
+                                                    apiName = provider.name,
+                                                    posterUrl = data.posterUrl,
+                                                    watchType = type.id,
+                                                )
+                                                com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+                                                showBookmarkMenu = false
+                                            },
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
+                                        )
+                                    }
+                                    if (currentBookmark != null) {
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                                            },
+                                            onClick = {
+                                                com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+                                                showBookmarkMenu = false
+                                            },
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
+                                        )
                                     }
                                 }
                             }
                         }
-                        .graphicsLayer { alpha = rightColumnAlpha },
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    // Status
-                    val status = uiState?.enrichedStatus ?: (data as? TvSeriesLoadResponse)?.showStatus?.name
-                    if (!status.isNullOrBlank()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    }
+    
+                    Spacer(modifier = Modifier.height(24.dp))
+    
+                    if (!isLoading) {
+                        data.plot?.let {
                             Text(
-                                text = "STATUS",
-                                color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp,
+                                text = it,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 14.sp,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = 22.sp,
+                                modifier = Modifier.widthIn(max = 900.dp),
                             )
-                            Text(text = status, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-
-                    // Source/Provider
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "SOURCE",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color.White.copy(alpha = 0.12f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Info,
-                                    contentDescription = "Source",
-                                    tint = Color.White.copy(alpha = 0.85f),
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(Modifier.width(6.dp))
+                }
+            },
+            sideContent = {
+                if (!isLoading) {
+                    Column(
+                        modifier = Modifier
+                            .then(if (isNarrow) Modifier.fillMaxWidth() else Modifier.width(240.dp))
+                            .padding(bottom = 12.dp)
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        when (event.type) {
+                                            androidx.compose.ui.input.pointer.PointerEventType.Enter -> isRightColumnHovered = true
+                                            androidx.compose.ui.input.pointer.PointerEventType.Exit -> isRightColumnHovered = false
+                                        }
+                                    }
+                                }
+                            }
+                            .graphicsLayer { alpha = if (isNarrow) 1f else rightColumnAlpha },
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start
+                    ) {
+                        // Status
+                        val status = uiState?.enrichedStatus ?: (data as? TvSeriesLoadResponse)?.showStatus?.name
+                        if (!status.isNullOrBlank()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    text = provider.name,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
+                                    text = "STATUS",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
                                 )
+                                Text(text = status, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    }
-
-                    // Screensaver Toggle
-                    val screenshots = uiState?.screenshots ?: emptyList()
-                    val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
-                    if (screenshots.isNotEmpty()) {
+    
+                        // Source/Provider
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "CINEMATIC SLIDESHOW",
+                                text = "SOURCE",
                                 color = Color.White.copy(alpha = 0.5f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp,
                             )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color.White.copy(alpha = 0.12f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
                             ) {
-                                androidx.compose.material3.Switch(
-                                    checked = screensaverEnabled,
-                                    onCheckedChange = { AppearanceConfig.setScreensaverEnabled(it) },
-                                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = Color.White.copy(alpha = 0.3f),
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.5f),
-                                        uncheckedTrackColor = Color.Transparent,
-                                        uncheckedBorderColor = Color.White.copy(alpha = 0.3f)
-                                    ),
-                                    modifier = Modifier.graphicsLayer { scaleX = 0.8f; scaleY = 0.8f }.offset(x = (-8).dp)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = "Source",
+                                        tint = Color.White.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = provider.name,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                            }
+                        }
+    
+                        // Screensaver Toggle
+                        val screenshots = uiState?.screenshots ?: emptyList()
+                        val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+                        if (screenshots.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    text = if (screensaverEnabled) "Enabled" else "Disabled",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.offset(x = (-8).dp)
+                                    text = "CINEMATIC SLIDESHOW",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
                                 )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    androidx.compose.material3.Switch(
+                                        checked = screensaverEnabled,
+                                        onCheckedChange = { AppearanceConfig.setScreensaverEnabled(it) },
+                                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color.White.copy(alpha = 0.3f),
+                                            uncheckedThumbColor = Color.White.copy(alpha = 0.5f),
+                                            uncheckedTrackColor = Color.Transparent,
+                                            uncheckedBorderColor = Color.White.copy(alpha = 0.3f)
+                                        ),
+                                        modifier = Modifier.graphicsLayer { scaleX = 0.8f; scaleY = 0.8f }.offset(x = (-8).dp)
+                                    )
+                                    Text(
+                                        text = if (screensaverEnabled) "Enabled" else "Disabled",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.offset(x = (-8).dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
+        )
     }
 }
 

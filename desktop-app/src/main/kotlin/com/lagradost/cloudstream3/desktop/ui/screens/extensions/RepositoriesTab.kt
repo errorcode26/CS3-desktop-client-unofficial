@@ -50,32 +50,62 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = repoUrl,
-                        onValueChange = { repoUrl = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Example: english-repo or https://...") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Button(
-                        onClick = {
-                            if (repoUrl.isNotBlank()) {
-                                viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
-                                repoUrl = ""
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val isNarrow = maxWidth < 600.dp
+                    if (isNarrow) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            OutlinedTextField(
+                                value = repoUrl,
+                                onValueChange = { repoUrl = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Example: english-repo or https://...") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Button(
+                                onClick = {
+                                    if (repoUrl.isNotBlank()) {
+                                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                                        repoUrl = ""
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Add Repository")
                             }
-                        },
-                        modifier = Modifier.height(56.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add Repository")
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedTextField(
+                                value = repoUrl,
+                                onValueChange = { repoUrl = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Example: english-repo or https://...") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Button(
+                                onClick = {
+                                    if (repoUrl.isNotBlank()) {
+                                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                                        repoUrl = ""
+                                    }
+                                },
+                                modifier = Modifier.height(56.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Add Repository")
+                            }
+                        }
                     }
                 }
             }
