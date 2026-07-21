@@ -25,6 +25,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 
 // Removed DesktopUiState globally!
 
@@ -51,11 +52,13 @@ fun DesktopAppShell(
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
+        .flowOn(kotlinx.coroutines.Dispatchers.IO)
         .collectAsState(initial = false)
 
     val updatesHistory by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.getUpdatesHistory() }
-        .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
+        .flowOn(kotlinx.coroutines.Dispatchers.IO)
+        .collectAsState(initial = emptyList())
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
 

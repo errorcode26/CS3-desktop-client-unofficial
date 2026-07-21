@@ -22,6 +22,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 
 @Composable
 fun ComposeHomeScreen(
@@ -39,11 +40,13 @@ fun ComposeHomeScreen(
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
+        .flowOn(kotlinx.coroutines.Dispatchers.IO)
         .collectAsState(initial = false)
 
     val updatesHistory by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.getUpdatesHistory() }
-        .collectAsState(initial = DesktopDataStore.getUpdatesHistory())
+        .flowOn(kotlinx.coroutines.Dispatchers.IO)
+        .collectAsState(initial = emptyList())
 
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
