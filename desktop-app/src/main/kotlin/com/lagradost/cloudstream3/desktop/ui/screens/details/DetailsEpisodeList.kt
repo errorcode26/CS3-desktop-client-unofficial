@@ -48,6 +48,7 @@ fun EpisodeCard(
     modifier: Modifier = Modifier,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
+    onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
     var isHovered by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
@@ -253,8 +254,7 @@ fun EpisodeCard(
                 .clickable {
                     if (isWatched) {
                         // Unwatch: Delete history completely to cleanly remove watch status
-                        val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
-                        DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
+                        onRemoveEpisodeWatched(ep)
                     } else {
                         // Watch: Mark completely watched
                         onToggleWatched(ep, false)

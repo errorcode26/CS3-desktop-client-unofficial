@@ -97,6 +97,9 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val handleToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit = { episodes, isWatched ->
         viewModel.onEvent(DetailsUiEvent.OnToggleSeasonWatched(episodes, isWatched))
     }
+    val handleRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
+        viewModel.onEvent(DetailsUiEvent.OnRemoveEpisodeWatched(ep))
+    }
     val handleToggleEpisodesStackedView: (Boolean) -> Unit = { isStacked ->
         viewModel.onEvent(DetailsUiEvent.OnToggleEpisodesStackedView(isStacked))
     }
@@ -168,7 +171,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -177,7 +180,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -273,6 +276,7 @@ fun DetailsContent(
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
+    onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
     dynamicColorEnabled: Boolean = false,
     animatedHeroColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Transparent,
@@ -346,6 +350,7 @@ fun DetailsContent(
                     onPlay = onPlay,
                     onToggleWatched = onToggleWatched,
                     onToggleSeasonWatched = onToggleSeasonWatched,
+                    onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                     onToggleEpisodesStackedView = onToggleEpisodesStackedView,
                 )
             }

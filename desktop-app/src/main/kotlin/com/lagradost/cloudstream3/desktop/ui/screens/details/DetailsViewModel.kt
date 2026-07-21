@@ -61,6 +61,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnRequestAutoPlay -> handleAutoPlay()
             is DetailsUiEvent.OnPlayEpisode -> handlePlayEpisode(event.ep)
             is DetailsUiEvent.OnToggleEpisodeWatched -> handleToggleEpisodeWatched(event.ep, event.isWatched)
+            is DetailsUiEvent.OnRemoveEpisodeWatched -> handleRemoveEpisodeWatched(event.ep)
             is DetailsUiEvent.OnToggleSeasonWatched -> handleToggleSeasonWatched(event.episodes, event.isWatched)
             is DetailsUiEvent.OnToggleEpisodesStackedView -> handleToggleEpisodesStackedView(event.isStacked)
         }
@@ -230,6 +231,15 @@ class DetailsViewModel(
             val history = buildWatchHistory(ep, data)
             val patchedData = patchEpisodeData(ep, data)
             handlePlayRequest(Triple(provider, patchedData, history))
+        }
+    }
+
+    private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {
+        val data = uiState.value.response ?: uiState.value.fakeData ?: return
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
+            DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
         }
     }
 

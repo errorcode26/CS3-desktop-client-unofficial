@@ -42,6 +42,7 @@ fun DetailsEpisodeSection(
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
+    onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -354,6 +355,7 @@ fun DetailsEpisodeSection(
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
                             onToggleWatched = onToggleWatched,
+                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
                         if (!isEpisodesStackedView) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -507,6 +509,7 @@ fun DetailsEpisodeSection(
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
                             onToggleWatched = onToggleWatched,
+                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
                         if (!isEpisodesStackedView) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -547,6 +550,7 @@ private fun RenderEpisodesSection(
     coroutineScope: CoroutineScope,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
+    onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
     if (isEpisodesStackedView) {
         // BoxWithConstraints gives us the real available pixel width so we can
@@ -578,6 +582,7 @@ private fun RenderEpisodesSection(
                         modifier = Modifier.width(cardWidth),
                         onPlay = onPlay,
                         onToggleWatched = onToggleWatched,
+                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                     )
                 }
             }
@@ -597,7 +602,7 @@ private fun RenderEpisodesSection(
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                 val history = showHistory.values.find { it.episodeId == ep.data }
-                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(400.dp), onPlay = onPlay, onToggleWatched = onToggleWatched)
+                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(400.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
             }
         }
     }

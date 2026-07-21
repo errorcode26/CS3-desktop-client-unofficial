@@ -81,7 +81,7 @@ object DesktopRepositoryManager {
             get() = "Sync done: $reposRefreshed repos, $catalogPlugins plugins listed, $pluginsUpdated updated, $iconsCached icons, $newPluginsLoaded newly loaded."
     }
 
-    init {
+    suspend fun initialize() = withContext(Dispatchers.IO) {
         refreshSavedRepositoriesFromDisk()
         loadCachesFromDisk()
     }

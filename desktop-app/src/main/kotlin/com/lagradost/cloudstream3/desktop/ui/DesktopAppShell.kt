@@ -51,7 +51,7 @@ fun DesktopAppShell(
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
-        .collectAsState(initial = DesktopDataStore.hasUnreadUpdates())
+        .collectAsState(initial = false)
 
     val updatesHistory by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.getUpdatesHistory() }

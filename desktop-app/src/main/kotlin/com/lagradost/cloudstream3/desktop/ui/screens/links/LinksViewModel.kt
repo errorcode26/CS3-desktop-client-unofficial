@@ -15,11 +15,19 @@ import kotlinx.coroutines.launch
 
 class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffect>(
     initialState = LinksUiState(
-        preferredPlayer = DesktopDataStore.getKey<String>("preferred_player") ?: "mpv",
-        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+        preferredPlayer = "mpv",
+        autoPlayEnabled = true,
     ),
 ) {
     private var scrapeJob: Job? = null
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val prefPlayer = DesktopDataStore.getKey<String>("preferred_player") ?: "mpv"
+            val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+            updateState { copy(preferredPlayer = prefPlayer, autoPlayEnabled = autoPlay) }
+        }
+    }
 
     override fun handleEvent(event: LinksUiEvent) {
         when (event) {

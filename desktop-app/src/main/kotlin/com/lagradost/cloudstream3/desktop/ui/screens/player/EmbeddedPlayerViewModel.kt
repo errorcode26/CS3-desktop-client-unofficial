@@ -254,6 +254,32 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         targetEpisodeData: Episode? = null,
     ) {
         val hasStartedPlaying = AtomicBoolean(false)
+        
+        // Fetch DB data outside of the callbacks and StateFlow CAS loops!
+        val current = uiState.value.launchData ?: baseLaunchData
+        val pastHistory = if (targetEpisodeData != null) {
+            com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
+                parentId = current.history.parentId,
+                episodeId = targetEpisodeData.data,
+            )
+        } else null
+
+        val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
+            pastHistory.position * 1000L
+        } else {
+            0L
+        }
+
+        val newHistory = if (targetEpisodeData != null) {
+            current.history.copy(
+                episodeId = targetEpisodeData.data,
+                episode = targetEpisodeData.episode,
+                season = targetEpisodeData.season,
+                position = startPos / 1000L,
+                duration = pastHistory?.duration ?: 0L,
+            )
+        } else null
+
         try {
             provider.loadLinks(
                 data = targetEpisodeId,
@@ -278,28 +304,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     updateState {
                         val newLinks = nextEpisodeLinks + link
                         if (hasStartedPlaying.compareAndSet(false, true)) {
-                            val current = launchData ?: baseLaunchData
-
-                            val newLaunchData = if (targetEpisodeData != null) {
-                                val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
-                                    parentId = current.history.parentId,
-                                    episodeId = targetEpisodeData.data,
-                                )
-
-                                val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
-                                    pastHistory.position * 1000L
-                                } else {
-                                    0L
-                                }
-
-                                val newHistory = current.history.copy(
-                                    episodeId = targetEpisodeData.data,
-                                    episode = targetEpisodeData.episode,
-                                    season = targetEpisodeData.season,
-                                    position = startPos / 1000L,
-                                    duration = pastHistory?.duration ?: 0L,
-                                )
-
+                            val newLaunchData = if (targetEpisodeData != null && newHistory != null) {
                                 current.copy(
                                     links = newLinks,
                                     subtitles = nextEpisodeSubtitles,
@@ -331,11 +336,11 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 nextEpisodeError = null,
                             )
                         } else {
-                            val current = launchData
-                            val updatedLaunch = if (current != null && current.history.episodeId == targetEpisodeId) {
-                                current.copy(links = current.links + link)
+                            val currentLaunch = launchData
+                            val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
+                                currentLaunch.copy(links = currentLaunch.links + link)
                             } else {
-                                current
+                                currentLaunch
                             }
                             copy(nextEpisodeLinks = newLinks, launchData = updatedLaunch)
                         }

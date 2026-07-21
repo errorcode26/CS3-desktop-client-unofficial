@@ -96,6 +96,7 @@ fun main() {
                         initNetwork()
                         initProviders()
                         initPlugins()
+                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize()
                         com.lagradost.cloudstream3.APIHolder.initAll()
                         launchAutoUpdater()
                         AppUpdater.checkForUpdates()

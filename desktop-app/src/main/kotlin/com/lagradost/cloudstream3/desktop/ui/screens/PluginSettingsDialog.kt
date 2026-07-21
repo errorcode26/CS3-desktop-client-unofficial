@@ -21,6 +21,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lagradost.common.storage.PluginSettingsSchemaRegistry
 
+
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsUiEvent
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PluginSettingsDialog(
@@ -30,33 +34,27 @@ fun PluginSettingsDialog(
     onDismiss: () -> Unit,
 ) {
     val schemaUpdates by PluginSettingsSchemaRegistry.schemaUpdates.collectAsState()
-
-    val activePrefName = remember(schemaUpdates, prefName, pluginName) {
-        PluginSettingsSchemaRegistry.resolvePrefName(prefName, pluginName)
-    }
-
-    val settings = remember(schemaUpdates, activePrefName) {
-        PluginSettingsSchemaRegistry.getSettingsForPlugin(activePrefName, pluginName).sortedWith(
-            compareBy<com.lagradost.common.storage.PluginSettingSchema> { getCategoryPriority(it.key) }
-                .thenBy { getFriendlyName(it.key) },
-        )
-    }
-
-    val currentValues = remember(settings) {
-        val map = mutableStateMapOf<String, Any?>()
-        settings.forEach { schema ->
-            val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
-            val value = if (schema.isGlobal) {
-                com.lagradost.cloudstream3.utils.DataStore.getKey<Any>(fullKey) ?: schema.defaultValue
-            } else {
-                com.lagradost.common.storage.DesktopDataStore.getKey<Any>(fullKey) ?: schema.defaultValue
-            }
-            map[fullKey] = value
+    
+    val viewModel = remember(pluginName, prefName) { PluginSettingsViewModel() }
+    
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
         }
-        map
     }
 
-    var hasChanged by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel, pluginName, prefName) {
+        viewModel.onEvent(PluginSettingsUiEvent.OnInit(pluginName, prefName))
+    }
+    
+    LaunchedEffect(viewModel, schemaUpdates) {
+        viewModel.onEvent(PluginSettingsUiEvent.OnSchemaUpdated(schemaUpdates))
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+    val settings = uiState.settings
+    val currentValues = uiState.currentValues
+    val hasChanged = uiState.hasChanged
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -194,21 +192,7 @@ fun PluginSettingsDialog(
                                         pluginName = pluginName,
                                         jarFile = jarFile,
                                         onValueChanged = { newValue ->
-                                            currentValues[fullKey] = newValue
-                                            hasChanged = true
-                                            if (schema.isGlobal) {
-                                                if (newValue == null || (newValue is String && newValue.isEmpty())) {
-                                                    com.lagradost.cloudstream3.utils.DataStore.removeKey(fullKey)
-                                                } else {
-                                                    com.lagradost.cloudstream3.utils.DataStore.setKey(fullKey, newValue)
-                                                }
-                                            } else {
-                                                if (newValue == null || (newValue is String && newValue.isEmpty())) {
-                                                    com.lagradost.common.storage.DesktopDataStore.removeKey(fullKey)
-                                                } else {
-                                                    com.lagradost.common.storage.DesktopDataStore.setKey(fullKey, newValue)
-                                                }
-                                            }
+                                            viewModel.onEvent(PluginSettingsUiEvent.OnSettingChanged(schema, newValue))
                                         },
                                     )
                                 }
