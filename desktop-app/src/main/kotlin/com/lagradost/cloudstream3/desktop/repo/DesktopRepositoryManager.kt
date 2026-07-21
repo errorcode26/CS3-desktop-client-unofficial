@@ -185,8 +185,12 @@ object DesktopRepositoryManager {
     }
 
     suspend fun removeRepository(url: String) = syncMutex.withLock {
-        val current = readRepositoriesFromDisk().filter { it.url != url }
+        val currentList = readRepositoriesFromDisk()
+        val repoToRemove = currentList.find { it.url == url }
+        
+        val current = currentList.filter { it.url != url }
         writeRepositoriesToDisk(current)
+        
         val repo = repoCache.remove(url)
         if (repo != null) {
             for (listUrl in repo.pluginLists) {
@@ -194,6 +198,30 @@ object DesktopRepositoryManager {
             }
         }
         saveCachesToDisk()
+
+        // Also physically delete the repo directory and its contents so it doesn't get 
+        // picked up by the blind walkTopDown() loader on next startup.
+        val nameToUse = repo?.name ?: repoToRemove?.name
+        if (!nameToUse.isNullOrBlank()) {
+            val repoDir = File(getExtensionsDir(), nameToUse.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+            if (repoDir.exists()) {
+                // Must explicitly unload all plugins from this repo first to release Windows file locks
+                val jars = repoDir.listFiles { f -> f.isFile && (f.extension == "jar" || f.extension == "cs3") }
+                jars?.forEach { jar ->
+                    com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
+                }
+                
+                // GC and finalize to release locks (same as individual plugin uninstall)
+                @Suppress("ExplicitGarbageCollectionCall")
+                System.gc()
+                Thread.sleep(150)
+                @Suppress("deprecation")
+                System.runFinalization()
+
+                val deleted = repoDir.deleteRecursively()
+                AppLogger.i("Deleted physical repository directory '${repoDir.name}': ok=$deleted")
+            }
+        }
     }
 
     /**
