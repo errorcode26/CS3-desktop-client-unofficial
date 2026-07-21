@@ -11,4 +11,5 @@ data class SearchUiState(
     val selectedProviderName: String? = null,
     val selectedCategory: com.lagradost.cloudstream3.TvType? = null,
     val pluginIcons: Map<String, String> = emptyMap(),
+    val providers: List<com.lagradost.cloudstream3.MainAPI> = emptyList(),
 ) : UiState

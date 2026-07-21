@@ -187,6 +187,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     }
                     onResult("Installed")
                     refreshInstalled()
+                    DesktopRepositoryManager.incrementSyncGeneration()
                 } else {
                     onResult("Failed")
                 }
@@ -307,6 +308,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 }
             }
             refreshInstalled()
+            DesktopRepositoryManager.incrementSyncGeneration()
             updateState { copy(isUninstalling = false) }
         }
     }
@@ -334,6 +336,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 com.lagradost.common.logging.AppLogger.e("Error loading local plugin", e)
             }
             refreshInstalled()
+            DesktopRepositoryManager.incrementSyncGeneration()
         }
     }
 }

@@ -269,7 +269,7 @@ fun ComposeSearchScreen(
                             }
                         )
                         androidx.compose.material3.HorizontalDivider()
-                        APIHolder.allProviders.filter { it.isRealProvider() }.forEach { provider ->
+                        uiState.providers.forEach { provider ->
                             DropdownMenuItem(
                                 text = { Text(provider.name) },
                                 leadingIcon = {

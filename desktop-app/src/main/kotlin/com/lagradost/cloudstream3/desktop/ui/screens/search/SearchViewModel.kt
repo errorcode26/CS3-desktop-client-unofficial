@@ -64,6 +64,13 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 updateState { copy(pluginIcons = icons) }
             }
         }
+
+        viewModelScope.launch {
+            DesktopRepositoryManager.syncGeneration.collectLatest {
+                val providers = APIHolder.allProviders.filter { it.isRealProvider() }
+                updateState { copy(providers = providers) }
+            }
+        }
     }
 
     override fun handleEvent(event: SearchUiEvent) {
@@ -103,7 +110,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
         searchJob = viewModelScope.launch {
             updateState { copy(isLoadingSearch = true, searchResultsGrouped = null) }
             try {
-                val providers = APIHolder.allProviders.filter { it.isRealProvider() }
+                val providers = uiState.value.providers
                 
                 val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
                     providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
