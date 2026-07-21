@@ -255,7 +255,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         viewModelScope.launch(Dispatchers.IO) {
             for (plugin in plugins) {
                 try {
-                    // Step 1: Gracefully unload the plugin (calls beforeUnload, removes from APIHolder)
+                    // Step 1: Gracefully unload the plugin (calls beforeUnload, removes from APIHolder).
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
                     // Step 2: Force JVM to release native Windows file handles.
@@ -268,7 +268,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     @Suppress("deprecation")
                     System.runFinalization()
 
-                    // Step 3: Reset the active provider if it was the plugin being removed.
+                    // Step 3: Reset the active provider if it belonged to the plugin being removed.
                     // This prevents the home/search screens from pointing to a dead provider.
                     val activeProvider = DesktopDataStore.getKey<String>("preferred_provider_name")
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
@@ -281,25 +281,26 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                         )
                     }
 
-                    // Step 4: Recursively delete the entire plugin directory — no orphans allowed.
+                    // Step 4: Delete ONLY this plugin's own files.
+                    // The extension pack folder (parent dir) belongs to the repo and is NEVER
+                    // deleted here — that is the responsibility of extension pack removal only.
+                    val stem = plugin.file.nameWithoutExtension
                     val parentDir = plugin.file.parentFile
-                    if (parentDir != null && parentDir.exists()) {
-                        val deleted = parentDir.deleteRecursively()
-                        com.lagradost.common.logging.AppLogger.i(
-                            "Uninstalled '${plugin.name}': full dir delete=$deleted (path=${parentDir.absolutePath})"
-                        )
-                        if (!deleted) {
-                            // Fallback: if recursive delete partially failed (still-locked files),
-                            // schedule each remaining file for deletion at JVM exit.
-                            parentDir.walkBottomUp().forEach { it.deleteOnExit() }
-                            com.lagradost.common.logging.AppLogger.i(
-                                "'${plugin.name}': Recursive delete incomplete — scheduled remaining files for deleteOnExit."
-                            )
+                    val filesToDelete = listOfNotNull(
+                        plugin.file,
+                        parentDir?.let { java.io.File(it, "$stem-jvm.jar") },
+                        parentDir?.let { java.io.File(it, "$stem.dex") },
+                        parentDir?.let { java.io.File(it, "$stem-secure.jar") },
+                    )
+                    for (f in filesToDelete) {
+                        if (f.exists()) {
+                            val ok = f.delete()
+                            if (!ok) f.deleteOnExit()
+                            com.lagradost.common.logging.AppLogger.i("Delete '${f.name}': ok=$ok")
                         }
-                    } else {
-                        // parentDir is null or gone — just try to delete the individual file.
-                        if (!plugin.file.delete()) plugin.file.deleteOnExit()
                     }
+
+                    com.lagradost.common.logging.AppLogger.i("Uninstalled plugin '${plugin.name}' successfully.")
                 } catch (e: Throwable) {
                     com.lagradost.common.logging.AppLogger.e("Error uninstalling plugin '${plugin.name}'", e)
                 }
@@ -307,6 +308,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             refreshInstalled()
         }
     }
+
+
 
     private fun uninstallByInternalName(internalName: String) {
         viewModelScope.launch(Dispatchers.IO) {
