@@ -114,20 +114,56 @@ val LobsterFontFamily: FontFamily by lazy {
 
 // Font registry: name shown in Settings -> FontFamily
 
-val availableFonts: List<String> = listOf("Inter", "Outfit", "DM Sans", "Roboto", "Nunito", "Poppins", "Lato", "Ubuntu", "Fira Sans", "Pacifico", "Lobster")
+val availableFonts: List<String>
+    get() {
+        val builtIn = listOf("Inter", "Outfit", "DM Sans", "Roboto", "Nunito", "Poppins", "Lato", "Ubuntu", "Fira Sans", "Pacifico", "Lobster")
+        val custom = CustomFontManager.getAvailableFonts()
+        return (builtIn + custom).distinct()
+    }
 
-fun getFontFamily(name: String): FontFamily = when (name) {
-    "Outfit" -> OutfitFontFamily
-    "DM Sans" -> DMSansFontFamily
-    "Roboto" -> RobotoFontFamily
-    "Nunito" -> NunitoFontFamily
-    "Poppins" -> PoppinsFontFamily
-    "Lato" -> LatoFontFamily
-    "Ubuntu" -> UbuntuFontFamily
-    "Fira Sans" -> FiraSansFontFamily
-    "Pacifico" -> PacificoFontFamily
-    "Lobster" -> LobsterFontFamily
-    else -> InterFontFamily // "Inter" is the default
+fun getFontFamily(name: String): FontFamily {
+    // Check if the user selected a custom font from their fonts folder
+    val customFontFile = CustomFontManager.getFontFile(name)
+    if (customFontFile != null) {
+        try {
+            return FontFamily(
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Normal),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Medium),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.SemiBold),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Bold),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.ExtraBold),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Light),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Thin),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.ExtraLight),
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Black)
+            )
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("Failed to load custom font: $name", e)
+        }
+    }
+
+    return when (name) {
+        "Outfit" -> OutfitFontFamily
+        "DM Sans" -> DMSansFontFamily
+        "Roboto" -> RobotoFontFamily
+        "Nunito" -> NunitoFontFamily
+        "Poppins" -> PoppinsFontFamily
+        "Lato" -> LatoFontFamily
+        "Ubuntu" -> UbuntuFontFamily
+        "Fira Sans" -> FiraSansFontFamily
+        "Pacifico" -> PacificoFontFamily
+        "Lobster" -> LobsterFontFamily
+        "Inter" -> InterFontFamily
+        else -> {
+            // Check if it's a valid system font name
+            try {
+                FontFamily(androidx.compose.ui.text.platform.Font(name))
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Failed to load system font: $name", e)
+                InterFontFamily // Fallback
+            }
+        }
+    }
 }
 
 // Typography builder - call with any FontFamily

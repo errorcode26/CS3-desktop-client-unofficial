@@ -15,7 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsAppearance() {
@@ -95,6 +98,8 @@ fun SettingsAppearance() {
         }
 
         SettingsGroupCard(title = "Typography") {
+            var customFonts by remember { mutableStateOf(com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()) }
+            val coroutineScope = rememberCoroutineScope()
             SettingsDropdownItem(
                 label = "App Font",
                 subtitle = "Choose the font used throughout the app",
@@ -102,6 +107,55 @@ fun SettingsAppearance() {
                 currentValue = selectedFont,
                 onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
             )
+            if (customFonts.isNotEmpty()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                    Text("Installed Custom Fonts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 4.dp))
+                    customFonts.forEach { fontName ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(fontName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = {
+                                val f = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getFontFile(fontName)
+                                if (f != null && f.delete()) {
+                                    customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+                                }
+                            }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Font", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Font File", java.awt.FileDialog.LOAD)
+                            dialog.file = "*.ttf;*.otf"
+                            dialog.isVisible = true
+                            if (dialog.directory != null && dialog.file != null) {
+                                val srcFile = java.io.File(dialog.directory, dialog.file)
+                                val dstFile = java.io.File(com.lagradost.common.platform.PlatformPaths.fontsDir, srcFile.name)
+                                com.lagradost.common.platform.PlatformPaths.fontsDir.mkdirs()
+                                srcFile.copyTo(dstFile, overwrite = true)
+                                // Update state
+                                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            com.lagradost.common.logging.AppLogger.e("Font install error", e)
+                        }
+                    }
+                },
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+            ) {
+                Text("Install Custom Font")
+            }
         }
 
         SettingsGroupCard(title = "Cinematic Aesthetics") {

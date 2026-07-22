@@ -101,6 +101,7 @@ fun ComposeNativeWebPlayer(
 
     val currentIsLoading by rememberUpdatedState(isLoading)
     val currentLoadingStatusText by rememberUpdatedState(loadingStatusText)
+    val isProbing by playerState?.isProbing?.collectAsState(false) ?: mutableStateOf(false)
     val activeShader by (playerState?.activeShader ?: kotlinx.coroutines.flow.flowOf("None")).collectAsState("None")
 
     LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader) {

@@ -66,7 +66,13 @@ object PlatformPaths {
         File(appDataDir, "logs").also { it.mkdirs() }
     }
 
+    /** Directory for extracted MPV shaders. */
     val shadersDir: File by lazy {
         File(appDataDir, "shaders").also { it.mkdirs() }
+    }
+
+    /** Directory for user-provided custom fonts. */
+    val fontsDir: File by lazy {
+        File(appDataDir, "fonts").also { it.mkdirs() }
     }
 }

@@ -319,7 +319,7 @@ fun HomeHeroCarousel(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        style = androidx.compose.ui.text.TextStyle(
+                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
                                             shadow = androidx.compose.ui.graphics.Shadow(
                                                 color = Color.Black.copy(alpha = 0.69f),
                                                 offset = androidx.compose.ui.geometry.Offset(0f, 2f),
@@ -335,7 +335,7 @@ fun HomeHeroCarousel(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        style = androidx.compose.ui.text.TextStyle(
+                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
                                             shadow = androidx.compose.ui.graphics.Shadow(
                                                 color = Color.Black.copy(alpha = 0.69f),
                                                 offset = androidx.compose.ui.geometry.Offset(0f, 2f),
@@ -366,7 +366,7 @@ fun HomeHeroCarousel(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        style = androidx.compose.ui.text.TextStyle(
+                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
                                             shadow = androidx.compose.ui.graphics.Shadow(
                                                 color = Color.Black.copy(alpha = 0.69f),
                                                 offset = androidx.compose.ui.geometry.Offset(0f, 2f),
@@ -385,7 +385,7 @@ fun HomeHeroCarousel(
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = androidx.compose.ui.text.TextStyle(
+                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
                                             shadow = androidx.compose.ui.graphics.Shadow(
                                                 color = Color.Black.copy(alpha = 0.69f),
                                                 offset = androidx.compose.ui.geometry.Offset(0f, 2f),
@@ -405,7 +405,7 @@ fun HomeHeroCarousel(
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,
                                     lineHeight = 24.sp,
-                                    style = androidx.compose.ui.text.TextStyle(
+                                    style = androidx.compose.material3.LocalTextStyle.current.copy(
                                         shadow = androidx.compose.ui.graphics.Shadow(
                                             color = Color.Black.copy(alpha = 0.69f),
                                             offset = androidx.compose.ui.geometry.Offset(0f, 2f),

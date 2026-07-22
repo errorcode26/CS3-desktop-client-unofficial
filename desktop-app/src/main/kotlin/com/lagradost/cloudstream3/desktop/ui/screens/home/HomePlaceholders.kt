@@ -15,23 +15,58 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun HomeHeroCarouselPlaceholder() {
+    val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val dynamicHeight = with(density) { (windowInfo.containerSize.height * 0.85f).toDp() }.coerceIn(400.dp, 1000.dp)
+    
+    val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
+    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 98.dp else 32.dp
+    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 98.dp else 32.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(550.dp)
-            .padding(top = 16.dp, bottom = 0.dp),
-        contentAlignment = Alignment.Center,
+            .height(dynamicHeight),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        // Main center card
-        Box(
+        // Main backdrop shimmer
+        Box(modifier = Modifier.fillMaxSize().shimmerBackground())
+        
+        Row(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(0.5f) // Matches approximate width of coverflow center item
-                .clip(RoundedCornerShape(12.dp))
-                .shimmerBackground(),
-        )
+                .fillMaxWidth()
+                .padding(start = paddingStart, end = paddingEnd, bottom = 56.dp, top = 24.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(0.5f),
+            ) {
+                // Title
+                Box(
+                    modifier = Modifier.width(300.dp).height(50.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground()
+                )
+                Spacer(Modifier.height(16.dp))
+                // Rating/Year
+                Box(
+                    modifier = Modifier.width(150.dp).height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground()
+                )
+                Spacer(Modifier.height(12.dp))
+                // Plot
+                Box(modifier = Modifier.fillMaxWidth(0.8f).height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth(0.7f).height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                Spacer(Modifier.height(24.dp))
+                // Buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Box(modifier = Modifier.height(56.dp).width(190.dp).clip(RoundedCornerShape(12.dp)).shimmerBackground())
+                    Box(modifier = Modifier.height(56.dp).width(160.dp).clip(RoundedCornerShape(12.dp)).shimmerBackground())
+                }
+            }
+        }
     }
 }
 
@@ -40,7 +75,11 @@ fun CategoryRowPlaceholder(
     title: String,
     showLargeHeader: Boolean = false,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
+    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
+    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(start = paddingStart, end = paddingEnd)) {
             val availableWidth = this.maxWidth
             val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
             val baseWidth = when (gridScale) {
@@ -69,7 +108,7 @@ fun CategoryRowPlaceholder(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+                        .padding(start = 10.dp, end = 10.dp, top = 24.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -84,7 +123,7 @@ fun CategoryRowPlaceholder(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp),
+                        .padding(start = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     repeat(columns) {

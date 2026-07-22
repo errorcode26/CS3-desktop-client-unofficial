@@ -124,22 +124,22 @@ fun HomeCategorySection(
                         val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
                         val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
 
-                        if (showLargeHeader) {
-                            Text(
-                                text = pageData.name,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 0.dp),
-                            )
-                        }
-
                         val isLoop = section.list.size >= 4
 
                         val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
                         // 88.dp base + 10.dp internal (used by Category headers) => visually aligns with 98.dp
                         val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
                         val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+
+                        if (showLargeHeader) {
+                            Text(
+                                text = pageData.name,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = paddingStart + 10.dp, top = 24.dp, bottom = 0.dp),
+                            )
+                        }
 
                         BoxWithConstraints(
                             modifier = Modifier
