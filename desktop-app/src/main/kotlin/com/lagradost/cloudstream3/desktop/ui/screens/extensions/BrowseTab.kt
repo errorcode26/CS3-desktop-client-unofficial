@@ -15,8 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
@@ -293,44 +296,82 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         }
 
         pluginRequiringBypass?.let { (bypassRepo, bypassPlugin) ->
-            AlertDialog(
-                onDismissRequest = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
+            var isDialogInstalling by remember { mutableStateOf(false) }
+            CloudstreamAlertDialog(
+                show = true,
+                onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
                 title = { Text("Advanced Bytecode Detected") },
-                text = { Text("Advanced or unverified bytecode patterns were detected in ${bypassPlugin.name}.\n\nThis plugin uses reflection or APIs outside standard verified CloudStream templates. While this is common in complex or third-party plugins, our desktop runtime will continue to run it inside the secure sandbox.\n\nWould you like to trust and install this plugin?") },
+                text = {
+                    if (isDialogInstalling) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(16.dp))
+                            Text("Installing, please wait (this may take a moment)...")
+                        }
+                    } else {
+                        Text("Advanced or unverified bytecode patterns were detected in ${bypassPlugin.name}.\n\nThis plugin uses reflection or APIs outside standard verified CloudStream templates. While this is common in complex or third-party plugins, our desktop runtime will continue to run it inside the secure sandbox.\n\nWould you like to trust and install this plugin?")
+                    }
+                },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin))
-                        },
-                    ) {
-                        Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
+                    if (!isDialogInstalling) {
+                        TextButton(
+                            onClick = {
+                                isDialogInstalling = true
+                                viewModel.onEvent(ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin) {
+                                    isDialogInstalling = false
+                                })
+                            },
+                        ) {
+                            Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
-                        Text("Cancel")
+                    if (!isDialogInstalling) {
+                        TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
+                            Text("Cancel")
+                        }
                     }
                 },
             )
         }
 
         pluginRequiringPermission?.let { (reqRepo, reqPlugin, reqPermission) ->
-            AlertDialog(
-                onDismissRequest = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) },
+            var isDialogInstalling by remember { mutableStateOf(false) }
+            CloudstreamAlertDialog(
+                show = true,
+                onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) },
                 title = { Text("Permission Required") },
-                text = { Text("The plugin '${reqPlugin.name}' requires the following permission to function:\n\n• $reqPermission\n\nDo you want to grant this permission and install the plugin?") },
+                text = {
+                    if (isDialogInstalling) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(16.dp))
+                            Text("Installing, please wait...")
+                        }
+                    } else {
+                        Text("The plugin '${reqPlugin.name}' requires the following permission to function:\n\n• $reqPermission\n\nDo you want to grant this permission and install the plugin?")
+                    }
+                },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission))
-                        },
-                    ) {
-                        Text("Grant & Install", color = MaterialTheme.colorScheme.primary)
+                    if (!isDialogInstalling) {
+                        TextButton(
+                            onClick = {
+                                isDialogInstalling = true
+                                viewModel.onEvent(ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission) {
+                                    isDialogInstalling = false
+                                })
+                            },
+                        ) {
+                            Text("Grant & Install", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) }) {
-                        Text("Cancel")
+                    if (!isDialogInstalling) {
+                        TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) }) {
+                            Text("Cancel")
+                        }
                     }
                 },
             )

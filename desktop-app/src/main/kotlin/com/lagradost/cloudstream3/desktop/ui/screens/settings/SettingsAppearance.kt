@@ -14,6 +14,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 
 @Composable
 fun SettingsAppearance() {
@@ -25,8 +27,6 @@ fun SettingsAppearance() {
     val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
     val heroDynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
-    val layoutWidth by AppearanceConfig.layoutWidth.collectAsState()
-    val searchBarMode by AppearanceConfig.searchBarMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
@@ -188,26 +188,55 @@ fun SettingsAppearance() {
                 onSelectionChanged = { AppearanceConfig.setGridScale(it) },
             )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            // Realtime Poster Preview
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 16.dp)
+            ) {
+                val baseWidth = when (gridScale) {
+                    "Compact" -> 150.dp
+                    "Large" -> 220.dp
+                    else -> 190.dp
+                }
+                val animatedWidth by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = baseWidth,
+                    animationSpec = androidx.compose.animation.core.tween(300)
+                )
 
-            SettingsDropdownItem(
-                label = "Layout Width",
-                subtitle = "Restrict maximum content width on large monitors",
-                options = listOf("Fluid" to "Edge-to-Edge", "Modern" to "Centered", "Compact" to "Narrow"),
-                currentValue = layoutWidth,
-                onSelectionChanged = { AppearanceConfig.setLayoutWidth(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsDropdownItem(
-                label = "Search Bar Visibility",
-                subtitle = "Control how the search bar appears on the home screen",
-                options = listOf("Always Visible" to "Always Visible", "Auto-hide" to "Auto-hide"),
-                currentValue = searchBarMode,
-                onSelectionChanged = { AppearanceConfig.setSearchBarMode(it) },
-            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    repeat(1) { index ->
+                        Surface(
+                            modifier = Modifier
+                                .width(animatedWidth)
+                                .aspectRatio(2f / 3f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 1f - (index * 0.2f).coerceAtMost(0.8f)),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                            )
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                if (index == 0) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
     }
 }

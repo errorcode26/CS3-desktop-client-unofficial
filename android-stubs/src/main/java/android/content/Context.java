@@ -75,6 +75,9 @@ public class Context {
     }
 
     public Object getSystemService(String name) {
+        if ("activity".equals(name)) {
+            return new android.app.ActivityManager();
+        }
         return null;
     }
 

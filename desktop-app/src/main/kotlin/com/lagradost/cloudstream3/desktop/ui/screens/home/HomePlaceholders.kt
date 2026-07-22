@@ -38,11 +38,9 @@ fun HomeHeroCarouselPlaceholder() {
 @Composable
 fun CategoryRowPlaceholder(
     title: String,
-    maxWidthConstraint: Dp,
     showLargeHeader: Boolean = false,
 ) {
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        BoxWithConstraints(modifier = Modifier.widthIn(max = maxWidthConstraint).fillMaxWidth()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val availableWidth = this.maxWidth
             val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
             val baseWidth = when (gridScale) {
@@ -101,6 +99,5 @@ fun CategoryRowPlaceholder(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
-        }
     }
 }

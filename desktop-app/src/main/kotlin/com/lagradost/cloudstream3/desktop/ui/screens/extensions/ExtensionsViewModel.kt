@@ -64,10 +64,9 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             is ExtensionsUiEvent.OnLoadLocalPlugin -> loadLocalPlugin(event.file)
             is ExtensionsUiEvent.OnRemoveRepository -> removeRepository(event.url)
             is ExtensionsUiEvent.OnClearBypass -> clearBypass()
-            is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin)
+            is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin, event.onResult)
             is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
-            is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
-            is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName)
+            is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName, event.onResult)
             is ExtensionsUiEvent.OnAddRepositoryFromInput -> addRepositoryFromInput(event.input)
             is ExtensionsUiEvent.OnSyncAllRepos -> syncAllRepos()
         }
@@ -212,8 +211,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         }
     }
 
-    private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin) {
-        updateState { copy(pluginRequiringBypass = null) }
+    private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 val jarFile = withContext(Dispatchers.IO) {
@@ -224,8 +222,11 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                         ExtensionLoader.unloadPlugin(jarFile.absolutePath)
                         ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true)
                     }
+                    onResult("Installed")
                     refreshInstalled()
                     DesktopRepositoryManager.incrementSyncGeneration()
+                } else {
+                    onResult("Failed")
                 }
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
@@ -235,6 +236,9 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                         ExtensionLoader.unloadPlugin(jarFile.absolutePath)
                     }
                 } catch (_: Throwable) {}
+                onResult("Error")
+            } finally {
+                updateState { copy(pluginRequiringBypass = null) }
             }
         }
     }
@@ -243,10 +247,12 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         updateState { copy(pluginRequiringBypass = null) }
     }
 
-    private fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
-        updateState { copy(pluginRequiringPermission = null) }
+    private fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String, onResult: (String) -> Unit) {
         com.lagradost.runtime.permission.PluginPermissionAPI.grantPermission(plugin.internalName, permissionName)
-        installPlugin(repoName, plugin) {}
+        installPlugin(repoName, plugin) { result ->
+            onResult(result)
+            updateState { copy(pluginRequiringPermission = null) }
+        }
     }
 
     private fun clearPermissionRequest() {

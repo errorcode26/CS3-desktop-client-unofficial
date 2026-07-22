@@ -11,10 +11,11 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 
 enum class SettingsTab(val title: String) {
-    GENERAL("General"),
+    ACCOUNTS("Accounts"),
     APPEARANCE("Appearance"),
     PLAYER("Playback Engine"),
     NETWORK("Network"),
+    ADVANCED("Advanced"),
     DEVELOPER("Developer Tools"),
     UPDATES("Updates"),
     ABOUT("About"),
@@ -29,7 +30,7 @@ fun ComposeSettingsScreen(navController: NavController) {
         horizontalArrangement = Arrangement.Center,
     ) {
         // Container to keep max width reasonable on ultra-wide screens
-        Row(modifier = Modifier.widthIn(max = 1600.dp).fillMaxSize()) {
+        Row(modifier = Modifier.widthIn(max = 1000.dp).fillMaxSize()) {
             // Left Pane: Sidebar Navigation
             Column(
                 modifier = Modifier
@@ -87,10 +88,11 @@ fun ComposeSettingsScreen(navController: NavController) {
                     label = "settings_crossfade",
                 ) { tab ->
                     when (tab) {
-                        SettingsTab.GENERAL -> SettingsGeneral()
+                        SettingsTab.ACCOUNTS -> SettingsAccounts()
                         SettingsTab.APPEARANCE -> SettingsAppearance()
                         SettingsTab.PLAYER -> SettingsPlayer()
                         SettingsTab.NETWORK -> SettingsNetwork()
+                        SettingsTab.ADVANCED -> SettingsAdvanced()
                         SettingsTab.DEVELOPER -> SettingsDeveloper()
                         SettingsTab.UPDATES -> SettingsUpdates()
                         SettingsTab.ABOUT -> SettingsAbout()

@@ -8,7 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
@@ -30,7 +34,8 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     }
 
     if (showUnsupportedWarning) {
-        AlertDialog(
+        CloudstreamAlertDialog(
+            show = true,
             onDismissRequest = { showUnsupportedWarning = false },
             title = { Text("Unsupported Feature") },
             text = { Text("Custom Android settings UI (Layer 3) is not supported on Desktop.\n\nPlease go to Settings -> Plugins from the sidebar to configure this plugin.") },
@@ -43,7 +48,8 @@ fun InstalledTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     }
 
     if (showDeleteConfirm) {
-        AlertDialog(
+        CloudstreamAlertDialog(
+            show = true,
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Confirm Uninstall") },
             text = { Text("Are you sure you want to uninstall ${selectedPlugins.size} plugins? This action cannot be undone.") },

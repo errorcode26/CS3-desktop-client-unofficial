@@ -25,10 +25,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import kotlinx.coroutines.launch
 
@@ -549,14 +551,13 @@ fun SubtitleDownloadDialog(
     LaunchedEffect(Unit) { performSearch() }
 
     // Dialog container
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = bgColor,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 300.dp, max = 600.dp),
-        ) {
+    CloudstreamCustomDialog(
+        show = true,
+        onDismissRequest = onDismiss,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 300.dp, max = 600.dp)
+    ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 // Header
                 Row(
@@ -855,7 +856,6 @@ fun SubtitleDownloadDialog(
                             }
                         }
                     }
-                }
             }
         }
     }

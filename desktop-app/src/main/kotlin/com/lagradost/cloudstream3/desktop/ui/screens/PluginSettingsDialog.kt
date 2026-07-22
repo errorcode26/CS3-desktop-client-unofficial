@@ -15,10 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.common.storage.PluginSettingsSchemaRegistry
 
 
@@ -56,20 +57,14 @@ fun PluginSettingsDialog(
     val currentValues = uiState.currentValues
     val hasChanged = uiState.hasChanged
 
-    Dialog(
+    CloudstreamCustomDialog(
+        show = true,
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .width(750.dp)
+            .fillMaxHeight(0.85f)
     ) {
-        Card(
-            modifier = Modifier
-                .width(550.dp)
-                .fillMaxHeight(0.85f)
-                .clip(RoundedCornerShape(24.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
                 // Header Banner
                 Row(
                     modifier = Modifier
@@ -219,7 +214,6 @@ fun PluginSettingsDialog(
                         Text("Apply & Close", fontWeight = FontWeight.Bold)
                     }
                 }
-            }
         }
     }
 }

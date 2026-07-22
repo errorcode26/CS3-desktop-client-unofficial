@@ -61,7 +61,7 @@ object RuntimeStub {
 
     @JvmStatic
     fun availableProcessors(runtime: Runtime): Int {
-        return 16 // Ultra flagship hexadeca-core mock profile
+        return 8 // Standard octa-core mock profile
     }
 
     @JvmStatic

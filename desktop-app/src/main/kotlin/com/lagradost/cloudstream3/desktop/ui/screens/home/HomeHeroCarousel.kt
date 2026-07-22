@@ -99,12 +99,10 @@ fun HomeHeroCarousel(
     val dynamicHeight = with(density) { (windowInfo.containerSize.height * 0.85f).toDp() }.coerceIn(400.dp, 1000.dp)
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val layoutWidthSetting by AppearanceConfig.layoutWidth.collectAsState()
-    val maxWidthConstraint = when (layoutWidthSetting) {
-        "Compact" -> 1000.dp
-        "Modern" -> 1400.dp
-        else -> androidx.compose.ui.unit.Dp.Unspecified
-    }
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    // 88.dp base padding + 10.dp internal padding = 98.dp
+    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 98.dp else 32.dp
+    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 98.dp else 32.dp
 
     Box(
         modifier = Modifier
@@ -197,9 +195,8 @@ fun HomeHeroCarousel(
                 ) {
                     Row(
                         modifier = Modifier
-                            .widthIn(max = maxWidthConstraint)
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 56.dp, top = 24.dp),
+                            .padding(start = paddingStart, end = paddingEnd, bottom = 56.dp, top = 24.dp),
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Start,
                     ) {
@@ -553,12 +550,11 @@ fun HomeHeroCarousel(
         ) {
             Box(
                 modifier = Modifier
-                    .widthIn(max = maxWidthConstraint)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.BottomEnd,
             ) {
                 Row(
-                    modifier = Modifier.padding(end = 16.dp),
+                    modifier = Modifier.padding(end = paddingEnd),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {

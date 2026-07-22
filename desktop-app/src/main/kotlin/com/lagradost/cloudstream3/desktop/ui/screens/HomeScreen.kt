@@ -193,9 +193,9 @@ fun ComposeHomeScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     HomeHeroCarouselPlaceholder()
                     Spacer(modifier = Modifier.height(16.dp))
-                    CategoryRowPlaceholder(title = "Loading...", maxWidthConstraint = 1400.dp, showLargeHeader = true)
+                    CategoryRowPlaceholder(title = "Loading...", showLargeHeader = true)
                     Spacer(modifier = Modifier.height(16.dp))
-                    CategoryRowPlaceholder(title = "Loading...", maxWidthConstraint = 1400.dp, showLargeHeader = true)
+                    CategoryRowPlaceholder(title = "Loading...", showLargeHeader = true)
                 }
             }
         }

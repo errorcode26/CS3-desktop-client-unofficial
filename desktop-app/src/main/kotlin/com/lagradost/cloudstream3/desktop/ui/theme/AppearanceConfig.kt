@@ -9,8 +9,6 @@ object AppearanceConfig {
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
     private const val PREF_LIGHT_MODE = "pref_light_mode"
     private const val PREF_GRID_SCALE = "pref_grid_scale"
-    private const val PREF_LAYOUT_WIDTH = "pref_layout_width"
-    private const val PREF_SEARCH_BAR_MODE = "pref_search_bar_mode"
     private const val PREF_AMBIENT_GLOW = "pref_ambient_glow"
     private const val PREF_AMBIENT_GLOW_INTENSITY = "pref_ambient_glow_intensity"
     private const val PREF_AMBIENT_GLOW_POSITION = "pref_ambient_glow_position"
@@ -23,8 +21,6 @@ object AppearanceConfig {
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
     val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
     val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
-    val layoutWidth = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_LAYOUT_WIDTH) ?: "Modern")
-    val searchBarMode = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_SEARCH_BAR_MODE) ?: "Always Visible")
     val ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
     val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
     val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
@@ -53,15 +49,8 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_GRID_SCALE, scale)
     }
 
-    fun setLayoutWidth(width: String) {
-        layoutWidth.value = width
-        DesktopDataStore.setKey(PREF_LAYOUT_WIDTH, width)
-    }
 
-    fun setSearchBarMode(mode: String) {
-        searchBarMode.value = mode
-        DesktopDataStore.setKey(PREF_SEARCH_BAR_MODE, mode)
-    }
+
 
     fun setAmbientGlowEnabled(enabled: Boolean) {
         ambientGlowEnabled.value = enabled

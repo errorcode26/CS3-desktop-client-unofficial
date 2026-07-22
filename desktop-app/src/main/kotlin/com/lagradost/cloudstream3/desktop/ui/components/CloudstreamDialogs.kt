@@ -1,0 +1,129 @@
+package com.lagradost.cloudstream3.desktop.ui.components
+
+/**
+ * The ONLY dialog system for this app. Raw AlertDialog/Dialog are FORBIDDEN.
+ *
+ * [CloudstreamAlertDialog] → simple confirmations, inputs (yes/no, single field)
+ * [CloudstreamCustomDialog] → lists, grids, LazyColumn/LazyVerticalGrid content
+ *                             (MUST use Modifier.fillMaxWidth(0.85f+).fillMaxHeight(0.85f+))
+ *
+ * Both handle Amoled Mode styling and scale/fade animations automatically.
+ * DB writes inside onClick → MUST use scope.launch(Dispatchers.IO).
+ */
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+
+/**
+ * Use for simple dialogs: confirmations, warnings, single text-field inputs.
+ * Do NOT use for lists/grids — use [CloudstreamCustomDialog] instead.
+ *
+ * @param show Drives the enter/exit animation.
+ * @param onDismissRequest Called on outside click or Escape.
+ * @param modifier Leave empty for simple dialogs. Material3 sizes naturally at ~460dp.
+ */
+@Composable
+fun CloudstreamAlertDialog(
+    show: Boolean,
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    text: @Composable (() -> Unit)? = null,
+    dismissButton: @Composable (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(show) { isVisible = show }
+
+    if (show || isVisible) {
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+
+        Dialog(
+            onDismissRequest = onDismissRequest,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
+                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
+            ) {
+                AlertDialog(
+                    onDismissRequest = onDismissRequest,
+                    containerColor = if (amoledMode) Color.Black else MaterialTheme.colorScheme.surface,
+                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
+                    title = title,
+                    text = text,
+                    confirmButton = confirmButton,
+                    dismissButton = dismissButton,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Use for content-heavy dialogs: lists, grids, settings panels, plugin browsers.
+ * MUST provide an explicit size modifier, e.g. Modifier.fillMaxWidth(0.90f).fillMaxHeight(0.88f).
+ * You own the full layout inside [content] (header, body, footer buttons).
+ *
+ * @param show Drives the enter/exit animation.
+ * @param onDismissRequest Called on outside click or Escape.
+ * @param modifier Required — set width/height explicitly for desktop screen sizes.
+ */
+@Composable
+fun CloudstreamCustomDialog(
+    show: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(show) { isVisible = show }
+
+    if (show || isVisible) {
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+
+        Dialog(
+            onDismissRequest = onDismissRequest,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
+                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = if (amoledMode) Color.Black else MaterialTheme.colorScheme.surface,
+                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier)
+                ) {
+                    content()
+                }
+            }
+        }
+    }
+}

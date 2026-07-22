@@ -12,9 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
@@ -165,16 +169,22 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                     }
             }
 
-            AlertDialog(
+            CloudstreamCustomDialog(
+                show = true,
                 onDismissRequest = {
                     selectedRepoForDetail = null
                     repoSearchQuery = ""
                     viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
                 },
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-                modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.90f),
-                title = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                modifier = Modifier.fillMaxWidth(0.90f).fillMaxHeight(0.88f),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Header
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 20.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -248,9 +258,9 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             singleLine = true,
                         )
                     }
-                },
-                text = {
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    // Content
+                    Box(modifier = Modifier.weight(1f).padding(horizontal = 24.dp, vertical = 16.dp)) {
                         if (repoPlugins.isEmpty()) {
                             Text(
                                 "No plugins found matching search.",
@@ -313,28 +323,32 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                             }
                         }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        selectedRepoForDetail = null
-                        repoSearchQuery = ""
-                        viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                    }) {
-                        Text("Close")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
-                            selectedRepoForDetail = null
-                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                        },
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    // Footer buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Remove Repository", color = MaterialTheme.colorScheme.error)
+                        TextButton(
+                            onClick = {
+                                viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
+                                selectedRepoForDetail = null
+                                viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
+                            },
+                        ) {
+                            Text("Remove Repository", color = MaterialTheme.colorScheme.error)
+                        }
+                        TextButton(onClick = {
+                            selectedRepoForDetail = null
+                            repoSearchQuery = ""
+                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
+                        }) {
+                            Text("Close")
+                        }
                     }
-                },
-            )
+                }
+            }
         }
 
         LazyVerticalGrid(

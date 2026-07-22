@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -214,13 +213,6 @@ fun WindowControlsPill(
             }
 
             IconButton(
-                onClick = { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh) },
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = theme.TextPrimary, modifier = Modifier.size(18.dp))
-            }
-
-            IconButton(
                 onClick = {
                     if (fullscreenController != null) {
                         fullscreenController.toggle()
@@ -232,13 +224,13 @@ fun WindowControlsPill(
                         }
                     }
                 },
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(40.dp),
             ) {
                 Icon(
                     if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                     contentDescription = "Fullscreen",
                     tint = theme.TextPrimary,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }

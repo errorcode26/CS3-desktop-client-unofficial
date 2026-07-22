@@ -117,36 +117,21 @@ fun DesktopAppShell(
                 val contentPadding = if (current is Screen.Home) {
                     PaddingValues(0.dp)
                 } else {
-                    val hPadding = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT || dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 20.dp
                     when (dockPosition) {
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(top = 66.dp, start = 88.dp, end = 20.dp, bottom = 12.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(top = 66.dp, start = 20.dp, end = 88.dp, bottom = 12.dp)
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(top = 66.dp, start = 20.dp, end = 20.dp, bottom = 88.dp)
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
-                        else -> PaddingValues(top = 66.dp, start = hPadding, end = hPadding, bottom = 12.dp)
                     }
                 }
 
-                val layoutWidthSetting by AppearanceConfig.layoutWidth.collectAsState()
-                val maxWidthConstraint = when (layoutWidthSetting) {
-                    "Compact" -> 1000.dp
-                    "Modern" -> 1400.dp
-                    else -> androidx.compose.ui.unit.Dp.Unspecified
-                }
-
-                val applyMaxWidth = current !is Screen.Home
 
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .run { if (applyMaxWidth) this.widthIn(max = maxWidthConstraint) else this },
+                        .fillMaxSize()
+                        .padding(contentPadding),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(contentPadding),
-                    ) {
-                        content()
-                    }
+                    content()
                 }
 
                 // Global TopBar (Back button + Window Controls)

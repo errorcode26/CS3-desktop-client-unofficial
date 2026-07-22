@@ -556,7 +556,7 @@ private fun RenderEpisodesSection(
         // BoxWithConstraints gives us the real available pixel width so we can
         // pass an explicit width to each card instead of weight(1f).
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-            val desiredWidth = 400f
+            val desiredWidth = 480f
             val columns = maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
             val gapDp = 24.dp
             val totalGapDp = gapDp * (columns - 1)
@@ -602,7 +602,7 @@ private fun RenderEpisodesSection(
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                 val history = showHistory.values.find { it.episodeId == ep.data }
-                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(400.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
+                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(480.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
             }
         }
     }
