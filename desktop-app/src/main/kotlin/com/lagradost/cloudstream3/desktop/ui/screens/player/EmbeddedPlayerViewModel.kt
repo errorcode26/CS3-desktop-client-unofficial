@@ -37,7 +37,17 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             is PlayerUiEvent.OnCancelLoading -> cancelLoading()
             is PlayerUiEvent.OnCancelScraping -> cancelScraping()
             is PlayerUiEvent.OnSavePosition -> savePosition(event.history)
+            is PlayerUiEvent.OnSelectShader -> selectShader(event.shaderName)
         }
+    }
+
+    private fun selectShader(shaderName: String) {
+        com.lagradost.common.storage.DesktopDataStore.setKey(
+            com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
+            shaderName
+        )
+        // Note: The shader will be applied on the NEXT player initialization.
+        // Hot-swapping requires MPV property commands, which can be added via PlayerUiEffect if needed.
     }
 
     private fun savePosition(history: com.lagradost.common.storage.WatchHistory) {

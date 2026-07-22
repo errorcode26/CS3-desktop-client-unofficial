@@ -65,4 +65,8 @@ object PlatformPaths {
     val logsDir: File by lazy {
         File(appDataDir, "logs").also { it.mkdirs() }
     }
+
+    val shadersDir: File by lazy {
+        File(appDataDir, "shaders").also { it.mkdirs() }
+    }
 }

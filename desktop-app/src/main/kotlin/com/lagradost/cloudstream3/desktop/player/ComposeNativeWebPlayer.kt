@@ -101,8 +101,9 @@ fun ComposeNativeWebPlayer(
 
     val currentIsLoading by rememberUpdatedState(isLoading)
     val currentLoadingStatusText by rememberUpdatedState(loadingStatusText)
+    val activeShader by (playerState?.activeShader ?: kotlinx.coroutines.flow.flowOf("None")).collectAsState("None")
 
-    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title) {
+    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader) {
         if (isUiReady) {
             val payload = mapOf(
                 "type" to "metadata_update",
@@ -143,6 +144,8 @@ fun ComposeNativeWebPlayer(
                 },
                 "startPositionMs" to startPositionMs,
                 "title" to (title ?: "CloudStream"),
+                "shaders" to com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
+                "activeShader" to activeShader,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         }
@@ -238,6 +241,10 @@ fun ComposeNativeWebPlayer(
                             isUiReady = true
                             pushMetadataToWebView()
                             NativePlayerBridge.startMpvSync(com.sun.jna.Pointer.nativeValue(h))
+                        }
+                        "selectShader" -> {
+                            val shaderName = extractJsonString(value, "value")
+                            playerState?.setShader(shaderName)
                         }
                         "searchSubtitles" -> {
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {

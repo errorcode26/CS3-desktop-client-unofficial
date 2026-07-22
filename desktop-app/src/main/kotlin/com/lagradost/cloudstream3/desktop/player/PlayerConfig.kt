@@ -12,6 +12,7 @@ object PlayerConfig {
     const val PREF_AUTO_PLAY = "player_auto_play"
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
     const val PREF_INTERPOLATION = "player_interpolation_enabled"
+    const val PREF_ACTIVE_SHADER = "player_active_shader"
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
         // Hardware Acceleration — let MPV auto-detect the best decoder.
@@ -57,6 +58,17 @@ object PlayerConfig {
         } else {
             lib.mpv_set_option_string(handle, "video-sync", "audio")
             lib.mpv_set_option_string(handle, "interpolation", "no")
+        }
+
+        // Custom Shaders (e.g. Anime4K)
+        val activeShader = DesktopDataStore.getKey<String>(PREF_ACTIVE_SHADER)
+        if (!activeShader.isNullOrBlank() && activeShader != "None") {
+            val shaderFile = java.io.File(com.lagradost.common.platform.PlatformPaths.shadersDir, activeShader)
+            if (shaderFile.exists()) {
+                // Must be an absolute path for MPV to read it
+                lib.mpv_set_option_string(handle, "glsl-shaders", shaderFile.absolutePath)
+                com.lagradost.common.logging.AppLogger.i("PlayerConfig: Applied shader ${shaderFile.absolutePath}")
+            }
         }
     }
 }

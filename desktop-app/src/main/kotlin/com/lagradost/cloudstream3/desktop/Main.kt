@@ -42,6 +42,7 @@ import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
+import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -56,6 +57,8 @@ fun main() {
     AppLogger.i("Launching CloudStream Desktop Client...")
     AppLogger.i("Platform: ${PlatformPaths.currentOS}")
     AppLogger.i("App data directory: ${PlatformPaths.appDataDir.absolutePath}")
+
+    ShaderManager.extractBundledShaders()
 
     application {
         initCoil()

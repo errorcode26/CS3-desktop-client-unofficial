@@ -983,6 +983,7 @@
         <div class="settings-tab-header">
             <button class="settings-tab-btn active" data-tab-target="set-video">Video</button>
             <button class="settings-tab-btn" data-tab-target="set-speed">Playback Speed</button>
+            <button class="settings-tab-btn" data-tab-target="set-shaders">Shaders</button>
         </div>
     </div>
     <div class="panel-body" style="padding-top: 6px;">
@@ -1033,6 +1034,19 @@
                     <div class="chip" data-speed="1.25">1.25×</div>
                     <div class="chip" data-speed="1.5">1.5×</div>
                     <div class="chip" data-speed="2.0">2.0×</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Shaders -->
+        <div class="settings-tab-content" id="set-shaders">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="settings-label">Active Shader</div>
+                <div id="shaderList" style="display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Populated via JS -->
+                </div>
+                <div style="margin-top: 16px; font-size: 11px; color: rgba(255,255,255,0.4); text-align: center;">
+                    Drop .glsl files in %APPDATA%/CloudStreamDesktop/shaders
                 </div>
             </div>
         </div>
@@ -1914,6 +1928,23 @@
             searchInput.value = meta.title;
             searchInput._defaultTitle = meta.title;
         }
+
+        // Shaders
+        let shaderHtml = '';
+        const noShaderActive = !meta.activeShader || meta.activeShader === 'None';
+        shaderHtml += `<div class="sub-item ${noShaderActive ? 'active' : ''}" onclick="send('selectShader','None');closeAllPanels();">
+            <span class="sub-name">None (Default)</span>
+            <span class="check-icon">${SVGS.check}</span>
+        </div>`;
+        if (meta.shaders && meta.shaders.length > 0) {
+            shaderHtml += meta.shaders.map(s => `
+                <div class="sub-item ${s === meta.activeShader ? 'active' : ''}" onclick="send('selectShader','${s}');closeAllPanels();">
+                    <span class="sub-name">${s.replace('.glsl', '')}</span>
+                    <span class="check-icon">${SVGS.check}</span>
+                </div>
+            `).join('');
+        }
+        document.getElementById('shaderList').innerHTML = shaderHtml;
     };
 
     const dismissProbingOverlay = (userInitiated = false) => {

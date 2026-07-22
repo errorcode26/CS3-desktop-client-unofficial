@@ -31,6 +31,10 @@ class PlayerState {
     val videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
     val activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
 
+    val activeShader = MutableStateFlow<String>(
+        com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None"
+    )
+
     // Video Stats
     val videoCodec = MutableStateFlow("")
     val audioCodec = MutableStateFlow("")
@@ -243,6 +247,29 @@ class PlayerState {
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "hls-bitrate", "max")
                 } else {
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "vid", id.toString())
+                }
+            }
+        }
+    }
+
+    fun setShader(shaderName: String) {
+        com.lagradost.common.storage.DesktopDataStore.setKey(
+            com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
+            shaderName
+        )
+        activeShader.value = shaderName
+
+        mpvHandle?.let { handle ->
+            if (shaderName.isBlank() || shaderName == "None") {
+                MpvLibrary.INSTANCE.mpv_set_property_string(handle, "glsl-shaders", "")
+                com.lagradost.common.logging.AppLogger.i("PlayerState: Cleared active shaders")
+            } else {
+                val shaderFile = java.io.File(com.lagradost.common.platform.PlatformPaths.shadersDir, shaderName)
+                if (shaderFile.exists()) {
+                    MpvLibrary.INSTANCE.mpv_set_property_string(handle, "glsl-shaders", shaderFile.absolutePath)
+                    com.lagradost.common.logging.AppLogger.i("PlayerState: Applied shader ${shaderFile.absolutePath}")
+                } else {
+                    com.lagradost.common.logging.AppLogger.w("PlayerState: Shader file not found: ${shaderFile.absolutePath}")
                 }
             }
         }

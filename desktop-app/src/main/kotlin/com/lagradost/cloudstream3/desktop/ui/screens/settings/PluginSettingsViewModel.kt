@@ -100,6 +100,8 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
                     DesktopDataStore.setKey(fullKey, newValue)
                 }
             }
+            // Force a refresh of the Home screen provider dropdown
+            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
         }
     }
 
