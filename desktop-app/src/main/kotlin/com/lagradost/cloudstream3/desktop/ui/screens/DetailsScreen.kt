@@ -346,7 +346,7 @@ fun DetailsContent(
                     latestHistory = latestHistory,
                     isMovieLike = isMovieLike,
                     isLoading = isLoading,
-                    isEpisodesStackedView = uiState?.isEpisodesStackedView ?: false,
+                    uiState = uiState,
                     onPlay = onPlay,
                     onToggleWatched = onToggleWatched,
                     onToggleSeasonWatched = onToggleSeasonWatched,

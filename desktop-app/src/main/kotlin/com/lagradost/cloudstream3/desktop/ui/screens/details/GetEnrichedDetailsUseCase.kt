@@ -15,6 +15,7 @@ sealed interface EnrichmentUpdate {
     data class LogoLoaded(val url: String) : EnrichmentUpdate
     data class BackdropLoaded(val url: String) : EnrichmentUpdate
     data class ScreenshotsLoaded(val urls: List<String>) : EnrichmentUpdate
+    data class ActorsLoaded(val actors: List<com.lagradost.cloudstream3.ActorData>) : EnrichmentUpdate
     data class MetadataLoaded(
         val tagline: String?,
         val status: String?,
@@ -81,7 +82,7 @@ object GetEnrichedDetailsUseCase {
         }
 
         val enrichJob = launch {
-            TmdbEnrichmentService.enrich(
+            HybridEnrichmentService.enrich(
                 loaded = rawData,
                 url = targetEnrichUrl,
                 onEnrichmentComplete = {
@@ -108,6 +109,9 @@ object GetEnrichedDetailsUseCase {
                 },
                 onScreenshotsLoaded = { screenshots ->
                     trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
+                },
+                onActorsLoaded = { actors ->
+                    trySend(EnrichmentUpdate.ActorsLoaded(actors))
                 },
                 onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
                     trySend(

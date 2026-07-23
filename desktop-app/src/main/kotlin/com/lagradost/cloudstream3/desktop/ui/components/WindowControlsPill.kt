@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
@@ -80,6 +81,14 @@ fun WindowControlsPill(
                                 modifier = Modifier.size(20.dp).clip(CircleShape).background(Color.White),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
+                        } else if (selectedProviderName != null) {
+                            com.lagradost.cloudstream3.desktop.ui.components.PluginPlaceholderAvatar(
+                                name = selectedProviderName,
+                                internalName = selectedProviderName,
+                                modifier = Modifier.size(20.dp).clip(CircleShape),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
                         Text(
                             text = selectedProviderName ?: "Sources",
@@ -104,7 +113,7 @@ fun WindowControlsPill(
                             expanded = isDropdownExpanded.value,
                             onDismissRequest = { isDropdownExpanded.value = false },
                             modifier = Modifier
-                                .widthIn(min = 260.dp, max = 380.dp)
+                                .widthIn(min = 420.dp, max = 500.dp)
                                 .heightIn(max = 500.dp),
                         ) {
                             val selectedCategory = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
@@ -168,26 +177,50 @@ fun WindowControlsPill(
                                 }
                             }
 
-                            filteredProviders.forEach { provider ->
-                                val pluginIcon = mergedPluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
-                                androidx.compose.material.DropdownMenuItem(
-                                    onClick = {
-                                        homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnSelectProvider(provider.name))
-                                        isDropdownExpanded.value = false
-                                    },
+                            if (filteredProviders.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (pluginIcon != null) {
-                                            coil3.compose.AsyncImage(
-                                                model = pluginIcon,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White),
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                        } else {
-                                            Spacer(modifier = Modifier.width(36.dp))
+                                    filteredProviders.chunked(2).forEach { rowProviders ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            rowProviders.forEach { provider ->
+                                                val pluginIcon = mergedPluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
+                                                androidx.compose.material.DropdownMenuItem(
+                                                    onClick = {
+                                                        homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnSelectProvider(provider.name))
+                                                        isDropdownExpanded.value = false
+                                                    },
+                                                    modifier = Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        if (pluginIcon != null) {
+                                                            coil3.compose.AsyncImage(
+                                                                model = pluginIcon,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White),
+                                                            )
+                                                        } else {
+                                                            com.lagradost.cloudstream3.desktop.ui.components.PluginPlaceholderAvatar(
+                                                                name = provider.name,
+                                                                internalName = provider.name,
+                                                                modifier = Modifier.size(24.dp).clip(CircleShape),
+                                                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.width(10.dp))
+                                                        Text(provider.name, color = theme.TextPrimary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                    }
+                                                }
+                                            }
+                                            if (rowProviders.size == 1) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
                                         }
-                                        Text(provider.name, color = theme.TextPrimary)
                                     }
                                 }
                             }

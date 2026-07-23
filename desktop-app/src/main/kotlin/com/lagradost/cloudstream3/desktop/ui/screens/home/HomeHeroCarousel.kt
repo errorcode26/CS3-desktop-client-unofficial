@@ -196,7 +196,7 @@ fun HomeHeroCarousel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = paddingStart, end = paddingEnd, bottom = 56.dp, top = 24.dp),
+                            .padding(start = paddingStart, end = paddingEnd, bottom = 64.dp, top = 24.dp),
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Start,
                     ) {
@@ -304,8 +304,8 @@ fun HomeHeroCarousel(
                             }
 
                             // Rating, Year, and Genres on one line
-                            Spacer(Modifier.height(16.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(Modifier.height(20.dp))
+                            Row(verticalAlignment = Alignment.Bottom) {
                                 if (meta?.score != null && meta.score.toDoubleOrNull()?.let { it > 0.0 } == true) {
                                     Icon(
                                         Icons.Default.Star,

@@ -269,23 +269,22 @@ fun ExtensionCard(
 }
 
 @Composable
-fun PluginPlaceholderAvatar(name: String, internalName: String) {
-    val colorHash = kotlin.math.abs((internalName.takeIf { it.isNotBlank() } ?: name).hashCode())
-    val hue = (colorHash % 360).toFloat()
-    val avatarColor = androidx.compose.ui.graphics.Color.hsv(hue, 0.65f, 0.75f)
+fun PluginPlaceholderAvatar(
+    name: String, 
+    internalName: String,
+    modifier: Modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge
+) {
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
 
     Box(
-        modifier = Modifier
-            .size(54.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(avatarColor),
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = initial,
-            color = androidx.compose.ui.graphics.Color.White,
-            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = textStyle,
             fontWeight = FontWeight.ExtraBold,
         )
     }

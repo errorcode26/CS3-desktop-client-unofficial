@@ -116,6 +116,9 @@ class DetailsViewModel(
                     is EnrichmentUpdate.ScreenshotsLoaded -> {
                         updateState { copy(screenshots = update.urls) }
                     }
+                    is EnrichmentUpdate.ActorsLoaded -> {
+                        updateState { copy(enrichedActors = update.actors) }
+                    }
                     is EnrichmentUpdate.MetadataLoaded -> {
                         updateState {
                             copy(

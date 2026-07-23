@@ -25,6 +25,76 @@ enum class DohProvider(val title: String) {
 
 /**
  * Named interceptor class so it can be identified and deduplicated
+ * when updateGlobalNetworkClients() is called multiple times.
+ */
+class RateLimitInterceptor(private val minDelayMs: Long = 500L) : okhttp3.Interceptor {
+    private val lastRequestTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val hostLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    private val imageExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg")
+
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val request = chain.request()
+        val path = request.url.encodedPath.lowercase()
+        
+        // Skip rate-limiting for images to ensure fast poster loading
+        if (imageExtensions.any { path.endsWith(it) }) {
+            return chain.proceed(request)
+        }
+
+        val host = request.url.host
+        val lock = hostLocks.getOrPut(host) { Any() }
+
+        synchronized(lock) {
+            val now = System.currentTimeMillis()
+            val last = lastRequestTimes[host] ?: 0L
+            val elapsed = now - last
+            if (elapsed < minDelayMs) {
+                try {
+                    Thread.sleep(minDelayMs - elapsed)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }
+            // Record time AFTER sleep to calculate from when this request is sent
+            lastRequestTimes[host] = System.currentTimeMillis()
+        }
+
+        return chain.proceed(request)
+    }
+}
+
+/**
+ * Automatically retries GET requests once if they fail with a "Connection reset" SocketException.
+ * This hides the "first time fail, works on retry" provider quirk from the user.
+ */
+class AutoRetryInterceptor(private val maxRetries: Int = 1) : okhttp3.Interceptor {
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val request = chain.request()
+        var exception: Exception? = null
+        
+        for (tryCount in 0..maxRetries) {
+            try {
+                return chain.proceed(request)
+            } catch (e: Exception) {
+                exception = e
+                val isConnectionReset = e is java.net.SocketException && e.message?.contains("Connection reset", ignoreCase = true) == true
+                
+                if (request.method == "GET" && isConnectionReset && tryCount < maxRetries) {
+                    AppLogger.d("Connection reset on ${request.url.host}, auto-retrying ($tryCount/$maxRetries)...")
+                    Thread.sleep(500) // Wait half a second before retrying
+                    continue
+                } else {
+                    throw e
+                }
+            }
+        }
+        throw exception ?: java.io.IOException("Unknown error in AutoRetryInterceptor")
+    }
+}
+
+/**
+ * Named interceptor class so it can be identified and deduplicated
  * when updateGlobalNetworkClients() is called multiple times (e.g. on DoH switch).
  */
 class TmdbMirrorInterceptor : okhttp3.Interceptor {
@@ -141,6 +211,18 @@ object NetworkConfig {
         val hasTmdbMirror = baseBuilder.interceptors().any { it is TmdbMirrorInterceptor }
         if (!hasTmdbMirror) {
             baseBuilder.addInterceptor(TmdbMirrorInterceptor())
+        }
+
+        // Add RateLimitInterceptor to throttle scraper requests (prevents Connection Reset loops)
+        val hasRateLimiter = baseBuilder.interceptors().any { it is RateLimitInterceptor }
+        if (!hasRateLimiter) {
+            baseBuilder.addInterceptor(RateLimitInterceptor(500L))
+        }
+
+        // Add AutoRetryInterceptor to hide random "Connection reset" failures that work on retry
+        val hasAutoRetry = baseBuilder.interceptors().any { it is AutoRetryInterceptor }
+        if (!hasAutoRetry) {
+            baseBuilder.addInterceptor(AutoRetryInterceptor(1))
         }
 
         // Apply to main client

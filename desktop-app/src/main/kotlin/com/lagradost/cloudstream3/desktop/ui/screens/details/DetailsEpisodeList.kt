@@ -44,6 +44,7 @@ fun EpisodeCard(
     history: WatchHistory?,
     provider: MainAPI,
     data: LoadResponse,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean = false,
     modifier: Modifier = Modifier,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
@@ -78,6 +79,8 @@ fun EpisodeCard(
     val epRunTime = ep.runTime ?: data.duration
     val runTimeStr = epRunTime?.let { if (it > 300) "${it / 60}m" else "${it}m" }
 
+    val heroColor = uiState?.heroColor ?: MaterialTheme.colorScheme.primary
+    
     // Card is a pure 16:9 thumbnail — caller supplies width via modifier (weight for grid)
     Box(
         modifier = modifier
@@ -95,11 +98,11 @@ fun EpisodeCard(
             }
             .scale(scale)
             .border(
-                width = 1.dp,
-                color = if (isHovered) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(10.dp),
+                width = if (isHovered) 1.5.dp else 1.dp,
+                color = if (isHovered) heroColor.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
             )
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onPlay(ep) },
     ) {
         // Background image
@@ -181,21 +184,21 @@ fun EpisodeCard(
         ) {
             Box(
                 modifier = Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.28f)),
+                    .background(Color.Black.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
-                        .background(Color.White.copy(alpha = 0.18f), CircleShape)
-                        .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                        .size(56.dp)
+                        .background(heroColor.copy(alpha = 0.7f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = "Play",
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(32.dp).offset(x = 2.dp),
                     )
                 }
             }

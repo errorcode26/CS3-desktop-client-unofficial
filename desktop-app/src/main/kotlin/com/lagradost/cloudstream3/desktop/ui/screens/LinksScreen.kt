@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -207,8 +208,7 @@ fun LinksSidePanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Transparent)
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -268,6 +268,7 @@ fun LinksSidePanel(
                                     selectedContainerColor = DesktopUi.AccentSoft,
                                     selectedLabelColor = DesktopUi.Accent,
                                 ),
+                                shape = CircleShape,
                             )
                         }
                     }
@@ -381,6 +382,7 @@ private fun PlayerSelector(selectedPlayer: String, onSelect: (String) -> Unit) {
                     onClick = { onSelect(id) },
                     label = { Text(id.uppercase()) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = DesktopUi.AccentSoft, selectedLabelColor = DesktopUi.Accent),
+                    shape = CircleShape,
                 )
             }
         }
@@ -391,47 +393,60 @@ private fun PlayerSelector(selectedPlayer: String, onSelect: (String) -> Unit) {
 private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> Unit, onCopy: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val scale by animateFloatAsState(if (hovered) 1.01f else 1f, tween(150), label = "linkScale")
+    val scale by animateFloatAsState(if (hovered) 1.02f else 1f, tween(200), label = "linkScale")
 
     Surface(
         modifier = Modifier.fillMaxWidth().scale(scale).hoverable(interaction),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         color = if (hovered) DesktopUi.SurfaceElevated else DesktopUi.SurfaceCard,
-        tonalElevation = if (hovered) 6.dp else 2.dp,
+        tonalElevation = if (hovered) 8.dp else 2.dp,
+        border = if (hovered) androidx.compose.foundation.BorderStroke(1.dp, DesktopUi.Accent.copy(alpha = 0.3f)) else null,
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(link.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium, color = DesktopUi.TextPrimary)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    buildString {
-                        append(link.quality.toString())
-                        append(" · ")
-                        append(
-                            if (link.isM3u8) {
-                                "HLS (Best for Streaming)"
-                            } else if (link.isDash) {
-                                "DASH (Best for Streaming)"
-                            } else {
-                                "Direct (Best for Download)"
-                            },
+                Text(link.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = DesktopUi.TextPrimary)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = DesktopUi.AccentSoft,
+                    ) {
+                        Text(
+                            link.quality.toString(),
+                            color = DesktopUi.Accent,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
-                    },
-                    color = DesktopUi.Accent,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (link.isM3u8) "HLS (Best for Streaming)"
+                        else if (link.isDash) "DASH (Best for Streaming)"
+                        else "Direct (Best for Download)",
+                        color = DesktopUi.TextMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
-            OutlinedButton(onClick = onCopy, enabled = !isBusy, shape = RoundedCornerShape(10.dp)) { Text("Copy") }
-            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onCopy,
+                enabled = !isBusy,
+                shape = CircleShape,
+                border = androidx.compose.foundation.BorderStroke(1.dp, DesktopUi.Divider)
+            ) { Text("Copy", color = DesktopUi.TextPrimary) }
+            Spacer(modifier = Modifier.width(12.dp))
             Button(
                 onClick = onPlay,
                 enabled = !isBusy,
-                shape = RoundedCornerShape(10.dp),
+                shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = DesktopUi.Accent, contentColor = MaterialTheme.colorScheme.onSurface),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier.defaultMinSize(minHeight = 40.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Play")
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Play", fontWeight = FontWeight.Bold)
             }
         }
     }

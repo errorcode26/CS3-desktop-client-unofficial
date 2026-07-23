@@ -9,6 +9,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 object TmdbRateLimiter {
     private var lastRequestTime = 0L
@@ -116,7 +118,9 @@ object TmdbEnrichmentService {
     suspend fun enrich(
         loaded: LoadResponse,
         url: String,
+        fetchCast: Boolean = true,
         onScreenshotsLoaded: (List<String>) -> Unit,
+        onActorsLoaded: (List<com.lagradost.cloudstream3.ActorData>) -> Unit = {},
         onMetadataLoaded: (
             tagline: String?,
             status: String?,
@@ -166,55 +170,78 @@ object TmdbEnrichmentService {
                     .replace(Regex("""\s*\|.*"""), "")
                     // Safely remove Season/Episode ONLY when followed by digits (e.g. Season 1, S01E01).
                     // This prevents breaking titles like "Season of the Witch" or "Star Wars: Episode IV".
-                    // Removed 'vol', 'volume', and 'added' which broke legitimate movie titles like "Guardians of the Galaxy Vol. 2".
-                    .replace(Regex("""(?i)(-\s*)?\b(season|episodes|episode|s\d+e\d+)\b\s*\d+.*"""), "")
+                    .replace(Regex("""(?i)(-\s*)?\b(season|series|episodes|episode)\b\s*\d+.*"""), "")
+                    // Remove S01, S1, S01E01 format
+                    .replace(Regex("""(?i)\bs\d{1,2}(e\d{1,2})?\b.*"""), "")
                     .trim()
 
                 TmdbRateLimiter.acquire()
                 val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
 
                 val findMatch = { results: com.fasterxml.jackson.databind.JsonNode? ->
-                    val possible = mutableListOf<com.fasterxml.jackson.databind.JsonNode>()
+                    val possible = mutableListOf<Pair<com.fasterxml.jackson.databind.JsonNode, Double>>()
                     if (results != null && results.isArray) {
                         for (result in results) {
                             val mediaType = result.get("media_type")?.asText()
                             if (mediaType == "person") continue
+                            
+                            // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
+                            if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
+                            if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
+
                             val resultName = result.get("name")?.asText() ?: result.get("title")?.asText() ?: result.get("original_name")?.asText() ?: ""
                             val strippedResultName = resultName.replace(Regex("[^a-zA-Z0-9]"), "")
                             
                             val resultWords = resultName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
                             val cleanWords = cleanName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
+                            
                             val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
-                            val isSubsetMatch = resultWords.isNotEmpty() && cleanWords.isNotEmpty() && (cleanWords.containsAll(resultWords) || resultWords.containsAll(cleanWords))
+                            val isSubsetMatch = resultWords.isNotEmpty() && cleanWords.size > 1 && (cleanWords.containsAll(resultWords) || resultWords.containsAll(cleanWords))
                             
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
                             
-                            if ((isStrictMatch || isSubsetMatch) && strippedCleanName.isNotEmpty()) {
-                                // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
-                                if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
-                                if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
-
-                                // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
-                                val loadedYear = loaded.year
-                                if (resultYear != null && loadedYear != null && Math.abs(resultYear - loadedYear) > 1) continue
-
-                                possible.add(result)
+                            // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
+                            val loadedYear = tempYear
+                            val yearMismatch = resultYear != null && loadedYear != null && Math.abs(resultYear - loadedYear) > 1
+                            if (yearMismatch) continue
+                            
+                            var score = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName.lowercase(), strippedResultName.lowercase())
+                            
+                            // Boost score if it's a strict or subset match, since Levenshtein might heavily penalize long subset additions
+                            if (isStrictMatch) {
+                                score = 1.0
+                            } else if (isSubsetMatch && score < 0.85) {
+                                score = 0.85
+                            }
+                            
+                            // Threshold: only accept if similarity is >= 80%
+                            if (score >= 0.80) {
+                                possible.add(Pair(result, score))
                             }
                         }
                     }
                     if (possible.isEmpty()) {
                         null
-                    } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                        possible.find { res ->
-                            val genreArray = res.get("genre_ids")
-                            val isAnimation = genreArray?.isArray == true && genreArray.any { it.asInt() == 16 }
-                            val originArray = res.get("origin_country")
-                            val isJP = originArray?.isArray == true && originArray.any { it.asText() == "JP" }
-                            isAnimation || isJP
-                        } ?: possible.first()
                     } else {
-                        possible.first()
+                        // Sort by score descending
+                        possible.sortByDescending { it.second }
+                        if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                            // If it's anime, try to prioritize anime among the top matches (those within 5% of the highest score)
+                            val highestScore = possible.first().second
+                            val topMatches = possible.filter { it.second >= highestScore - 0.05 }
+                            
+                            topMatches.find { resPair ->
+                                val res = resPair.first
+                                val genreArray = res.get("genre_ids")
+                                val isAnimation = genreArray?.isArray == true && genreArray.any { it.asInt() == 16 }
+                                val originArray = res.get("origin_country")
+                                val isJP = originArray?.isArray == true && originArray.any { it.asText() == "JP" }
+                                isAnimation || isJP
+                            }?.first ?: possible.first().first
+                        } else {
+                            possible.first().first
+                        }
                     }
                 }
 
@@ -360,26 +387,7 @@ object TmdbEnrichmentService {
                                 }
                             }
 
-                            onMetadataLoaded(
-                                tagline,
-                                status,
-                                studios,
-                                collName,
-                                collBgUrl,
-                                seasonsCount,
-                                episodesCount,
-                                formattedLang,
-                                releaseDateStr,
-                                countryStr,
-                                collItems,
-                                budget,
-                                revenue,
-                                networksList,
-                                tempYear,
-                                tempDuration,
-                                tempTags,
-                                tempActors
-                            )
+                            // onMetadataLoaded moved down to after tags and actors are parsed
 
                             val originalLanguage = tmdbData.get("original_language")?.asText()
 
@@ -444,11 +452,7 @@ object TmdbEnrichmentService {
                                         if (tmdbTags.any { it.equals("Animation", ignoreCase = true) } && originalLanguage == "ja") {
                                             tmdbIsAnime = true
                                         }
-                                        if (tempTags.isNullOrEmpty()) {
-                                            tempTags = tmdbTags
-                                        } else {
-                                            tempTags = (tempTags.orEmpty() + tmdbTags).distinct()
-                                        }
+                                        tempTags = tmdbTags
                                     }
                                 }
                             }
@@ -526,6 +530,32 @@ object TmdbEnrichmentService {
                                     }
                                 }
                             }
+
+                            withContext(Dispatchers.Main.immediate) {
+                                loaded.tags = tempTags
+                                loaded.actors = tempActors
+                            }
+
+                            onMetadataLoaded(
+                                tagline,
+                                status,
+                                studios,
+                                collName,
+                                collBgUrl,
+                                seasonsCount,
+                                episodesCount,
+                                formattedLang,
+                                releaseDateStr,
+                                countryStr,
+                                collItems,
+                                budget,
+                                revenue,
+                                networksList,
+                                tempYear,
+                                tempDuration,
+                                tempTags,
+                                tempActors
+                            )
 
                             val recList = tmdbData.get("recommendations")?.get("results")
                             if (recList != null && recList.isArray && loaded.recommendations.isNullOrEmpty()) {
@@ -667,19 +697,22 @@ object TmdbEnrichmentService {
                     loaded.type == com.lagradost.cloudstream3.TvType.OVA ||
                     loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
                     loaded.tags?.any { it.equals("animation", ignoreCase = true) || it.equals("anime", ignoreCase = true) } == true
-                if (isAnime) {
-                    try {
-                        val aniListCast = fetchAniListCast(cleanName, loaded.year)
-                        if (!aniListCast.isNullOrEmpty()) {
-                            withContext(Dispatchers.Main.immediate) {
-                                loaded.actors = aniListCast
+                if (isAnime && fetchCast) {
+                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val aniListCast = fetchAniListCast(cleanName, loaded.year)
+                            if (!aniListCast.isNullOrEmpty()) {
+                                withContext(Dispatchers.Main.immediate) {
+                                    loaded.actors = aniListCast
+                                }
+                                onActorsLoaded(aniListCast)
+                                com.lagradost.common.logging.AppLogger.i("[AniList] Enriched cast with ${aniListCast.size} character+VA entries for '${loaded.name}'")
                             }
-                            com.lagradost.common.logging.AppLogger.i("[AniList] Enriched cast with ${aniListCast.size} character+VA entries for '${loaded.name}'")
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            com.lagradost.common.logging.AppLogger.e("[AniList] Failed to fetch cast for '${loaded.name}'", e)
                         }
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        com.lagradost.common.logging.AppLogger.e("[AniList] Failed to fetch cast for '${loaded.name}'", e)
                     }
                 }
             } catch (t: kotlinx.coroutines.CancellationException) {

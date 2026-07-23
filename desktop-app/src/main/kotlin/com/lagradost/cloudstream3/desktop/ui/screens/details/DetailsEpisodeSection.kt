@@ -38,13 +38,14 @@ fun DetailsEpisodeSection(
     latestHistory: WatchHistory?,
     isMovieLike: Boolean,
     isLoading: Boolean,
-    isEpisodesStackedView: Boolean,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
 ) {
+    val isEpisodesStackedView = uiState?.isEpisodesStackedView == true
     val coroutineScope = rememberCoroutineScope()
     if (isMovieLike) return
     val hasEpisodes = when (data) {
@@ -351,6 +352,7 @@ fun DetailsEpisodeSection(
                             showHistory = showHistory,
                             provider = provider,
                             data = data,
+                            uiState = uiState,
                             isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
@@ -505,6 +507,7 @@ fun DetailsEpisodeSection(
                             showHistory = showHistory,
                             provider = provider,
                             data = data,
+                            uiState = uiState,
                             isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
@@ -546,6 +549,7 @@ private fun RenderEpisodesSection(
     showHistory: Map<String, WatchHistory>,
     provider: MainAPI,
     data: LoadResponse,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean,
     coroutineScope: CoroutineScope,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
@@ -578,6 +582,7 @@ private fun RenderEpisodesSection(
                         history = history,
                         provider = provider,
                         data = data,
+                        uiState = uiState,
                         isAntiSpoiler = isAntiSpoiler,
                         modifier = Modifier.width(cardWidth),
                         onPlay = onPlay,
@@ -602,7 +607,7 @@ private fun RenderEpisodesSection(
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                 val history = showHistory.values.find { it.episodeId == ep.data }
-                EpisodeCard(ep, isLatest, history, provider, data, isAntiSpoiler, modifier = Modifier.width(480.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
+                EpisodeCard(ep, isLatest, history, provider, data, uiState, isAntiSpoiler, modifier = Modifier.width(480.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
             }
         }
     }

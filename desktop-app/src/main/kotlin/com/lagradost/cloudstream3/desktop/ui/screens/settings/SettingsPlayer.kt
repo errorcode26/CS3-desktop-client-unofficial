@@ -53,8 +53,8 @@ fun SettingsPlayer() {
 
         SettingsGroupCard(title = "Automation") {
             SettingsToggleItem(
-                label = "Auto Play",
-                subtitle = "Skip the links panel and start playing the best link immediately",
+                label = "Direct Play",
+                subtitle = "When disabled, exposes the links panel before playback to allow downloading and copying direct video links.",
                 checked = autoPlay,
                 onCheckedChange = {
                     autoPlay = it

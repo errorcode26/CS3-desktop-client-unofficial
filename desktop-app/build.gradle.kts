@@ -51,6 +51,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
 
     // JSON
+    implementation("com.google.code.gson:gson:2.11.0") // Required for plugins using JsonParser.parseString (matches Android app)
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
     implementation(kotlin("reflect")) // Required for Jackson to deserialize plugin Kotlin data classes
     implementation("org.json:json:20240303") // Required for plugins using org.json (natively included on Android)

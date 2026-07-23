@@ -4,7 +4,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository
-import com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService
+import com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService
 import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.newMovieLoadResponse
@@ -59,7 +59,7 @@ object HeroRepository {
                     try {
                         val raw = DetailsRepository.fetchRaw(provider, history.showUrl)
                         if (raw != null) {
-                            TmdbEnrichmentService.enrich(raw, history.showUrl, onScreenshotsLoaded = {})
+                            HybridEnrichmentService.enrich(raw, history.showUrl, fetchCast = false, onScreenshotsLoaded = {})
                         }
                     } catch (e: Exception) {
                         AppLogger.e("HeroRepository", "Failed to prefetch history item", e)
@@ -108,7 +108,7 @@ object HeroRepository {
                     this.posterUrl = item.posterUrl
                 }
 
-                com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(dummy, "dummy_${item.url}", onScreenshotsLoaded = {})
+                com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService.enrich(dummy, "dummy_${item.url}", fetchCast = false, onScreenshotsLoaded = {})
 
                 val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
                 val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
@@ -151,9 +151,10 @@ object HeroRepository {
                     trySend(HeroUpdate.Meta(item.url, rawMeta))
                     if (newBackdrop != null) trySend(HeroUpdate.ColorTarget(item.url, newBackdrop))
 
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.enrich(
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService.enrich(
                         loaded = details,
                         url = item.url,
+                        fetchCast = false,
                         onScreenshotsLoaded = {},
                         onEnrichmentComplete = {
                             val enrichedMeta = HeroCache.get(cacheKey) ?: rawMeta
