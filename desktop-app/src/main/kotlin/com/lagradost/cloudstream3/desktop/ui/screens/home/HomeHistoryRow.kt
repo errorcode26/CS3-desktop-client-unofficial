@@ -27,6 +27,7 @@ fun HomeHistoryRow(
     providers: List<MainAPI>,
     onClearHistory: () -> Unit,
     onRemoveHistoryItem: (String) -> Unit,
+    onViewAllClick: () -> Unit,
     onItemClick: (MainAPI, WatchHistory) -> Unit,
 ) {
     if (historyList.isEmpty()) return
@@ -62,6 +63,7 @@ fun HomeHistoryRow(
         CategoryRowWithHeader(
             title = "Continue Watching",
             itemCount = historyList.size,
+            onViewAll = onViewAllClick,
             trailingHeaderExtra = {
                 TextButton(onClick = { showClearConfirmDialog = true }) {
                     Text("Clear History", color = DesktopUi.TextMuted)

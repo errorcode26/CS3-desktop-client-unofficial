@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
@@ -221,8 +222,9 @@ fun DetailsMetadata(
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var isRightColumnHovered by remember { mutableStateOf(false) }
+    var isRightColumnPinned by remember { mutableStateOf(false) }
     val rightColumnAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isRightColumnHovered) 1f else 0f,
+        targetValue = if (isRightColumnPinned || isRightColumnHovered) 1f else 0f,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 300),
     )
     val coroutineScope = rememberCoroutineScope()
@@ -537,6 +539,45 @@ fun DetailsMetadata(
             },
             sideContent = {
                 if (!isLoading) {
+                    val pinIcon = androidx.compose.ui.graphics.vector.rememberVectorPainter(
+                        androidx.compose.ui.graphics.vector.ImageVector.Builder(
+                            name = "Pin",
+                            defaultWidth = 24.dp,
+                            defaultHeight = 24.dp,
+                            viewportWidth = 24f,
+                            viewportHeight = 24f
+                        ).path(
+                            fill = androidx.compose.ui.graphics.SolidColor(Color.White),
+                            stroke = null,
+                            strokeAlpha = 1f,
+                            fillAlpha = 1f,
+                            strokeLineWidth = 1f,
+                            strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Butt,
+                            strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Bevel,
+                            strokeLineMiter = 1f
+                        ) {
+                            moveTo(16f, 9f)
+                            verticalLineTo(4f)
+                            horizontalLineTo(17f)
+                            verticalLineTo(2f)
+                            horizontalLineTo(7f)
+                            verticalLineTo(4f)
+                            horizontalLineTo(8f)
+                            verticalLineTo(9f)
+                            curveTo(8f, 10.66f, 6.66f, 12f, 5f, 12f)
+                            verticalLineTo(14f)
+                            horizontalLineTo(10.97f)
+                            verticalLineTo(21f)
+                            lineTo(11.97f, 22f)
+                            lineTo(12.97f, 21f)
+                            verticalLineTo(14f)
+                            horizontalLineTo(19f)
+                            verticalLineTo(12f)
+                            curveTo(17.34f, 12f, 16f, 10.66f, 16f, 9f)
+                            close()
+                        }.build()
+                    )
+
                     Column(
                         modifier = Modifier
                             .then(if (isNarrow) Modifier.fillMaxWidth() else Modifier.widthIn(max = 420.dp))
@@ -564,6 +605,38 @@ fun DetailsMetadata(
                                 blurRadius = 12f,
                             ),
                         )
+
+                        // Pin Toggle Row
+                        if (!isNarrow) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "SIDEBAR",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        letterSpacing = 1.sp,
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        shadow = textShadow.shadow,
+                                    ),
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                IconButton(
+                                    onClick = { isRightColumnPinned = !isRightColumnPinned },
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        painter = pinIcon,
+                                        contentDescription = "Pin sidebar",
+                                        tint = if (isRightColumnPinned) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                        }
+
                         // Photos Preview
                         val finalScreenshots = screenshots ?: uiState?.screenshots
                         if (!finalScreenshots.isNullOrEmpty()) {

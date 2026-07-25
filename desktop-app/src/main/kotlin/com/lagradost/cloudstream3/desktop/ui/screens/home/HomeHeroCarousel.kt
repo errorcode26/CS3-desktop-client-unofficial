@@ -542,27 +542,7 @@ fun HomeHeroCarousel(
                                 }
                             }
 
-                            Spacer(Modifier.height(32.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                IconButton(
-                                    onClick = { if (displayItems.isNotEmpty()) globalIndex-- },
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
-                                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp)),
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(20.dp))
-                                }
-                                IconButton(
-                                    onClick = { if (displayItems.isNotEmpty()) globalIndex++ },
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
-                                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp)),
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(20.dp))
-                                }
-                            }
+
                         }
                     }
                 }

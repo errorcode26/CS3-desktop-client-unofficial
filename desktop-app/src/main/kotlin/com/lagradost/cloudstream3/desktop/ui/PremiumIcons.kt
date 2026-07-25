@@ -22,6 +22,32 @@ object PremiumIcons {
     private val strokeColor = SolidColor(Color.Black)
     private const val strokeWidth = 2f
 
+    val History: ImageVector by lazy {
+        featherBuilder("FeatherClock")
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 21f)
+                arcToRelative(9f, 9f, 0f, isMoreThanHalf = true, isPositiveArc = false, dx1 = 0f, dy1 = -18f)
+                arcToRelative(9f, 9f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 0f, dy1 = 18f)
+                close()
+            }
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 6f)
+                verticalLineTo(12f)
+                lineTo(16f, 14f)
+            }
+            .build()
+    }
+
     val Home: ImageVector by lazy {
         featherBuilder("FeatherHome")
             .path(

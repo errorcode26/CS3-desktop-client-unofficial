@@ -291,14 +291,11 @@ fun PosterCard(
 fun WatchHistoryCard(
     history: WatchHistory,
     provider: MainAPI?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.width(380.dp).height(380.dp * 9f / 16f),
     onRemove: () -> Unit,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
-    // Landscape 16:9 card configuration (decoupled from grid scale for a cinematic look)
-    val cardWidth = 380.dp
-    val cardHeight = cardWidth * 9f / 16f
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -330,8 +327,6 @@ fun WatchHistoryCard(
 
     Box(
         modifier = modifier
-            .width(cardWidth)
-            .height(cardHeight)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

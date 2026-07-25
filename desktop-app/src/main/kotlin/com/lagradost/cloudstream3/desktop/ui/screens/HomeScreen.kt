@@ -121,6 +121,9 @@ fun ComposeHomeScreen(
                                     providers = providers,
                                     onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
                                     onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
+                                    onViewAllClick = {
+                                        navController.navigate(Screen.History)
+                                    },
                                     onItemClick = { prov, hist ->
                                         navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
                                     },

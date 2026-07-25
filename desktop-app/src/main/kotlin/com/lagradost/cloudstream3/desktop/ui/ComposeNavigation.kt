@@ -267,6 +267,14 @@ fun CloudstreamApp() {
                                         viewModel = homeViewModel,
                                     )
                                 }
+                                is Screen.History -> DesktopAppShell(
+                                    navController = navController,
+                                    title = "Watch History",
+                                    showBack = true,
+                                    onErrorLogs = { showErrorsDialog = true },
+                                ) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(navController)
+                                }
                                 is Screen.Search -> DesktopAppShell(
                                     navController = navController,
                                     title = "Search",

@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,9 +31,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
+import com.lagradost.player.impl.PlayerLinkHandler
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
@@ -345,7 +349,7 @@ fun DetailsContent(
 
         LazyColumn(state = scrollState, modifier = Modifier.fillMaxSize()) {
             item(key = "HeroSection") {
-                Box(modifier = Modifier.fillMaxWidth().fillParentMaxHeight(0.85f)) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().fillParentMaxHeight(0.85f)) {
                     DetailsMetadata(
                         provider = provider,
                         data = data,
@@ -365,6 +369,102 @@ fun DetailsContent(
                         },
                         onActorClick = { actor -> selectedActor = actor },
                     )
+
+                    val progress = remember(latestHistory) {
+                        if (latestHistory != null && latestHistory.duration > 0) {
+                            if (PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)) {
+                                1f
+                            } else {
+                                (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
+                            }
+                        } else {
+                            0f
+                        }
+                    }
+
+                    val progressInfo = remember(latestHistory, progress) {
+                        if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
+                            val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
+                            val leftMins = leftSeconds / 60L
+                            val hours = leftMins / 60L
+                            val mins = leftMins % 60L
+                            val timeStr = when {
+                                hours > 0 && mins > 0 -> "${hours}h ${mins}m left"
+                                hours > 0 -> "${hours}h left"
+                                leftMins > 0 -> "${leftMins}m left"
+                                else -> "< 1m left"
+                            }
+                            val pctStr = "${(progress * 100).toInt()}%"
+                            "$pctStr watched • $timeStr"
+                        } else null
+                    }
+
+                    val progressLabel = remember(latestHistory) {
+                        if (latestHistory != null) {
+                            val ep = latestHistory.episode
+                            val s = latestHistory.season
+                            when {
+                                s != null && s > 0 && ep != null && ep > 0 -> "CONTINUE WATCHING S$s: E$ep"
+                                ep != null && ep > 0 -> "CONTINUE WATCHING E$ep"
+                                else -> "CONTINUE WATCHING"
+                            }
+                        } else "CONTINUE WATCHING"
+                    }
+
+                    if (progressInfo != null && progress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(
+                                    start = if (maxWidth < 1100.dp) 24.dp else 64.dp,
+                                    end = if (maxWidth < 1100.dp) 24.dp else 64.dp,
+                                    bottom = 24.dp,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = progressLabel,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
+                                        color = Color.White.copy(alpha = 0.75f),
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        text = progressInfo,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
+                                        .clip(RoundedCornerShape(2.5.dp))
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.5.dp)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progress)
+                                            .fillMaxHeight()
+                                            .clip(RoundedCornerShape(2.5.dp))
+                                            .background(Color.White),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
