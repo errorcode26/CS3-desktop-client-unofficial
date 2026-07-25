@@ -1,14 +1,16 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -19,12 +21,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +40,6 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
@@ -65,7 +68,7 @@ fun DetailsBackdrop(
             .graphicsLayer {
                 if (scrollState.firstVisibleItemIndex == 0) {
                     val scrollOffset = scrollState.firstVisibleItemScrollOffset.toFloat()
-                    translationY = scrollOffset * 0.5f
+                    translationY = -scrollOffset * 0.5f
                     alpha = 1f - (scrollOffset / (size.height * 0.8f)).coerceIn(0f, 1f)
                 }
             }
@@ -73,11 +76,11 @@ fun DetailsBackdrop(
     ) {
         val currentPhase = enrichmentPhase
         val isFallback = data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
-        
+
         val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
         val screenshots = uiState?.screenshots ?: emptyList()
         var currentScreenshotIndex by remember { mutableStateOf(-1) }
-        
+
         LaunchedEffect(screensaverEnabled, screenshots) {
             if (screensaverEnabled && screenshots.isNotEmpty()) {
                 currentScreenshotIndex = 0
@@ -96,7 +99,7 @@ fun DetailsBackdrop(
                 ?: data.posterUrl?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
         }
-        
+
         val bgUrl = if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) {
             screenshots[currentScreenshotIndex]
         } else {
@@ -115,7 +118,7 @@ fun DetailsBackdrop(
                     .drawWithCache {
                         val verticalFade = Brush.verticalGradient(
                             0.0f to Color.Black,
-                            0.5f to Color.Black,
+                            0.65f to Color.Black,
                             1.0f to Color.Transparent,
                         )
                         val scrimBase = if (dynamicColorEnabled && animatedHeroColor != Color.Transparent) animatedHeroColor else Color.Black
@@ -131,12 +134,19 @@ fun DetailsBackdrop(
                             0.72f to Color.Transparent,
                             1.00f to Color.Transparent,
                         )
+                        val bottomScrim = Brush.verticalGradient(
+                            0.0f to Color.Transparent,
+                            0.40f to Color.Transparent,
+                            0.75f to scrimBase.copy(alpha = 0.25f),
+                            1.0f to scrimBase.copy(alpha = 0.35f),
+                        )
                         onDrawWithContent {
                             drawContent()
+                            drawRect(bottomScrim)
                             drawRect(logoVignette)
                             drawRect(verticalFade, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
                         }
-                    }
+                    },
             ) { targetBgUrl ->
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
@@ -173,7 +183,7 @@ fun AdaptiveMetadataLayout(
         Column(
             modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             mainContent()
             sideContent()
@@ -200,17 +210,20 @@ fun DetailsMetadata(
     provider: MainAPI,
     data: LoadResponse,
     hazeState: HazeState,
-    heroAction: @Composable () -> Unit = {},
+    heroAction: @Composable (Modifier) -> Unit = {},
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     isLoading: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
+    screenshots: List<String>? = null,
+    onPhotosClick: () -> Unit = {},
+    onCastClick: () -> Unit = {},
+    onActorClick: (com.lagradost.cloudstream3.ActorData) -> Unit = {},
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
     var isRightColumnHovered by remember { mutableStateOf(false) }
     val rightColumnAlpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isRightColumnHovered) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 300),
     )
     val coroutineScope = rememberCoroutineScope()
 
@@ -218,8 +231,9 @@ fun DetailsMetadata(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomStart,
     ) {
-        val isNarrow = maxWidth < 800.dp
-        
+        val isNarrow = maxWidth < 1100.dp
+        val isButtonsNarrow = maxWidth < 600.dp
+
         AdaptiveMetadataLayout(
             isNarrow = isNarrow,
             modifier = Modifier
@@ -316,19 +330,19 @@ fun DetailsMetadata(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(start = if (isNarrow) 0.dp else 4.dp),
-                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start
+                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                         )
                     } else {
                         Spacer(modifier = Modifier.height(16.dp))
                     }
-    
+
                     Spacer(modifier = Modifier.height(24.dp))
-    
+
                     if (!isLoading) {
                         FlowRow(
                             horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier
+                            modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                         ) {
                             val finalYear = uiState?.enrichedYear ?: data.year
                             finalYear?.let {
@@ -360,7 +374,7 @@ fun DetailsMetadata(
                         }
                         Spacer(modifier = Modifier.height(14.dp))
                     }
-    
+
                     val finalTags = uiState?.enrichedTags ?: data.tags
                     if (!isLoading && !finalTags.isNullOrEmpty()) {
                         Text(
@@ -373,24 +387,32 @@ fun DetailsMetadata(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                     }
-    
-                    FlowRow(
-                        horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier
-                    ) {
-                        heroAction()
-    
-                        val bookmarkId = "${provider.name}_${data.url.hashCode()}"
-                        val allBookmarks = uiState?.bookmarks ?: emptyMap()
-                        val currentBookmark = allBookmarks[bookmarkId]
-                        var showBookmarkMenu by remember { mutableStateOf(false) }
-    
-                        Box {
+
+                    if (!isLoading && !data.plot.isNullOrBlank()) {
+                        Text(
+                            text = data.plot ?: "No plot available",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            modifier = Modifier
+                                .widthIn(max = 600.dp)
+                                .weight(1f, fill = false)
+                                .verticalScroll(rememberScrollState()),
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+                    val bookmarkId = "${provider.name}_${data.url.hashCode()}"
+                    val allBookmarks = uiState?.bookmarks ?: emptyMap()
+                    val currentBookmark = allBookmarks[bookmarkId]
+                    var showBookmarkMenu by remember { mutableStateOf(false) }
+
+                    val libraryButton: @Composable (Modifier) -> Unit = { mod ->
+                        Box(modifier = mod) {
                             Box(
                                 modifier = Modifier
                                     .height(56.dp)
-                                    .widthIn(min = 160.dp)
+                                    .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         if (currentBookmark != null) {
@@ -430,81 +452,85 @@ fun DetailsMetadata(
                                         style = MaterialTheme.typography.titleMedium,
                                     )
                                 }
-                                DropdownMenu(
-                                    expanded = showBookmarkMenu,
-                                    onDismissRequest = { showBookmarkMenu = false },
-                                    modifier = Modifier
-                                        .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                        .padding(4.dp),
-                                ) {
-                                    Text(
-                                        "Add to Library",
-                                        color = Color.White.copy(alpha = 0.5f),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            }
+                            DropdownMenu(
+                                expanded = showBookmarkMenu,
+                                onDismissRequest = { showBookmarkMenu = false },
+                                modifier = Modifier
+                                    .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .padding(4.dp),
+                            ) {
+                                Text(
+                                    "Add to Library",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                    val isSelected = currentBookmark?.watchType == type.id
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                type.stringRes,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            )
+                                        },
+                                        onClick = {
+                                            val newBookmark = DesktopBookmark(
+                                                id = bookmarkId,
+                                                name = data.name,
+                                                url = data.url,
+                                                apiName = provider.name,
+                                                posterUrl = data.posterUrl,
+                                                watchType = type.id,
+                                            )
+                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+                                            showBookmarkMenu = false
+                                        },
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
                                     )
-                                    com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                        val isSelected = currentBookmark?.watchType == type.id
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    type.stringRes,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                )
-                                            },
-                                            onClick = {
-                                                val newBookmark = DesktopBookmark(
-                                                    id = bookmarkId,
-                                                    name = data.name,
-                                                    url = data.url,
-                                                    apiName = provider.name,
-                                                    posterUrl = data.posterUrl,
-                                                    watchType = type.id,
-                                                )
-                                                com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
-                                                showBookmarkMenu = false
-                                            },
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
-                                        )
-                                    }
-                                    if (currentBookmark != null) {
-                                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                                            },
-                                            onClick = {
-                                                com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
-                                                showBookmarkMenu = false
-                                            },
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                                        )
-                                    }
+                                }
+                                if (currentBookmark != null) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                                        },
+                                        onClick = {
+                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+                                            showBookmarkMenu = false
+                                        },
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
+                                    )
                                 }
                             }
                         }
                     }
-    
-                    Spacer(modifier = Modifier.height(24.dp))
-    
-                    if (!isLoading) {
-                        data.plot?.let {
-                            Text(
-                                text = it,
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 14.sp,
-                                maxLines = 4,
-                                overflow = TextOverflow.Ellipsis,
-                                lineHeight = 22.sp,
-                                modifier = Modifier.widthIn(max = 900.dp),
-                            )
+
+                    if (isButtonsNarrow) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            heroAction(Modifier.fillMaxWidth())
+                            libraryButton(Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                heroAction(Modifier.fillMaxWidth())
+                            }
+                            libraryButton(Modifier.weight(1f))
                         }
                     }
                 }
@@ -513,113 +539,197 @@ fun DetailsMetadata(
                 if (!isLoading) {
                     Column(
                         modifier = Modifier
-                            .then(if (isNarrow) Modifier.fillMaxWidth() else Modifier.width(240.dp))
+                            .then(if (isNarrow) Modifier.fillMaxWidth() else Modifier.widthIn(max = 420.dp))
                             .padding(bottom = 12.dp)
+                            .graphicsLayer { alpha = rightColumnAlpha }
                             .pointerInput(Unit) {
                                 awaitPointerEventScope {
                                     while (true) {
                                         val event = awaitPointerEvent()
-                                        when (event.type) {
-                                            androidx.compose.ui.input.pointer.PointerEventType.Enter -> isRightColumnHovered = true
-                                            androidx.compose.ui.input.pointer.PointerEventType.Exit -> isRightColumnHovered = false
+                                        if (event.type == PointerEventType.Enter) {
+                                            isRightColumnHovered = true
+                                        } else if (event.type == PointerEventType.Exit) {
+                                            isRightColumnHovered = false
+                                        }
+                                    }
+                                }
+                            },
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start,
+                    ) {
+                        val textShadow = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.8f),
+                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
+                                blurRadius = 12f,
+                            ),
+                        )
+                        // Photos Preview
+                        val finalScreenshots = screenshots ?: uiState?.screenshots
+                        if (!finalScreenshots.isNullOrEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Photos", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, style = textShadow, modifier = Modifier.clickable { onPhotosClick() })
+                                var currentPhotoIndex by remember { mutableStateOf(0) }
+                                val displayPhotos = finalScreenshots.take(10)
+
+                                LaunchedEffect(displayPhotos) {
+                                    if (displayPhotos.size > 1) {
+                                        while (true) {
+                                            kotlinx.coroutines.delay(4000)
+                                            currentPhotoIndex = (currentPhotoIndex + 1) % displayPhotos.size
+                                        }
+                                    }
+                                }
+
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val imageWidth = (130f * 16f / 9f).dp
+                                    Box(
+                                        modifier = Modifier
+                                            .height(160.dp) // Taller to avoid clipping the bottom cards' shadows and offsets
+                                            .width(imageWidth + 80.dp) // Wider to prevent horizontal clipping
+                                            .clickable { onPhotosClick() },
+                                        contentAlignment = Alignment.CenterStart, // Align everything to the left side of the container
+                                    ) {
+                                        androidx.compose.animation.AnimatedContent(
+                                            targetState = currentPhotoIndex,
+                                            transitionSpec = {
+                                                // Slide the old stack out to the left and up (like peeling/tossing it away)
+                                                (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(600)))
+                                                    .togetherWith(
+                                                        androidx.compose.animation.slideOutHorizontally(
+                                                            animationSpec = androidx.compose.animation.core.tween(600),
+                                                            targetOffsetX = { -it },
+                                                        ) + androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(600)),
+                                                    )
+                                            },
+                                            label = "photos_carousel",
+                                        ) { page ->
+                                            val url = displayPhotos.getOrNull(page)
+                                            val next1Url = if (displayPhotos.size > 1) displayPhotos.getOrNull((page + 1) % displayPhotos.size) else null
+                                            val next2Url = if (displayPhotos.size > 2) displayPhotos.getOrNull((page + 2) % displayPhotos.size) else null
+
+                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                                                // Bottom Card (peeking bottom-right)
+                                                if (next2Url != null) {
+                                                    coil3.compose.AsyncImage(
+                                                        model = next2Url,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .height(130.dp)
+                                                            .width(imageWidth)
+                                                            .offset(x = 32.dp, y = 16.dp)
+                                                            .shadow(8.dp, RoundedCornerShape(12.dp))
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .alpha(0.4f),
+                                                        contentScale = ContentScale.Crop,
+                                                    )
+                                                }
+                                                // Middle Card (peeking middle-right)
+                                                if (next1Url != null) {
+                                                    coil3.compose.AsyncImage(
+                                                        model = next1Url,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .height(130.dp)
+                                                            .width(imageWidth)
+                                                            .offset(x = 16.dp, y = 8.dp)
+                                                            .shadow(12.dp, RoundedCornerShape(12.dp))
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .alpha(0.7f),
+                                                        contentScale = ContentScale.Crop,
+                                                    )
+                                                }
+                                                // Top Card
+                                                if (url != null) {
+                                                    coil3.compose.AsyncImage(
+                                                        model = url,
+                                                        contentDescription = "Screenshot",
+                                                        modifier = Modifier
+                                                            .height(130.dp)
+                                                            .width(imageWidth)
+                                                            .shadow(16.dp, RoundedCornerShape(12.dp))
+                                                            .clip(RoundedCornerShape(12.dp)),
+                                                        contentScale = ContentScale.Crop,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (displayPhotos.size > 1) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            modifier = Modifier.width((130f * 16f / 9f).dp), // Approximately match width of image
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            displayPhotos.forEachIndexed { index, _ ->
+                                                val isSelected = index == currentPhotoIndex
+                                                val width by androidx.compose.animation.core.animateDpAsState(if (isSelected) 16.dp else 6.dp, label = "indicator_width")
+                                                val color by androidx.compose.animation.animateColorAsState(if (isSelected) Color.White else Color.White.copy(alpha = 0.3f), label = "indicator_color")
+                                                Box(
+                                                    modifier = Modifier
+                                                        .height(3.dp)
+                                                        .width(width)
+                                                        .clip(RoundedCornerShape(1.5.dp))
+                                                        .background(color),
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                            .graphicsLayer { alpha = if (isNarrow) 1f else rightColumnAlpha },
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                        horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start
-                    ) {
-                        // Status
-                        val status = uiState?.enrichedStatus ?: (data as? TvSeriesLoadResponse)?.showStatus?.name
-                        if (!status.isNullOrBlank()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = "STATUS",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp,
-                                )
-                                Text(text = status, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
-    
-                        // Source/Provider
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "SOURCE",
-                                color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp,
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color.White.copy(alpha = 0.12f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Info,
-                                        contentDescription = "Source",
-                                        tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = provider.name,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp,
-                                    )
-                                }
-                            }
-                        }
-    
-                        // Screensaver Toggle
-                        val screenshots = uiState?.screenshots ?: emptyList()
-                        val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
-                        if (screenshots.isNotEmpty()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = "CINEMATIC SLIDESHOW",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp,
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    androidx.compose.material3.Switch(
-                                        checked = screensaverEnabled,
-                                        onCheckedChange = { AppearanceConfig.setScreensaverEnabled(it) },
-                                        colors = androidx.compose.material3.SwitchDefaults.colors(
-                                            checkedThumbColor = Color.White,
-                                            checkedTrackColor = Color.White.copy(alpha = 0.3f),
-                                            uncheckedThumbColor = Color.White.copy(alpha = 0.5f),
-                                            uncheckedTrackColor = Color.Transparent,
-                                            uncheckedBorderColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier.graphicsLayer { scaleX = 0.8f; scaleY = 0.8f }.offset(x = (-8).dp)
-                                    )
-                                    Text(
-                                        text = if (screensaverEnabled) "Enabled" else "Disabled",
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.offset(x = (-8).dp)
-                                    )
+
+                        // Stars Preview
+                        val cast = uiState?.enrichedActors ?: data.actors
+                        if (!cast.isNullOrEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Text("Stars", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, style = textShadow, modifier = Modifier.clickable { onCastClick() })
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    cast.take(4).forEach { actor ->
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            coil3.compose.AsyncImage(
+                                                model = actor.actor.image,
+                                                contentDescription = actor.actor?.name,
+                                                modifier = Modifier
+                                                    .size(80.dp)
+                                                    .shadow(12.dp, CircleShape)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White.copy(alpha = 0.1f))
+                                                    .clickable { onActorClick(actor) },
+                                                contentScale = ContentScale.Crop,
+                                            )
+                                            Text(
+                                                text = actor.actor?.name?.split(" ")?.firstOrNull() ?: "",
+                                                color = Color.White.copy(alpha = 0.9f),
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.widthIn(max = 80.dp),
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                style = textShadow,
+                                            )
+                                        }
+                                    }
+                                    if (cast.size > 4) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(80.dp)
+                                                .shadow(12.dp, CircleShape)
+                                                .clip(CircleShape)
+                                                .background(Color.White.copy(alpha = 0.15f))
+                                                .clickable { onCastClick() },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text("+${cast.size - 4}", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, style = textShadow)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
+            },
         )
     }
 }
@@ -652,10 +762,9 @@ private fun InfoRowItem(label: String, value: String) {
 fun DetailsCastSection(
     data: LoadResponse,
     provider: MainAPI,
-    onMovieClick: (com.lagradost.cloudstream3.SearchResponse) -> Unit = {},
+    onActorClick: (ActorData) -> Unit = {},
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
-    var selectedActor by remember { mutableStateOf<ActorData?>(null) }
     val actors = uiState?.enrichedActors ?: data.actors ?: emptyList()
 
     val directors = actors.filter {
@@ -698,7 +807,7 @@ fun DetailsCastSection(
                             provider = provider,
                             isInverted = invertedMap[actor] == true,
                             onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { selectedActor = actor },
+                            onClick = { onActorClick(actor) },
                         )
                     }
                 }
@@ -728,21 +837,12 @@ fun DetailsCastSection(
                             provider = provider,
                             isInverted = invertedMap[actor] == true,
                             onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { selectedActor = actor },
+                            onClick = { onActorClick(actor) },
                         )
                     }
                 }
             }
         }
-    }
-
-    val actor = selectedActor
-    if (actor != null) {
-        CastDetailsDialog(
-            actor = actor,
-            onDismiss = { selectedActor = null },
-            onMovieClick = onMovieClick,
-        )
     }
 }
 
@@ -769,27 +869,32 @@ private fun ActorCard(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(110.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .width(150.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(4.dp),
+            .padding(8.dp),
     ) {
-        Box(modifier = Modifier.size(96.dp)) {
+        Box(modifier = Modifier.size(130.dp)) {
             val actorImg = provider.fixUrlNull(mainImgRaw)
             if (actorImg != null) {
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(actorImg)
-                        .size(192, 192)
+                        .size(256, 256)
                         .build(),
                     contentDescription = mainName,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .shadow(16.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .shadow(16.dp, CircleShape)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
@@ -797,7 +902,7 @@ private fun ActorCard(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = mainName,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
@@ -807,9 +912,9 @@ private fun ActorCard(
             if (voiceActorImg != null) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .align(Alignment.BottomEnd)
-                        .offset(x = 4.dp, y = 4.dp)
+                        .offset(x = 6.dp, y = 6.dp)
                         .background(MaterialTheme.colorScheme.surface, CircleShape)
                         .padding(3.dp)
                         .clip(CircleShape)
@@ -819,7 +924,7 @@ private fun ActorCard(
                     AsyncImage(
                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                             .data(voiceActorImg)
-                            .size(80, 80)
+                            .size(128, 128)
                             .build(),
                         contentDescription = subName,
                         contentScale = ContentScale.Crop,
@@ -828,23 +933,33 @@ private fun ActorCard(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Text(
-            mainName,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
+            mainName ?: "",
+            style = MaterialTheme.typography.bodyLarge.copy(
+                shadow = androidx.compose.ui.graphics.Shadow(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                    blurRadius = 4f,
+                ),
+            ),
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
 
         if (!subName.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 subName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
 

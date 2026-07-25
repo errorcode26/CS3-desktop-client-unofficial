@@ -19,13 +19,12 @@ object CustomFontManager {
             ?: emptyList()
     }
 
-
     /**
      * Gets a java.io.File for a specific font name if it exists in the fonts directory.
      */
     fun getFontFile(fontName: String?): File? {
         if (fontName.isNullOrBlank() || fontName == "Default" || fontName == "None") return null
-        
+
         val file = File(PlatformPaths.fontsDir, fontName)
         return if (file.exists() && file.isFile) file else null
     }

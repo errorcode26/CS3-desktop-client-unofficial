@@ -14,7 +14,7 @@ object ShaderManager {
         "Anime4K_Restore_CNN_M.glsl",
         "Anime4K_Restore_CNN_VL.glsl",
         "Anime4K_Upscale_CNN_x2_M.glsl",
-        "Anime4K_Upscale_CNN_x2_VL.glsl"
+        "Anime4K_Upscale_CNN_x2_VL.glsl",
     )
 
     /**

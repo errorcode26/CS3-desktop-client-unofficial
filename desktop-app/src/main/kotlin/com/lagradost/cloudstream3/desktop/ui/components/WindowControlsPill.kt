@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
@@ -86,7 +85,7 @@ fun WindowControlsPill(
                                 name = selectedProviderName,
                                 internalName = selectedProviderName,
                                 modifier = Modifier.size(20.dp).clip(CircleShape),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
@@ -195,7 +194,7 @@ fun WindowControlsPill(
                                                         isDropdownExpanded.value = false
                                                     },
                                                     modifier = Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                                 ) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         if (pluginIcon != null) {
@@ -209,7 +208,7 @@ fun WindowControlsPill(
                                                                 name = provider.name,
                                                                 internalName = provider.name,
                                                                 modifier = Modifier.size(24.dp).clip(CircleShape),
-                                                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold),
                                                             )
                                                         }
                                                         Spacer(modifier = Modifier.width(10.dp))

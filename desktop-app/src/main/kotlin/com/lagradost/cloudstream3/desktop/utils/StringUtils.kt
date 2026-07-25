@@ -1,10 +1,9 @@
 package com.lagradost.cloudstream3.desktop.utils
 
-import kotlin.math.max
 import kotlin.math.min
 
 object StringUtils {
-    
+
     fun levenshtein(lhs: CharSequence, rhs: CharSequence): Int {
         val lhsLength = lhs.length
         val rhsLength = rhs.length

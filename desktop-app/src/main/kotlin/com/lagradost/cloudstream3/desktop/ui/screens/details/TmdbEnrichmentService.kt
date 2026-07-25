@@ -4,13 +4,13 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 object TmdbRateLimiter {
     private var lastRequestTime = 0L
@@ -154,7 +154,7 @@ object TmdbEnrichmentService {
                         tempYear = yearMatch.groupValues[1].toInt()
                     }
                 }
-                
+
                 var tempDuration: Int? = loaded.duration
                 var tempTags: List<String>? = loaded.tags
                 var tempActors: List<com.lagradost.cloudstream3.ActorData>? = loaded.actors
@@ -184,37 +184,37 @@ object TmdbEnrichmentService {
                         for (result in results) {
                             val mediaType = result.get("media_type")?.asText()
                             if (mediaType == "person") continue
-                            
+
                             // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
                             if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
                             if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
 
                             val resultName = result.get("name")?.asText() ?: result.get("title")?.asText() ?: result.get("original_name")?.asText() ?: ""
                             val strippedResultName = resultName.replace(Regex("[^a-zA-Z0-9]"), "")
-                            
+
                             val resultWords = resultName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
                             val cleanWords = cleanName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
-                            
+
                             val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
                             val isSubsetMatch = resultWords.isNotEmpty() && cleanWords.size > 1 && (cleanWords.containsAll(resultWords) || resultWords.containsAll(cleanWords))
-                            
+
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
-                            
+
                             // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
                             val loadedYear = tempYear
                             val yearMismatch = resultYear != null && loadedYear != null && Math.abs(resultYear - loadedYear) > 1
                             if (yearMismatch) continue
-                            
+
                             var score = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName.lowercase(), strippedResultName.lowercase())
-                            
+
                             // Boost score if it's a strict or subset match, since Levenshtein might heavily penalize long subset additions
                             if (isStrictMatch) {
                                 score = 1.0
                             } else if (isSubsetMatch && score < 0.85) {
                                 score = 0.85
                             }
-                            
+
                             // Threshold: only accept if similarity is >= 80%
                             if (score >= 0.80) {
                                 possible.add(Pair(result, score))
@@ -230,7 +230,7 @@ object TmdbEnrichmentService {
                             // If it's anime, try to prioritize anime among the top matches (those within 5% of the highest score)
                             val highestScore = possible.first().second
                             val topMatches = possible.filter { it.second >= highestScore - 0.05 }
-                            
+
                             topMatches.find { resPair ->
                                 val res = resPair.first
                                 val genreArray = res.get("genre_ids")
@@ -554,7 +554,7 @@ object TmdbEnrichmentService {
                                 tempYear,
                                 tempDuration,
                                 tempTags,
-                                tempActors
+                                tempActors,
                             )
 
                             val recList = tmdbData.get("recommendations")?.get("results")

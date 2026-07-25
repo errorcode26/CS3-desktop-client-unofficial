@@ -36,7 +36,7 @@ class RateLimitInterceptor(private val minDelayMs: Long = 500L) : okhttp3.Interc
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
         val path = request.url.encodedPath.lowercase()
-        
+
         // Skip rate-limiting for images to ensure fast poster loading
         if (imageExtensions.any { path.endsWith(it) }) {
             return chain.proceed(request)
@@ -72,14 +72,14 @@ class AutoRetryInterceptor(private val maxRetries: Int = 1) : okhttp3.Intercepto
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
         var exception: Exception? = null
-        
+
         for (tryCount in 0..maxRetries) {
             try {
                 return chain.proceed(request)
             } catch (e: Exception) {
                 exception = e
                 val isConnectionReset = e is java.net.SocketException && e.message?.contains("Connection reset", ignoreCase = true) == true
-                
+
                 if (request.method == "GET" && isConnectionReset && tryCount < maxRetries) {
                     AppLogger.d("Connection reset on ${request.url.host}, auto-retrying ($tryCount/$maxRetries)...")
                     Thread.sleep(500) // Wait half a second before retrying

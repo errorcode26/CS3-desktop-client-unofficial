@@ -187,10 +187,10 @@ object DesktopRepositoryManager {
     suspend fun removeRepository(url: String) = syncMutex.withLock {
         val currentList = readRepositoriesFromDisk()
         val repoToRemove = currentList.find { it.url == url }
-        
+
         val current = currentList.filter { it.url != url }
         writeRepositoriesToDisk(current)
-        
+
         val repo = repoCache.remove(url)
         if (repo != null) {
             for (listUrl in repo.pluginLists) {
@@ -199,7 +199,7 @@ object DesktopRepositoryManager {
         }
         saveCachesToDisk()
 
-        // Also physically delete the repo directory and its contents so it doesn't get 
+        // Also physically delete the repo directory and its contents so it doesn't get
         // picked up by the blind walkTopDown() loader on next startup.
         val nameToUse = repo?.name ?: repoToRemove?.name
         if (!nameToUse.isNullOrBlank()) {
@@ -210,7 +210,7 @@ object DesktopRepositoryManager {
                 jars?.forEach { jar ->
                     com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
                 }
-                
+
                 // GC and finalize to release locks (same as individual plugin uninstall)
                 @Suppress("ExplicitGarbageCollectionCall")
                 System.gc()

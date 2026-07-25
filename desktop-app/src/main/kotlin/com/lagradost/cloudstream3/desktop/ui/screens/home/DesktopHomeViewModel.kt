@@ -15,7 +15,6 @@ import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 
@@ -65,8 +64,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
                 }
             }
         }
-
-
 
         viewModelScope.launch {
             DesktopRepositoryManager.syncGeneration.collect { syncGen ->
@@ -187,8 +184,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-
-
     fun clearHistory() {
         DesktopDataStore.clearAllWatchHistory()
         updateState { copy(historyList = emptyList()) }
@@ -213,8 +208,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
         }
     }
-
-
 
     fun setSelectedProvider(name: String?) {
         updateState { copy(selectedProviderName = name) }

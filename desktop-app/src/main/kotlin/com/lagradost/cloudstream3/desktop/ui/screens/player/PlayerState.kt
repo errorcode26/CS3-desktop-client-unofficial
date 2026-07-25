@@ -32,7 +32,7 @@ class PlayerState {
     val activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
 
     val activeShader = MutableStateFlow<String>(
-        com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None"
+        com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None",
     )
 
     // Video Stats
@@ -255,7 +255,7 @@ class PlayerState {
     fun setShader(shaderName: String) {
         com.lagradost.common.storage.DesktopDataStore.setKey(
             com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
-            shaderName
+            shaderName,
         )
         activeShader.value = shaderName
 

@@ -11,7 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -96,12 +95,12 @@ fun HomeHeroCarousel(
 
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val dynamicHeight = with(density) { (windowInfo.containerSize.height * 0.85f).toDp() }.coerceIn(400.dp, 1000.dp)
+    val dynamicHeight = with(density) { windowInfo.containerSize.height.toDp() }.coerceAtLeast(400.dp)
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     // 88.dp base padding + 10.dp internal padding = 98.dp
-    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 98.dp else 32.dp
+    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 140.dp else 80.dp
     val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 98.dp else 32.dp
 
     Box(
@@ -191,13 +190,13 @@ fun HomeHeroCarousel(
 
                 Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.BottomCenter,
+                    contentAlignment = Alignment.CenterStart,
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = paddingStart, end = paddingEnd, bottom = 64.dp, top = 24.dp),
-                        verticalAlignment = Alignment.Bottom,
+                            .padding(start = paddingStart, end = paddingEnd),
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Start,
                     ) {
                         if (posterUrl != null && meta?.backdropUrl == null) {
@@ -219,201 +218,207 @@ fun HomeHeroCarousel(
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth(0.5f), // Leave right side for thumbnails
+                            modifier = Modifier.widthIn(max = 500.dp), // Wrap text properly, don't stretch to middle
                         ) {
-                            if (!meta?.logoUrl.isNullOrBlank()) {
-                                val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
-                                Box(
-                                    modifier = Modifier
-                                        .widthIn(
-                                            min = DesktopDimens.HeroLogoMinWidth,
-                                            max = DesktopDimens.HeroLogoMaxWidth,
-                                        )
-                                        .heightIn(max = DesktopDimens.HeroLogoMaxHeight),
-                                    contentAlignment = Alignment.BottomStart,
-                                ) {
-                                    coil3.compose.AsyncImage(
-                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                            .data(meta?.logoUrl)
-                                            .size(1600, 800)
-                                            .build(),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .offset(
-                                                x = DesktopDimens.LogoShadowOffsetX,
-                                                y = DesktopDimens.LogoShadowOffsetY,
-                                            )
-                                            .blur(
-                                                DesktopDimens.LogoShadowBlur,
-                                                edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
-                                            ),
-                                        contentScale = ContentScale.Fit,
-                                        alignment = Alignment.BottomStart,
-                                        colorFilter = DesktopDimens.LogoShadowFilter,
-                                    )
-                                    coil3.compose.SubcomposeAsyncImage(
-                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                            .data(meta?.logoUrl)
-                                            .size(1600, 800)
-                                            .build(),
-                                        contentDescription = "Logo",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit,
-                                        alignment = Alignment.BottomStart,
-                                        error = {
-                                            if (displayTitle.isNotBlank()) {
-                                                Text(
-                                                    text = displayTitle,
-                                                    style = MaterialTheme.typography.displayLarge.copy(
-                                                        shadow = androidx.compose.ui.graphics.Shadow(
-                                                            color = Color.Black.copy(alpha = 0.69f),
-                                                            offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                                            blurRadius = 8f,
-                                                        ),
-                                                    ),
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    lineHeight = 48.sp,
-                                                )
-                                            }
-                                        },
-                                    )
-                                }
-                            } else {
-                                val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
-                                if (displayTitle.isNotBlank()) {
-                                    Text(
-                                        text = displayTitle,
-                                        style = MaterialTheme.typography.displayLarge.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                                blurRadius = 8f,
-                                            ),
-                                        ),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        lineHeight = 48.sp,
-                                    )
-                                }
-                            }
-
-                            // Rating, Year, and Genres on one line
-                            Spacer(Modifier.height(20.dp))
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                if (meta?.score != null && meta.score.toDoubleOrNull()?.let { it > 0.0 } == true) {
-                                    Icon(
-                                        Icons.Default.Star,
-                                        contentDescription = "Rating",
-                                        tint = Color(0xFFFFD700), // Gold
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = meta.score,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                blurRadius = 4f,
-                                            ),
-                                        ),
-                                    )
-                                    Spacer(Modifier.width(14.dp))
-                                }
-                                if (meta?.year != null) {
-                                    Text(
-                                        text = meta.year.toString(),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                blurRadius = 4f,
-                                            ),
-                                        ),
-                                    )
-                                    Spacer(Modifier.width(14.dp))
-                                }
-                                if (!meta?.contentRating.isNullOrBlank()) {
+                            Column(modifier = Modifier.height(350.dp), verticalArrangement = Arrangement.Bottom) {
+                                if (!meta?.logoUrl.isNullOrBlank()) {
+                                    val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
                                     Box(
                                         modifier = Modifier
-                                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            .widthIn(
+                                                min = DesktopDimens.HeroLogoMinWidth,
+                                                max = DesktopDimens.HeroLogoMaxWidth,
+                                            )
+                                            .heightIn(max = DesktopDimens.HeroLogoMaxHeight),
+                                        contentAlignment = Alignment.BottomStart,
                                     ) {
-                                        Text(
-                                            text = meta?.contentRating ?: "",
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
+                                        coil3.compose.AsyncImage(
+                                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                                .data(meta?.logoUrl)
+                                                .size(1600, 800)
+                                                .build(),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .offset(
+                                                    x = DesktopDimens.LogoShadowOffsetX,
+                                                    y = DesktopDimens.LogoShadowOffsetY,
+                                                )
+                                                .blur(
+                                                    DesktopDimens.LogoShadowBlur,
+                                                    edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
+                                                ),
+                                            contentScale = ContentScale.Fit,
+                                            alignment = Alignment.BottomStart,
+                                            colorFilter = DesktopDimens.LogoShadowFilter,
+                                        )
+                                        coil3.compose.SubcomposeAsyncImage(
+                                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                                .data(meta?.logoUrl)
+                                                .size(1600, 800)
+                                                .build(),
+                                            contentDescription = "Logo",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Fit,
+                                            alignment = Alignment.BottomStart,
+                                            error = {
+                                                if (displayTitle.isNotBlank()) {
+                                                    Text(
+                                                        text = displayTitle,
+                                                        style = MaterialTheme.typography.displayLarge.copy(
+                                                            shadow = androidx.compose.ui.graphics.Shadow(
+                                                                color = Color.Black.copy(alpha = 0.69f),
+                                                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
+                                                                blurRadius = 8f,
+                                                            ),
+                                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                                                            letterSpacing = (-1).sp,
+                                                        ),
+                                                        fontWeight = FontWeight.Black,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        lineHeight = 48.sp,
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
-                                    Spacer(Modifier.width(14.dp))
-                                }
-                                if (meta?.duration != null && meta.duration > 0) {
-                                    Text(
-                                        text = "${meta.duration}m",
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                blurRadius = 4f,
+                                } else {
+                                    val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
+                                    if (displayTitle.isNotBlank()) {
+                                        Text(
+                                            text = displayTitle,
+                                            style = MaterialTheme.typography.displayLarge.copy(
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.69f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 4f),
+                                                    blurRadius = 8f,
+                                                ),
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                                                letterSpacing = (-1).sp,
                                             ),
-                                        ),
-                                    )
-                                    Spacer(Modifier.width(14.dp))
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            lineHeight = 48.sp,
+                                        )
+                                    }
                                 }
-                                if (!meta?.tags.isNullOrEmpty()) {
-                                    val tagsText = meta?.tags?.distinct()?.take(3)?.joinToString(" • ") ?: ""
-                                    Text(
-                                        text = tagsText,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                blurRadius = 4f,
-                                            ),
-                                        ),
-                                    )
-                                }
-                            }
 
-                            if (!meta?.plot.isNullOrBlank()) {
-                                Spacer(Modifier.height(12.dp))
-                                Text(
-                                    text = meta?.plot ?: "",
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                    fontSize = 16.sp,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                    lineHeight = 24.sp,
-                                    style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                        shadow = androidx.compose.ui.graphics.Shadow(
-                                            color = Color.Black.copy(alpha = 0.69f),
-                                            offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                            blurRadius = 4f,
+                                // Rating, Year, and Genres on one line
+                                Spacer(Modifier.height(20.dp))
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    if (meta?.score != null && meta.score.toDoubleOrNull()?.let { it > 0.0 } == true) {
+                                        Icon(
+                                            Icons.Default.Star,
+                                            contentDescription = "Rating",
+                                            tint = Color(0xFFFFD700), // Gold
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = meta.score,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.69f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                    blurRadius = 4f,
+                                                ),
+                                            ),
+                                        )
+                                        Spacer(Modifier.width(14.dp))
+                                    }
+                                    if (meta?.year != null) {
+                                        Text(
+                                            text = meta.year.toString(),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.69f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                    blurRadius = 4f,
+                                                ),
+                                            ),
+                                        )
+                                        Spacer(Modifier.width(14.dp))
+                                    }
+                                    if (!meta?.contentRating.isNullOrBlank()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        ) {
+                                            Text(
+                                                text = meta?.contentRating ?: "",
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                        Spacer(Modifier.width(14.dp))
+                                    }
+                                    if (meta?.duration != null && meta.duration > 0) {
+                                        Text(
+                                            text = "${meta.duration}m",
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.69f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                    blurRadius = 4f,
+                                                ),
+                                            ),
+                                        )
+                                        Spacer(Modifier.width(14.dp))
+                                    }
+                                    if (!meta?.tags.isNullOrEmpty()) {
+                                        val tagsText = meta?.tags?.distinct()?.take(3)?.joinToString(" • ") ?: ""
+                                        Text(
+                                            text = tagsText,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.69f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                    blurRadius = 4f,
+                                                ),
+                                            ),
+                                        )
+                                    }
+                                }
+
+                                if (!meta?.plot.isNullOrBlank()) {
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        text = meta?.plot ?: "",
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                        fontSize = 15.sp,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 22.sp,
+                                        style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                            shadow = androidx.compose.ui.graphics.Shadow(
+                                                color = Color.Black.copy(alpha = 0.69f),
+                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                blurRadius = 4f,
+                                            ),
                                         ),
-                                    ),
-                                )
-                            }
+                                    )
+                                }
+                            } // End fixed height container
 
                             Spacer(Modifier.height(24.dp))
 
@@ -536,6 +541,28 @@ fun HomeHeroCarousel(
                                     }
                                 }
                             }
+
+                            Spacer(Modifier.height(32.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                IconButton(
+                                    onClick = { if (displayItems.isNotEmpty()) globalIndex-- },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
+                                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp)),
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
+                                IconButton(
+                                    onClick = { if (displayItems.isNotEmpty()) globalIndex++ },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
+                                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(4.dp)),
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -545,7 +572,7 @@ fun HomeHeroCarousel(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 48.dp),
+                .padding(bottom = 64.dp),
             contentAlignment = Alignment.BottomCenter,
         ) {
             Box(
@@ -558,13 +585,6 @@ fun HomeHeroCarousel(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    IconButton(
-                        onClick = { if (displayItems.isNotEmpty()) globalIndex-- },
-                        modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous", tint = Color.White)
-                    }
-
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
                     LaunchedEffect(globalIndex) {
                         listState.animateScrollToItem(maxOf(0, globalIndex - 2))
@@ -572,7 +592,7 @@ fun HomeHeroCarousel(
 
                     LazyRow(
                         state = listState,
-                        modifier = Modifier.widthIn(max = 440.dp),
+                        modifier = Modifier.widthIn(max = 816.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -587,7 +607,7 @@ fun HomeHeroCarousel(
 
                                 if (thumbUrl != null) {
                                     val thumbHeight by androidx.compose.animation.core.animateDpAsState(
-                                        targetValue = if (isSelected) 140.dp else 110.dp,
+                                        targetValue = if (isSelected) 240.dp else 180.dp,
                                         animationSpec = androidx.compose.animation.core.tween(300),
                                     )
                                     val thumbAlpha by androidx.compose.animation.core.animateFloatAsState(
@@ -627,13 +647,6 @@ fun HomeHeroCarousel(
                                 }
                             }
                         }
-                    }
-
-                    IconButton(
-                        onClick = { if (displayItems.isNotEmpty()) globalIndex++ },
-                        modifier = Modifier.size(36.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next", tint = Color.White)
                     }
                 }
             }

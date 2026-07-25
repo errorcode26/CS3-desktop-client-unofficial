@@ -116,8 +116,8 @@ object GetEnrichedDetailsUseCase {
                 onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
                     trySend(
                         EnrichmentUpdate.MetadataLoaded(
-                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors
-                        )
+                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
+                        ),
                     )
                 },
             )

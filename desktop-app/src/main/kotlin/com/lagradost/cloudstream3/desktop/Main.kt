@@ -38,11 +38,11 @@ import com.lagradost.cloudstream3.desktop.init.launchAutoUpdater
 import com.lagradost.cloudstream3.desktop.init.launchPeriodicPluginUpdater
 import com.lagradost.cloudstream3.desktop.init.rememberFullscreenHelper
 import com.lagradost.cloudstream3.desktop.init.setupWindowBackgroundAndListeners
+import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
-import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Toolkit

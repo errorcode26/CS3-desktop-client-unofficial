@@ -2,15 +2,14 @@ package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -416,14 +415,18 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
                             color = DesktopUi.Accent,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (link.isM3u8) "HLS (Best for Streaming)"
-                        else if (link.isDash) "DASH (Best for Streaming)"
-                        else "Direct (Best for Download)",
+                        if (link.isM3u8) {
+                            "HLS (Best for Streaming)"
+                        } else if (link.isDash) {
+                            "DASH (Best for Streaming)"
+                        } else {
+                            "Direct (Best for Download)"
+                        },
                         color = DesktopUi.TextMuted,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -433,7 +436,7 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
                 onClick = onCopy,
                 enabled = !isBusy,
                 shape = CircleShape,
-                border = androidx.compose.foundation.BorderStroke(1.dp, DesktopUi.Divider)
+                border = androidx.compose.foundation.BorderStroke(1.dp, DesktopUi.Divider),
             ) { Text("Copy", color = DesktopUi.TextPrimary) }
             Spacer(modifier = Modifier.width(12.dp))
             Button(
@@ -442,7 +445,7 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = DesktopUi.Accent, contentColor = MaterialTheme.colorScheme.onSurface),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                modifier = Modifier.defaultMinSize(minHeight = 40.dp)
+                modifier = Modifier.defaultMinSize(minHeight = 40.dp),
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(6.dp))

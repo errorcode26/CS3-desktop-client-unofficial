@@ -16,9 +16,9 @@ object OAuthLocalServer {
      * Do not wire this up to the UI until it's ready.
      *
      * Spins up a temporary localhost server, opens the user's browser to the [authUrl],
-     * and waits for the OAuth redirect. 
-     * 
-     * Handles both query string tokens (e.g., ?code=...) and fragment tokens (e.g., #access_token=...) 
+     * and waits for the OAuth redirect.
+     *
+     * Handles both query string tokens (e.g., ?code=...) and fragment tokens (e.g., #access_token=...)
      * by injecting a Javascript helper page.
      *
      * @return The raw token string or fragment (e.g., "#access_token=123&expires_in=..."), or null if failed/timed out.
@@ -46,12 +46,12 @@ object OAuthLocalServer {
                     client.use {
                         val reader = client.getInputStream().bufferedReader()
                         val requestLine = reader.readLine() ?: return@use
-                        
+
                         // Parse the requested path
                         val parts = requestLine.split(" ")
                         if (parts.size >= 2) {
                             val path = parts[1]
-                            
+
                             if (path.startsWith("/token?data=")) {
                                 // This is the Javascript AJAX callback with the fragment
                                 tokenResult = path.substringAfter("/token?data=")

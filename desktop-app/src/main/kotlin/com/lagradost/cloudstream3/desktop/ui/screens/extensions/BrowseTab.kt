@@ -19,8 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
@@ -317,9 +317,11 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         TextButton(
                             onClick = {
                                 isDialogInstalling = true
-                                viewModel.onEvent(ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin) {
-                                    isDialogInstalling = false
-                                })
+                                viewModel.onEvent(
+                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin) {
+                                        isDialogInstalling = false
+                                    },
+                                )
                             },
                         ) {
                             Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
@@ -358,9 +360,11 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         TextButton(
                             onClick = {
                                 isDialogInstalling = true
-                                viewModel.onEvent(ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission) {
-                                    isDialogInstalling = false
-                                })
+                                viewModel.onEvent(
+                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission) {
+                                        isDialogInstalling = false
+                                    },
+                                )
                             },
                         ) {
                             Text("Grant & Install", color = MaterialTheme.colorScheme.primary)

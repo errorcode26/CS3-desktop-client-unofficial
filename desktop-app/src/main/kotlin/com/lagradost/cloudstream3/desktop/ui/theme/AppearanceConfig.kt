@@ -49,9 +49,6 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_GRID_SCALE, scale)
     }
 
-
-
-
     fun setAmbientGlowEnabled(enabled: Boolean) {
         ambientGlowEnabled.value = enabled
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW, enabled)

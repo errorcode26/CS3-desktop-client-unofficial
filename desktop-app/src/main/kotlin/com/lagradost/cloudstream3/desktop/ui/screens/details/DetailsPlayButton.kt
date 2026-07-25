@@ -24,107 +24,103 @@ import com.lagradost.common.storage.WatchHistory
 
 @Composable
 fun DetailsPlayButton(
+    modifier: Modifier = Modifier,
     data: LoadResponse,
     provider: MainAPI,
     latestHistory: WatchHistory? = null,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val allEpisodes = remember(data) {
+        when (data) {
+            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes
+            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten()
+            else -> emptyList()
+        }
+    }
+    val sortedEpisodes = remember(allEpisodes) {
+        allEpisodes.sortedWith(
+            compareBy<com.lagradost.cloudstream3.Episode> { it.season ?: 1 }
+                .thenBy { it.episode ?: 1 },
+        )
+    }
+    val targetEp = remember(sortedEpisodes, latestHistory) {
+        if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
+            sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+        } else {
+            sortedEpisodes.firstOrNull()
+        }
+    }
+
+    val buttonLabel = remember(data, latestHistory, targetEp) {
+        if (latestHistory != null) {
+            if (targetEp?.episode != null) {
+                "Resume E${targetEp.episode}"
+            } else {
+                "Resume"
+            }
+        } else {
+            if (targetEp?.season != null && targetEp.episode != null) {
+                "Play S${targetEp.season} E${targetEp.episode}"
+            } else if (targetEp?.episode != null) {
+                "Play E${targetEp.episode}"
+            } else {
+                "Play"
+            }
+        }
+    }
+
+    val onPlayClick = {
+        if (targetEp != null) {
+            onPlay(targetEp)
+        } else {
+            val ep = when (data) {
+                is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
+                    name = data.name
+                    description = data.plot
+                    posterUrl = data.backgroundPosterUrl ?: data.posterUrl
+                }
+                is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
+                    name = data.name
+                    description = data.plot
+                    posterUrl = data.posterUrl
+                }
+                is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
+                    name = data.name
+                    description = data.plot
+                    posterUrl = data.backgroundPosterUrl ?: data.posterUrl
+                }
+                else -> null
+            }
+            if (ep != null) {
+                onPlay(ep)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .height(56.dp)
+            .widthIn(min = 190.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .clickable { onPlayClick() }
+            .padding(horizontal = 32.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        val allEpisodes = remember(data) {
-            when (data) {
-                is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes
-                is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten()
-                else -> emptyList()
-            }
-        }
-        val sortedEpisodes = remember(allEpisodes) {
-            allEpisodes.sortedWith(
-                compareBy<com.lagradost.cloudstream3.Episode> { it.season ?: 1 }
-                    .thenBy { it.episode ?: 1 },
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = "Play",
+                tint = Color(0xFF0F0F0F),
+                modifier = Modifier.size(26.dp),
             )
-        }
-        val targetEp = remember(sortedEpisodes, latestHistory) {
-            if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-                sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
-            } else {
-                sortedEpisodes.firstOrNull()
-            }
-        }
-
-        val buttonLabel = remember(data, latestHistory, targetEp) {
-            if (latestHistory != null) {
-                if (targetEp?.episode != null) {
-                    "Resume E${targetEp.episode}"
-                } else {
-                    "Resume"
-                }
-            } else {
-                if (targetEp?.season != null && targetEp.episode != null) {
-                    "Play S${targetEp.season} E${targetEp.episode}"
-                } else if (targetEp?.episode != null) {
-                    "Play E${targetEp.episode}"
-                } else {
-                    "Play"
-                }
-            }
-        }
-
-        val onPlayClick = {
-            if (targetEp != null) {
-                onPlay(targetEp)
-            } else {
-                val ep = when (data) {
-                    is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
-                        name = data.name
-                        description = data.plot
-                        posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                    }
-                    is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
-                        name = data.name
-                        description = data.plot
-                        posterUrl = data.posterUrl
-                    }
-                    is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
-                        name = data.name
-                        description = data.plot
-                        posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                    }
-                    else -> null
-                }
-                if (ep != null) {
-                    onPlay(ep)
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .height(56.dp)
-                .widthIn(min = 190.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .clickable { onPlayClick() }
-                .padding(horizontal = 32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = Color(0xFF0F0F0F),
-                    modifier = Modifier.size(26.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = buttonLabel,
-                    color = Color(0xFF0F0F0F),
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = buttonLabel,
+                color = Color(0xFF0F0F0F),
+                fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
     }
 }

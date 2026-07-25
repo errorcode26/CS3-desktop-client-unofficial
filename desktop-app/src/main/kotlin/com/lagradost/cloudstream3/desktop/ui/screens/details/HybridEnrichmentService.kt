@@ -37,7 +37,7 @@ object HybridEnrichmentService {
     ) {
         withContext(Dispatchers.IO) {
             val type = if (loaded.type == com.lagradost.cloudstream3.TvType.Movie) "movie" else "series"
-            
+
             // 1. Ask Cinemeta to resolve "shitty" provider titles first.
             // This search is extremely fast and provides a highly accurate, clean title.
             val cleanName = loaded.name
@@ -51,31 +51,31 @@ object HybridEnrichmentService {
 
             var searchResult = CinemetaAPI.search(cleanName, type)
             val originalName = loaded.name
-            
+
             if (searchResult?.name != null) {
                 val searchResultName = searchResult.name
                 val strippedResultName = searchResultName.replace(Regex("[^a-zA-Z0-9]"), "")
                 val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
-                
+
                 val resultWords = searchResultName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
                 val cleanWords = cleanName.lowercase().replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
                 val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
                 val isSubsetMatch = resultWords.isNotEmpty() && cleanWords.size > 1 && (cleanWords.containsAll(resultWords) || resultWords.containsAll(cleanWords))
-                
+
                 var score = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName.lowercase(), strippedResultName.lowercase())
                 if (isStrictMatch) {
                     score = 1.0
                 } else if (isSubsetMatch && score < 0.85) {
                     score = 0.85
                 }
-                
+
                 if (score >= 0.80) {
                     loaded.name = searchResultName
                 } else {
                     searchResult = null // Reject completely invalid match
                 }
             }
-            
+
             // 2. Kick off full Cinemeta metadata fetch concurrently
             val cinemetaDeferred = async {
                 if (searchResult?.id != null) {
@@ -85,7 +85,7 @@ object HybridEnrichmentService {
                 }
             }
 
-            // 3. Let TMDB do its full enrichment block using the cleaned title. 
+            // 3. Let TMDB do its full enrichment block using the cleaned title.
             // We intercept onMetadataLoaded to inject Cinemeta's IMDb rating.
             var tmdbTagline: String? = null
             var tmdbStatus: String? = null
@@ -132,7 +132,7 @@ object HybridEnrichmentService {
                     tmdbTags = tags
                     tmdbActors = actors
                 },
-                onEnrichmentComplete = {} // We will call the real one at the very end
+                onEnrichmentComplete = {}, // We will call the real one at the very end
             )
 
             // 3. Await Cinemeta results
@@ -155,7 +155,7 @@ object HybridEnrichmentService {
                         loaded.score = com.lagradost.cloudstream3.Score.from10(ratingDouble)
                     }
                 }
-                
+
                 // Merge episode descriptions and ratings
                 if (!cinemetaData.videos.isNullOrEmpty()) {
                     val allEpisodes = if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
@@ -203,7 +203,7 @@ object HybridEnrichmentService {
                 tmdbYear,
                 tmdbDuration,
                 tmdbTags ?: cinemetaData?.genres,
-                tmdbActors
+                tmdbActors,
             )
 
             // 6. Complete

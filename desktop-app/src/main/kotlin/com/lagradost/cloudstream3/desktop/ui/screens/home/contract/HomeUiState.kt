@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home.contract
 
 import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.HeroMeta
 import com.lagradost.cloudstream3.desktop.ui.base.UiState

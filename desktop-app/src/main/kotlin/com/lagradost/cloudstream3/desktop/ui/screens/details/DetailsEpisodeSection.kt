@@ -1,8 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -19,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -129,18 +129,11 @@ fun DetailsEpisodeSection(
                 .padding(vertical = 24.dp),
         ) {
             // Card Header: Episodes title, season watch toggle, and anti-spoiler settings
-            if (!isMovieLike) {
+            val rightSideControls: @Composable () -> Unit = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        "Episodes",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
                     val currentSeasonEpisodes = (data as? TvSeriesLoadResponse)?.episodes
                         ?.filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
                         ?: (data as? AnimeLoadResponse)?.episodes?.values?.flatten()
@@ -150,53 +143,73 @@ fun DetailsEpisodeSection(
                             val hist = showHistory.values.find { it.episodeId == ep.data }
                             hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
                         }
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSeasonWatched) {
-                                        Color(0xFF1B4D2E).copy(alpha = 0.4f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                    },
-                                )
-                                .border(
-                                    1.dp,
-                                    if (isSeasonWatched) {
-                                        Color(0xFF4CAF50).copy(alpha = 0.7f)
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-                                    },
-                                    RoundedCornerShape(8.dp),
-                                )
-                                .clickable {
-                                    if (!isSeasonWatched) {
-                                        onToggleSeasonWatched(currentSeasonEpisodes, false)
-                                    } else {
-                                        onToggleSeasonWatched(currentSeasonEpisodes, true)
-                                    }
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        Button(
+                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSeasonWatched) Color(0xFF1B4D2E).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                contentColor = if (isSeasonWatched) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                            ),
+                            border = BorderStroke(1.dp, if (isSeasonWatched) Color(0xFF4CAF50).copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            modifier = Modifier.height(36.dp),
+                            elevation = null,
                         ) {
-                            Text(
-                                text = if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched",
-                                color = if (isSeasonWatched) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
+                            Text(if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
                     }
-                    Text("Anti-spoiler", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = isAntiSpoiler,
-                        onCheckedChange = { isAntiSpoiler = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+
+                    // Anti-spoiler
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(36.dp),
+                    ) {
+                        Text("Anti-spoiler", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = isAntiSpoiler,
+                            onCheckedChange = { isAntiSpoiler = it },
+                            modifier = Modifier.scale(0.85f),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            ),
+                        )
+                    }
+
+                    // Sort
+                    Button(
+                        onClick = { isSortAscending = !isSortAscending },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
-                    )
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.height(36.dp),
+                        elevation = null,
+                    ) {
+                        Text(if (isSortAscending) "Sort ▼" else "Sort ▲", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    // View Toggle (Single Button)
+                    Button(
+                        onClick = { onToggleEpisodesStackedView(!isEpisodesStackedView) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(36.dp),
+                        elevation = null,
+                    ) {
+                        Icon(
+                            imageVector = if (isEpisodesStackedView) Icons.AutoMirrored.Filled.List else Icons.Default.ViewModule,
+                            contentDescription = "Toggle Episode View",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
 
@@ -225,38 +238,22 @@ fun DetailsEpisodeSection(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             if (seasons.size > 1) {
-                                var seasonMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Button(
-                                        onClick = { seasonMenuExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        elevation = null,
-                                    ) {
-                                        Text(if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
-                                    }
-                                    DropdownMenu(
-                                        expanded = seasonMenuExpanded,
-                                        onDismissRequest = { seasonMenuExpanded = false },
-                                    ) {
-                                        seasons.forEach { season ->
-                                            DropdownMenuItem(
-                                                text = { Text(if (season == 0) "Specials" else "Season $season") },
-                                                onClick = {
-                                                    selectedSeason = season
-                                                    seasonMenuExpanded = false
-                                                },
-                                                trailingIcon = if (selectedSeason == season) {
-                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
-                                                } else {
-                                                    null
-                                                },
-                                            )
+                                Row(
+                                    modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    seasons.forEach { season ->
+                                        val isSelected = selectedSeason == season
+                                        Button(
+                                            onClick = { selectedSeason = season },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            elevation = null,
+                                        ) {
+                                            Text(if (season == 0) "Specials" else "Season $season", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold)
                                         }
                                     }
                                 }
@@ -307,29 +304,8 @@ fun DetailsEpisodeSection(
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                             }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            TextButton(onClick = { isSortAscending = !isSortAscending }) {
-                                Text(
-                                    text = if (isSortAscending) "Sort ▼" else "Sort ▲",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    onToggleEpisodesStackedView(!isEpisodesStackedView)
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = if (isEpisodesStackedView) Icons.Default.List else Icons.Default.ViewModule,
-                                    contentDescription = "Toggle Episode View",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
                         }
+                        rightSideControls()
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -462,29 +438,8 @@ fun DetailsEpisodeSection(
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                             }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            TextButton(onClick = { isSortAscending = !isSortAscending }) {
-                                Text(
-                                    text = if (isSortAscending) "Sort ▼" else "Sort ▲",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    onToggleEpisodesStackedView(!isEpisodesStackedView)
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = if (isEpisodesStackedView) Icons.Default.List else Icons.Default.ViewModule,
-                                    contentDescription = "Toggle Episode View",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
                         }
+                        rightSideControls()
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 

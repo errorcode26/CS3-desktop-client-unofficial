@@ -144,7 +144,7 @@ fun HomeCategorySection(
                         BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = paddingStart, end = paddingEnd)
+                                .padding(start = paddingStart, end = paddingEnd),
                         ) {
                             val availableWidth = this.maxWidth
                             val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()

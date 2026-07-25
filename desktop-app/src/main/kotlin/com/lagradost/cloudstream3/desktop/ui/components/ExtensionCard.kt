@@ -270,10 +270,10 @@ fun ExtensionCard(
 
 @Composable
 fun PluginPlaceholderAvatar(
-    name: String, 
+    name: String,
     internalName: String,
     modifier: Modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
-    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge,
 ) {
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
 

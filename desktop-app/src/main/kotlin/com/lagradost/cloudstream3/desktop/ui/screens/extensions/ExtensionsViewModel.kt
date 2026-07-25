@@ -319,8 +319,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         }
     }
 
-
-
     private fun uninstallByInternalName(internalName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val installedMatch = uiState.value.installedPlugins.find { it.internalName == internalName }

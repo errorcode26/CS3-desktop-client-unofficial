@@ -135,7 +135,7 @@ fun getFontFamily(name: String): FontFamily {
                 androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Light),
                 androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Thin),
                 androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.ExtraLight),
-                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Black)
+                androidx.compose.ui.text.platform.Font(customFontFile, weight = FontWeight.Black),
             )
         } catch (e: Exception) {
             com.lagradost.common.logging.AppLogger.e("Failed to load custom font: $name", e)

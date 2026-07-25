@@ -1,26 +1,25 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextButton
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.common.storage.WatchHistory
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun HomeHistoryRow(
@@ -45,12 +44,12 @@ fun HomeHistoryRow(
                     showClearConfirmDialog = false
                     onClearHistory()
                 },
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) { Text("Clear All") }
         },
         dismissButton = {
             TextButton(onClick = { showClearConfirmDialog = false }) { Text("Cancel") }
-        }
+        },
     )
 
     val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
@@ -58,7 +57,7 @@ fun HomeHistoryRow(
     val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
 
     androidx.compose.foundation.layout.Box(
-        modifier = Modifier.padding(start = paddingStart, end = paddingEnd)
+        modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
     ) {
         CategoryRowWithHeader(
             title = "Continue Watching",
@@ -69,21 +68,20 @@ fun HomeHistoryRow(
                 }
             },
         ) {
-        items(historyList.size, key = { index -> historyList[index].parentId }) { index ->
-            val history = historyList[index]
-            val provider = providers.find { it.name == history.apiName }
-            WatchHistoryCard(
-                history = history,
-                provider = provider,
-                onRemove = { onRemoveHistoryItem(history.parentId) },
-                onClick = {
-                    if (provider != null) {
-                        onItemClick(provider, history)
-                    }
-                },
-            )
+            items(historyList.size, key = { index -> historyList[index].parentId }) { index ->
+                val history = historyList[index]
+                val provider = providers.find { it.name == history.apiName }
+                WatchHistoryCard(
+                    history = history,
+                    provider = provider,
+                    onRemove = { onRemoveHistoryItem(history.parentId) },
+                    onClick = {
+                        if (provider != null) {
+                            onItemClick(provider, history)
+                        }
+                    },
+                )
+            }
         }
     }
-}
-
 }

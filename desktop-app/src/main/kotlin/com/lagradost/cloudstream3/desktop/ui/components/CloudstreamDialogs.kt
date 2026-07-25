@@ -98,7 +98,7 @@ fun CloudstreamCustomDialog(
     show: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     var isVisible by remember { mutableStateOf(false) }
 
@@ -119,7 +119,7 @@ fun CloudstreamCustomDialog(
                 Surface(
                     shape = RoundedCornerShape(28.dp),
                     color = if (amoledMode) Color.Black else MaterialTheme.colorScheme.surface,
-                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier)
+                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                 ) {
                     content()
                 }

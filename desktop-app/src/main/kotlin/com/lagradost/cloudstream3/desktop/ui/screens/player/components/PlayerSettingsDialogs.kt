@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -556,306 +555,306 @@ fun SubtitleDownloadDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 300.dp, max = 600.dp)
+            .heightIn(min = 300.dp, max = 600.dp),
     ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Search Subtitles",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = labelGray)
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Search Subtitles",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = labelGray)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Search Bar Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Query field
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(inputBg, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (searchQuery.isEmpty()) Text("Title...", color = labelGray, fontSize = 14.sp)
+                        inner()
+                    },
+                )
+
+                // Language dropdown
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .background(inputBg, RoundedCornerShape(10.dp))
+                            .clickable { langDropdown = true }
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(selectedLang, color = Color.White, fontSize = 13.sp)
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Remove,
+                            contentDescription = null,
+                            tint = labelGray,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = langDropdown,
+                        onDismissRequest = { langDropdown = false },
+                        modifier = Modifier.background(Color(0xFF1E1E1E)).heightIn(max = 300.dp),
+                    ) {
+                        langMap.keys.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(lang, color = Color.White, fontSize = 13.sp) },
+                                onClick = {
+                                    selectedLang = lang
+                                    langDropdown = false
+                                },
+                                modifier = if (lang == selectedLang) {
+                                    Modifier.background(Color.White.copy(alpha = 0.08f))
+                                } else {
+                                    Modifier
+                                },
+                            )
+                        }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                // Season
+                BasicTextField(
+                    value = seasonText,
+                    onValueChange = { seasonText = it.filter { c -> c.isDigit() } },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .width(50.dp)
+                        .background(inputBg, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (seasonText.isEmpty()) Text("S", color = labelGray, fontSize = 14.sp)
+                        inner()
+                    },
+                )
 
-                // Search Bar Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Episode
+                BasicTextField(
+                    value = episodeText,
+                    onValueChange = { episodeText = it.filter { c -> c.isDigit() } },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .width(50.dp)
+                        .background(inputBg, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (episodeText.isEmpty()) Text("E", color = labelGray, fontSize = 14.sp)
+                        inner()
+                    },
+                )
+
+                // Search button
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(accentRed, RoundedCornerShape(10.dp))
+                        .clickable(enabled = !isLoading) { performSearch() },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // Query field
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                        cursorBrush = SolidColor(Color.White),
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(inputBg, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        decorationBox = { inner ->
-                            if (searchQuery.isEmpty()) Text("Title...", color = labelGray, fontSize = 14.sp)
-                            inner()
-                        },
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
 
-                    // Language dropdown
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .background(inputBg, RoundedCornerShape(10.dp))
-                                .clickable { langDropdown = true }
-                                .padding(horizontal = 10.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(selectedLang, color = Color.White, fontSize = 13.sp)
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Remove,
-                                contentDescription = null,
-                                tint = labelGray,
-                                modifier = Modifier.size(14.dp),
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = langDropdown,
-                            onDismissRequest = { langDropdown = false },
-                            modifier = Modifier.background(Color(0xFF1E1E1E)).heightIn(max = 300.dp),
-                        ) {
-                            langMap.keys.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(lang, color = Color.White, fontSize = 13.sp) },
-                                    onClick = {
-                                        selectedLang = lang
-                                        langDropdown = false
-                                    },
-                                    modifier = if (lang == selectedLang) {
-                                        Modifier.background(Color.White.copy(alpha = 0.08f))
-                                    } else {
-                                        Modifier
-                                    },
+            Spacer(Modifier.height(16.dp))
+
+            // Results list
+            when {
+                isLoading -> {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                hasSearched && searchResults.isEmpty() -> {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No subtitles found.", color = labelGray, fontSize = 14.sp)
+                            val loggedIn = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.any {
+                                com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[it.idPrefix]?.isNotEmpty() == true
+                            }
+                            if (!loggedIn) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Tip: Log in via Settings → Accounts to get more results.",
+                                    color = labelGray.copy(alpha = 0.6f),
+                                    fontSize = 12.sp,
+                                    fontStyle = FontStyle.Italic,
                                 )
                             }
                         }
                     }
-
-                    // Season
-                    BasicTextField(
-                        value = seasonText,
-                        onValueChange = { seasonText = it.filter { c -> c.isDigit() } },
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                        cursorBrush = SolidColor(Color.White),
-                        modifier = Modifier
-                            .width(50.dp)
-                            .background(inputBg, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        decorationBox = { inner ->
-                            if (seasonText.isEmpty()) Text("S", color = labelGray, fontSize = 14.sp)
-                            inner()
-                        },
-                    )
-
-                    // Episode
-                    BasicTextField(
-                        value = episodeText,
-                        onValueChange = { episodeText = it.filter { c -> c.isDigit() } },
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                        cursorBrush = SolidColor(Color.White),
-                        modifier = Modifier
-                            .width(50.dp)
-                            .background(inputBg, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        decorationBox = { inner ->
-                            if (episodeText.isEmpty()) Text("E", color = labelGray, fontSize = 14.sp)
-                            inner()
-                        },
-                    )
-
-                    // Search button
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(accentRed, RoundedCornerShape(10.dp))
-                            .clickable(enabled = !isLoading) { performSearch() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
                 }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(searchResults.mapIndexed { i, s -> Pair(i, s) }, key = { it.first }) { (idx, sub) ->
+                            val isDownloading = downloadingIdx == idx
+                            // Language code badge (short 2-3 char uppercase)
+                            val langCode = sub.lang.take(3).uppercase().let {
+                                if (it.length < 2) "??" else it
+                            }
+                            // Episode/season suffix
+                            val epSuffix = buildString {
+                                sub.seasonNumber?.let { append(" S${it.toString().padStart(2,'0')}") }
+                                sub.epNumber?.let { append(" E${it.toString().padStart(2,'0')}") }
+                            }
 
-                Spacer(Modifier.height(16.dp))
-
-                // Results list
-                when {
-                    isLoading -> {
-                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    hasSearched && searchResults.isEmpty() -> {
-                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("No subtitles found.", color = labelGray, fontSize = 14.sp)
-                                val loggedIn = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.any {
-                                    com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[it.idPrefix]?.isNotEmpty() == true
-                                }
-                                if (!loggedIn) {
-                                    Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(cardBg, RoundedCornerShape(12.dp))
+                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                // Lang badge
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFF2A2A2A), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 7.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                     Text(
-                                        "Tip: Log in via Settings → Accounts to get more results.",
-                                        color = labelGray.copy(alpha = 0.6f),
-                                        fontSize = 12.sp,
+                                        langCode,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                    )
+                                }
+
+                                // Name + source
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            sub.name.let { if (it.length > 40) it.take(37) + "..." else it },
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        if (epSuffix.isNotBlank()) {
+                                            Text(
+                                                epSuffix.trim(),
+                                                color = labelGray,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Normal,
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        sub.source,
+                                        color = labelGray,
+                                        fontSize = 11.sp,
                                         fontStyle = FontStyle.Italic,
                                     )
                                 }
-                            }
-                        }
-                    }
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            items(searchResults.mapIndexed { i, s -> Pair(i, s) }, key = { it.first }) { (idx, sub) ->
-                                val isDownloading = downloadingIdx == idx
-                                // Language code badge (short 2-3 char uppercase)
-                                val langCode = sub.lang.take(3).uppercase().let {
-                                    if (it.length < 2) "??" else it
-                                }
-                                // Episode/season suffix
-                                val epSuffix = buildString {
-                                    sub.seasonNumber?.let { append(" S${it.toString().padStart(2,'0')}") }
-                                    sub.epNumber?.let { append(" E${it.toString().padStart(2,'0')}") }
-                                }
 
-                                Row(
+                                // Download button
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(cardBg, RoundedCornerShape(12.dp))
-                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                ) {
-                                    // Lang badge
-                                    Box(
-                                        modifier = Modifier
-                                            .background(Color(0xFF2A2A2A), RoundedCornerShape(6.dp))
-                                            .padding(horizontal = 7.dp, vertical = 4.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            langCode,
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 0.5.sp,
+                                        .size(36.dp)
+                                        .background(
+                                            if (isDownloading) {
+                                                labelGray.copy(alpha = 0.1f)
+                                            } else {
+                                                Color.White.copy(alpha = 0.06f)
+                                            },
+                                            RoundedCornerShape(8.dp),
                                         )
-                                    }
-
-                                    // Name + source
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Text(
-                                                sub.name.let { if (it.length > 40) it.take(37) + "..." else it },
-                                                color = Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                modifier = Modifier.weight(1f, fill = false),
-                                            )
-                                            if (epSuffix.isNotBlank()) {
-                                                Text(
-                                                    epSuffix.trim(),
-                                                    color = labelGray,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Normal,
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            sub.source,
-                                            color = labelGray,
-                                            fontSize = 11.sp,
-                                            fontStyle = FontStyle.Italic,
-                                        )
-                                    }
-
-                                    // Download button
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(
-                                                if (isDownloading) {
-                                                    labelGray.copy(alpha = 0.1f)
-                                                } else {
-                                                    Color.White.copy(alpha = 0.06f)
-                                                },
-                                                RoundedCornerShape(8.dp),
-                                            )
-                                            .clickable(enabled = !isDownloading && downloadingIdx == null) {
-                                                downloadingIdx = idx
-                                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                                    try {
-                                                        val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders
-                                                            .find { it.idPrefix == sub.idPrefix }
-                                                        if (provider != null) {
-                                                            val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
-                                                            val url = provider.load(auth, sub)
-                                                            if (url != null) {
-                                                                playerState.loadExternalSubtitle(url)
-                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                                    onDismiss()
-                                                                }
+                                        .clickable(enabled = !isDownloading && downloadingIdx == null) {
+                                            downloadingIdx = idx
+                                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                try {
+                                                    val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders
+                                                        .find { it.idPrefix == sub.idPrefix }
+                                                    if (provider != null) {
+                                                        val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
+                                                        val url = provider.load(auth, sub)
+                                                        if (url != null) {
+                                                            playerState.loadExternalSubtitle(url)
+                                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                                onDismiss()
                                                             }
                                                         }
-                                                    } catch (e: Exception) {
-                                                        com.lagradost.common.logging.AppLogger.e("SubtitleLoad: ${e.message}")
-                                                    } finally {
-                                                        downloadingIdx = null
                                                     }
+                                                } catch (e: Exception) {
+                                                    com.lagradost.common.logging.AppLogger.e("SubtitleLoad: ${e.message}")
+                                                } finally {
+                                                    downloadingIdx = null
                                                 }
-                                            },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        if (isDownloading) {
-                                            CircularProgressIndicator(
-                                                color = Color.White,
-                                                modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                            )
-                                        } else {
-                                            Icon(
-                                                Icons.Default.Download,
-                                                contentDescription = "Download",
-                                                tint = Color.White.copy(alpha = 0.7f),
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                        }
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isDownloading) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Download,
+                                            contentDescription = "Download",
+                                            tint = Color.White.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                     }
                                 }
                             }
                         }
                     }
+                }
             }
         }
     }

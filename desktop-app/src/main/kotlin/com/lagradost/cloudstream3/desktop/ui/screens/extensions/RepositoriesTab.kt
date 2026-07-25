@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,15 +18,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun RepositoriesTab(viewModel: ExtensionsViewModel) {
@@ -38,20 +34,20 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     "Add Extension Repository",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "This app supports CloudStream extensions. Please enter a repository URL or short code below to add it.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -64,7 +60,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("Example: english-repo or https://...") },
                                 singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             )
                             Button(
                                 onClick = {
@@ -74,7 +70,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -92,7 +88,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 modifier = Modifier.weight(1f),
                                 placeholder = { Text("Example: english-repo or https://...") },
                                 singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Button(
@@ -103,7 +99,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                     }
                                 },
                                 modifier = Modifier.height(56.dp),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -183,7 +179,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 20.dp)
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),

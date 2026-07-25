@@ -52,7 +52,7 @@ fun ComposeExtensionScreen(navController: NavController, initialTab: Int = 0) {
                         DesktopDataStore.removeKey("preferred_provider_name")
                     }
                     com.lagradost.common.logging.AppLogger.i(
-                        "ExtensionsScreen: cleared active provider '${effect.removedProviderName}' after plugin removal."
+                        "ExtensionsScreen: cleared active provider '${effect.removedProviderName}' after plugin removal.",
                     )
                 }
                 is ExtensionsUiEffect.ShowNotification -> { /* future: show snackbar */ }

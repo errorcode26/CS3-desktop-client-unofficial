@@ -243,7 +243,7 @@ class DetailsViewModel(
 
     private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {
         val data = uiState.value.response ?: uiState.value.fakeData ?: return
-        
+
         viewModelScope.launch(Dispatchers.IO) {
             val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
             DesktopDataStore.removeEpisodeWatched(parentId, ep.data)

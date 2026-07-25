@@ -171,23 +171,34 @@
         .vol-group { display: flex; align-items: center; overflow: hidden; }
         .vol-slider-wrap {
             width: 0; overflow: hidden; transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
+            display: flex; align-items: center;
         }
         .vol-group:hover .vol-slider-wrap { width: 88px; }
         .vol-slider {
-            -webkit-appearance: none; height: 4px; width: 78px; margin: 0 5px;
-            background: rgba(255,255,255,0.35); border-radius: 2px; outline: none;
+            -webkit-appearance: none; 
+            width: 78px; height: 24px; 
+            background: transparent; 
+            margin: 0 5px; outline: none;
+            cursor: pointer;
+        }
+        .vol-slider::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            background: linear-gradient(to right, var(--accent-color) var(--vol-pct, 50%), rgba(255,255,255,0.35) var(--vol-pct, 50%));
+            border-radius: 2px;
             transition: height 0.2s ease;
         }
-        .vol-slider:hover { height: 6px; }
+        .vol-slider:hover::-webkit-slider-runnable-track { height: 6px; }
         .vol-slider::-webkit-slider-thumb {
             -webkit-appearance: none; width: 12px; height: 12px;
             background: var(--accent-color); border-radius: 50%; cursor: pointer;
             box-shadow: 0 0 8px rgba(var(--accent-color-rgb), 0.6);
             transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s ease;
+            margin-top: -4px;
         }
         .vol-slider:hover::-webkit-slider-thumb {
             transform: scale(1.33);
             box-shadow: 0 0 12px rgba(var(--accent-color-rgb), 0.9);
+            margin-top: -3px;
         }
         .vol-anim { transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); transform-box: fill-box; transform-origin: center left; }
         #volCross { transform-origin: center; }
@@ -1399,6 +1410,9 @@
     document.getElementById('closeEpisodesBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeServersBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeSubsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    
+
+
     document.getElementById('closeSettingsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeQualityBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
 
@@ -1457,7 +1471,7 @@
     // Volume
     const updateVolumeTrack = (val) => {
         const pct = (val / 200) * 100;
-        volumeBar.style.background = `linear-gradient(to right, #E50914 ${pct}%, rgba(255,255,255,0.35) ${pct}%)`;
+        volumeBar.style.setProperty('--vol-pct', pct + '%');
     };
     updateVolumeTrack(100); // Initialize
 

@@ -18,4 +18,3 @@ data class ExtensionsUiState(
     val syncGeneration: Int = 0,
     val extensionsDir: java.io.File = java.io.File("."),
 ) : UiState
-

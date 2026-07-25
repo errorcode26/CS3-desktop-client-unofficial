@@ -1,13 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search
 
-
 import com.lagradost.cloudstream3.APIHolder
-import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
-
 import com.lagradost.cloudstream3.desktop.ui.screens.home.isRealProvider
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
@@ -111,7 +108,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
             updateState { copy(isLoadingSearch = true, searchResultsGrouped = null) }
             try {
                 val providers = uiState.value.providers
-                
+
                 val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
                     providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
                 } else {

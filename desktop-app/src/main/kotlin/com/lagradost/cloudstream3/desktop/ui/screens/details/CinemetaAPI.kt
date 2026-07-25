@@ -7,15 +7,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object CinemetaAPI {
-    
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class CinemetaSearchResponse(
-        @JsonProperty("metas") val metas: List<CinemetaMeta>?
+        @JsonProperty("metas") val metas: List<CinemetaMeta>?,
     )
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class CinemetaMetaResponse(
-        @JsonProperty("meta") val meta: CinemetaMeta?
+        @JsonProperty("meta") val meta: CinemetaMeta?,
     )
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -24,7 +24,7 @@ object CinemetaAPI {
         @JsonProperty("episode") val episode: Int?,
         @JsonProperty("title") val title: String?,
         @JsonProperty("description") val description: String?,
-        @JsonProperty("imdbRating") val imdbRating: String?
+        @JsonProperty("imdbRating") val imdbRating: String?,
     )
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -38,7 +38,7 @@ object CinemetaAPI {
         @JsonProperty("imdbRating") val imdbRating: String?,
         @JsonProperty("releaseInfo") val releaseInfo: String?,
         @JsonProperty("genres") val genres: List<String>?,
-        @JsonProperty("videos") val videos: List<CinemetaVideo>?
+        @JsonProperty("videos") val videos: List<CinemetaVideo>?,
     )
 
     suspend fun search(query: String, type: String = "movie"): CinemetaMeta? {

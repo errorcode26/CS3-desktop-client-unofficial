@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.lagradost.cloudstream3.*
-import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
@@ -80,7 +79,7 @@ fun EpisodeCard(
     val runTimeStr = epRunTime?.let { if (it > 300) "${it / 60}m" else "${it}m" }
 
     val heroColor = uiState?.heroColor ?: MaterialTheme.colorScheme.primary
-    
+
     // Card is a pure 16:9 thumbnail — caller supplies width via modifier (weight for grid)
     Box(
         modifier = modifier

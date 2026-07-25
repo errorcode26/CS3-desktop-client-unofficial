@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,9 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -114,7 +114,7 @@ fun SettingsAppearance() {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(fontName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = {
@@ -152,7 +152,7 @@ fun SettingsAppearance() {
                         }
                     }
                 },
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
             ) {
                 Text("Install Custom Font")
             }
@@ -246,7 +246,7 @@ fun SettingsAppearance() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 16.dp)
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
             ) {
                 val baseWidth = when (gridScale) {
                     "Compact" -> 150.dp
@@ -255,12 +255,12 @@ fun SettingsAppearance() {
                 }
                 val animatedWidth by androidx.compose.animation.core.animateDpAsState(
                     targetValue = baseWidth,
-                    animationSpec = androidx.compose.animation.core.tween(300)
+                    animationSpec = androidx.compose.animation.core.tween(300),
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     repeat(1) { index ->
                         Surface(
@@ -271,19 +271,19 @@ fun SettingsAppearance() {
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 1f - (index * 0.2f).coerceAtMost(0.8f)),
                             border = androidx.compose.foundation.BorderStroke(
                                 width = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                            )
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            ),
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
                             ) {
                                 if (index == 0) {
                                     Icon(
                                         imageVector = Icons.Filled.PlayArrow,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(48.dp)
+                                        modifier = Modifier.size(48.dp),
                                     )
                                 }
                             }

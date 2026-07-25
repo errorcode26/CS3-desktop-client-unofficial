@@ -15,9 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import kotlinx.coroutines.launch
@@ -297,8 +294,8 @@ fun SettingsAdvanced() {
 
             if (showResetDialog) {
                 CloudstreamAlertDialog(
-                        show = true,
-                        onDismissRequest = { showResetDialog = false },
+                    show = true,
+                    onDismissRequest = { showResetDialog = false },
                     title = { Text("Factory Reset") },
                     text = { Text("Are you absolutely sure? This will permanently wipe all your data, plugins, and settings. The app will immediately close to perform the wipe.") },
                     confirmButton = {

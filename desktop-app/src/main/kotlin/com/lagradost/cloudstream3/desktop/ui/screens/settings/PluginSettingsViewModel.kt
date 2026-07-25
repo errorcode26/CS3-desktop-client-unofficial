@@ -29,7 +29,7 @@ sealed interface PluginSettingsUiEvent : UiEvent {
 sealed interface PluginSettingsUiEffect : UiEffect
 
 class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSettingsUiEvent, PluginSettingsUiEffect>(
-    initialState = PluginSettingsUiState()
+    initialState = PluginSettingsUiState(),
 ) {
 
     override fun handleEvent(event: PluginSettingsUiEvent) {
@@ -50,7 +50,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
         val activePrefName = PluginSettingsSchemaRegistry.resolvePrefName(state.prefName, state.pluginName)
         val settings = PluginSettingsSchemaRegistry.getSettingsForPlugin(activePrefName, state.pluginName).sortedWith(
             compareBy<PluginSettingSchema> { getCategoryPriority(it.key) }
-                .thenBy { getFriendlyName(it.key) }
+                .thenBy { getFriendlyName(it.key) },
         )
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -65,7 +65,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
                 map[fullKey] = value
             }
 
-            updateState { 
+            updateState {
                 copy(
                     activePrefName = activePrefName,
                     settings = settings,
@@ -77,7 +77,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
 
     private fun updateSetting(schema: PluginSettingSchema, newValue: Any?) {
         val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
-        
+
         // Optimistic UI update
         updateState {
             val updatedValues = currentValues.toMutableMap()

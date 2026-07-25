@@ -24,8 +24,8 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 // Removed DesktopUiState globally!
 
@@ -124,7 +124,6 @@ fun DesktopAppShell(
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
                     }
                 }
-
 
                 Box(
                     modifier = Modifier

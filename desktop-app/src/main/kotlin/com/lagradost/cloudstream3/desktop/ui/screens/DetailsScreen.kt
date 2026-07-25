@@ -1,10 +1,12 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +42,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiE
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -293,22 +297,36 @@ fun DetailsContent(
     }
 
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
-    var screenshotsExpanded by remember { mutableStateOf(false) }
+    var screenshotsExpanded by remember { mutableStateOf(true) }
+    var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
     val screenshotsScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val similarScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     val isMovieLike = remember(data) {
-        data is MovieLoadResponse || data is TorrentLoadResponse || data is LiveStreamLoadResponse ||
-            (data is TvSeriesLoadResponse && data.episodes.size == 1) ||
-            (data is AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
+        data is com.lagradost.cloudstream3.MovieLoadResponse || data is com.lagradost.cloudstream3.TorrentLoadResponse || data is com.lagradost.cloudstream3.LiveStreamLoadResponse ||
+            (data is com.lagradost.cloudstream3.TvSeriesLoadResponse && data.episodes.size == 1) ||
+            (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        DetailsBackdrop(
+            provider = provider,
+            data = data,
+            scrollState = scrollState,
+            hazeState = hazeState,
+            enrichmentPhase = enrichmentPhase,
+            modifier = Modifier.fillMaxSize(),
+            dynamicColorEnabled = dynamicColorEnabled,
+            animatedHeroColor = animatedHeroColor,
+            uiState = uiState,
+        )
+
         val remoteIcons by com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.remotePluginIcons.collectAsState()
 
         val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-        val heroAction: @Composable () -> Unit = {
+        val heroAction: @Composable (Modifier) -> Unit = { modifier ->
             com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsPlayButton(
+                modifier = modifier,
                 data = data,
                 provider = provider,
                 latestHistory = latestHistory,
@@ -316,101 +334,159 @@ fun DetailsContent(
             )
         }
 
+        val tabs = remember(isMovieLike) {
+            if (isMovieLike) {
+                listOf("More Like This", "Trailers & Extras", "Cast & Crew", "Details & Info")
+            } else {
+                listOf("Episodes", "Trailers & Extras", "Cast & Crew", "Details & Info")
+            }
+        }
+        var selectedTab by remember { mutableStateOf(0) }
+
         LazyColumn(state = scrollState, modifier = Modifier.fillMaxSize()) {
             item(key = "HeroSection") {
-                val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
-                val heroHeight = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    windowInfo.containerSize.height.toDp()
-                }
-                Box(modifier = Modifier.fillMaxWidth().height(heroHeight)) {
-                    DetailsBackdrop(
+                Box(modifier = Modifier.fillMaxWidth().fillParentMaxHeight(0.85f)) {
+                    DetailsMetadata(
                         provider = provider,
                         data = data,
-                        scrollState = scrollState,
                         hazeState = hazeState,
+                        heroAction = heroAction,
                         enrichmentPhase = enrichmentPhase,
-                        modifier = Modifier.fillMaxSize(),
-                        dynamicColorEnabled = dynamicColorEnabled,
-                        animatedHeroColor = animatedHeroColor,
+                        isLoading = isLoading,
                         uiState = uiState,
+                        screenshots = screenshots,
+                        onPhotosClick = {
+                            selectedTab = 1
+                            coroutineScope.launch { scrollState.animateScrollToItem(1) }
+                        },
+                        onCastClick = {
+                            selectedTab = 2
+                            coroutineScope.launch { scrollState.animateScrollToItem(1) }
+                        },
+                        onActorClick = { actor -> selectedActor = actor },
                     )
-                    DetailsMetadata(provider = provider, data = data, hazeState = hazeState, heroAction = heroAction, enrichmentPhase = enrichmentPhase, isLoading = isLoading, uiState = uiState)
                 }
             }
 
-            item(key = "EpisodeSection") {
-                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
-                    provider = provider,
-                    data = data,
-                    showHistory = showHistory,
-                    latestHistory = latestHistory,
-                    isMovieLike = isMovieLike,
-                    isLoading = isLoading,
-                    uiState = uiState,
-                    onPlay = onPlay,
-                    onToggleWatched = onToggleWatched,
-                    onToggleSeasonWatched = onToggleSeasonWatched,
-                    onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                    onToggleEpisodesStackedView = onToggleEpisodesStackedView,
-                )
-            }
-
-            item(key = "StatsSection") {
-                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
-                    uiState = uiState,
-                )
-            }
-
-            item(key = "CastSection") {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
-                            data = data,
-                            provider = provider,
-                            uiState = uiState,
-                            onMovieClick = { rec ->
-                                val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
-                                navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+            item(key = "TabRow") {
+                androidx.compose.material3.ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White,
+                    edgePadding = 64.dp,
+                    indicator = { tabPositions ->
+                        if (selectedTab < tabPositions.size) {
+                            androidx.compose.material3.TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.1f)) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp),
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        androidx.compose.material3.Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    title,
+                                    fontWeight = if (selectedTab == index) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                                    color = if (selectedTab == index) Color.White else Color.White.copy(alpha = 0.6f),
+                                )
                             },
                         )
                     }
                 }
             }
 
-            val collName = uiState?.enrichedCollectionName
-            val collBg = uiState?.enrichedCollectionBackdrop
-            val collItems = uiState?.enrichedCollectionItems ?: emptyList()
-            if (!collName.isNullOrBlank()) {
-                item(key = "CollectionSection") {
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
-                        collName = collName,
-                        collBg = collBg,
-                        collItems = collItems,
-                        provider = provider,
-                        onNavigate = { screen -> navController.navigate(screen) },
-                    )
-                }
-            }
-
-            if (!screenshots.isNullOrEmpty()) {
-                item(key = "ScreenshotsSection") {
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
-                        screenshots = screenshots,
-                        screenshotsExpanded = screenshotsExpanded,
-                        onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
-                        onScreenshotClick = { selectedScreenshot = it },
-                    )
-                }
-            }
-
-            val validRecs = data.recommendations?.filterIsInstance<com.lagradost.cloudstream3.SearchResponse>()?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
-
-            if (validRecs.isNotEmpty()) {
-                item(key = "RecommendationsSection") {
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
-                        validRecs = validRecs,
-                        onNavigate = { screen -> navController.navigate(screen) },
-                    )
+            item(key = "TabContent") {
+                androidx.compose.animation.AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        androidx.compose.animation.fadeIn(animationSpec = tween(400)) togetherWith androidx.compose.animation.fadeOut(animationSpec = tween(400))
+                    },
+                    modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(400)),
+                    label = "TabTransition",
+                ) { targetTab ->
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        when (targetTab) {
+                            0 -> { // Episodes / More Like This
+                                if (isMovieLike) {
+                                    val validRecs = data.recommendations?.filterIsInstance<com.lagradost.cloudstream3.SearchResponse>()?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
+                                    if (validRecs.isNotEmpty()) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
+                                            validRecs = validRecs,
+                                            onNavigate = { screen -> navController.navigate(screen) },
+                                        )
+                                    } else {
+                                        Box(modifier = Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) {
+                                            Text("No recommendations available.", color = Color.White.copy(alpha = 0.5f))
+                                        }
+                                    }
+                                } else {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
+                                        provider = provider,
+                                        data = data,
+                                        showHistory = showHistory,
+                                        latestHistory = latestHistory,
+                                        isMovieLike = isMovieLike,
+                                        isLoading = isLoading,
+                                        uiState = uiState,
+                                        onPlay = onPlay,
+                                        onToggleWatched = onToggleWatched,
+                                        onToggleSeasonWatched = onToggleSeasonWatched,
+                                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                        onToggleEpisodesStackedView = onToggleEpisodesStackedView,
+                                    )
+                                }
+                            }
+                            1 -> { // Trailers & Extras
+                                if (!screenshots.isNullOrEmpty()) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
+                                        screenshots = screenshots,
+                                        screenshotsExpanded = screenshotsExpanded,
+                                        onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
+                                        onScreenshotClick = { selectedScreenshot = it },
+                                    )
+                                } else {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) {
+                                        Text("No trailers or extras available.", color = Color.White.copy(alpha = 0.5f))
+                                    }
+                                }
+                            }
+                            2 -> { // Cast & Crew
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
+                                            data = data,
+                                            provider = provider,
+                                            uiState = uiState,
+                                            onActorClick = { actor -> selectedActor = actor },
+                                        )
+                                    }
+                                }
+                            }
+                            3 -> { // Details & Info
+                                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
+                                    uiState = uiState,
+                                )
+                                val collName = uiState?.enrichedCollectionName
+                                val collBg = uiState?.enrichedCollectionBackdrop
+                                val collItems = uiState?.enrichedCollectionItems ?: emptyList()
+                                if (!collName.isNullOrBlank()) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
+                                        collName = collName,
+                                        collBg = collBg,
+                                        collItems = collItems,
+                                        provider = provider,
+                                        onNavigate = { screen -> navController.navigate(screen) },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -457,6 +533,17 @@ fun DetailsContent(
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                 }
             }
+        }
+
+        if (selectedActor != null) {
+            com.lagradost.cloudstream3.desktop.ui.screens.details.CastDetailsDialog(
+                actor = selectedActor!!,
+                onDismiss = { selectedActor = null },
+                onMovieClick = { rec ->
+                    val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
+                    navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+                },
+            )
         }
     }
 }

@@ -21,8 +21,8 @@ import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun ComposeHomeScreen(
@@ -199,6 +199,5 @@ fun ComposeHomeScreen(
                 }
             }
         }
-
     }
 }

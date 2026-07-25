@@ -162,6 +162,9 @@ object HeroRepository {
                                 title = cleanHeroTitle(details.name).takeIf { it.isNotBlank() } ?: enrichedMeta.title,
                                 backdropUrl = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.backdropUrl,
                                 logoUrl = details.logoUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.logoUrl,
+                                tags = details.tags?.takeIf { it.isNotEmpty() } ?: enrichedMeta.tags,
+                                plot = details.plot?.takeIf { it.isNotBlank() } ?: enrichedMeta.plot,
+                                score = details.score?.toString() ?: enrichedMeta.score,
                             )
                             HeroCache.put(cacheKey, finalMeta)
                             trySend(HeroUpdate.Meta(item.url, finalMeta))

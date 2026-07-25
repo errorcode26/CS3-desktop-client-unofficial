@@ -23,7 +23,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     override fun dispose() {
         super.dispose()
-        loadLinksJob?.cancel()
+        // See cancelScraping() - Do NOT cancel loadLinksJob on exit
+        // loadLinksJob?.cancel()
         saveJob?.cancel()
     }
 
@@ -44,7 +45,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private fun selectShader(shaderName: String) {
         com.lagradost.common.storage.DesktopDataStore.setKey(
             com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
-            shaderName
+            shaderName,
         )
         // Note: The shader will be applied on the NEXT player initialization.
         // Hot-swapping requires MPV property commands, which can be added via PlayerUiEffect if needed.
@@ -248,7 +249,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun cancelScraping() {
-        loadLinksJob?.cancel()
+        // Do not cancel loadLinksJob to prevent plugin recursion crashes.
+        // loadLinksJob?.cancel()
         updateState {
             copy(
                 isScrapingLinks = false,
@@ -264,7 +266,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         targetEpisodeData: Episode? = null,
     ) {
         val hasStartedPlaying = AtomicBoolean(false)
-        
+
         // Fetch DB data outside of the callbacks and StateFlow CAS loops!
         val current = uiState.value.launchData ?: baseLaunchData
         val pastHistory = if (targetEpisodeData != null) {
@@ -272,7 +274,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 parentId = current.history.parentId,
                 episodeId = targetEpisodeData.data,
             )
-        } else null
+        } else {
+            null
+        }
 
         val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
             pastHistory.position * 1000L
@@ -288,7 +292,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 position = startPos / 1000L,
                 duration = pastHistory?.duration ?: 0L,
             )
-        } else null
+        } else {
+            null
+        }
 
         try {
             provider.loadLinks(
