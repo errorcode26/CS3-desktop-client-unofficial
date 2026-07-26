@@ -22,6 +22,7 @@ import java.io.File
 fun SettingsLogcat() {
     val clipboardManager = LocalClipboardManager.current
     var logText by remember { mutableStateOf("Loading logs...") }
+    var filterEnrichmentOnly by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
@@ -34,10 +35,17 @@ fun SettingsLogcat() {
                     lastModified = modified
                     try {
                         val lines = logFile.readLines()
-                        val newText = if (lines.size > 1000) {
-                            lines.takeLast(1000).joinToString("\n")
+
+                        val filteredLines = if (filterEnrichmentOnly) {
+                            lines.filter { it.contains("[Enrichment]") || it.contains("HybridEnrichmentService") || it.contains("TmdbEnrichmentService") || it.contains("HeroRepository") }
                         } else {
-                            lines.joinToString("\n")
+                            lines
+                        }
+
+                        val newText = if (filteredLines.size > 1000) {
+                            filteredLines.takeLast(1000).joinToString("\n")
+                        } else {
+                            filteredLines.joinToString("\n")
                         }
 
                         val isAtBottom = scrollState.value >= scrollState.maxValue - 50
@@ -56,6 +64,29 @@ fun SettingsLogcat() {
         }
     }
 
+    // Force refresh when filter changes
+    LaunchedEffect(filterEnrichmentOnly) {
+        val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
+        if (logFile.exists()) {
+            try {
+                val lines = logFile.readLines()
+                val filteredLines = if (filterEnrichmentOnly) {
+                    lines.filter { it.contains("[Enrichment]") || it.contains("HybridEnrichmentService") || it.contains("TmdbEnrichmentService") || it.contains("HeroRepository") }
+                } else {
+                    lines
+                }
+                val newText = if (filteredLines.size > 1000) {
+                    filteredLines.takeLast(1000).joinToString("\n")
+                } else {
+                    filteredLines.joinToString("\n")
+                }
+                logText = newText
+                delay(50)
+                scrollState.scrollTo(scrollState.maxValue)
+            } catch (e: Exception) {}
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -63,7 +94,14 @@ fun SettingsLogcat() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("App Logcat", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
+                    Checkbox(
+                        checked = filterEnrichmentOnly,
+                        onCheckedChange = { filterEnrichmentOnly = it },
+                    )
+                    Text("Enrichment Only", style = MaterialTheme.typography.bodyMedium)
+                }
                 Button(onClick = {
                     val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
                     if (logFile.exists()) {

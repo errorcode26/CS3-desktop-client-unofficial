@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
-import com.lagradost.player.impl.PlayerLinkHandler
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
@@ -45,6 +44,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiE
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
+import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
@@ -396,7 +396,9 @@ fun DetailsContent(
                             }
                             val pctStr = "${(progress * 100).toInt()}%"
                             "$pctStr watched • $timeStr"
-                        } else null
+                        } else {
+                            null
+                        }
                     }
 
                     val progressLabel = remember(latestHistory) {
@@ -408,7 +410,9 @@ fun DetailsContent(
                                 ep != null && ep > 0 -> "CONTINUE WATCHING E$ep"
                                 else -> "CONTINUE WATCHING"
                             }
-                        } else "CONTINUE WATCHING"
+                        } else {
+                            "CONTINUE WATCHING"
+                        }
                     }
 
                     if (progressInfo != null && progress > 0f) {

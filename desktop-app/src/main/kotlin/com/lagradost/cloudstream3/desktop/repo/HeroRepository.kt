@@ -6,12 +6,15 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository
 import com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService
 import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
+import com.lagradost.cloudstream3.desktop.utils.TitleUtils
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -42,9 +45,11 @@ object HeroCache {
 object HeroRepository {
     private val prefetchingUrls = ConcurrentHashMap.newKeySet<String>()
 
-    fun cleanHeroTitle(title: String): String {
-        return title.replace(Regex("(?i)\\s*(?:tv|season|episode|\\d+).*$"), "").trim()
-    }
+    // Limit concurrent background TMDB/Cinemeta enrichment calls.
+    private val backgroundSemaphore = Semaphore(3)
+
+    /** Delegates to the shared TitleUtils cleaner. Kept for call-sites in Composables. */
+    fun cleanHeroTitle(title: String): String = TitleUtils.cleanProviderTitle(title).first
 
     suspend fun getHeroColor(imageUrl: String): Long? {
         return ImageColorExtractor.getCachedColor(imageUrl)?.value?.toLong()
@@ -74,18 +79,25 @@ object HeroRepository {
         data class ColorTarget(val url: String, val posterUrl: String) : HeroUpdate
     }
 
-    private const val INITIAL_RETRY_DELAY = 1500L
-    private const val SUBSEQUENT_RETRY_DELAY = 2000L
-    private const val MAX_RETRIES = 3
-
+    // Fetch only lightweight TMDB/Cinemeta metadata for hero display.
+    // provider.load() (full scrape) is intentionally NOT called here — only on details open.
     fun prefetchHeroItem(
         provider: MainAPI?,
         item: SearchResponse,
     ): kotlinx.coroutines.flow.Flow<HeroUpdate> = kotlinx.coroutines.flow.callbackFlow {
         val cacheKey = "${provider?.name}_${item.url}"
-        val existing = HeroCache.get(cacheKey)
+        var existing = HeroCache.get(cacheKey)
+        if (existing == null) {
+            existing = com.lagradost.common.storage.DesktopDataStore.getKey<HeroMeta>("herometa_$cacheKey")
+            if (existing != null) {
+                HeroCache.put(cacheKey, existing)
+            }
+        }
+
         if (existing != null) {
             trySend(HeroUpdate.Meta(item.url, existing))
+            val colorTarget = existing.backdropUrl ?: provider?.fixUrlNull(item.posterUrl)
+            if (colorTarget != null) trySend(HeroUpdate.ColorTarget(item.url, colorTarget))
             close()
             return@callbackFlow
         }
@@ -96,118 +108,63 @@ object HeroRepository {
         }
 
         try {
-            val dummyTitle = cleanHeroTitle(item.name)
+            backgroundSemaphore.withPermit {
+                val (dummyTitle, parsedYear) = TitleUtils.cleanProviderTitle(item.name)
+                AppLogger.i("Enrichment", "[HERO] prefetch | raw='${item.name}' | clean='$dummyTitle' | type=${item.type} | url=${item.url}")
 
-            if (provider != null) {
-                val dummy = provider.newMovieLoadResponse(
-                    name = dummyTitle,
-                    url = item.url,
-                    type = com.lagradost.cloudstream3.TvType.Movie,
-                    dataUrl = item.url,
-                ) {
-                    this.posterUrl = item.posterUrl
-                }
+                if (provider != null) {
+                    // Use the real type from the search result so Cinemeta/TMDB search the correct catalog.
+                    val actualType = item.type ?: com.lagradost.cloudstream3.TvType.Movie
 
-                com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService.enrich(dummy, "dummy_${item.url}", fetchCast = false, onScreenshotsLoaded = {})
-
-                val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
-                val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
-                val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: cleanHeroTitle(item.name)
-                val tags = dummy.tags?.take(4) ?: emptyList()
-                val plot = dummy.plot?.take(200)
-                val score = dummy.score?.toString()
-
-                val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
-                HeroCache.put(cacheKey, meta)
-                trySend(HeroUpdate.Meta(item.url, meta))
-
-                val colorTarget = backdropUrl ?: provider.fixUrlNull(item.posterUrl)
-                if (colorTarget != null) trySend(HeroUpdate.ColorTarget(item.url, colorTarget))
-            } else {
-                val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
-                HeroCache.put(cacheKey, meta)
-                trySend(HeroUpdate.Meta(item.url, meta))
-            }
-
-            if (provider != null) {
-                val details = fetchDetailsWithRetry(provider, item.url)
-
-                if (details != null) {
-                    val currentMeta = HeroCache.get(cacheKey)
-                    val cleanDetailsName = cleanHeroTitle(details.name)
-                    val newTitle = cleanDetailsName.takeIf { it.isNotBlank() } ?: currentMeta?.title
-                    val newBackdrop = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.backdropUrl
-                    val newLogo = details.logoUrl?.takeIf { it.isNotBlank() } ?: currentMeta?.logoUrl
-                    val newTags = details.tags?.takeIf { it.isNotEmpty() } ?: currentMeta?.tags ?: emptyList()
-                    val newPlot = details.plot?.takeIf { it.isNotBlank() } ?: currentMeta?.plot
-                    val newScore = details.score?.toString() ?: currentMeta?.score
-                    val newYear = details.year ?: currentMeta?.year
-                    val newType = details.type ?: currentMeta?.type
-                    val newContentRating = details.contentRating?.takeIf { it.isNotBlank() } ?: currentMeta?.contentRating
-                    val newDuration = details.duration ?: currentMeta?.duration
-
-                    val rawMeta = HeroMeta(newTitle, newBackdrop, newLogo, newTags, newPlot, newScore, newYear, newType, newContentRating, newDuration)
-                    HeroCache.put(cacheKey, rawMeta)
-                    trySend(HeroUpdate.Meta(item.url, rawMeta))
-                    if (newBackdrop != null) trySend(HeroUpdate.ColorTarget(item.url, newBackdrop))
+                    val dummy =
+                        provider.newMovieLoadResponse(
+                            name = dummyTitle,
+                            url = item.url,
+                            type = actualType,
+                            dataUrl = item.url,
+                        ) {
+                            this.posterUrl = item.posterUrl
+                            // Seed the year from title parsing so enrichment has it immediately.
+                            if (this.year == null && parsedYear != null) this.year = parsedYear
+                        }
 
                     com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService.enrich(
-                        loaded = details,
-                        url = item.url,
+                        loaded = dummy,
+                        url = "dummy_${item.url}",
                         fetchCast = false,
                         onScreenshotsLoaded = {},
-                        onEnrichmentComplete = {
-                            val enrichedMeta = HeroCache.get(cacheKey) ?: rawMeta
-                            val finalMeta = enrichedMeta.copy(
-                                title = cleanHeroTitle(details.name).takeIf { it.isNotBlank() } ?: enrichedMeta.title,
-                                backdropUrl = details.backgroundPosterUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.backdropUrl,
-                                logoUrl = details.logoUrl?.takeIf { it.isNotBlank() } ?: enrichedMeta.logoUrl,
-                                tags = details.tags?.takeIf { it.isNotEmpty() } ?: enrichedMeta.tags,
-                                plot = details.plot?.takeIf { it.isNotBlank() } ?: enrichedMeta.plot,
-                                score = details.score?.toString() ?: enrichedMeta.score,
-                            )
-                            HeroCache.put(cacheKey, finalMeta)
-                            trySend(HeroUpdate.Meta(item.url, finalMeta))
-                            if (finalMeta.backdropUrl != null) trySend(HeroUpdate.ColorTarget(item.url, finalMeta.backdropUrl))
-                            close()
-                        },
                     )
+
+                    val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
+                    val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
+                    val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: dummyTitle
+                    val tags = dummy.tags?.take(4) ?: emptyList()
+                    val plot = dummy.plot?.take(200)
+                    val score = dummy.score?.toString()
+
+                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
+                    AppLogger.i("Enrichment", "[HERO] RESULT | title='$title' | backdrop=${backdropUrl != null} | logo=${logoUrl != null} | tags=$tags | score=$score")
+                    HeroCache.put(cacheKey, meta)
+                    com.lagradost.common.storage.DesktopDataStore.setKey("herometa_$cacheKey", meta)
+                    trySend(HeroUpdate.Meta(item.url, meta))
+
+                    val colorTarget = backdropUrl ?: provider.fixUrlNull(item.posterUrl)
+                    if (colorTarget != null) trySend(HeroUpdate.ColorTarget(item.url, colorTarget))
                 } else {
-                    close()
+                    val meta = HeroMeta(dummyTitle, null, null, emptyList(), null, null, null, null, null, null)
+                    HeroCache.put(cacheKey, meta)
+                    trySend(HeroUpdate.Meta(item.url, meta))
                 }
-            } else {
-                close()
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             HeroCache.remove(cacheKey)
-            close(e)
+            AppLogger.e("Enrichment", "[HERO] CRASHED for '${item.name}' — ${e::class.simpleName}: ${e.message}", e)
         } finally {
             prefetchingUrls.remove(cacheKey)
         }
+        close()
         awaitClose { }
-    }
-
-    private suspend fun fetchDetailsWithRetry(
-        provider: MainAPI,
-        url: String,
-    ): com.lagradost.cloudstream3.LoadResponse? {
-        var attempt = 0
-        while (attempt < MAX_RETRIES) {
-            try {
-                kotlinx.coroutines.delay(if (attempt == 0) INITIAL_RETRY_DELAY else SUBSEQUENT_RETRY_DELAY)
-                if (DetailsCache.containsKey(url)) {
-                    return DetailsCache.get(url)
-                }
-                return DetailsRepository.fetchRaw(provider, url)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                attempt++
-                if (attempt >= MAX_RETRIES) throw e
-            }
-        }
-        return null
     }
 }

@@ -70,9 +70,26 @@ fun DetailsEpisodeSection(
         )
     }
 
-    val seasons = remember(data) { if (data is TvSeriesLoadResponse) data.episodes.mapNotNull { it.season }.distinct().sorted() else emptyList() }
+    val seasons = remember(data) {
+        val list = when (data) {
+            is TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct().sorted()
+            is AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+            else -> emptyList()
+        }
+        if (list.isEmpty() && (data is TvSeriesLoadResponse || data is AnimeLoadResponse)) {
+            listOf(1)
+        } else {
+            list
+        }
+    }
     var selectedSeason by remember(latestHistory?.season, data) {
-        mutableStateOf(if (data is TvSeriesLoadResponse) latestHistory?.season ?: seasons.firstOrNull() ?: 1 else 1)
+        mutableStateOf(
+            if (data is TvSeriesLoadResponse || data is AnimeLoadResponse) {
+                latestHistory?.season ?: seasons.firstOrNull() ?: 1
+            } else {
+                1
+            },
+        )
     }
 
     var isSortAscending by remember(data.url) { mutableStateOf(true) }
@@ -136,8 +153,8 @@ fun DetailsEpisodeSection(
                 ) {
                     val currentSeasonEpisodes = (data as? TvSeriesLoadResponse)?.episodes
                         ?.filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                        ?: (data as? AnimeLoadResponse)?.episodes?.values?.flatten()
-                        ?: emptyList()
+                        ?: (selectedDub?.let { (data as? AnimeLoadResponse)?.episodes?.get(it) } ?: emptyList())
+                            .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
                     if (currentSeasonEpisodes.isNotEmpty()) {
                         val isSeasonWatched = currentSeasonEpisodes.all { ep ->
                             val hist = showHistory.values.find { it.episodeId == ep.data }
@@ -237,7 +254,7 @@ fun DetailsEpisodeSection(
                     // Season selector + sort
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                            if (seasons.size > 1) {
+                            if (seasons.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -358,6 +375,7 @@ fun DetailsEpisodeSection(
                 is AnimeLoadResponse -> {
                     if (isMovieLike) return@Column
                     val preChunkedEpisodes: List<Episode> = (selectedDub?.let { data.episodes[it] } ?: emptyList())
+                        .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
                         .let { list ->
                             if (isSortAscending) {
                                 list.sortedBy { it.episode ?: Int.MAX_VALUE }
@@ -371,6 +389,29 @@ fun DetailsEpisodeSection(
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            if (seasons.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    seasons.forEach { season ->
+                                        val isSelected = selectedSeason == season
+                                        Button(
+                                            onClick = { selectedSeason = season },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            elevation = null,
+                                        ) {
+                                            Text(if (season == 0) "Specials" else "Season $season", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                            }
+
                             if (dubStatuses.size > 1) {
                                 Row(
                                     modifier = Modifier.horizontalScroll(rememberScrollState()),

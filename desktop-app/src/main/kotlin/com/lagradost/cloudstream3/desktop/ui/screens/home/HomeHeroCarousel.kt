@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -61,8 +59,18 @@ fun HomeHeroCarousel(
 ) {
     if (items.isEmpty()) return
 
-    val displayItems = items.take(10)
+    val displayItems by remember(items, heroMetaMap) {
+        derivedStateOf {
+            items.filter { item ->
+                val meta = heroMetaMap[item.url]
+                // Keep if still loading (null) OR if it successfully found a backdrop
+                meta == null || meta.backdropUrl != null
+            }.take(10)
+        }
+    }
+
     val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+    val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val scope = rememberCoroutineScope()
     var globalIndex by remember(displayItems.size) {
         mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
@@ -70,17 +78,20 @@ fun HomeHeroCarousel(
 
     val currentIndex = if (displayItems.isNotEmpty()) globalIndex % displayItems.size else 0
 
-    LaunchedEffect(displayItems.size) {
+    LaunchedEffect(displayItems.size, autoSlideDelay) {
         if (displayItems.isNotEmpty()) {
             while (true) {
-                delay(10000)
+                delay(autoSlideDelay * 1000L)
                 globalIndex++
             }
         }
     }
 
-    LaunchedEffect(displayItems) {
-        for (item in displayItems) {
+    LaunchedEffect(items) {
+        // Prefetch candidates sequentially. The first 10 will load in ~8 seconds.
+        // If any fail and are filtered out, the later candidates will naturally fill the gaps.
+        items.forEachIndexed { index, item ->
+            if (index > 0) delay(800L)
             onPrefetchHeroItem(provider, item)
         }
     }
@@ -541,8 +552,6 @@ fun HomeHeroCarousel(
                                     }
                                 }
                             }
-
-
                         }
                     }
                 }

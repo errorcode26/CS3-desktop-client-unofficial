@@ -33,6 +33,7 @@ fun SettingsAppearance() {
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+    val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
 
     val accentColors = listOf(
         "Purple" to Color(0xFF7C6BFF),
@@ -219,6 +220,22 @@ fun SettingsAppearance() {
         }
 
         SettingsGroupCard(title = "Display & Layout") {
+            SettingsDropdownItem(
+                label = "Hero Auto-Slide Delay",
+                subtitle = "Time before the home page hero section automatically switches to the next item",
+                options = listOf(
+                    5 to "5 Seconds",
+                    10 to "10 Seconds",
+                    15 to "15 Seconds",
+                    30 to "30 Seconds",
+                    60 to "60 Seconds",
+                ),
+                currentValue = autoSlideDelay,
+                onSelectionChanged = { AppearanceConfig.setHeroAutoSlideDelaySeconds(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
             SettingsDropdownItem(
                 label = "Dock Position",
                 subtitle = "Choose where the main navigation dock is placed",

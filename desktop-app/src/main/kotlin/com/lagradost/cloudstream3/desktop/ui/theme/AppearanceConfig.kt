@@ -16,6 +16,7 @@ object AppearanceConfig {
     private const val PREF_DOCK_POSITION = "pref_dock_position"
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
+    private const val PREF_HERO_AUTO_SLIDE_DELAY = "pref_hero_auto_slide_delay"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -28,6 +29,7 @@ object AppearanceConfig {
     val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
     val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
+    val heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
 
     fun setThemeAccent(colorName: String) {
         themeAccent.value = colorName
@@ -89,5 +91,10 @@ object AppearanceConfig {
     fun setScreensaverEnabled(enabled: Boolean) {
         screensaverEnabled.value = enabled
         DesktopDataStore.setKey(PREF_SCREENSAVER_ENABLED, enabled)
+    }
+
+    fun setHeroAutoSlideDelaySeconds(seconds: Int) {
+        heroAutoSlideDelaySeconds.value = seconds
+        DesktopDataStore.setKey(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
     }
 }

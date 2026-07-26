@@ -108,8 +108,11 @@ fun HomeCategorySection(
             if (hp != null && hp.items.isNotEmpty()) {
                 hp.items.forEachIndexed { sectionIndex, section ->
                     if (isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
+                        val heroCandidates = remember(hp.items) {
+                            hp.items.flatMap { it.list }.distinctBy { it.url }.take(30)
+                        }
                         HomeHeroCarousel(
-                            items = section.list,
+                            items = heroCandidates,
                             provider = provider,
                             heroMetaMap = heroMetaMap,
                             heroColorMap = heroColorMap,

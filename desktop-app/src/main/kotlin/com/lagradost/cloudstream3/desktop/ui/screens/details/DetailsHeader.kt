@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -545,7 +545,7 @@ fun DetailsMetadata(
                             defaultWidth = 24.dp,
                             defaultHeight = 24.dp,
                             viewportWidth = 24f,
-                            viewportHeight = 24f
+                            viewportHeight = 24f,
                         ).path(
                             fill = androidx.compose.ui.graphics.SolidColor(Color.White),
                             stroke = null,
@@ -554,7 +554,7 @@ fun DetailsMetadata(
                             strokeLineWidth = 1f,
                             strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Butt,
                             strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Bevel,
-                            strokeLineMiter = 1f
+                            strokeLineMiter = 1f,
                         ) {
                             moveTo(16f, 9f)
                             verticalLineTo(4f)
@@ -575,7 +575,7 @@ fun DetailsMetadata(
                             verticalLineTo(12f)
                             curveTo(17.34f, 12f, 16f, 10.66f, 16f, 9f)
                             close()
-                        }.build()
+                        }.build(),
                     )
 
                     Column(

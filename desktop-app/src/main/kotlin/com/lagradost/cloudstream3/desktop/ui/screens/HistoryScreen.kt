@@ -1,20 +1,16 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
@@ -129,7 +125,7 @@ fun ComposeHistoryScreen(navController: NavController) {
                                             preloadedName = history.showName,
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
-                                        )
+                                        ),
                                     )
                                 }
                             },
