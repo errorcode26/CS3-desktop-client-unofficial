@@ -60,6 +60,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnCloseLinksPanel -> closeLinksPanel()
             is DetailsUiEvent.OnRequestAutoPlay -> handleAutoPlay()
             is DetailsUiEvent.OnPlayEpisode -> handlePlayEpisode(event.ep)
+            is DetailsUiEvent.OnDownloadEpisode -> handleDownloadEpisode(event.ep)
             is DetailsUiEvent.OnToggleEpisodeWatched -> handleToggleEpisodeWatched(event.ep, event.isWatched)
             is DetailsUiEvent.OnRemoveEpisodeWatched -> handleRemoveEpisodeWatched(event.ep)
             is DetailsUiEvent.OnToggleSeasonWatched -> handleToggleSeasonWatched(event.episodes, event.isWatched)
@@ -237,7 +238,16 @@ class DetailsViewModel(
             val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
             val history = buildWatchHistory(ep, data)
             val patchedData = patchEpisodeData(ep, data)
-            handlePlayRequest(Triple(provider, patchedData, history))
+            handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = true)
+        }
+    }
+
+    private fun handleDownloadEpisode(ep: Episode) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val history = buildWatchHistory(ep, data)
+            val patchedData = patchEpisodeData(ep, data)
+            handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = false)
         }
     }
 
@@ -331,8 +341,9 @@ class DetailsViewModel(
         }
     }
 
-    private fun handlePlayRequest(data: Triple<MainAPI, String, WatchHistory>) {
-        if (uiState.value.autoPlayEnabled) {
+    private fun handlePlayRequest(data: Triple<MainAPI, String, WatchHistory>, forceAutoPlay: Boolean? = null) {
+        val shouldAutoPlay = forceAutoPlay ?: uiState.value.autoPlayEnabled
+        if (shouldAutoPlay) {
             val linkHistory = data.third
             val epTitle = buildString {
                 append(linkHistory.showName)

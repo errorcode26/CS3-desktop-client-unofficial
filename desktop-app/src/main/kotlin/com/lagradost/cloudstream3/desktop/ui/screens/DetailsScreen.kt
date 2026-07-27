@@ -98,6 +98,10 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         viewModel.onEvent(DetailsUiEvent.OnPlayEpisode(ep))
     }
 
+    val handleDownload: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
+        viewModel.onEvent(DetailsUiEvent.OnDownloadEpisode(ep))
+    }
+
     val handleToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit = { ep, isWatched ->
         viewModel.onEvent(DetailsUiEvent.OnToggleEpisodeWatched(ep, isWatched))
     }
@@ -179,7 +183,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         ) {
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState?.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -188,7 +192,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState?.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -282,6 +286,8 @@ fun DetailsContent(
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     isLoading: Boolean = false,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
+    enableDownloadButtons: Boolean = false,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
@@ -338,6 +344,20 @@ fun DetailsContent(
             )
         }
 
+        val downloadAction: (@Composable (Modifier) -> Unit)? = if (enableDownloadButtons && onDownload != null && isMovieLike) {
+            { modifier ->
+                com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsDownloadButton(
+                    modifier = modifier,
+                    data = data,
+                    provider = provider,
+                    latestHistory = latestHistory,
+                    onDownload = onDownload,
+                )
+            }
+        } else {
+            null
+        }
+
         val tabs = remember(isMovieLike) {
             if (isMovieLike) {
                 listOf("More Like This", "Trailers & Extras", "Cast & Crew", "Details & Info")
@@ -356,6 +376,7 @@ fun DetailsContent(
                             data = data,
                             hazeState = hazeState,
                             heroAction = heroAction,
+                            downloadAction = downloadAction,
                             enrichmentPhase = enrichmentPhase,
                             isLoading = isLoading,
                             uiState = uiState,
@@ -538,7 +559,9 @@ fun DetailsContent(
                                         isMovieLike = isMovieLike,
                                         isLoading = isLoading,
                                         uiState = uiState,
+                                        enableDownloadButtons = enableDownloadButtons,
                                         onPlay = onPlay,
+                                        onDownload = onDownload,
                                         onToggleWatched = onToggleWatched,
                                         onToggleSeasonWatched = onToggleSeasonWatched,
                                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,

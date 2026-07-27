@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -48,7 +49,9 @@ fun EpisodeCard(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean = false,
     modifier: Modifier = Modifier,
+    enableDownloadButtons: Boolean = false,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
@@ -228,22 +231,46 @@ fun EpisodeCard(
 
         val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
-        // Top-Right: EP number pill
-        ep.episode?.let { epNum ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp)
-                    .clip(RoundedCornerShape(percent = 50))
-                    .background(Color.Black.copy(alpha = 0.75f))
-                    .padding(horizontal = 9.dp, vertical = 3.dp),
-            ) {
-                Text(
-                    text = "EP $epNum",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                    color = Color.White,
-                    fontWeight = FontWeight.ExtraBold,
-                )
+        // Top-Right: Actions and EP number pill
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (enableDownloadButtons && onDownload != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                        .clickable { onDownload(ep) }
+                        .padding(8.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = "Download",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            ep.episode?.let { epNum ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = "EP $epNum",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
             }
         }
 

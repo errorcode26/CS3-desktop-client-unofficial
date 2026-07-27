@@ -1,10 +1,12 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -69,31 +71,24 @@ fun DetailsPlayButton(
         }
     }
 
-    val onPlayClick = {
-        if (targetEp != null) {
-            onPlay(targetEp)
-        } else {
-            val ep = when (data) {
-                is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
-                    name = data.name
-                    description = data.plot
-                    posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                }
-                is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
-                    name = data.name
-                    description = data.plot
-                    posterUrl = data.posterUrl
-                }
-                is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
-                    name = data.name
-                    description = data.plot
-                    posterUrl = data.backgroundPosterUrl ?: data.posterUrl
-                }
-                else -> null
+    val targetActionEp = remember(targetEp, data) {
+        targetEp ?: when (data) {
+            is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
+                name = data.name
+                description = data.plot
+                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
             }
-            if (ep != null) {
-                onPlay(ep)
+            is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
+                name = data.name
+                description = data.plot
+                posterUrl = data.posterUrl
             }
+            is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
+                name = data.name
+                description = data.plot
+                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
+            }
+            else -> null
         }
     }
 
@@ -103,7 +98,7 @@ fun DetailsPlayButton(
             .widthIn(min = 190.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White)
-            .clickable { onPlayClick() }
+            .clickable { targetActionEp?.let { onPlay(it) } }
             .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -119,6 +114,84 @@ fun DetailsPlayButton(
                 text = buttonLabel,
                 color = Color(0xFF0F0F0F),
                 fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+    }
+}
+
+@Composable
+fun DetailsDownloadButton(
+    modifier: Modifier = Modifier,
+    data: LoadResponse,
+    provider: MainAPI,
+    latestHistory: WatchHistory? = null,
+    onDownload: (com.lagradost.cloudstream3.Episode) -> Unit,
+) {
+    val allEpisodes = remember(data) {
+        when (data) {
+            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes
+            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten()
+            else -> emptyList()
+        }
+    }
+    val sortedEpisodes = remember(allEpisodes) {
+        allEpisodes.sortedWith(
+            compareBy<com.lagradost.cloudstream3.Episode> { it.season ?: 1 }
+                .thenBy { it.episode ?: 1 },
+        )
+    }
+    val targetEp = remember(sortedEpisodes, latestHistory) {
+        if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
+            sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+        } else {
+            sortedEpisodes.firstOrNull()
+        }
+    }
+    val targetActionEp = remember(targetEp, data) {
+        targetEp ?: when (data) {
+            is com.lagradost.cloudstream3.MovieLoadResponse -> provider.newEpisode(data.dataUrl) {
+                name = data.name
+                description = data.plot
+                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
+            }
+            is com.lagradost.cloudstream3.TorrentLoadResponse -> provider.newEpisode(data.torrent ?: data.magnet ?: "") {
+                name = data.name
+                description = data.plot
+                posterUrl = data.posterUrl
+            }
+            is com.lagradost.cloudstream3.LiveStreamLoadResponse -> provider.newEpisode(data.dataUrl) {
+                name = data.name
+                description = data.plot
+                posterUrl = data.backgroundPosterUrl ?: data.posterUrl
+            }
+            else -> null
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .height(56.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.18f))
+            .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+            .clickable { targetActionEp?.let { onDownload(it) } }
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.Download,
+                contentDescription = "Download",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Download",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
             )
         }

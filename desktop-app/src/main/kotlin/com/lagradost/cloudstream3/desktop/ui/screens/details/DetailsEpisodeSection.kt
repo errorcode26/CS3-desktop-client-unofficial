@@ -39,7 +39,9 @@ fun DetailsEpisodeSection(
     isMovieLike: Boolean,
     isLoading: Boolean,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    enableDownloadButtons: Boolean = false,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
@@ -347,8 +349,10 @@ fun DetailsEpisodeSection(
                             data = data,
                             uiState = uiState,
                             isAntiSpoiler = isAntiSpoiler,
+                            enableDownloadButtons = enableDownloadButtons,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
+                            onDownload = onDownload,
                             onToggleWatched = onToggleWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
@@ -504,9 +508,11 @@ fun DetailsEpisodeSection(
                             provider = provider,
                             data = data,
                             uiState = uiState,
+                            enableDownloadButtons = enableDownloadButtons,
                             isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
+                            onDownload = onDownload,
                             onToggleWatched = onToggleWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
@@ -546,9 +552,11 @@ private fun RenderEpisodesSection(
     provider: MainAPI,
     data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    enableDownloadButtons: Boolean,
     isAntiSpoiler: Boolean,
     coroutineScope: CoroutineScope,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)?,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
@@ -581,7 +589,9 @@ private fun RenderEpisodesSection(
                         uiState = uiState,
                         isAntiSpoiler = isAntiSpoiler,
                         modifier = Modifier.width(cardWidth),
+                        enableDownloadButtons = enableDownloadButtons,
                         onPlay = onPlay,
+                        onDownload = onDownload,
                         onToggleWatched = onToggleWatched,
                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                     )
@@ -603,7 +613,21 @@ private fun RenderEpisodesSection(
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                 val history = showHistory.values.find { it.episodeId == ep.data }
-                EpisodeCard(ep, isLatest, history, provider, data, uiState, isAntiSpoiler, modifier = Modifier.width(480.dp), onPlay = onPlay, onToggleWatched = onToggleWatched, onRemoveEpisodeWatched = onRemoveEpisodeWatched)
+                EpisodeCard(
+                    ep = ep,
+                    isLatest = isLatest,
+                    history = history,
+                    provider = provider,
+                    data = data,
+                    uiState = uiState,
+                    isAntiSpoiler = isAntiSpoiler,
+                    modifier = Modifier.width(480.dp),
+                    enableDownloadButtons = enableDownloadButtons,
+                    onPlay = onPlay,
+                    onDownload = onDownload,
+                    onToggleWatched = onToggleWatched,
+                    onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                )
             }
         }
     }

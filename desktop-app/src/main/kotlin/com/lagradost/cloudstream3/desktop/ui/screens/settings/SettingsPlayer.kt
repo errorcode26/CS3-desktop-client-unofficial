@@ -51,14 +51,14 @@ fun SettingsPlayer() {
             )
         }
 
-        SettingsGroupCard(title = "Automation") {
+        SettingsGroupCard(title = "Features") {
             SettingsToggleItem(
-                label = "Direct Play",
-                subtitle = "When disabled, exposes the links panel before playback to allow downloading and copying direct video links.",
-                checked = autoPlay,
+                label = "Enable Download Buttons",
+                subtitle = "Shows download buttons on episodes and movies that open the link loader.",
+                checked = !autoPlay,
                 onCheckedChange = {
-                    autoPlay = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY, it)
+                    autoPlay = !it
+                    DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY, !it)
                 },
             )
 
@@ -69,6 +69,7 @@ fun SettingsPlayer() {
                     options = listOf(
                         "10000" to "10 Seconds",
                         "15000" to "15 Seconds",
+                        "20000" to "20 Seconds",
                         "30000" to "30 Seconds",
                         "60000" to "60 Seconds",
                     ),

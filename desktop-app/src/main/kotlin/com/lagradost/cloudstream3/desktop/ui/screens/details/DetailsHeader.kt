@@ -212,6 +212,7 @@ fun DetailsMetadata(
     data: LoadResponse,
     hazeState: HazeState,
     heroAction: @Composable (Modifier) -> Unit = {},
+    downloadAction: (@Composable (Modifier) -> Unit)? = null,
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     isLoading: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
@@ -522,17 +523,24 @@ fun DetailsMetadata(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             heroAction(Modifier.fillMaxWidth())
+                            downloadAction?.invoke(Modifier.fillMaxWidth())
                             libraryButton(Modifier.fillMaxWidth())
                         }
                     } else {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
                         ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                heroAction(Modifier.fillMaxWidth())
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    heroAction(Modifier.fillMaxWidth())
+                                }
+                                libraryButton(Modifier.weight(1f))
                             }
-                            libraryButton(Modifier.weight(1f))
+                            downloadAction?.invoke(Modifier.fillMaxWidth())
                         }
                     }
                 }
