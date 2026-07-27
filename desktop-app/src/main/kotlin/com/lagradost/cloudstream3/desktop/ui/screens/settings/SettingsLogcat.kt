@@ -25,6 +25,36 @@ fun SettingsLogcat() {
     var filterEnrichmentOnly by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
+    var currentLogLevel by remember {
+        mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<String>("log_level") ?: "WARN")
+    }
+
+    LaunchedEffect(currentLogLevel) {
+        com.lagradost.common.storage.DesktopDataStore.setKey("log_level", currentLogLevel)
+        try {
+            val loggerContext = org.slf4j.LoggerFactory.getILoggerFactory() as ch.qos.logback.classic.LoggerContext
+            val rootLogger = loggerContext.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
+            rootLogger.level = ch.qos.logback.classic.Level.toLevel(currentLogLevel.uppercase())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun readLog(file: File): String {
+        val lines = file.readLines()
+        val filtered = if (filterEnrichmentOnly) {
+            lines.filter {
+                it.contains("[Enrichment]") ||
+                    it.contains("HybridEnrichmentService") ||
+                    it.contains("TmdbEnrichmentService") ||
+                    it.contains("HeroRepository")
+            }
+        } else {
+            lines
+        }
+        return if (filtered.size > 1000) filtered.takeLast(1000).joinToString("\n") else filtered.joinToString("\n")
+    }
+
     LaunchedEffect(Unit) {
         val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
         var lastModified = 0L
@@ -34,23 +64,9 @@ fun SettingsLogcat() {
                 if (modified != lastModified) {
                     lastModified = modified
                     try {
-                        val lines = logFile.readLines()
-
-                        val filteredLines = if (filterEnrichmentOnly) {
-                            lines.filter { it.contains("[Enrichment]") || it.contains("HybridEnrichmentService") || it.contains("TmdbEnrichmentService") || it.contains("HeroRepository") }
-                        } else {
-                            lines
-                        }
-
-                        val newText = if (filteredLines.size > 1000) {
-                            filteredLines.takeLast(1000).joinToString("\n")
-                        } else {
-                            filteredLines.joinToString("\n")
-                        }
-
+                        val newText = readLog(logFile)
                         val isAtBottom = scrollState.value >= scrollState.maxValue - 50
                         logText = newText
-
                         if (isAtBottom && logText.isNotEmpty()) {
                             delay(50)
                             scrollState.scrollTo(scrollState.maxValue)
@@ -64,23 +80,12 @@ fun SettingsLogcat() {
         }
     }
 
-    // Force refresh when filter changes
+    // Refresh immediately when filter or level changes
     LaunchedEffect(filterEnrichmentOnly) {
         val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
         if (logFile.exists()) {
             try {
-                val lines = logFile.readLines()
-                val filteredLines = if (filterEnrichmentOnly) {
-                    lines.filter { it.contains("[Enrichment]") || it.contains("HybridEnrichmentService") || it.contains("TmdbEnrichmentService") || it.contains("HeroRepository") }
-                } else {
-                    lines
-                }
-                val newText = if (filteredLines.size > 1000) {
-                    filteredLines.takeLast(1000).joinToString("\n")
-                } else {
-                    filteredLines.joinToString("\n")
-                }
-                logText = newText
+                logText = readLog(logFile)
                 delay(50)
                 scrollState.scrollTo(scrollState.maxValue)
             } catch (e: Exception) {}
@@ -88,42 +93,75 @@ fun SettingsLogcat() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // ── Toolbar ──────────────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("App Logcat", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
-                    Checkbox(
-                        checked = filterEnrichmentOnly,
-                        onCheckedChange = { filterEnrichmentOnly = it },
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Log level dropdown
+                var isLevelMenuExpanded by remember { mutableStateOf(false) }
+                val logLevels = listOf("DEBUG", "INFO", "WARN", "ERROR")
+                Box {
+                    FilterChip(
+                        selected = true,
+                        onClick = { isLevelMenuExpanded = true },
+                        label = { Text("Level: $currentLogLevel", style = MaterialTheme.typography.labelMedium) },
+                        modifier = Modifier.height(32.dp),
                     )
-                    Text("Enrichment Only", style = MaterialTheme.typography.bodyMedium)
-                }
-                Button(onClick = {
-                    val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
-                    if (logFile.exists()) {
-                        logFile.writeText("")
-                        logText = ""
+                    DropdownMenu(
+                        expanded = isLevelMenuExpanded,
+                        onDismissRequest = { isLevelMenuExpanded = false },
+                    ) {
+                        logLevels.forEach { level ->
+                            DropdownMenuItem(
+                                text = { Text(level) },
+                                onClick = {
+                                    currentLogLevel = level
+                                    isLevelMenuExpanded = false
+                                },
+                            )
+                        }
                     }
-                }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Clear")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = {
-                    clipboardManager.setText(AnnotatedString(logText))
-                }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Copy")
+
+                // Enrichment filter toggle
+                FilterChip(
+                    selected = filterEnrichmentOnly,
+                    onClick = { filterEnrichmentOnly = !filterEnrichmentOnly },
+                    label = { Text("Enrichment Only", style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.height(32.dp),
+                )
+
+                // Action buttons
+                IconButton(
+                    onClick = {
+                        val logFile = File(System.getProperty("user.home"), "AppData/Roaming/CloudStreamDesktop/logs/app.log")
+                        if (logFile.exists()) {
+                            logFile.writeText("")
+                            logText = ""
+                        }
+                    },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Clear logs", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(
+                    onClick = { clipboardManager.setText(AnnotatedString(logText)) },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy logs", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
+        // ── Log content ───────────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxSize(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),

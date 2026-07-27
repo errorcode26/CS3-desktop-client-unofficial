@@ -55,7 +55,7 @@ fun WindowControlsPill(
         shape = CircleShape,
         color = theme.SurfaceElevated.copy(alpha = 0.6f),
         border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
-        shadowElevation = 8.dp, // Always use elevated shadow
+        shadowElevation = 8.dp.applyShadowMultiplier(), // Always use elevated shadow
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

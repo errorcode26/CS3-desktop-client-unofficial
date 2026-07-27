@@ -24,12 +24,8 @@ fun ComposeCategoryGridScreen(
     title: String,
     items: List<SearchResponse>,
 ) {
-    val gridScale by AppearanceConfig.gridScale.collectAsState()
-    val minSize = when (gridScale) {
-        "Compact" -> 110.dp
-        "Large" -> 170.dp
-        else -> 140.dp
-    }
+    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+    val minSize = posterWidthDp.dp
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = minSize),

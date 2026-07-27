@@ -34,7 +34,7 @@ class DetailsViewModel(
     ),
 ) {
     private val isInitialized = MutableStateFlow(false)
-    private val backupSeasonHistory = java.util.concurrent.ConcurrentHashMap<String, WatchHistory?>()
+    private val backupSeasonHistory = java.util.concurrent.ConcurrentHashMap<String, WatchHistory>()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -287,7 +287,10 @@ class DetailsViewModel(
                 // Marking as watched. Save backup of current states.
                 backupSeasonHistory.clear()
                 episodes.forEach { ep ->
-                    backupSeasonHistory[ep.data] = uiState.value.watchHistory.values.find { it.episodeId == ep.data }
+                    val hist = uiState.value.watchHistory.values.find { it.episodeId == ep.data }
+                    if (hist != null) {
+                        backupSeasonHistory[ep.data] = hist
+                    }
                     val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
                     val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
                     val history = WatchHistory(

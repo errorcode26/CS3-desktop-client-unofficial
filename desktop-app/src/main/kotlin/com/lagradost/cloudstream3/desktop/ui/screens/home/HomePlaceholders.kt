@@ -80,12 +80,8 @@ fun CategoryRowPlaceholder(
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(start = paddingStart, end = paddingEnd)) {
         val availableWidth = this.maxWidth
-        val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
-        val baseWidth = when (gridScale) {
-            "Compact" -> 150.dp
-            "Large" -> 220.dp
-            else -> 190.dp
-        }
+        val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
+        val baseWidth = posterWidthDp.dp
 
         val netWidth = availableWidth - 8.dp
         val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)

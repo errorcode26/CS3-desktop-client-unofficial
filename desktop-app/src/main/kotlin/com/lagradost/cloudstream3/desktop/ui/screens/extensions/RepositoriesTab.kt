@@ -127,12 +127,8 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             )
         }
 
-        val gridScale by AppearanceConfig.gridScale.collectAsState()
-        val repoMinSize = when (gridScale) {
-            "Compact" -> 280.dp
-            "Large" -> 380.dp
-            else -> 320.dp
-        }
+        val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+        val repoMinSize = (posterWidthDp * 1.8f).dp
 
         val allPlugins = uiState.plugins
         val installedPlugins = uiState.installedPlugins

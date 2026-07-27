@@ -71,7 +71,7 @@ fun ComposeLibraryScreen(navController: NavController) {
     val filteredBookmarks = uiState.filteredBookmarks
     val selectedTab = uiState.selectedTab
     val showError = uiState.showError
-    val gridScale = uiState.gridScale
+    val posterWidthDp = uiState.posterWidthDp
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (bookmarksList.isEmpty()) {
@@ -125,11 +125,7 @@ fun ComposeLibraryScreen(navController: NavController) {
                         )
                     }
                 } else {
-                    val minSize = when (gridScale) {
-                        "Compact" -> 150.dp
-                        "Large" -> 220.dp
-                        else -> 190.dp
-                    }
+                    val minSize = posterWidthDp.dp
 
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = minSize),
@@ -171,12 +167,13 @@ fun ComposeLibraryScreen(navController: NavController) {
 fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val shape = RoundedCornerShape(12.dp)
+    val posterCornerRadius by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterRoundingDp.collectAsState()
+    val shape = RoundedCornerShape(posterCornerRadius.dp)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .posterHoverEffect()
+            .posterHoverEffect(shape)
             .clip(shape)
             .hoverable(interactionSource)
             .clickable { onClick() },

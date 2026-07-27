@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,7 +46,8 @@ fun PosterCard(
     gridScale: String = AppearanceConfig.gridScale.value,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
+    val shape = RoundedCornerShape(posterCornerRadius.dp)
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
     val width = itemWidth ?: when (gridScale) {
         "Compact" -> 150.dp
@@ -56,233 +58,236 @@ fun PosterCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    Surface(
-        modifier = modifier
-            .width(width)
-            .posterHoverEffect()
-            .clip(shape)
-            .hoverable(interactionSource)
-            .clickable(onClick = onClick),
-        shape = shape,
-        color = DesktopUi.SurfaceCard,
-        tonalElevation = 2.dp,
-    ) {
-        Box(
+    val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
+    val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
+    val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
+
+    Column(modifier = modifier.width(width)) {
+        Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f / 3f),
+                .width(width)
+                .posterHoverEffect(shape)
+                .clip(shape)
+                .hoverable(interactionSource)
+                .clickable(onClick = onClick),
+            shape = shape,
+            color = DesktopUi.SurfaceCard,
+            tonalElevation = 2.dp,
         ) {
-            if (imgUrl != null) {
-                // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
-                AsyncImage(
-                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                        .data(imgUrl)
-                        .build(),
-                    contentDescription = item.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                // No image placeholder
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(DesktopUi.SurfaceElevated),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        item.name.take(2).uppercase(),
-                        color = DesktopUi.Accent,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = isHovered,
-                enter = androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.fadeOut(),
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f),
             ) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
-            }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = isHovered,
-                enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) +
-                    androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) +
-                    androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                modifier = Modifier.align(Alignment.Center),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp).padding(start = 2.dp),
+                if (imgUrl != null) {
+                    // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
+                    AsyncImage(
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(imgUrl)
+                            .build(),
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
+                } else {
+                    // No image placeholder
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(DesktopUi.SurfaceElevated),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            item.name.take(2).uppercase(),
+                            color = DesktopUi.Accent,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
-            }
 
-            val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
-            var showBookmarkMenu by remember { mutableStateOf(false) }
-            val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
-            val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
-
-            val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (isHovered || currentBookmark != null || showBookmarkMenu) 1f else 0f,
-                label = "bookmarkAlpha",
-            )
-
-            if (bookmarkAlpha > 0f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .graphicsLayer { alpha = bookmarkAlpha },
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isHovered,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
                 ) {
-                    IconButton(
-                        onClick = { if (provider != null) showBookmarkMenu = true },
-                        modifier = Modifier.size(32.dp),
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isHovered,
+                    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) +
+                        androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                    exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) +
+                        androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                    modifier = Modifier.align(Alignment.Center),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                            contentDescription = "Bookmark",
-                            tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
-                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp).padding(start = 2.dp),
                         )
-                    }
-
-                    DropdownMenu(
-                        expanded = showBookmarkMenu,
-                        onDismissRequest = { showBookmarkMenu = false },
-                        modifier = Modifier
-                            .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                            .padding(4.dp),
-                    ) {
-                        Text(
-                            "Add to Library",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                            val isSelected = currentBookmark?.watchType == type.id
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        type.stringRes,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    )
-                                },
-                                onClick = {
-                                    val newBookmark = DesktopBookmark(
-                                        id = bookmarkId,
-                                        name = item.name,
-                                        url = item.url,
-                                        apiName = provider!!.name,
-                                        posterUrl = item.posterUrl,
-                                        watchType = type.id,
-                                    )
-                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
-                                    showBookmarkMenu = false
-                                },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
-                            )
-                        }
-                        if (currentBookmark != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
-                            DropdownMenuItem(
-                                text = {
-                                    Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                                },
-                                onClick = {
-                                    com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
-                                    showBookmarkMenu = false
-                                },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                            )
-                        }
                     }
                 }
-            }
 
-            // Gradient at the bottom with the title
-            AnimatedVisibility(
-                visible = isHovered,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.fadeOut(),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0f to Color.Transparent,
-                                    0.35f to Color.Black.copy(alpha = 0.7f),
-                                    1f to Color.Black.copy(alpha = 0.92f),
-                                ),
-                            ),
-                        )
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                ) {
-                    Column {
-                        // Type badge
-                        val typeLabel = item.quality?.name?.uppercase()
-                            ?: if (item is com.lagradost.cloudstream3.AnimeSearchResponse && !item.dubStatus.isNullOrEmpty()) {
-                                item.dubStatus!!.joinToString(" | ") {
-                                    it.name.uppercase().replace("DUBBED", "DUB").replace("SUBBED", "SUB")
-                                }
-                            } else {
-                                null
-                            }
-                        if (typeLabel != null) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.25f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = typeLabel,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    letterSpacing = 0.5.sp,
+                val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
+                var showBookmarkMenu by remember { mutableStateOf(false) }
+                val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
+                val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
+
+                val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (isHovered || currentBookmark != null || showBookmarkMenu) 1f else 0f,
+                    label = "bookmarkAlpha",
+                )
+
+                if (bookmarkAlpha > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .graphicsLayer { alpha = bookmarkAlpha },
+                    ) {
+                        IconButton(
+                            onClick = { if (provider != null) showBookmarkMenu = true },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
+                                contentDescription = "Bookmark",
+                                tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showBookmarkMenu,
+                            onDismissRequest = { showBookmarkMenu = false },
+                            modifier = Modifier
+                                .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .padding(4.dp),
+                        ) {
+                            Text(
+                                "Add to Library",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                            com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                val isSelected = currentBookmark?.watchType == type.id
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            type.stringRes,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        )
+                                    },
+                                    onClick = {
+                                        val newBookmark = DesktopBookmark(
+                                            id = bookmarkId,
+                                            name = item.name,
+                                            url = item.url,
+                                            apiName = provider!!.name,
+                                            posterUrl = item.posterUrl,
+                                            watchType = type.id,
+                                        )
+                                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+                                        showBookmarkMenu = false
+                                    },
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
                                 )
                             }
-                            Spacer(Modifier.height(4.dp))
+                            if (currentBookmark != null) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                                    },
+                                    onClick = {
+                                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+                                        showBookmarkMenu = false
+                                    },
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
+                                )
+                            }
                         }
-                        Text(
-                            text = item.name,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                            lineHeight = 16.sp,
-                        )
                     }
                 }
-            }
+
+                // Gradient at the bottom with the title
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isHovered && posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0f to Color.Transparent,
+                                        0.35f to Color.Black.copy(alpha = 0.7f),
+                                        1f to Color.Black.copy(alpha = 0.92f),
+                                    ),
+                                ),
+                            )
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                    ) {
+                        Column {
+                            Text(
+                                text = item.name,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
+                }
+
+                PosterBadges(
+                    item = item,
+                    showRating = showPosterRating,
+                    showQuality = showPosterQuality,
+                    showLanguage = showPosterLanguage,
+                )
+            } // end box
+        } // end surface
+
+        if (posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = item.name,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
+                ),
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
         }
     }
 }
@@ -295,7 +300,8 @@ fun WatchHistoryCard(
     onRemove: () -> Unit,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
+    val shape = RoundedCornerShape(posterCornerRadius.dp)
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -490,12 +496,14 @@ fun WatchHistoryCard(
             )
         }
 
-        // Full-width progress bar touching the bottom edge
+        // Floating progress bar with padding
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
                 .height(4.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                 .background(Color.Black.copy(alpha = 0.5f)),
         ) {
             Box(
@@ -522,5 +530,94 @@ fun WatchHistoryCard(
                 modifier = Modifier.size(14.dp),
             )
         }
+    }
+}
+
+@Composable
+fun BoxScope.PosterBadges(
+    item: SearchResponse,
+    showRating: Boolean,
+    showQuality: Boolean,
+    showLanguage: Boolean,
+) {
+    // Top Left: Rating
+    val ratingText = item.score?.let { score ->
+        "%.1f".format(score.toFloat(10))
+    }
+
+    if (showRating && ratingText != null) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(6.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.Black.copy(alpha = 0.6f))
+                .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color(0xFFFFD700),
+                    modifier = Modifier.size(10.dp),
+                )
+                Text(
+                    text = ratingText,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    }
+
+    // Bottom Badges
+    Row(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        // Bottom Left: Language
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (showLanguage && item is com.lagradost.cloudstream3.AnimeSearchResponse) {
+                // Subs
+                val subCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed]
+                if (subCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true) {
+                    PosterBadge(text = if (subCount != null) "SUB $subCount" else "SUB", color = DesktopUi.Accent)
+                }
+                // Dubs
+                val dubCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed]
+                if (dubCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true) {
+                    PosterBadge(text = if (dubCount != null) "DUB $dubCount" else "DUB", color = Color(0xFF9C27B0))
+                }
+            }
+        }
+
+        // Bottom Right: Quality
+        if (showQuality && item.quality != null) {
+            PosterBadge(text = item.quality!!.name, color = Color.White.copy(alpha = 0.3f), textColor = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun PosterBadge(text: String, color: Color, textColor: Color = Color.White) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(color)
+            .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = text.uppercase(),
+            color = textColor,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }

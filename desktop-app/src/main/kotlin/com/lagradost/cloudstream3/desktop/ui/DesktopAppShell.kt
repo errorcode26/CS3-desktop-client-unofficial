@@ -11,6 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -72,14 +74,20 @@ fun DesktopAppShell(
             val primaryColor = MaterialTheme.colorScheme.primary
 
             val surfaceColor = MaterialTheme.colorScheme.surface
+            val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
+            val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
+            val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (ambientGlowEnabled && !isLightMode) {
-                            Modifier.drawWithCache {
-                                val radius = size.width.coerceAtLeast(size.height) * 0.8f
-                                val brushes = ambientGlowPositions.map { position ->
+                        Modifier.drawWithCache {
+                            val radius = size.width.coerceAtLeast(size.height) * 0.8f
+
+                            // 1. Base Ambient Glows (from positions)
+                            val glowBrushes = if (ambientGlowEnabled && !isLightMode) {
+                                ambientGlowPositions.map { position ->
                                     val yOffset = 0f
                                     val centerOffset = when (position) {
                                         "Top" -> Offset(size.width / 2f, yOffset)
@@ -103,13 +111,41 @@ fun DesktopAppShell(
                                         radius = radius,
                                     )
                                 }
-                                onDrawBehind {
-                                    drawRect(color = surfaceColor)
-                                    brushes.forEach { drawRect(brush = it) }
-                                }
+                            } else {
+                                emptyList()
                             }
-                        } else {
-                            Modifier.background(surfaceColor)
+
+                            // 2. Premium Background Gradient
+                            val bgGradientBrush = if (backgroundGradientEnabled) {
+                                val gradientAlpha = backgroundGradientIntensity
+                                val endColor = if (isLightMode) Color.White.copy(alpha = gradientAlpha) else Color.Black.copy(alpha = gradientAlpha)
+                                val startColor = surfaceColor
+
+                                when (backgroundGradientType) {
+                                    "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                        colors = listOf(startColor, endColor),
+                                        center = Offset(size.width / 2f, size.height / 2f),
+                                        radius = radius * 1.5f,
+                                    )
+                                    "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                        colors = listOf(startColor, endColor),
+                                        start = Offset(0f, 0f),
+                                        end = Offset(size.width, size.height),
+                                    )
+                                    else -> null
+                                }
+                            } else {
+                                null
+                            }
+
+                            onDrawBehind {
+                                if (bgGradientBrush != null) {
+                                    drawRect(brush = bgGradientBrush)
+                                } else {
+                                    drawRect(color = surfaceColor)
+                                }
+                                glowBrushes.forEach { drawRect(brush = it) }
+                            }
                         },
                     ),
                 contentAlignment = Alignment.TopCenter,
@@ -246,30 +282,40 @@ private fun NavigationDock(
     }
 
     val mainDockSurface = @Composable {
-        Surface(
-            modifier = surfaceModifier,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f), // Stronger frosted glass opacity
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), // Subtle light-catching border
-            ),
-        ) {
-            if (isHorizontal) {
-                Row(
-                    modifier = paddingInsideSurface,
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    dockItems()
-                }
-            } else {
-                Column(
-                    modifier = paddingInsideSurface,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    dockItems()
+        Box(modifier = surfaceModifier) {
+            // Drop shadow without occlusion to prevent weird whitish middle bar artifact
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
+            )
+
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.70f), // Slightly stronger opacity to compensate for dark shadow underneath
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), // Subtle light-catching border
+                ),
+            ) {
+                if (isHorizontal) {
+                    Row(
+                        modifier = paddingInsideSurface,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        dockItems()
+                    }
+                } else {
+                    Column(
+                        modifier = paddingInsideSurface,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        dockItems()
+                    }
                 }
             }
         }

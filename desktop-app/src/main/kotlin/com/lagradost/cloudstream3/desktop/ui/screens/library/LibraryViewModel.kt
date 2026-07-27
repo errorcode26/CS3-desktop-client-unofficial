@@ -28,8 +28,8 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
             }
         }
         viewModelScope.launch {
-            AppearanceConfig.gridScale.collect { scale ->
-                updateState { copy(gridScale = scale) }
+            AppearanceConfig.posterWidthDp.collect { width ->
+                updateState { copy(posterWidthDp = width) }
             }
         }
     }

@@ -41,6 +41,7 @@ fun HomeCategorySection(
     onSetCurrentHeroColor: (String?) -> Unit,
     onUpdateHeroColor: (String?) -> Unit,
     afterHeroContent: @Composable () -> Unit = {},
+    isHistoryVisible: Boolean = false,
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
 ) {
@@ -88,6 +89,7 @@ fun HomeCategorySection(
         animationSpec = tween(300),
         label = "alpha",
     )
+    val heroEnabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.heroEnabled.collectAsState()
 
     Column(
         modifier = Modifier
@@ -107,7 +109,7 @@ fun HomeCategorySection(
             val hp = homePage
             if (hp != null && hp.items.isNotEmpty()) {
                 hp.items.forEachIndexed { sectionIndex, section ->
-                    if (isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
+                    if (heroEnabled && isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
                         val heroCandidates = remember(hp.items) {
                             hp.items.flatMap { it.list }.distinctBy { it.url }.take(30)
                         }
@@ -124,6 +126,13 @@ fun HomeCategorySection(
                         )
                         afterHeroContent()
                     } else {
+                        val isFirstRowOfFirstPage = isFirstPage && sectionIndex == 0
+                        if (isFirstRowOfFirstPage) {
+                            val heroPadding = if (!heroEnabled && isHistoryVisible) 72.dp else 0.dp
+                            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(top = heroPadding)) {
+                                afterHeroContent()
+                            }
+                        }
                         val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
                         val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
 
@@ -144,24 +153,25 @@ fun HomeCategorySection(
                             )
                         }
 
+                        val topPadding = if (isFirstRowOfFirstPage && !heroEnabled && !isHistoryVisible) 72.dp else 0.dp
+
                         BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = paddingStart, end = paddingEnd),
+                                .padding(start = paddingStart, end = paddingEnd, top = topPadding),
                         ) {
                             val availableWidth = this.maxWidth
-                            val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
-                            val baseWidth = when (gridScale) {
-                                "Compact" -> 150.dp
-                                "Large" -> 220.dp
-                                else -> 190.dp
-                            }
+                            val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
+                            val homeSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeSpacingDp.collectAsState()
+
+                            val baseWidth = posterWidthDp.dp
+                            val spacingDp = homeSpacingDp.dp
 
                             // Subtract 20.dp (10.dp horizontal content padding) from availableWidth
                             val netWidth = availableWidth - 20.dp
-                            val exactColumns = (netWidth + 12.dp) / (baseWidth + 12.dp)
+                            val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
                             val columns = exactColumns.toInt().coerceAtLeast(1)
-                            val optimalItemWidth = ((netWidth + 12.dp) / columns) - 12.dp
+                            val optimalItemWidth = ((netWidth + spacingDp) / columns) - spacingDp
 
                             CategoryRowWithHeader(
                                 title = titleStr,
@@ -178,6 +188,7 @@ fun HomeCategorySection(
                                     top = 12.dp,
                                     bottom = 8.dp,
                                 ),
+                                itemSpacing = spacingDp,
                             ) {
                                 items(
                                     count = if (isLoop) Int.MAX_VALUE else section.list.size,

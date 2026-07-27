@@ -161,7 +161,7 @@ fun DetailsEpisodeSection(
                             hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
                         }
                         Button(
-                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
+                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, isSeasonWatched) },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isSeasonWatched) Color(0xFF1B4D2E).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 contentColor = if (isSeasonWatched) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),

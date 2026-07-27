@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
@@ -96,9 +98,15 @@ fun EpisodeCard(
                 }
             }
             .scale(scale)
+            .shadow(
+                elevation = if (isHovered) 16.dp else 6.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = if (isHovered) heroColor else Color.Black,
+                ambientColor = if (isHovered) heroColor else Color.Black,
+            )
             .border(
-                width = if (isHovered) 1.5.dp else 1.dp,
-                color = if (isHovered) heroColor.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.08f),
+                width = if (isHovered) 1.5.dp else 0.5.dp,
+                color = if (isHovered) heroColor else Color.White.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(12.dp),
             )
             .clip(RoundedCornerShape(12.dp))
@@ -367,7 +375,9 @@ fun EpisodeCard(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
                     .height(3.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(1.5.dp))
                     .background(Color.White.copy(alpha = 0.2f)),
             ) {
                 Box(
@@ -408,7 +418,7 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = elevation,
-        shadowElevation = elevation,
+        shadowElevation = elevation.applyShadowMultiplier(),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }

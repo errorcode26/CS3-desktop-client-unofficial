@@ -45,7 +45,7 @@ fun UpdatesNotificationBell(
                 .width(48.dp)
                 .height(48.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
-            shadowElevation = 4.dp,
+            shadowElevation = 4.dp.applyShadowMultiplier(),
             shape = androidx.compose.foundation.shape.CircleShape,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
@@ -77,7 +77,7 @@ fun UpdatesNotificationBell(
                     color = DesktopUi.SurfaceElevated.copy(alpha = 0.95f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                     modifier = Modifier.width(360.dp).heightIn(max = 500.dp),
-                    shadowElevation = 8.dp,
+                    shadowElevation = 8.dp.applyShadowMultiplier(),
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

@@ -8,6 +8,6 @@ data class LibraryUiState(
     val bookmarks: List<DesktopBookmark> = emptyList(),
     val filteredBookmarks: List<DesktopBookmark> = emptyList(),
     val selectedTab: DesktopWatchType = DesktopWatchType.WATCHING,
-    val gridScale: String = "Normal",
+    val posterWidthDp: Int = 190,
     val showError: String? = null,
 ) : UiState

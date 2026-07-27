@@ -59,7 +59,8 @@ fun CloudstreamAlertDialog(
     LaunchedEffect(show) { isVisible = show }
 
     if (show || isVisible) {
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+        val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+        val isAmoled = appThemeBackground == "Pure Black"
 
         Dialog(
             onDismissRequest = onDismissRequest,
@@ -72,8 +73,8 @@ fun CloudstreamAlertDialog(
             ) {
                 AlertDialog(
                     onDismissRequest = onDismissRequest,
-                    containerColor = if (amoledMode) Color.Black else MaterialTheme.colorScheme.surface,
-                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
+                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+                    modifier = modifier.then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                     title = title,
                     text = text,
                     confirmButton = confirmButton,
@@ -105,7 +106,8 @@ fun CloudstreamCustomDialog(
     LaunchedEffect(show) { isVisible = show }
 
     if (show || isVisible) {
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+        val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+        val isAmoled = appThemeBackground == "Pure Black"
 
         Dialog(
             onDismissRequest = onDismissRequest,
@@ -118,8 +120,8 @@ fun CloudstreamCustomDialog(
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = if (amoledMode) Color.Black else MaterialTheme.colorScheme.surface,
-                    modifier = modifier.then(if (amoledMode) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
+                    color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+                    modifier = modifier.then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                 ) {
                     content()
                 }

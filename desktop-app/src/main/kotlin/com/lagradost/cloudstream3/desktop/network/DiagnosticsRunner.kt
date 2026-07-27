@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.network
 
 import com.lagradost.cloudstream3.app
+import com.lagradost.cloudstream3.utils.ExtractorApi
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
@@ -31,8 +32,8 @@ object DiagnosticsRunner {
     private const val TIMEOUT_MS = 5000L
 
     /**
-     * Runs all diagnostic tests sequentially and reports results via the callback.
-     * The callback is invoked once per test completion so the UI can update in real time.
+     * Runs all infrastructure diagnostic tests sequentially.
+     * The callback is invoked once per test so the UI can update in real time.
      */
     suspend fun runAll(onResult: (DiagnosticResult) -> Unit) {
         onResult(testInternet())
@@ -42,7 +43,14 @@ object DiagnosticsRunner {
         onResult(testTmdbHttp2())
         onResult(testTmdbImages())
         onResult(testGithubRaw())
-        testPluginEndpoints().forEach { onResult(it) }
+    }
+
+    /**
+     * Tests each installed metadata provider by running an actual search
+     * and checking whether it returns any results.
+     */
+    suspend fun runMetaProviders(onResult: (DiagnosticResult) -> Unit) {
+        testMetaProviders().forEach { onResult(it) }
     }
 
     /** Test 1: Basic internet connectivity via google.com */
@@ -135,32 +143,44 @@ object DiagnosticsRunner {
         "HTTP ${response.code}"
     }
 
-    /** Test 8: Loaded plugin base URLs (top 5) */
-    suspend fun testPluginEndpoints(): List<DiagnosticResult> {
+    /** Test 8: Metadata providers — checks each returns actual search results */
+    suspend fun testMetaProviders(): List<DiagnosticResult> {
         val results = mutableListOf<DiagnosticResult>()
 
         try {
-            val apis = com.lagradost.cloudstream3.APIHolder.apis
-            val uniqueApis = apis
-                .filter { it.mainUrl.startsWith("http") }
-                .distinctBy { it.mainUrl }
-                .take(5)
+            // Only test MainAPI providers that have a non-wildcard mainUrl (metadata providers)
+            val metaApis = com.lagradost.cloudstream3.APIHolder.apis
+                .filter { api ->
+                    val url = api.mainUrl
+                    url.startsWith("http") && !url.contains("*") &&
+                        // Skip pure extractor APIs — they have no search
+                        api !is ExtractorApi
+                }
+                .distinctBy { it.name }
+                .sortedBy { it.name }
 
-            for (api in uniqueApis) {
-                val result = runTest("Plugin: ${api.name}") {
-                    val client = buildClient()
-                    val request = Request.Builder()
-                        .url(api.mainUrl)
-                        .head()
-                        .build()
-                    val response = client.newCall(request).execute()
-                    response.close()
-                    "HTTP ${response.code} — ${api.mainUrl}"
+            for (api in metaApis) {
+                val result = runTest("Provider: ${api.name}") {
+                    val searchResults = withTimeoutOrNull(TIMEOUT_MS) {
+                        try {
+                            api.search("test")
+                        } catch (e: Throwable) {
+                            null
+                        }
+                    }
+                    val count = searchResults?.size ?: 0
+                    if (searchResults == null) throw Exception("Returned null / timed out")
+                    if (count == 0) throw Exception("Search returned 0 results")
+                    "✓ $count result(s) returned"
                 }
                 results.add(result)
             }
-        } catch (e: Exception) {
-            results.add(DiagnosticResult("Plugin Endpoints", false, 0, "Error: ${e.message}"))
+
+            if (results.isEmpty()) {
+                results.add(DiagnosticResult("Metadata Providers", false, 0, "No metadata providers found"))
+            }
+        } catch (e: Throwable) {
+            results.add(DiagnosticResult("Metadata Providers", false, 0, "Error: ${e.message}"))
         }
 
         return results
@@ -221,7 +241,7 @@ object DiagnosticsRunner {
                     AppLogger.w("[Diagnostics] FAIL: $name — TIMEOUT after ${elapsed}ms")
                     DiagnosticResult(name, false, elapsed, "TIMEOUT after ${elapsed}ms")
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 val elapsed = System.currentTimeMillis() - start
                 val msg = e.message ?: e.javaClass.simpleName
                 AppLogger.w("[Diagnostics] FAIL: $name — $msg")

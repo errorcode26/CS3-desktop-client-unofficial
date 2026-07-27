@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
+import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 
 @Composable
 fun SettingsGroupCard(
@@ -27,11 +29,8 @@ fun SettingsGroupCard(
         )
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            ),
+            color = DesktopUi.SurfaceElevated,
+            shadowElevation = 4.dp.applyShadowMultiplier(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -170,7 +169,7 @@ fun SettingsSliderItem(
             onValueChange = onValueChange,
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(horizontal = 8.dp),
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),

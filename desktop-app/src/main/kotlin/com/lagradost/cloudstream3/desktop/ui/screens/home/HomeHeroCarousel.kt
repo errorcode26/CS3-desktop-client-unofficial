@@ -277,11 +277,7 @@ fun HomeHeroCarousel(
                                                     Text(
                                                         text = displayTitle,
                                                         style = MaterialTheme.typography.displayLarge.copy(
-                                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                                color = Color.Black.copy(alpha = 0.69f),
-                                                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                                                blurRadius = 8f,
-                                                            ),
+                                                            shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                                             fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                                                             letterSpacing = (-1).sp,
                                                         ),
@@ -301,11 +297,7 @@ fun HomeHeroCarousel(
                                         Text(
                                             text = displayTitle,
                                             style = MaterialTheme.typography.displayLarge.copy(
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.69f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                                    blurRadius = 8f,
-                                                ),
+                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                                                 letterSpacing = (-1).sp,
                                             ),
@@ -335,11 +327,7 @@ fun HomeHeroCarousel(
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
                                             style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.69f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 4f,
-                                                ),
+                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                             ),
                                         )
                                         Spacer(Modifier.width(14.dp))
@@ -351,11 +339,7 @@ fun HomeHeroCarousel(
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.69f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 4f,
-                                                ),
+                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                             ),
                                         )
                                         Spacer(Modifier.width(14.dp))
@@ -382,11 +366,7 @@ fun HomeHeroCarousel(
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.69f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 4f,
-                                                ),
+                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                             ),
                                         )
                                         Spacer(Modifier.width(14.dp))
@@ -401,11 +381,7 @@ fun HomeHeroCarousel(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.69f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 4f,
-                                                ),
+                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                             ),
                                         )
                                     }
@@ -421,11 +397,7 @@ fun HomeHeroCarousel(
                                         overflow = TextOverflow.Ellipsis,
                                         lineHeight = 22.sp,
                                         style = androidx.compose.material3.LocalTextStyle.current.copy(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = Color.Black.copy(alpha = 0.69f),
-                                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                blurRadius = 4f,
-                                            ),
+                                            shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                                         ),
                                     )
                                 }

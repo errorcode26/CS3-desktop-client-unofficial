@@ -22,11 +22,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -71,6 +69,8 @@ fun DetailsBackdrop(
                     val scrollOffset = scrollState.firstVisibleItemScrollOffset.toFloat()
                     translationY = -scrollOffset * 0.5f
                     alpha = 1f - (scrollOffset / (size.height * 0.8f)).coerceIn(0f, 1f)
+                } else {
+                    alpha = 0f
                 }
             }
             .haze(state = hazeState),
@@ -599,11 +599,7 @@ fun DetailsMetadata(
                         horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start,
                     ) {
                         val textShadow = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = Color.Black.copy(alpha = 0.8f),
-                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                blurRadius = 12f,
-                            ),
+                            shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                         )
 
                         // Pin Toggle Row
@@ -625,13 +621,13 @@ fun DetailsMetadata(
                                 )
                                 IconButton(
                                     onClick = { isRightColumnPinned = !isRightColumnPinned },
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(36.dp),
                                 ) {
                                     Icon(
                                         painter = pinIcon,
                                         contentDescription = "Pin sidebar",
-                                        tint = if (isRightColumnPinned) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(16.dp),
+                                        tint = if (isRightColumnPinned) Color.White else Color.White.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(22.dp),
                                     )
                                 }
                             }
@@ -1010,11 +1006,7 @@ private fun ActorCard(
         Text(
             mainName ?: "",
             style = MaterialTheme.typography.bodyLarge.copy(
-                shadow = androidx.compose.ui.graphics.Shadow(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                    blurRadius = 4f,
-                ),
+                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
             ),
             fontWeight = FontWeight.Bold,
             maxLines = 1,

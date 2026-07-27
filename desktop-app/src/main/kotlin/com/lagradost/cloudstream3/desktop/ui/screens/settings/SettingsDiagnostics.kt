@@ -16,8 +16,6 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.network.DiagnosticResult
 import com.lagradost.cloudstream3.desktop.network.DiagnosticsRunner
 import kotlinx.coroutines.launch
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
 
 @Composable
 fun SettingsDiagnostics() {
@@ -44,8 +42,21 @@ fun SettingsDiagnostics() {
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Run connectivity tests to identify network issues. Results can be copied and shared in bug reports.",
+            text = "Test infrastructure connectivity and metadata provider availability.",
             style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // ── Network infrastructure tests ──────────────────────────────────
+        Text(
+            text = "Network Infrastructure",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "Tests basic internet connectivity, DNS, TMDB API, and GitHub access.",
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
@@ -73,29 +84,88 @@ fun SettingsDiagnostics() {
                     }
                 },
                 enabled = !isRunning,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
-                if (isRunning) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                    )
+                if (isRunning && currentTest.isNotEmpty() && !currentTest.startsWith("Provider:")) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Running...")
                 } else {
-                    Text("Run All Tests")
+                    Text("Test Network")
                 }
             }
 
-            if (results.isNotEmpty()) {
+            if (results.isNotEmpty() && results.none { it.name.startsWith("Provider:") }) {
                 OutlinedButton(
                     onClick = {
                         val report = DiagnosticsRunner.formatReport(results)
-                        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                        clipboard.setContents(StringSelection(report), null)
+                        val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                        clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
+                        copied = true
+                    },
+                ) {
+                    Text(if (copied) "Copied!" else "Copy Results")
+                }
+            }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+        // ── Metadata provider tests ───────────────────────────────────────
+        Text(
+            text = "Metadata Providers",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "Tests each installed content provider by running a live search and checking for results.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            var isMetaRunning by remember { mutableStateOf(false) }
+            Button(
+                onClick = {
+                    if (!isMetaRunning) {
+                        isMetaRunning = true
+                        results = results.filter { it.name.startsWith("Provider:").not() }
+                        currentTest = "Starting metadata tests..."
+                        copied = false
+                        scope.launch {
+                            DiagnosticsRunner.runMetaProviders { result ->
+                                results = results + result
+                                currentTest = result.name
+                            }
+                            isMetaRunning = false
+                            currentTest = ""
+                            lastRunTime = java.time.LocalDateTime.now()
+                                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        }
+                    }
+                },
+                enabled = !isMetaRunning,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+            ) {
+                if (isMetaRunning) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Testing Providers...")
+                } else {
+                    Text("Test Providers")
+                }
+            }
+
+            if (results.any { it.name.startsWith("Provider:") }) {
+                OutlinedButton(
+                    onClick = {
+                        val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
+                        val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                        clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
                         copied = true
                     },
                 ) {

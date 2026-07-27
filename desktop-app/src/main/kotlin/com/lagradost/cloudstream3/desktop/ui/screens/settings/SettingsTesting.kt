@@ -20,22 +20,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.utils.TestingUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 @Composable
-fun SettingsTesting() {
-    val scope = rememberCoroutineScope()
-
+fun SettingsTesting(
+    testState: ProviderTestState,
+    scope: CoroutineScope,
+) {
     val allProviders = remember {
         APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
     }
-
-    var isRunning by remember { mutableStateOf(false) }
-    var results by remember { mutableStateOf<Map<String, TestingUtils.TestResultProvider>>(emptyMap()) }
-    var passed by remember { mutableStateOf(0) }
-    var failed by remember { mutableStateOf(0) }
-    var total by remember { mutableStateOf(0) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(end = 16.dp),
@@ -48,7 +42,7 @@ fun SettingsTesting() {
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Automatically test if your installed plugins are successfully fetching data. This runs a search, load, and link extraction test on each provider.",
+            text = "Automatically test if your installed plugins are successfully fetching data. Tests continue in background when switching tabs.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -56,53 +50,46 @@ fun SettingsTesting() {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Button(
                 onClick = {
-                    if (!isRunning) {
-                        isRunning = true
-                        results = emptyMap()
-                        passed = 0
-                        failed = 0
-                        total = allProviders.size
-
-                        scope.launch(Dispatchers.IO) {
-                            TestingUtils.getDeferredProviderTests(this, allProviders.toTypedArray()) { api, result ->
-                                // Update results map safely
-                                results = results.toMutableMap().apply {
-                                    put(api.name, result)
-                                }
-                                if (result.success) passed++ else failed++
-
-                                if (results.size == allProviders.size) {
-                                    isRunning = false
-                                }
-                            }
-                        }
+                    if (!testState.isRunning) {
+                        testState.start(scope, allProviders)
                     }
                 },
-                enabled = !isRunning,
+                enabled = !testState.isRunning,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
-                if (isRunning) {
+                if (testState.isRunning) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         color = MaterialTheme.colorScheme.onPrimary,
                         strokeWidth = 2.dp,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Testing... (${results.size}/${allProviders.size})")
+                    Text("Testing... (${testState.results.size}/${allProviders.size})")
                 } else {
                     Text("Run All Tests")
                 }
             }
 
-            if (total > 0) {
+            // Cancel button — only visible while running
+            if (testState.isRunning) {
+                OutlinedButton(
+                    onClick = { testState.cancel() },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                ) {
+                    Text("Cancel")
+                }
+            }
+
+            if (testState.total > 0) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Passed: $passed", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
-                    Text("Failed: $failed", color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
-                    Text("Total: $total", color = MaterialTheme.colorScheme.onSurface)
+                    Text("Passed: ${testState.passed}", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                    Text("Failed: ${testState.failed}", color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
+                    Text("Total: ${testState.total}", color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -114,7 +101,7 @@ fun SettingsTesting() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(allProviders) { api ->
-                val result = results[api.name]
+                val result = testState.results[api.name]
 
                 Card(
                     colors = CardDefaults.cardColors(
@@ -135,16 +122,15 @@ fun SettingsTesting() {
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
 
-                            if (result != null) {
-                                if (result.success) {
+                            when {
+                                result != null && result.success ->
                                     Icon(Icons.Default.CheckCircle, contentDescription = "Passed", tint = Color(0xFF4CAF50))
-                                } else {
+                                result != null && !result.success ->
                                     Icon(Icons.Default.Error, contentDescription = "Failed", tint = Color(0xFFF44336))
-                                }
-                            } else if (isRunning) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text("Not Tested", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                testState.isRunning ->
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else ->
+                                    Text("Not Tested", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 

@@ -29,6 +29,7 @@ import com.lagradost.cloudstream3.DubStatus
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.TvSeriesLoadResponse
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 
 @Composable
 fun EpisodesOverlay(
@@ -231,7 +232,7 @@ fun EpisodesOverlay(
                                     shape = RoundedCornerShape(8.dp),
                                     color = Color(0xFF1E1E28),
                                     tonalElevation = 8.dp,
-                                    shadowElevation = 8.dp,
+                                    shadowElevation = 8.dp.applyShadowMultiplier(),
                                     modifier = Modifier.widthIn(min = 120.dp).heightIn(max = 300.dp),
                                 ) {
                                     LazyColumn {

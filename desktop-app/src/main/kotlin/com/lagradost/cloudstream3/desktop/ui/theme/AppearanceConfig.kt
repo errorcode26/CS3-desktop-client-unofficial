@@ -4,6 +4,19 @@ import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 
+enum class PosterTitlePosition {
+    INSIDE,
+    BELOW,
+    HIDDEN,
+    ;
+
+    companion object {
+        fun fromString(value: String?): PosterTitlePosition {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: INSIDE
+        }
+    }
+}
+
 object AppearanceConfig {
     private const val PREF_THEME_ACCENT = "pref_theme_accent"
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
@@ -17,6 +30,26 @@ object AppearanceConfig {
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
     private const val PREF_HERO_AUTO_SLIDE_DELAY = "pref_hero_auto_slide_delay"
+    private const val PREF_POSTER_TITLE_POSITION = "pref_poster_title_position"
+    private const val PREF_HOME_SPACING_DP = "pref_home_spacing_dp"
+    private const val PREF_POSTER_WIDTH = "pref_poster_width"
+    private const val PREF_POSTER_ROUNDING = "pref_poster_rounding"
+    private const val PREF_CUSTOM_THEME_ACCENT = "pref_custom_theme_accent"
+    private const val PREF_APP_THEME_BACKGROUND = "pref_app_theme_background"
+    private const val PREF_CUSTOM_APP_THEME_BACKGROUND = "pref_custom_app_theme_background"
+    private const val PREF_HERO_ENABLED = "pref_hero_enabled"
+    private const val PREF_SHOW_POSTER_RATING = "pref_show_poster_rating"
+    private const val PREF_SHOW_POSTER_QUALITY = "pref_show_poster_quality"
+    private const val PREF_SHOW_POSTER_LANGUAGE = "pref_show_poster_language"
+    private const val PREF_TEXT_DROP_SHADOW_ENABLED = "pref_text_drop_shadow_enabled"
+    private const val PREF_TEXT_DROP_SHADOW_BLUR = "pref_text_drop_shadow_blur"
+    private const val PREF_ELEMENT_SHADOWS_ENABLED = "pref_element_shadows_enabled"
+    private const val PREF_ELEMENT_SHADOW_MULTIPLIER = "pref_element_shadow_multiplier"
+    private const val PREF_APP_PRESET_THEME = "pref_app_preset_theme"
+    private const val PREF_BACKGROUND_GRADIENT_ENABLED = "pref_background_gradient_enabled"
+    private const val PREF_BACKGROUND_GRADIENT_TYPE = "pref_background_gradient_type"
+    private const val PREF_BACKGROUND_GRADIENT_INTENSITY = "pref_background_gradient_intensity"
+    private const val PREF_CUSTOM_PRESETS = "pref_custom_presets"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -30,6 +63,37 @@ object AppearanceConfig {
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
     val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
     val heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
+    val posterTitlePosition = MutableStateFlow(PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION)))
+    val homeSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12)
+    val posterWidthDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190)
+    val posterRoundingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12)
+    val customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF")
+    val appThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy")
+    val customAppThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_APP_THEME_BACKGROUND) ?: "#0C0C16")
+    val heroEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_ENABLED) ?: true)
+    val showPosterRating = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_RATING) ?: true)
+    val showPosterQuality = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_QUALITY) ?: true)
+    val showPosterLanguage = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true)
+    val textDropShadowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true)
+    val textDropShadowBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f)
+    val elementShadowsEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true)
+    val elementShadowMultiplier = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f)
+
+    val appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk")
+    val backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
+    val backgroundGradientType = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial")
+    val backgroundGradientIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f)
+
+    private val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
+    val customPresets = MutableStateFlow(
+        try {
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .readValue(customPresetsJson, object : com.fasterxml.jackson.core.type.TypeReference<List<ThemePreset>>() {})
+        } catch (e: Exception) {
+            emptyList()
+        },
+    )
 
     fun setThemeAccent(colorName: String) {
         themeAccent.value = colorName
@@ -42,8 +106,17 @@ object AppearanceConfig {
     }
 
     fun setLightMode(enabled: Boolean) {
+        if (isLightMode.value == enabled) return
         isLightMode.value = enabled
         DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
+
+        val currentPreset = (com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets + customPresets.value).find { it.id == appPresetTheme.value }
+        if (currentPreset != null && currentPreset.isLightMode != enabled) {
+            val defaultPreset = com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets.firstOrNull { it.isLightMode == enabled }
+            if (defaultPreset != null) {
+                applyPreset(defaultPreset)
+            }
+        }
     }
 
     fun setGridScale(scale: String) {
@@ -96,5 +169,148 @@ object AppearanceConfig {
     fun setHeroAutoSlideDelaySeconds(seconds: Int) {
         heroAutoSlideDelaySeconds.value = seconds
         DesktopDataStore.setKey(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
+    }
+
+    fun setHomeSpacingDp(dp: Int) {
+        homeSpacingDp.value = dp
+        DesktopDataStore.setKey(PREF_HOME_SPACING_DP, dp)
+    }
+
+    fun setPosterWidthDp(width: Int) {
+        posterWidthDp.value = width
+        DesktopDataStore.setKey(PREF_POSTER_WIDTH, width)
+    }
+
+    fun setPosterRoundingDp(dp: Int) {
+        posterRoundingDp.value = dp
+        DesktopDataStore.setKey(PREF_POSTER_ROUNDING, dp)
+    }
+
+    fun setCustomThemeAccent(hex: String) {
+        customThemeAccent.value = hex
+        DesktopDataStore.setKey(PREF_CUSTOM_THEME_ACCENT, hex)
+    }
+
+    fun setAppThemeBackground(themeName: String) {
+        appThemeBackground.value = themeName
+        DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, themeName)
+    }
+
+    fun setCustomAppThemeBackground(hex: String) {
+        customAppThemeBackground.value = hex
+        DesktopDataStore.setKey(PREF_CUSTOM_APP_THEME_BACKGROUND, hex)
+    }
+
+    fun setHeroEnabled(enabled: Boolean) {
+        heroEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_HERO_ENABLED, enabled)
+    }
+
+    fun setPosterTitlePosition(position: PosterTitlePosition) {
+        posterTitlePosition.value = position
+        DesktopDataStore.setKey(PREF_POSTER_TITLE_POSITION, position.name)
+    }
+
+    fun setShowPosterRating(enabled: Boolean) {
+        showPosterRating.value = enabled
+        DesktopDataStore.setKey(PREF_SHOW_POSTER_RATING, enabled)
+    }
+
+    fun setShowPosterQuality(enabled: Boolean) {
+        showPosterQuality.value = enabled
+        DesktopDataStore.setKey(PREF_SHOW_POSTER_QUALITY, enabled)
+    }
+
+    fun setShowPosterLanguage(show: Boolean) {
+        showPosterLanguage.value = show
+        DesktopDataStore.setKey(PREF_SHOW_POSTER_LANGUAGE, show)
+    }
+
+    fun setTextDropShadowEnabled(enabled: Boolean) {
+        textDropShadowEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_ENABLED, enabled)
+    }
+
+    fun setTextDropShadowBlur(blur: Float) {
+        textDropShadowBlur.value = blur
+        DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_BLUR, blur)
+    }
+
+    fun setElementShadowsEnabled(enabled: Boolean) {
+        elementShadowsEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_ELEMENT_SHADOWS_ENABLED, enabled)
+    }
+
+    fun setElementShadowMultiplier(multiplier: Float) {
+        elementShadowMultiplier.value = multiplier
+        DesktopDataStore.setKey(PREF_ELEMENT_SHADOW_MULTIPLIER, multiplier)
+    }
+
+    fun setAppPresetTheme(presetId: String) {
+        appPresetTheme.value = presetId
+        DesktopDataStore.setKey(PREF_APP_PRESET_THEME, presetId)
+    }
+
+    fun setBackgroundGradientEnabled(enabled: Boolean) {
+        backgroundGradientEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_ENABLED, enabled)
+    }
+
+    fun setBackgroundGradientType(type: String) {
+        backgroundGradientType.value = type
+        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_TYPE, type)
+    }
+
+    fun setBackgroundGradientIntensity(intensity: Float) {
+        backgroundGradientIntensity.value = intensity
+        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_INTENSITY, intensity)
+    }
+
+    fun saveCustomPreset(preset: ThemePreset) {
+        val currentList = customPresets.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == preset.id }
+        if (index != -1) {
+            currentList[index] = preset
+        } else {
+            currentList.add(preset)
+        }
+        customPresets.value = currentList
+        saveCustomPresetsToDisk(currentList)
+        setAppPresetTheme(preset.id)
+    }
+
+    fun deleteCustomPreset(id: String) {
+        val currentList = customPresets.value.filter { it.id != id }
+        customPresets.value = currentList
+        saveCustomPresetsToDisk(currentList)
+        if (appPresetTheme.value == id) {
+            setAppPresetTheme("preset_cyberpunk")
+        }
+    }
+
+    private fun saveCustomPresetsToDisk(list: List<ThemePreset>) {
+        try {
+            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+            val json = mapper.writeValueAsString(list)
+            DesktopDataStore.setKey(PREF_CUSTOM_PRESETS, json)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun applyPreset(preset: ThemePreset) {
+        setAppPresetTheme(preset.id)
+        setLightMode(preset.isLightMode)
+        setThemeAccent(preset.themeAccent)
+        if (preset.themeAccent == "Custom") {
+            setCustomThemeAccent(preset.customThemeAccent)
+        }
+        setAppThemeBackground(preset.appThemeBackground)
+        if (preset.appThemeBackground == "Custom") {
+            setCustomAppThemeBackground(preset.customAppThemeBackground)
+        }
+        setBackgroundGradientEnabled(preset.backgroundGradientEnabled)
+        setBackgroundGradientType(preset.backgroundGradientType)
+        setBackgroundGradientIntensity(preset.backgroundGradientIntensity)
     }
 }

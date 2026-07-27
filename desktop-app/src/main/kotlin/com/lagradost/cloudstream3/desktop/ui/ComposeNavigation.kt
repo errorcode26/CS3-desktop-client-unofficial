@@ -97,9 +97,12 @@ fun CloudstreamApp() {
 
     val isLightMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.isLightMode.collectAsState()
     val themeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.themeAccent.collectAsState()
-    val amoledMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.amoledMode.collectAsState()
-    val primaryColor = com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName(themeAccent)
-    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, amoledMode)
+    val appThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.appThemeBackground.collectAsState()
+    val customThemeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customThemeAccent.collectAsState()
+    val customAppThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customAppThemeBackground.collectAsState()
+
+    val primaryColor = com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName(themeAccent, customThemeAccent)
+    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, appThemeBackground, customAppThemeBackground)
     val selectedFont by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.selectedFont.collectAsState()
     val typography = androidx.compose.runtime.remember(selectedFont) {
         com.lagradost.cloudstream3.desktop.ui.theme.buildTypography(

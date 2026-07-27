@@ -30,9 +30,9 @@ class DesktopCoreTests {
     @Test
     fun `navigate pushes onto backStack and clears forwardStack`() {
         val controller = NavController()
-        controller.navigate(Screen.Extensions)
+        controller.navigate(Screen.Extensions())
 
-        assertEquals(Screen.Extensions, controller.currentScreen)
+        assertEquals(Screen.Extensions(), controller.currentScreen)
         assertEquals(NavController.NavAction.Push, controller.lastAction)
         assertTrue(controller.canGoBack())
         assertFalse(controller.canGoForward())
@@ -52,7 +52,7 @@ class DesktopCoreTests {
     @Test
     fun `goBack and goForward maintain exact traversal order`() {
         val controller = NavController()
-        controller.navigate(Screen.Extensions)
+        controller.navigate(Screen.Extensions())
         controller.navigate(Screen.Library)
         controller.navigate(Screen.Settings)
 
@@ -64,7 +64,7 @@ class DesktopCoreTests {
 
         // Go back -> Extensions
         controller.goBack()
-        assertEquals(Screen.Extensions, controller.currentScreen)
+        assertEquals(Screen.Extensions(), controller.currentScreen)
 
         // Go back -> Home
         controller.goBack()
@@ -73,7 +73,7 @@ class DesktopCoreTests {
 
         // Go forward -> Extensions
         controller.goForward()
-        assertEquals(Screen.Extensions, controller.currentScreen)
+        assertEquals(Screen.Extensions(), controller.currentScreen)
 
         // Go forward -> Library
         controller.goForward()
@@ -88,10 +88,10 @@ class DesktopCoreTests {
     @Test
     fun `duplicate consecutive navigate calls are ignored`() {
         val controller = NavController()
-        controller.navigate(Screen.Extensions)
-        controller.navigate(Screen.Extensions) // Duplicate
+        controller.navigate(Screen.Extensions())
+        controller.navigate(Screen.Extensions()) // Duplicate
 
-        assertEquals(Screen.Extensions, controller.currentScreen)
+        assertEquals(Screen.Extensions(), controller.currentScreen)
 
         controller.goBack()
         assertEquals(Screen.Home, controller.currentScreen)
@@ -101,7 +101,7 @@ class DesktopCoreTests {
     @Test
     fun `navigateRoot clears backStack and forwardStack`() {
         val controller = NavController()
-        controller.navigate(Screen.Extensions)
+        controller.navigate(Screen.Extensions())
         controller.navigate(Screen.Library)
 
         controller.navigateRoot(Screen.Settings)

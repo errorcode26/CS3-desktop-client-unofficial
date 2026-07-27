@@ -234,12 +234,8 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             matchesSearch && matchesLang && matchesCat && matchesRepo
         }
 
-        val gridScale by AppearanceConfig.gridScale.collectAsState()
-        val extMinSize = when (gridScale) {
-            "Compact" -> 360.dp
-            "Large" -> 480.dp
-            else -> 420.dp
-        }
+        val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+        val extMinSize = (posterWidthDp * 1.5f).dp
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = extMinSize),

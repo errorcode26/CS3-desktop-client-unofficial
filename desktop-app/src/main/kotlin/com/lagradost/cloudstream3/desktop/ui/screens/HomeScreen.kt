@@ -129,6 +129,7 @@ fun ComposeHomeScreen(
                                     },
                                 )
                             },
+                            isHistoryVisible = historyList.isNotEmpty(),
                             onViewAll = { provider, title, items ->
                                 navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                             },
