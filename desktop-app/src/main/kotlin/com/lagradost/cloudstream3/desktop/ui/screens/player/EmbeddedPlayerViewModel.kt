@@ -14,12 +14,18 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
-    initialState = PlayerUiState(
-        autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
-    ),
+    initialState = PlayerUiState(),
 ) {
     private var loadLinksJob: Job? = null
     private var saveJob: Job? = null
+    private var scrapeJob: Job? = null
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val autoPlay = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+            updateState { copy(autoPlayEnabled = autoPlay) }
+        }
+    }
 
     override fun dispose() {
         super.dispose()

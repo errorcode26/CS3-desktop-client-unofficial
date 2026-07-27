@@ -70,6 +70,9 @@ fun ComposeNativeWebPlayer(
     onEpisodeChange: ((String) -> Unit)? = null,
     onNextEpisode: (() -> Unit)? = null,
     onReplayEpisode: (() -> Unit)? = null,
+    plot: String? = null,
+    year: Int? = null,
+    tags: List<String>? = null,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -106,10 +109,13 @@ fun ComposeNativeWebPlayer(
     val activeLazyVideoTrackUrl by (playerState?.activeLazyVideoTrackUrl ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
 
-    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution) {
+    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags) {
         if (isUiReady) {
             val payload = mapOf(
                 "type" to "metadata_update",
+                "plot" to plot,
+                "year" to year,
+                "tags" to tags,
                 "isProbing" to isProbing,
                 "backdropUrl" to backdropUrl,
                 "logoUrl" to logoUrl,

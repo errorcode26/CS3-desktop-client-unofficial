@@ -242,10 +242,17 @@ fun EmbeddedVideoPlayer(
                         ?: actualLaunchData.loadResponse?.posterUrl
                     val logoUrl = actualLaunchData.loadResponse?.logoUrl
 
+                    val plot = targetEpisodeData?.description ?: actualLaunchData.loadResponse?.plot
+                    val year = uiState.launchData?.loadResponse?.year // or actualLaunchData.loadResponse?.year
+                    val tags = actualLaunchData.loadResponse?.tags
+
                     ComposeNativeWebPlayer(
                         link = safeLink,
                         title = displayTitle,
                         seriesPosterUrl = actualLaunchData.loadResponse?.posterUrl,
+                        plot = plot,
+                        year = year,
+                        tags = tags,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
                         startPositionMs = if (currentLinkIndex != 0 && lastPositionSec > 0) lastPositionSec * 1000L else actualLaunchData.startPositionMs,
@@ -321,7 +328,8 @@ fun EmbeddedVideoPlayer(
                         },
                         onFinished = {
                             val hasNext = uiState.hasNextEpisode
-                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext);")
+                            val isAutoPlay = uiState.autoPlayEnabled
+                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $isAutoPlay);")
                         },
                         onPlaybackError = { err ->
                             val newFailed = failedLinks + currentLinkIndex

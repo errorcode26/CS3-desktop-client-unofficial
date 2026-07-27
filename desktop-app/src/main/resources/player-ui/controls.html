@@ -45,6 +45,100 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        
+        /* ── Action Feedback (Center play/pause etc.) ────────────────────── */
+        #actionFeedback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(12px);
+            border-radius: 50%; padding: 24px;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+            z-index: 50; width: 80px; height: 80px;
+        }
+        #actionFeedback svg { width: 40px; height: 40px; fill: white; }
+        #actionFeedback.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); transition: opacity 0.1s, transform 0.1s; }
+
+        /* ── Pause Info Overlay ─────────────────────────────────────────── */
+        #pauseBackdrop {
+            position: absolute;
+            bottom: 0; left: 0; width: 800px; height: 600px;
+            background: radial-gradient(ellipse at bottom left, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0) 70%);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 4;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #pauseBackdrop.visible {
+            opacity: 1;
+        }
+        #pauseInfoOverlay {
+            position: absolute;
+            bottom: 120px;
+            left: 32px;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 0;
+            transform: translateX(-20px) scale(0.98);
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 5;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+        #pauseInfoOverlay.visible {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+        #pauseInfoNowPlaying {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.55);
+            text-transform: uppercase;
+            margin-bottom: -4px;
+        }
+        #pauseInfoLogo {
+            max-height: 90px;
+            max-width: 100%;
+            object-fit: contain;
+            object-position: left bottom;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+            display: none;
+        }
+        #pauseInfoTitleFallback {
+            font-size: 34px;
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+            display: none;
+        }
+        #pauseInfoEpisode {
+            font-size: 16px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.85);
+            letter-spacing: 0.2px;
+            display: none;
+        }
+        #pauseInfoMeta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            font-weight: 600;
+        }
+        #pauseInfoPlot {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
         .back-btn {
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.05); color: white; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
@@ -54,6 +148,18 @@
         .back-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
         .back-btn:active { transform: scale(0.95); }
         .back-btn svg { width: 22px; height: 22px; }
+
+        .hw-toggle-btn {
+            position: absolute; top: 40px; right: 40px; z-index: 10;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; cursor: pointer;
+            padding: 6px 14px; border-radius: 14px;
+            font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+            pointer-events: auto;
+            transition: background 0.2s, transform 0.1s, opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .hidden-controls .hw-toggle-btn { opacity: 0; transform: translateY(-20px) scale(0.98); pointer-events: none; }
+        .hw-toggle-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+        .hw-toggle-btn:active { transform: scale(0.95); }
 
         /* ── Center: Loading / Buffering ───────────────────────────────── */
         #loadingContainer {
@@ -89,6 +195,7 @@
             background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
             display: flex; flex-direction: column; gap: 12px;
             pointer-events: auto;
+            z-index: 10;
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -1261,6 +1368,9 @@
         <span id="titleDisplay" class="player-title">CloudStream Player</span>
     </div>
 
+    <!-- HW/SW Toggle (Top Right) -->
+    <button id="hwToggleBtn" class="hw-toggle-btn" title="Hardware Decoding (Toggle)">HW</button>
+
     <!-- Loading Spinner -->
     <div id="loadingContainer">
         <div id="loadingSpinner"></div>
@@ -1365,6 +1475,19 @@
     </div>
 </div>
 
+<div id="pauseBackdrop"></div>
+<div id="pauseInfoOverlay">
+    <div id="pauseInfoNowPlaying">Now Playing</div>
+    <img id="pauseInfoLogo" src="" />
+    <h1 id="pauseInfoTitleFallback"></h1>
+    <div id="pauseInfoMeta">
+        <span id="pauseInfoYear"></span>
+        <span id="pauseInfoTags"></span>
+    </div>
+    <p id="pauseInfoEpisode"></p>
+    <p id="pauseInfoPlot"></p>
+</div>
+
 <script>
     // Bridge: JS -> Kotlin
     // Use window.send so inline onclick="send(...)" attributes can call it
@@ -1411,15 +1534,18 @@
     const loadingContainer = document.getElementById('loadingContainer');
     const loadingStatus = document.getElementById('loadingStatus');
     
-    document.getElementById('probingPlayBtn').addEventListener('click', () => {
-        send('skipScraping', '');
-        dismissProbingOverlay(true);
-        send('setMpvProperty', 'pause:no'); // Optionally attempt to play if it was paused
-    });
+    // Toggle HW/SW Decoding
+    let isHwDec = true;
+    const hwToggleBtn = document.getElementById('hwToggleBtn');
+    if (hwToggleBtn) {
+        hwToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isHwDec = !isHwDec;
+            hwToggleBtn.innerText = isHwDec ? 'HW' : 'SW';
+            send('setMpvProperty', `hwdec:${isHwDec ? 'auto' : 'no'}`);
+        });
+    }
     
-    document.getElementById('probingCloseBtn').addEventListener('click', () => {
-        send('exitPlayer', '');
-    });
     const titleDisplay  = document.getElementById('titleDisplay');
     const nextEpBtn     = document.getElementById('nextEpBtn');
     const episodesBtn   = document.getElementById('episodesBtn');
@@ -1757,6 +1883,20 @@
 
         if (wasPlaying !== globalIsPlaying) {
             playPauseBtn.classList.toggle('is-playing', globalIsPlaying);
+
+            // Toggle pause info overlay
+            const pauseOverlay = document.getElementById('pauseInfoOverlay');
+            const pauseBackdrop = document.getElementById('pauseBackdrop');
+            if (pauseOverlay) {
+                if (!globalIsPlaying) {
+                    pauseOverlay.classList.add('visible');
+                    pauseBackdrop.classList.add('visible');
+                } else {
+                    pauseOverlay.classList.remove('visible');
+                    pauseBackdrop.classList.remove('visible');
+                }
+            }
+
             // Only show controls on actual play/pause toggle, not on every rapid state_update
             // Throttled to prevent flicker when MPV toggles pause rapidly during buffering
             if (typeof s.positionMs === 'number' && s.positionMs > 500) {
@@ -1830,6 +1970,62 @@
     };
 
     const handleMetadataUpdate = (meta) => {
+        // Populate Pause Info Overlay
+        const pauseLogo = document.getElementById('pauseInfoLogo');
+        const pauseFallback = document.getElementById('pauseInfoTitleFallback');
+        const pauseEp = document.getElementById('pauseInfoEpisode');
+        const pausePlot = document.getElementById('pauseInfoPlot');
+        const pauseYear = document.getElementById('pauseInfoYear');
+        const pauseTags = document.getElementById('pauseInfoTags');
+        const pauseMeta = document.getElementById('pauseInfoMeta');
+        
+        if (meta.logoUrl) {
+            pauseLogo.src = meta.logoUrl;
+            pauseLogo.style.display = 'block';
+            pauseFallback.style.display = 'none';
+        } else if (meta.title) {
+            pauseLogo.style.display = 'none';
+            pauseFallback.innerText = meta.title;
+            pauseFallback.style.display = 'block';
+        }
+
+        const activeEpInfo = (meta.episodes || []).find(ep => ep.isActive);
+        if (activeEpInfo) {
+            const s = activeEpInfo.season !== undefined && activeEpInfo.season !== null ? activeEpInfo.season : 1;
+            const ep = activeEpInfo.episode;
+            const epTitle = activeEpInfo.title ? activeEpInfo.title : `Episode ${ep}`;
+            pauseEp.innerText = `S${s}:E${ep} • ${epTitle}`;
+            pauseEp.style.display = 'block';
+        } else {
+            pauseEp.style.display = 'none';
+        }
+
+        if (meta.plot || (activeEpInfo && activeEpInfo.description)) {
+            pausePlot.innerText = (activeEpInfo && activeEpInfo.description) ? activeEpInfo.description : meta.plot;
+            pausePlot.style.display = '-webkit-box';
+        } else {
+            pausePlot.style.display = 'none';
+        }
+
+        let hasMeta = false;
+        if (meta.year) {
+            pauseYear.innerText = meta.year;
+            pauseYear.style.display = 'inline-block';
+            hasMeta = true;
+        } else {
+            pauseYear.style.display = 'none';
+        }
+
+        if (meta.tags && meta.tags.length > 0) {
+            pauseTags.innerText = meta.tags.slice(0, 3).join(' • ');
+            pauseTags.style.display = 'inline-block';
+            hasMeta = true;
+        } else {
+            pauseTags.style.display = 'none';
+        }
+
+        pauseMeta.style.display = hasMeta ? 'flex' : 'none';
+
         // Link Probing Overlay Logic
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pBackdrop = document.getElementById('linkProbingBackdrop');
@@ -2647,7 +2843,7 @@
     let endCountdownTimer = null;
     let currentEndCountdown = 5;
 
-    window.showVideoEnded = (hasNextEpisode) => {
+    window.showVideoEnded = (hasNextEpisode, autoPlayEnabled) => {
         closeAllPanels();
         document.getElementById('overlay').style.opacity = '0';
         videoEndedOverlay.style.display = 'flex';
@@ -2656,18 +2852,24 @@
         
         if (hasNextEpisode) {
             btnNextEpisode.style.display = 'block';
-            currentEndCountdown = 5;
-            btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
-            videoEndedSubtext.innerText = 'Playing next episode soon...';
             
-            endCountdownTimer = setInterval(() => {
-                currentEndCountdown--;
-                if (currentEndCountdown <= 0) {
-                    triggerNextEpisode();
-                } else {
-                    btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
-                }
-            }, 1000);
+            if (autoPlayEnabled) {
+                currentEndCountdown = 5;
+                btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+                videoEndedSubtext.innerText = 'Playing next episode soon...';
+                
+                endCountdownTimer = setInterval(() => {
+                    currentEndCountdown--;
+                    if (currentEndCountdown <= 0) {
+                        triggerNextEpisode();
+                    } else {
+                        btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+                    }
+                }, 1000);
+            } else {
+                btnNextEpisode.innerText = `Next Episode`;
+                videoEndedSubtext.innerText = 'Autoplay is disabled.';
+            }
             
             btnNextEpisode.onclick = () => {
                 triggerNextEpisode();
