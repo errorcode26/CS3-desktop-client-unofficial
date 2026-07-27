@@ -123,7 +123,8 @@ private fun VideoTab(playerState: PlayerState) {
     val isInterpolationEnabled by playerState.isInterpolationEnabled.collectAsState()
     val videoTracks by playerState.videoTracks.collectAsState()
     val lazyVideoTracks by com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyVideoTracks.collectAsState()
-    val isAutoSelected = videoTracks.none { it.isSelected }
+    val activeLazyVideoUrl by playerState.activeLazyVideoTrackUrl.collectAsState()
+    val isAutoSelected = videoTracks.none { it.isSelected } && activeLazyVideoUrl == null
 
     Column {
         Text("Video Quality", color = Color.LightGray, style = MaterialTheme.typography.labelLarge)
@@ -151,10 +152,10 @@ private fun VideoTab(playerState: PlayerState) {
                 val track = lazyVideoTracks[index]
                 SubtitleItem(
                     name = "${track.name} (Stream)",
-                    isSelected = false,
+                    isSelected = track.url == activeLazyVideoUrl,
                     onClick = {
                         playerState.loadLazyVideoTrack(
-                            PlayerState.LazyTrack(url = track.url, name = track.name, language = track.language),
+                            PlayerState.LazyTrack(url = track.url, name = track.name, language = track.language, bitrate = track.bitrate),
                         )
                     },
                 )

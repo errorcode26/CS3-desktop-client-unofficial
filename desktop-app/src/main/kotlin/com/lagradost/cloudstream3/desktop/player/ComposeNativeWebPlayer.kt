@@ -103,8 +103,10 @@ fun ComposeNativeWebPlayer(
     val currentLoadingStatusText by rememberUpdatedState(loadingStatusText)
     val isProbing by playerState?.isProbing?.collectAsState(false) ?: mutableStateOf(false)
     val activeShader by (playerState?.activeShader ?: kotlinx.coroutines.flow.flowOf("None")).collectAsState("None")
+    val activeLazyVideoTrackUrl by (playerState?.activeLazyVideoTrackUrl ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
+    val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
 
-    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader) {
+    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution) {
         if (isUiReady) {
             val payload = mapOf(
                 "type" to "metadata_update",
@@ -147,6 +149,8 @@ fun ComposeNativeWebPlayer(
                 "title" to (title ?: "CloudStream"),
                 "shaders" to com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
                 "activeShader" to activeShader,
+                "activeLazyVideoTrackUrl" to activeLazyVideoTrackUrl,
+                "resolution" to resolution,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         }
@@ -457,7 +461,7 @@ fun ComposeNativeWebPlayer(
                             if (track != null) {
                                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     playerState?.loadLazyVideoTrack(
-                                        com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language),
+                                        com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(track.url, track.name, track.language, track.bitrate),
                                     )
                                 }
                             }
