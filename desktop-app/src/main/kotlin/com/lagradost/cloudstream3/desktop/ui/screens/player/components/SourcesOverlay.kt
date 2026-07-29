@@ -25,7 +25,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 fun SourcesOverlay(
     links: List<ExtractorLink>,
     currentIndex: Int,
-    failedLinks: Set<Int> = emptySet(),
+    failedLinks: Map<Int, String> = emptyMap(),
     onLinkSelected: (Int) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -104,7 +104,7 @@ fun SourcesOverlay(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = link.name,
-                                color = if (failedLinks.contains(originalIndex)) Color.Red else Color.White,
+                                color = if (failedLinks.containsKey(originalIndex)) Color.Red else Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
@@ -114,7 +114,7 @@ fun SourcesOverlay(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = link.url,
-                                    color = if (failedLinks.contains(originalIndex)) Color.Red.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.5f),
+                                    color = if (failedLinks.containsKey(originalIndex)) Color.Red.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.5f),
                                     fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -122,7 +122,7 @@ fun SourcesOverlay(
                             }
                         }
 
-                        if (failedLinks.contains(originalIndex)) {
+                        if (failedLinks.containsKey(originalIndex)) {
                             Text(
                                 text = "Failed",
                                 color = Color.Red,

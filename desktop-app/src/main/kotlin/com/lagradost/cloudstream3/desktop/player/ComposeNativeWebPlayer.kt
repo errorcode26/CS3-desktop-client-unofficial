@@ -63,7 +63,7 @@ fun ComposeNativeWebPlayer(
     isLoading: Boolean = false,
     loadingStatusText: String? = null,
     isProbing: Boolean = false,
-    failedLinks: Set<Int> = emptySet(),
+    failedLinks: Map<Int, String> = emptyMap(),
     backdropUrl: String? = null,
     logoUrl: String? = null,
     onLinkChange: ((Int) -> Unit)? = null,
@@ -120,7 +120,7 @@ fun ComposeNativeWebPlayer(
                 "backdropUrl" to backdropUrl,
                 "logoUrl" to logoUrl,
                 "currentLinkIndex" to currentLinkIndex,
-                "failedLinks" to failedLinks.toList(),
+                "failedLinks" to failedLinks.map { mapOf("index" to it.key, "reason" to it.value) },
                 "links" to links.mapIndexed { index, l ->
                     mapOf("index" to index, "name" to l.name, "quality" to l.quality, "isActive" to (index == currentLinkIndex))
                 },
@@ -162,11 +162,23 @@ fun ComposeNativeWebPlayer(
         }
     }
 
+    val toastMessage by (playerState?.toastMessage ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
+    LaunchedEffect(toastMessage) {
+        if (isUiReady && toastMessage != null) {
+            val payload = mapOf(
+                "type" to "show_toast",
+                "message" to toastMessage,
+            )
+            NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
+        }
+    }
+
     fun pushMetadataToWebView() {
         try {
             val vol = playerState?.volume?.value ?: 100f
             val isMuted = playerState?.isMuted?.value ?: false
             val isBuf = playerState?.isBuffering?.value == true
+            val isPausedState = playerState?.isPaused?.value == true
 
             var currentlyLoading = isBuf
             var isAppScraping = false
@@ -182,14 +194,15 @@ fun ComposeNativeWebPlayer(
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
 
             NativePlayerBridge.postMessage(
-                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"debugWait\":false,\"debugHasEver\":true,\"debugPos\":0.0}",
+                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"isPaused\":$isPausedState,\"debugWait\":false,\"debugHasEver\":true,\"debugPos\":0.0}",
             )
         } catch (e: Throwable) {
             com.lagradost.common.logging.AppLogger.e("pushMetadataToWebView error: ${e.message}")
         }
     }
 
-    LaunchedEffect(isLoading, isBuffering, loadingStatusText) {
+    val isPausedFlow by (playerState?.isPaused ?: kotlinx.coroutines.flow.flowOf(false)).collectAsState(false)
+    LaunchedEffect(isLoading, isBuffering, loadingStatusText, isPausedFlow) {
         if (isUiReady && mpvHandle != null) {
             pushMetadataToWebView()
         }
@@ -252,6 +265,7 @@ fun ComposeNativeWebPlayer(
                             isUiReady = true
                             pushMetadataToWebView()
                             NativePlayerBridge.startMpvSync(com.sun.jna.Pointer.nativeValue(h))
+                            NativePlayerBridge.focusWebView()
                         }
                         "selectShader" -> {
                             val shaderName = extractJsonString(value, "value")
@@ -391,15 +405,28 @@ fun ComposeNativeWebPlayer(
                         "seekTo" -> {
                             val pos = eventValue.toDoubleOrNull()
                             if (pos != null) {
-                                playerState?.positionMs?.value = pos.toLong()
+                                playerState?.seekTo(pos.toLong())
                             }
                         }
                         "seekBy" -> {
                             val offset = eventValue.toDoubleOrNull()
                             if (offset != null) {
-                                val current = playerState?.positionMs?.value ?: 0L
-                                playerState?.positionMs?.value = current + offset.toLong()
+                                playerState?.seekBy(offset.toLong())
                             }
+                        }
+                        "togglePlay" -> {
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. Current isPaused=${playerState?.isPaused?.value}")
+                            playerState?.let {
+                                if (it.isPaused.value) it.play() else it.pause()
+                            }
+                        }
+                        "play" -> {
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received play event")
+                            playerState?.play()
+                        }
+                        "pause" -> {
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received pause event")
+                            playerState?.pause()
                         }
                         "toggleMute" -> {
                             playerState?.let { it.isMuted.value = !it.isMuted.value }

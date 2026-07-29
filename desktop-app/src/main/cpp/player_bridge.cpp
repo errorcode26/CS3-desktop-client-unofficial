@@ -240,18 +240,6 @@ public:
                         }
                     }
                 }
-            } else if (evType == L"togglePlay" && g_mpv_command_string) {
-                std::lock_guard<std::mutex> lk(g_mpvMutex);
-                if (g_mpvHandle) {
-                    g_mpv_command_string(g_mpvHandle, "cycle pause");
-                    handled = true;
-                }
-            } else if (evType == L"toggleMute" && g_mpv_command_string) {
-                std::lock_guard<std::mutex> lk(g_mpvMutex);
-                if (g_mpvHandle) {
-                    g_mpv_command_string(g_mpvHandle, "cycle mute");
-                    handled = true;
-                }
             } else if (evType == L"toggleStats") {
                 // Flip the stats-visible flag — no MPV command needed, just controls
                 // whether the timer sends stats_update messages each tick.

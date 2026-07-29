@@ -35,124 +35,129 @@ object PlayerLinkHandler {
 
     @kotlin.OptIn(kotlin.uuid.ExperimentalUuidApi::class, com.lagradost.cloudstream3.Prerelease::class)
     fun validate(link: ExtractorLink, explicitTitle: String? = null): Result<ValidatedLink> {
-        // ExtractorLinkPlayList contains concatenated chunk streams (with empty parent URLs).
-        // We write an MPV Edit Decision List (EDL) file locally to play them seamlessly.
-        if (link is ExtractorLinkPlayList) {
-            if (link.playlist.isEmpty()) {
-                return Result.failure(IllegalArgumentException("ExtractorLinkPlayList has empty playlist."))
+        try {
+            // ExtractorLinkPlayList contains concatenated chunk streams (with empty parent URLs).
+            // We write an MPV Edit Decision List (EDL) file locally to play them seamlessly.
+            if (link is ExtractorLinkPlayList) {
+                if (link.playlist.isEmpty()) {
+                    return Result.failure(IllegalArgumentException("ExtractorLinkPlayList has empty playlist."))
+                }
+                val headers = buildHeaderMap(link)
+                val display = sanitizeDisplayTitle(explicitTitle?.takeIf { it.isNotBlank() } ?: link.name)
+                val edlFile = writeEdlFile(link.playlist, headers)
+                return Result.success(
+                    ValidatedLink(
+                        url = edlFile.absolutePath,
+                        displayTitle = display,
+                        headers = headers,
+                        streamKind = StreamKind.PROGRESSIVE,
+                        useUrlFile = false,
+                    ),
+                )
             }
+    
+            val url = link.url.trim().substringBefore("|")
+            if (url.isBlank()) {
+                return Result.failure(IllegalArgumentException("Stream URL is empty."))
+            }
+            if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+                return Result.failure(IllegalArgumentException("Unsupported stream URL scheme: ${url.take(12)}..."))
+            }
+    
             val headers = buildHeaderMap(link)
-            val display = sanitizeDisplayTitle(explicitTitle?.takeIf { it.isNotBlank() } ?: link.name)
-            val edlFile = writeEdlFile(link.playlist, headers)
-            return Result.success(
-                ValidatedLink(
-                    url = edlFile.absolutePath,
-                    displayTitle = display,
-                    headers = headers,
-                    streamKind = StreamKind.PROGRESSIVE,
-                    useUrlFile = false,
-                ),
-            )
-        }
-
-        val url = link.url.trim().substringBefore("|")
-        if (url.isBlank()) {
-            return Result.failure(IllegalArgumentException("Stream URL is empty."))
-        }
-        if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
-            return Result.failure(IllegalArgumentException("Unsupported stream URL scheme: ${url.take(12)}..."))
-        }
-
-        val headers = buildHeaderMap(link)
-        if (headers.values.any { it.isBlank() }) {
-            return Result.failure(IllegalArgumentException("Stream headers contain invalid empty values."))
-        }
-
-        val kind = when {
-            link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8", ignoreCase = true) || url.contains(".m3u", ignoreCase = true) -> StreamKind.HLS
-            link.isDash || link.type == ExtractorLinkType.DASH || url.contains(".mpd", ignoreCase = true) -> StreamKind.DASH
-            else -> StreamKind.PROGRESSIVE
-        }
-
-        var clearKeyHex: String? = null
-        if (link is com.lagradost.cloudstream3.utils.DrmExtractorLink) {
-            val isClearKey = link.uuid == com.lagradost.cloudstream3.utils.CLEARKEY_DRM_UUID
-            if (isClearKey && !link.key.isNullOrBlank()) {
-                clearKeyHex = try {
-                    val decoded = java.util.Base64.getUrlDecoder().decode(link.key!!)
-                    decoded.joinToString("") { "%02x".format(it) }
-                } catch (e: Exception) {
-                    try {
-                        val decoded = java.util.Base64.getDecoder().decode(link.key!!)
+            if (headers.values.any { it.isBlank() }) {
+                return Result.failure(IllegalArgumentException("Stream headers contain invalid empty values."))
+            }
+    
+            val kind = when {
+                link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8", ignoreCase = true) || url.contains(".m3u", ignoreCase = true) -> StreamKind.HLS
+                link.isDash || link.type == ExtractorLinkType.DASH || url.contains(".mpd", ignoreCase = true) -> StreamKind.DASH
+                else -> StreamKind.PROGRESSIVE
+            }
+    
+            var clearKeyHex: String? = null
+            if (link is com.lagradost.cloudstream3.utils.DrmExtractorLink) {
+                val isClearKey = link.uuid == com.lagradost.cloudstream3.utils.CLEARKEY_DRM_UUID
+                if (isClearKey && !link.key.isNullOrBlank()) {
+                    clearKeyHex = try {
+                        val decoded = java.util.Base64.getUrlDecoder().decode(link.key!!)
                         decoded.joinToString("") { "%02x".format(it) }
-                    } catch (e2: Exception) {
-                        null
+                    } catch (e: Exception) {
+                        try {
+                            val decoded = java.util.Base64.getDecoder().decode(link.key!!)
+                            decoded.joinToString("") { "%02x".format(it) }
+                        } catch (e2: Exception) {
+                            null
+                        }
                     }
                 }
             }
-        }
-
-        // For HLS streams, route through the LocalStreamProxy.
-        // The proxy fetches the .m3u8 manifest, rewrites all segment URLs to go through
-        // localhost:8080, and injects the correct auth headers on every segment request.
-        // This makes the stream appear as a seamless local HLS feed to MPV.
-        // Without this, MPV receives raw tokenized CDN segment URLs which can expire
-        // mid-stream, causing broken-pieces playback.
-        val useProxy = when (kind) {
-            StreamKind.HLS -> true
-            StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
-            StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
-        }
-
-        var finalSessionId: String? = null
-        val finalUrl = if (useProxy) {
-            val sessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
-            finalSessionId = sessionId
-            if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
-                com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(sessionId, url)
+    
+            // For HLS streams, route through the LocalStreamProxy.
+            // The proxy fetches the .m3u8 manifest, rewrites all segment URLs to go through
+            // localhost:8080, and injects the correct auth headers on every segment request.
+            // This makes the stream appear as a seamless local HLS feed to MPV.
+            // Without this, MPV receives raw tokenized CDN segment URLs which can expire
+            // mid-stream, causing broken-pieces playback.
+            val useProxy = when (kind) {
+                StreamKind.HLS -> true
+                StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
+                StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
             }
-            com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url)
-        } else {
-            url
-        }
-
-        val finalHeaders = headers
-
-        val display = sanitizeDisplayTitle(explicitTitle?.takeIf { it.isNotBlank() } ?: link.name)
-
-        val finalAudioTracks = if (useProxy && finalSessionId != null) {
-            link.audioTracks.map { audio ->
-                // AudioFile constructor is internal, so we must recreate it using the builder/reflection
-                // or just modify the url if it's mutable, but it might not be. Wait, the constructor is internal.
-                // But there is a helper function `com.lagradost.cloudstream3.newAudioFile`.
-                // Actually `newAudioFile` is suspend function.
-                // We shouldn't use it here if we can't suspend.
-                // Let's check if the properties are mutable since the data class has `var url`.
-                // Yes: `var url: String`, `var headers: Map<String, String>?`.
-                com.lagradost.cloudstream3.AudioFile::class.java.getDeclaredConstructor(String::class.java, Map::class.java).apply {
-                    isAccessible = true
-                }.newInstance(
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, audio.url),
-                    audio.headers,
-                )
+    
+            var finalSessionId: String? = null
+            val finalUrl = if (useProxy) {
+                val sessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
+                finalSessionId = sessionId
+                if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(sessionId, url)
+                }
+                com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url)
+            } else {
+                url
             }
-        } else {
-            link.audioTracks
+    
+            val finalHeaders = headers
+    
+            val display = sanitizeDisplayTitle(explicitTitle?.takeIf { it.isNotBlank() } ?: link.name)
+    
+            val finalAudioTracks = if (useProxy && finalSessionId != null) {
+                link.audioTracks.map { audio ->
+                    // AudioFile constructor is internal, so we must recreate it using the builder/reflection
+                    // or just modify the url if it's mutable, but it might not be. Wait, the constructor is internal.
+                    // But there is a helper function `com.lagradost.cloudstream3.newAudioFile`.
+                    // Actually `newAudioFile` is suspend function.
+                    // We shouldn't use it here if we can't suspend.
+                    // Let's check if the properties are mutable since the data class has `var url`.
+                    // Yes: `var url: String`, `var headers: Map<String, String>?`.
+                    com.lagradost.cloudstream3.AudioFile::class.java.getDeclaredConstructor(String::class.java, Map::class.java).apply {
+                        isAccessible = true
+                    }.newInstance(
+                        com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, audio.url),
+                        audio.headers,
+                    )
+                }
+            } else {
+                link.audioTracks
+            }
+    
+            return Result.success(
+                ValidatedLink(
+                    url = finalUrl,
+                    displayTitle = display,
+                    headers = finalHeaders,
+                    streamKind = kind,
+                    // Avoid Windows command-line limits and escaping issues for long signed URLs.
+                    useUrlFile = !useProxy && (finalUrl.length > 1800 || finalUrl.count { it == '&' } > 8),
+                    audioTracks = finalAudioTracks,
+                    proxySessionId = finalSessionId,
+                    clearKeyHex = clearKeyHex,
+                ),
+            )
+        } catch (t: Throwable) {
+            com.lagradost.common.logging.AppLogger.e("PlayerLinkHandler: Link validation failed due to exception", t)
+            return Result.failure(t)
         }
-
-        return Result.success(
-            ValidatedLink(
-                url = finalUrl,
-                displayTitle = display,
-                headers = finalHeaders,
-                streamKind = kind,
-                // Avoid Windows command-line limits and escaping issues for long signed URLs.
-                useUrlFile = !useProxy && (finalUrl.length > 1800 || finalUrl.count { it == '&' } > 8),
-                audioTracks = finalAudioTracks,
-                proxySessionId = finalSessionId,
-                clearKeyHex = clearKeyHex,
-            ),
-        )
     }
 
     fun buildHeaderMap(link: ExtractorLink): Map<String, String> {

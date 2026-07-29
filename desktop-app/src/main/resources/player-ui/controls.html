@@ -8,6 +8,22 @@
         :root {
             --accent-color: {{ACCENT_COLOR}};
             --accent-color-rgb: {{ACCENT_COLOR_RGB}};
+            
+            /* UI Z-Index Hierarchy */
+            --z-slider: 2;
+            --z-pause-backdrop: 4;
+            --z-pause-info: 5;
+            --z-player-controls: 10;
+            --z-loading: 50;
+            --z-side-panel-overlay: 100;
+            --z-tooltip: 150;
+            --z-stats: 200;
+            --z-resume-overlay: 1000;
+            --z-panel: 3000;
+            --z-sub-search: 3500;
+            --z-probing: 4000;
+            --z-video-ended: 4005;
+            --z-toast: 9999;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-drag: none; }
         body {
@@ -27,14 +43,20 @@
             pointer-events: none; padding: 32px;
             transition: opacity 0.3s ease;
         }
+        #overlay.hide-main-ui {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
         .hidden-controls .top-bar,
-        .hidden-controls .bottom-bar { opacity: 0; transform: translateY(20px) scale(0.98); pointer-events: none; }
+        .hidden-controls .bottom-bar { opacity: 0; pointer-events: none; }
+
         .hidden-controls .top-bar { transform: translateY(-20px) scale(0.98); }
+        .hidden-controls .bottom-bar { transform: translateY(20px) scale(0.98); }
         body.hidden-controls, body.hidden-controls * { cursor: none !important; }
 
         /* ── Top Bar Pill ────────────────────────────────────────────────── */
         .top-bar {
-            position: relative; z-index: 10;
+            position: relative; z-index: var(--z-player-controls);
             padding: 10px 24px 10px 14px;
             background: rgba(15, 15, 15, 0.45);
             backdrop-filter: blur(24px);
@@ -46,17 +68,8 @@
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
-        /* ── Action Feedback (Center play/pause etc.) ────────────────────── */
-        #actionFeedback {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(12px);
-            border-radius: 50%; padding: 24px;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
-            z-index: 50; width: 80px; height: 80px;
-        }
-        #actionFeedback svg { width: 40px; height: 40px; fill: white; }
-        #actionFeedback.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); transition: opacity 0.1s, transform 0.1s; }
+        /* ── Center Play/Pause HUD ───────────────────────────────────────── */
+
 
         /* ── Pause Info Overlay ─────────────────────────────────────────── */
         #pauseBackdrop {
@@ -65,7 +78,7 @@
             background: radial-gradient(ellipse at bottom left, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0) 70%);
             opacity: 0;
             pointer-events: none;
-            z-index: 4;
+            z-index: var(--z-pause-backdrop);
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         #pauseBackdrop.visible {
@@ -73,7 +86,7 @@
         }
         #pauseInfoOverlay {
             position: absolute;
-            bottom: 120px;
+            bottom: 180px;
             left: 32px;
             max-width: 500px;
             display: flex;
@@ -83,7 +96,7 @@
             transform: translateX(-20px) scale(0.98);
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             pointer-events: none;
-            z-index: 5;
+            z-index: var(--z-pause-info);
             text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
         #pauseInfoOverlay.visible {
@@ -150,7 +163,7 @@
         .back-btn svg { width: 22px; height: 22px; }
 
         .hw-toggle-btn {
-            position: absolute; top: 40px; right: 40px; z-index: 10;
+            position: absolute; top: 40px; right: 40px; z-index: var(--z-player-controls);
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; cursor: pointer;
             padding: 6px 14px; border-radius: 14px;
             font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
@@ -165,7 +178,7 @@
         #loadingContainer {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             display: flex; flex-direction: column; align-items: center; gap: 14px;
-            z-index: 50; pointer-events: none; 
+            z-index: var(--z-loading); pointer-events: none; 
             opacity: 0; visibility: hidden;
             transition: opacity 0.2s, visibility 0.2s;
         }
@@ -195,7 +208,7 @@
             background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
             display: flex; flex-direction: column; gap: 12px;
             pointer-events: auto;
-            z-index: 10;
+            z-index: var(--z-player-controls);
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -221,7 +234,7 @@
         }
         .seek-slider {
             position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer;
-            -webkit-appearance: none; z-index: 2;
+            -webkit-appearance: none; z-index: var(--z-slider);
         }
         
         /* Expand on hover */
@@ -316,32 +329,97 @@
         }
         .vol-slider:hover::-webkit-slider-thumb { transform: scale(1.3); }
 
-        /* ── Resume Overlay ─────────────────────────────────────────────── */
+        /* ── Resume Bar (inline row inside bottom-bar) ─────────────────── */
         #resumeOverlay {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
-            z-index: 3000; display: none; align-items: center; justify-content: center;
+            /* Rendered inside .bottom-bar as a flex row — no absolute positioning */
+            display: none;
+            align-items: center;
+            gap: 14px;
+            padding: 0 2px 2px;
+            overflow: hidden;
+            /* Slide-in from the top of its slot */
+            animation: resumeRowIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: var(--z-panel);
             pointer-events: auto;
         }
-        .resume-card {
-            background: rgba(22,22,22,0.97); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 14px; padding: 32px; width: 300px; text-align: center;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+        @keyframes resumeRowIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
-        .resume-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-        .resume-card .sub { font-size: 13px; color: #999; margin-bottom: 22px; }
-        .resume-card strong { color: white; }
-        .rbtn {
-            display: block; width: 100%; padding: 11px;
-            border: none; border-radius: 7px; font-size: 14px; font-weight: 600;
-            cursor: pointer; margin-bottom: 10px; transition: opacity 0.2s;
+        .resume-bar-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .resume-bar-label strong {
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 600;
+        }
+        /* push buttons to the right */
+        .resume-bar-spacer { flex: 1; }
+        .resume-bar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+        /* countdown drain strip on the Start Over button */
+        .resume-bar-btn.secondary {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .resume-bar-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .resume-bar-btn.secondary::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            height: 2px;
+            width: 100%;
+            background: rgba(255,255,255,0.4);
+            transform-origin: left;
+            transform: scaleX(1);
+            animation: resumeDrain 10s linear forwards;
+        }
+        @keyframes resumeDrain {
+            from { transform: scaleX(1); }
+            to   { transform: scaleX(0); }
+        }
+        .resume-bar-btn.secondary {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .resume-bar-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        /* Thin separator above the resume row */
+        #resumeOverlay::before {
+            display: none; /* separator handled by gap in .bottom-bar */
         }
 
         /* ── Subtitle Search Overlay ────────────────────────────────────── */
         #subSearchOverlay {
             position: absolute; inset: 0;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
-            z-index: 3500; display: none; align-items: center; justify-content: center;
+            z-index: var(--z-sub-search); display: none; align-items: center; justify-content: center;
             pointer-events: auto;
         }
         .subsearch-card {
@@ -390,13 +468,63 @@
             transform: translateY(-1px);
         }
 
-        .rbtn:hover { opacity: 0.85; }
-        .rbtn.primary { background: white; color: #111; }
-        .rbtn.secondary { background: rgba(255,255,255,0.1); color: white; margin-bottom: 0; }
+        .rbtn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+            user-select: none;
+            box-sizing: border-box;
+            line-height: 1.2;
+        }
+        .rbtn.primary {
+            background: linear-gradient(135deg, #e50914 0%, #b81d24 100%);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 18px rgba(229, 9, 20, 0.4);
+        }
+        .rbtn.primary:hover {
+            background: linear-gradient(135deg, #ff0f1a 0%, #d81f26 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(229, 9, 20, 0.6);
+            opacity: 1;
+        }
+        .rbtn.primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(229, 9, 20, 0.3);
+        }
+        .rbtn.secondary {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            margin-bottom: 0;
+        }
+        .rbtn.secondary:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            opacity: 1;
+        }
+        .rbtn.secondary:active {
+            transform: translateY(0);
+        }
 
         /* ── Click Zones & Center HUD ────────────────────────────────────── */
         .click-zones {
-            position: absolute; inset: 0 0 100px 0;
+            position: absolute; inset: 0 0 130px 0;
             display: flex; z-index: 5; pointer-events: auto;
         }
         .click-zone {
@@ -437,7 +565,7 @@
             background: rgba(20,20,20,0.9); backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
             padding: 10px 20px; color: white;
-            z-index: 100; pointer-events: none;
+            z-index: var(--z-tooltip); pointer-events: none;
             opacity: 0; transition: opacity 0.3s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .volume-osd.show { opacity: 1; transform: translateX(-50%) scale(1.1); }
@@ -450,7 +578,7 @@
             position: absolute; bottom: 100px; right: 32px;
             background: rgba(18, 18, 18, 0.65); backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8);
             border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
-            color: white; z-index: 1000; display: none; flex-direction: column;
+            color: white; z-index: var(--z-stats); display: none; flex-direction: column;
             box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.15);
             pointer-events: auto; overflow: hidden;
             width: 400px; max-height: 65vh;
@@ -671,15 +799,22 @@
 
         /* ── Link Probing Overlay ───────────────────────────────────────── */
         #linkProbingOverlay {
-            position: absolute; inset: 0; z-index: 4000;
-            background: #000; display: flex; flex-direction: column;
+            position: absolute; inset: 0; z-index: var(--z-probing);
+            background: rgba(0,0,0,0.4); display: flex; flex-direction: column;
             justify-content: center; align-items: center;
-            opacity: 1; pointer-events: auto;
-            transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Hidden by default; appears instantly when activated */
+            opacity: 0; pointer-events: none;
+            /* No transition on the base — so SHOWING is instant (no flicker wait) */
+            transition: none;
         }
-        #linkProbingOverlay.active { }
+        /* Active: probing is live. No transition needed — appear immediately. */
+        #linkProbingOverlay:not(.dismissing) {
+            opacity: 1; pointer-events: auto;
+        }
+        /* Dismissing: slow cinematic fade-out as MPV first frame fades in */
         #linkProbingOverlay.dismissing {
             opacity: 0; pointer-events: none;
+            transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #linkProbingBackdrop {
             position: absolute; inset: 0; width: 100%; height: 100%;
@@ -700,9 +835,10 @@
             );
         }
         #linkProbingContent {
-            position: relative; z-index: 2; width: 100%; max-width: 520px;
-            display: flex; flex-direction: column; align-items: center;
+            position: relative; z-index: 2;
+            width: 100%; max-width: 520px;
             padding: 40px 40px 60px;
+            display: flex; flex-direction: column; align-items: center;
             opacity: 1; transform: translateY(0);
             transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
                         transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -728,39 +864,83 @@
             100% { transform: scale(1);    opacity: 0.85; }
         }
         .link-probing-status {
-            font-size: 13px; color: rgba(255,255,255,0.5); font-weight: 500;
-            margin-bottom: 20px; letter-spacing: 0.5px; text-transform: uppercase;
+            font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 500;
+            margin-top: 20px; letter-spacing: 0.5px; text-transform: uppercase;
         }
         .link-probing-list {
-            width: 100%; max-height: 200px; overflow-y: auto;
             display: flex; flex-direction: column; gap: 8px;
+            margin-top: 32px; width: 100%; max-width: 480px;
+            max-height: 240px; overflow-y: auto; overflow-x: hidden;
+            padding-right: 8px;
+            mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
         }
-        .link-probing-list::-webkit-scrollbar { width: 3px; }
-        .link-probing-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+        .link-probing-list::-webkit-scrollbar { width: 4px; }
+        .link-probing-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .link-probing-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        
         .link-probing-item {
-            border-radius: 10px; padding: 11px 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            color: rgba(255,255,255,0.7); font-weight: 500; font-size: 13px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
-            animation: slideInLink 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            font-size: 14px; font-weight: 500;
+            color: rgba(255,255,255,0.8);
+            opacity: 0; transform: translateY(10px);
+            animation: slideUpFade 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
+        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
+        
         .link-probing-item.active {
-            background: rgba(229, 9, 20, 0.12);
-            border-color: rgba(229, 9, 20, 0.4);
-            color: white;
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.2);
+            color: #fff;
         }
         .link-probing-item.failed {
-            opacity: 0.35;
-            text-decoration: line-through;
+            background: rgba(255,80,80,0.08);
+            border-color: rgba(255,80,80,0.15);
+            color: rgba(255,255,255,0.6);
         }
-        .link-probing-item.waiting {
-            opacity: 0.45;
+        .link-probing-item .err-reason {
+            display: inline-block;
+            font-size: 11px; color: rgba(255,80,80,0.9); margin-top: 4px;
+            background: rgba(255,80,80,0.15); padding: 3px 8px; border-radius: 6px;
         }
-        @keyframes slideInLink {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
+        /* ── Probing Action Buttons ─────────────────────────────────────── */
+        .link-probing-actions {
+            display: flex; flex-direction: row; gap: 12px;
+            margin-top: 32px; align-items: center; justify-content: center;
         }
+        .probing-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 13px 28px;
+            border-radius: 50px; font-size: 14px; font-weight: 700;
+            letter-spacing: 0.3px; border: none; cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none; user-select: none;
+        }
+        .probing-btn.play {
+            background: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(var(--accent-color-rgb), 0.45);
+        }
+        .probing-btn.play:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(var(--accent-color-rgb), 0.65);
+        }
+        .probing-btn.close {
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(12px);
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+        .probing-btn.close:hover {
+            background: rgba(255,255,255,0.22);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .probing-btn:active { transform: translateY(0) scale(0.97); }
         /* Spinning dots for the active link */
         .link-spinner {
             display: inline-flex; align-items: center; gap: 4px;
@@ -784,7 +964,7 @@
         #statsOverlay {
             position: fixed;
             top: 72px; left: 20px;
-            z-index: 200;
+            z-index: var(--z-resume-overlay);
             pointer-events: none;
             opacity: 0;
             transform: translateY(-6px);
@@ -887,27 +1067,36 @@
         <img id="linkProbingLogo" src="" alt="">
         <h2 id="linkProbingTitle"></h2>
         <div class="link-probing-status" id="linkProbingStatus"></div>
+        <!-- link list hidden; action buttons always visible -->
         <div class="link-probing-list" id="linkProbingList"></div>
-        <div class="link-probing-actions" style="margin-top: 32px; display: flex; gap: 16px; pointer-events: auto; align-items: center;">
-            <button id="probingPlayBtn" class="rbtn primary" style="width: 120px; margin: 0;">Play Now</button>
-            <button id="probingCloseBtn" class="rbtn secondary" style="width: 120px; margin: 0; background: rgba(255,255,255,0.2);">Close</button>
+        <div class="link-probing-actions" id="linkProbingActions">
+            <button id="probingPlayBtn" class="probing-btn play">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                Play Now
+            </button>
+            <button id="probingCloseBtn" class="probing-btn close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                Close
+            </button>
         </div>
     </div>
 </div>
 
-<!-- ── Resume Dialog ─────────────────────────────────────────────────── -->
+<!-- ── Resume Bar (inline, inside .bottom-bar) ───────────────────────── -->
+<!-- NOTE: This element is moved into .bottom-bar by JS on DOMContentLoaded -->
 <div id="resumeOverlay">
-    <div class="resume-card">
-        <h3>Resume watching?</h3>
-        <div class="sub" id="resumeTitle">CloudStream</div>
-        <div class="sub" style="margin-top:-14px;">Left off at <strong id="resumeTime">00:00</strong></div>
-        <button class="rbtn primary" id="btnContinue">Continue</button>
-        <button class="rbtn secondary" id="btnStartOver">Start over</button>
-    </div>
+    <span class="resume-bar-label">Resuming from <strong id="resumeTime">00:00</strong></span>
+    <span id="resumeTitle" style="font-size:12px;color:rgba(255,255,255,0.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">CloudStream</span>
+    <span class="resume-bar-spacer"></span>
+    <button class="resume-bar-btn secondary" id="btnStartOver">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        From beginning
+    </button>
 </div>
 
+
 <!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
-<div id="videoEndedOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 4000; display: none; align-items: center; justify-content: center; pointer-events: auto;">
+<div id="videoEndedOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: var(--z-video-ended); display: none; align-items: center; justify-content: center; pointer-events: auto;">
     <div style="background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center;">
         <h2 style="margin: 0 0 10px 0; color: white; font-size: 28px;">Video Ended</h2>
         <div id="videoEndedSubtext" style="color: #aaa; font-size: 16px; margin-bottom: 30px;">Playing next episode in 5...</div>
@@ -1341,7 +1530,13 @@
 </div>
 
 <!-- ── Main Overlay ───────────────────────────────────────────────────── -->
-<div id="overlay">
+    <!-- Loading Spinner -->
+    <div id="loadingContainer">
+        <div id="loadingSpinner"></div>
+        <div id="loadingStatus"></div>
+    </div>
+
+<div id="overlay" class="hide-main-ui">
     <!-- Click Zones -->
     <div class="click-zones">
         <div class="click-zone" id="zoneLeft"></div>
@@ -1360,6 +1555,8 @@
         <div id="volumeOsdText" class="volume-osd-text">100%</div>
     </div>
 
+
+
     <!-- Top Bar -->
     <div class="top-bar">
         <button class="back-btn" id="backBtn">
@@ -1371,15 +1568,11 @@
     <!-- HW/SW Toggle (Top Right) -->
     <button id="hwToggleBtn" class="hw-toggle-btn" title="Hardware Decoding (Toggle)">HW</button>
 
-    <!-- Loading Spinner -->
-    <div id="loadingContainer">
-        <div id="loadingSpinner"></div>
-        <div id="loadingStatus"></div>
-    </div>
-
     <!-- Bottom Bar -->
-    <div class="bottom-bar">
+    <div class="bottom-bar" id="bottomBar">
         
+        <!-- Resume inline bar: injected by JS as first child of bottom-bar -->
+
         <!-- Progress Row (Full Width, above controls) -->
         <div class="progress-row">
             <div class="seek-wrap">
@@ -1515,7 +1708,167 @@
     let isMuted = false, currentVolume = 100;
     let isMenuOpen = false;
     let subDelaySec = 0, audioDelaySec = 0;
-    let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false;
+    let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
+    let isAppLoading = false; // Moved up to global scope
+
+    // ── Hard-reset every overlay/timer atomically when a new playback session begins.
+    // This is the single source of truth that kills race conditions on re-entry.
+    function hardResetAllOverlays() {
+        // Kill all pending timers that could fire from a stale session
+        if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
+        if (window.probingDismissTimer) { clearTimeout(window.probingDismissTimer); window.probingDismissTimer = null; }
+        clearTimeout(loadingTimer);
+        loadingTimer = null;
+
+        // Reset all session-scoped JS state
+        resumeHandled = false;
+        userDismissedProbing = false;
+        pendingResumeMs = 0;
+        durationMs = 0;
+        currentPosMs = 0;
+        isSeeking = false;
+        isCurrentlyLoading = false;
+        globalIsLoading = false;
+        globalIsPlaying = false;
+        window.pendingAutoPlay = true;
+        window.sessionStartTime = Date.now();
+
+        // Force all overlays to their correct initial state
+        // The probing screen should ALWAYS act as the loading screen for new sessions.
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const pContent = document.getElementById('linkProbingContent');
+        if (pOverlay)  { pOverlay.classList.remove('dismissing'); }
+        if (pContent)  { pContent.classList.remove('dismissing'); }
+
+        const videoEndedOvl = document.getElementById('videoEndedOverlay');
+        if (videoEndedOvl) videoEndedOvl.style.display = 'none';
+        if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; }
+
+        resumeOverlay.style.display = 'none';
+        loadingContainer.classList.remove('show');
+
+        const pauseOverlay = document.getElementById('pauseInfoOverlay');
+        const pauseBackdrop = document.getElementById('pauseBackdrop');
+        if (pauseOverlay) { pauseOverlay.classList.remove('visible'); }
+        if (pauseBackdrop) { pauseBackdrop.classList.remove('visible'); }
+
+        // Ensure the main player UI base state is restored internally (visibility handled by evaluateUIStates)
+        const mainOverlay = document.getElementById('overlay');
+        if (mainOverlay) { mainOverlay.style.display = ''; mainOverlay.style.opacity = ''; }
+
+        seekFill.style.width = '0%';
+        seekBar.value = 0;
+        seekBuffer.style.width = '0%';
+        timeDisplay.innerText = '0:00 / 0:00';
+    }
+
+    function evaluateResumeOverlay() {
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+
+        const shouldShow = pendingResumeMs > 0 && !resumeHandled && !isProbing && !isAppLoading;
+
+        if (shouldShow) {
+            document.getElementById('resumeTime').innerText = fmt(pendingResumeMs);
+            // Move the resume bar inside the bottom-bar if not already there
+            const bottomBar = document.getElementById('bottomBar');
+            if (resumeOverlay.parentElement !== bottomBar) {
+                bottomBar.insertBefore(resumeOverlay, bottomBar.firstChild);
+            }
+            if (resumeOverlay.style.display !== 'flex') {
+                resumeOverlay.style.display = 'flex';
+                // Re-trigger countdown animation by forcing reflow
+                void resumeOverlay.offsetWidth;
+            }
+            document.body.classList.remove('hidden-controls');
+            if (!window.resumeDismissTimer) {
+                window.resumeDismissTimer = setTimeout(() => {
+                    // Auto-dismiss: user ignored it, do nothing (default behaviour is continue)
+                    resumeOverlay.style.display = 'none';
+                    resumeHandled = true;
+                    window.resumeDismissTimer = null;
+                    send('play'); // Auto-unpause the player to actually continue!
+                }, 10000);
+            }
+        } else {
+            resumeOverlay.style.display = 'none';
+        }
+    }
+
+    function evaluateUIStates() {
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+        const videoEndedOvl = document.getElementById('videoEndedOverlay');
+        const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
+        
+        // Master visibility control for the main player UI
+        const mainOverlay = document.getElementById('overlay');
+        if (mainOverlay) {
+            if (isProbing || isAppLoading) {
+                // Hide controls during probing or loading to prevent bleeding/flashing.
+                // 350ms buffer timer prevents jarring flashes if loading is ultra-fast.
+                if (!window.hideMainUiTimer && !mainOverlay.classList.contains('hide-main-ui')) {
+                    window.hideMainUiTimer = setTimeout(() => {
+                        mainOverlay.classList.add('hide-main-ui');
+                    }, 350);
+                }
+            } else {
+                // Both probing and loading are finished; first frame is ready. Unhide smoothly.
+                if (window.hideMainUiTimer) { clearTimeout(window.hideMainUiTimer); window.hideMainUiTimer = null; }
+                if (mainOverlay.classList.contains('hide-main-ui')) {
+                    mainOverlay.classList.remove('hide-main-ui');
+                }
+                
+                // Force playback to start if it was stalled in a paused state during load
+                if (window.pendingAutoPlay && !globalIsPlaying) {
+                    window.pendingAutoPlay = false;
+                    send('play');
+                }
+            }
+        }
+        
+        // 1. Pause Info Overlay
+        const pauseOverlay = document.getElementById('pauseInfoOverlay');
+        const pauseBackdrop = document.getElementById('pauseBackdrop');
+        if (pauseOverlay) {
+            if (globalIsPlaying || isProbing || isAppLoading || isVideoEnded) {
+                pauseOverlay.classList.remove('visible');
+                pauseBackdrop.classList.remove('visible');
+            } else {
+                pauseOverlay.classList.add('visible');
+                pauseBackdrop.classList.add('visible');
+            }
+        }
+        
+        // 2. Loading Container (Spinner)
+        const isNativeBuffering = globalIsLoading || isSeeking;
+        // Do not show central spinner if probing (probing has its own)
+        const shouldBeLoading = (isNativeBuffering || isAppLoading) && !isProbing && !isVideoEnded;
+        
+        const getCleanLoadingText = () => {
+            if (isAppLoading) return 'Loading source...';
+            if (isSeeking) return 'Seeking...';
+            return 'Buffering...';
+        };
+
+        if (shouldBeLoading !== isCurrentlyLoading) {
+            isCurrentlyLoading = shouldBeLoading;
+            clearTimeout(loadingTimer);
+            if (shouldBeLoading) {
+                const delay = isSeeking ? 0 : 150;
+                loadingTimer = setTimeout(() => {
+                    loadingContainer.classList.add('show');
+                    loadingStatus.innerText = getCleanLoadingText();
+                }, delay);
+            } else {
+                loadingContainer.classList.remove('show');
+                loadingStatus.innerText = '';
+            }
+        } else if (shouldBeLoading) {
+             loadingStatus.innerText = getCleanLoadingText();
+        }
+    }
+
     let currentLinkIndex = -1;
     let seekLockTimer = null;
     let episodesData = [];
@@ -1523,6 +1876,7 @@
     // Element References
     const overlay       = document.getElementById('overlay');
     const playPauseBtn  = document.getElementById('playPauseBtn');
+
     const muteBtn       = document.getElementById('muteBtn');
     const seekBar       = document.getElementById('seekBar');
     const seekFill      = document.getElementById('seekFill');
@@ -1633,7 +1987,7 @@
         }
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
-        if (resumeOverlay.style.display === 'flex' || isProbing) {
+        if (resumeOverlay.style.display === 'flex' || (isProbing && !userDismissedProbing)) {
             clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls');
             return;
@@ -1692,14 +2046,14 @@
         renderFilteredEpisodes(parseInt(e.target.value));
     });
 
-    // Resume Dialog
-    document.getElementById('btnContinue').addEventListener('click', () => {
-        resumeOverlay.style.display = 'none'; resumeHandled = true;
-        send('setMpvProperty', 'pause:no'); showControls();
-    });
+    // Resume Bar (inline in bottom-bar)
+
     document.getElementById('btnStartOver').addEventListener('click', () => {
-        resumeOverlay.style.display = 'none'; resumeHandled = true;
-        send('seekTo', 0); setTimeout(() => send('setMpvProperty', 'pause:no'), 100); showControls();
+        if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
+        resumeOverlay.style.display = 'none';
+        resumeHandled = true;
+        send('seekTo', 0);
+        send('play'); // Unpause immediately when starting over
     });
 
     // Seek Bar
@@ -1823,7 +2177,7 @@
     // Backend Messages
     let loadingTimer = null;
     let isCurrentlyLoading = false;
-    let isAppLoading = false;      // set by Kotlin via app_state_update
+    // let isAppLoading = false; (now global)
     let globalIsLoading = false;   // set by C++ via state_update (core_idle || paused-for-cache)
 
     const forceShowLoading = () => {
@@ -1884,18 +2238,6 @@
         if (wasPlaying !== globalIsPlaying) {
             playPauseBtn.classList.toggle('is-playing', globalIsPlaying);
 
-            // Toggle pause info overlay
-            const pauseOverlay = document.getElementById('pauseInfoOverlay');
-            const pauseBackdrop = document.getElementById('pauseBackdrop');
-            if (pauseOverlay) {
-                if (!globalIsPlaying) {
-                    pauseOverlay.classList.add('visible');
-                    pauseBackdrop.classList.add('visible');
-                } else {
-                    pauseOverlay.classList.remove('visible');
-                    pauseBackdrop.classList.remove('visible');
-                }
-            }
 
             // Only show controls on actual play/pause toggle, not on every rapid state_update
             // Throttled to prevent flicker when MPV toggles pause rapidly during buffering
@@ -1912,35 +2254,19 @@
         if (s.isMuted !== undefined) isMuted = s.isMuted;
         updateMuteIcon();
         if (s.isLoading !== undefined) {
-            // isLoading from C++ = (core_idle OR paused-for-cache), true whenever MPV is buffering.
-            // isAppLoading is set separately by Kotlin via app_state_update.
             globalIsLoading = s.isLoading;
-            const isNativeBuffering = s.isLoading || isSeeking;
-            const shouldBeLoading = isNativeBuffering || isAppLoading;
-
-            const getCleanLoadingText = () => {
-                if (isAppLoading) return 'Loading source...';
-                if (isSeeking) return 'Seeking...';
-                return 'Buffering...';
-            };
-
-            if (shouldBeLoading !== isCurrentlyLoading) {
-                isCurrentlyLoading = shouldBeLoading;
-                clearTimeout(loadingTimer);
-                if (shouldBeLoading) {
-                    const delay = isSeeking ? 0 : 150;
-                    loadingTimer = setTimeout(() => {
-                        loadingContainer.classList.add('show');
-                        loadingStatus.innerText = getCleanLoadingText();
-                    }, delay);
-                } else {
-                    loadingContainer.classList.remove('show');
-                    loadingStatus.innerText = '';
-                }
-            } else if (shouldBeLoading) {
-                 loadingStatus.innerText = getCleanLoadingText();
-            }
         }
+        
+        // AUTO-PLAY FIX TO BREAK DEADLOCK:
+        // If MPV has finished buffering/loading the stream but is stuck paused,
+        // force it to play so the first frame renders and C++ dismisses the probing screen.
+        if (!globalIsLoading && window.pendingAutoPlay && !globalIsPlaying) {
+            window.pendingAutoPlay = false;
+            send('play');
+        }
+        
+        evaluateUIStates();
+        evaluateResumeOverlay();
     };
 
     const renderFilteredEpisodes = (selectedSeason) => {
@@ -1970,6 +2296,78 @@
     };
 
     const handleMetadataUpdate = (meta) => {
+        // 1. Session & State Reset
+        // Detect a genuinely new playback session (new title OR new episode OR new link set)
+        const activeEp = (meta.episodes || []).find(e => e.isActive);
+        const activeId = activeEp ? activeEp.id : '';
+        if (meta.title) {
+            const isNewSession = currentTitle !== meta.title
+                || currentEpisodeId !== activeId
+                || (meta.currentLinkIndex !== undefined && currentLinkIndex !== meta.currentLinkIndex);
+
+            if (isNewSession) {
+                // *** Atomically reset ALL state so stale timers/overlays can't race ***
+                hardResetAllOverlays();
+                currentTitle = meta.title;
+                currentEpisodeId = activeId;
+                if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
+
+                // Immediately pre-fill the probing screen with the NEW episode's data
+                // so there is zero window where old/stale data is visible on screen.
+                const pTitle = document.getElementById('linkProbingTitle');
+                const pLogo = document.getElementById('linkProbingLogo');
+                const pStatus = document.getElementById('linkProbingStatus');
+                const pBackdrop = document.getElementById('linkProbingBackdrop');
+                const pList = document.getElementById('linkProbingList');
+
+                // Clear stale link list immediately
+                if (pList) pList.innerHTML = '';
+
+                // Reset status text
+                if (pStatus) pStatus.innerText = 'Finding sources\u2026';
+
+                // Update title: show episode-aware title immediately
+                if (pTitle) {
+                    let displayTitle = meta.title;
+                    if (activeEp) {
+                        let epStr = '';
+                        if (activeEp.season && activeEp.episode) epStr = `S${activeEp.season}:E${activeEp.episode}`;
+                        else if (activeEp.episode) epStr = `Ep ${activeEp.episode}`;
+                        if (epStr) displayTitle += ` \u2022 ${epStr}`;
+                        const epTitle = activeEp.title || '';
+                        if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
+                            displayTitle += ` - ${epTitle}`;
+                        }
+                    }
+                    pTitle.innerText = displayTitle;
+                    pTitle.style.display = 'block';
+                }
+                if (pLogo) pLogo.style.display = 'none';
+
+                // Crossfade backdrop to the new episode's art immediately
+                const newBackdrop = meta.backdropUrl || (activeEp ? activeEp.posterUrl : '');
+                if (pBackdrop && newBackdrop && pBackdrop.dataset.lastSrc !== newBackdrop) {
+                    pBackdrop.dataset.lastSrc = newBackdrop;
+                    pBackdrop.classList.remove('loaded');
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        pBackdrop.src = newBackdrop;
+                        requestAnimationFrame(() => pBackdrop.classList.add('loaded'));
+                    };
+                    tempImg.src = newBackdrop;
+                } else if (pBackdrop && !newBackdrop) {
+                    pBackdrop.classList.remove('loaded');
+                    pBackdrop.dataset.lastSrc = '';
+                }
+            }
+            titleDisplay.innerText = meta.title;
+            document.getElementById('resumeTitle').innerText = meta.title;
+        }
+
+        if (meta.startPositionMs !== undefined) {
+            pendingResumeMs = meta.startPositionMs;
+        }
+
         // Populate Pause Info Overlay
         const pauseLogo = document.getElementById('pauseInfoLogo');
         const pauseFallback = document.getElementById('pauseInfoTitleFallback');
@@ -2036,37 +2434,69 @@
         const pStatus = document.getElementById('linkProbingStatus');
 
         if (meta.isProbing === true && !userDismissedProbing) {
+            if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
             clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls');
             pOverlay.classList.remove('dismissing');
-            // Delay showing content slightly so the overlay fades in first
-            requestAnimationFrame(() => pContent.classList.remove('dismissing'));
+            
+            const resumeOvl = document.getElementById('resumeOverlay');
+            if (resumeOvl) resumeOvl.style.display = 'none';
+
+            pContent.classList.remove('dismissing');
+
+            const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
+            const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
 
             // Backdrop: only set src if it changed, use onload for smooth transition
-            if (meta.backdropUrl && pBackdrop.dataset.lastSrc !== meta.backdropUrl) {
-                pBackdrop.dataset.lastSrc = meta.backdropUrl;
+            if (targetBackdropUrl && pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
+                pBackdrop.dataset.lastSrc = targetBackdropUrl;
                 pBackdrop.classList.remove('loaded');
                 const tempImg = new Image();
                 tempImg.onload = () => {
-                    pBackdrop.src = meta.backdropUrl;
+                    pBackdrop.src = targetBackdropUrl;
                     // RAF to allow repaint before class triggers CSS transition
                     requestAnimationFrame(() => pBackdrop.classList.add('loaded'));
                 };
-                tempImg.src = meta.backdropUrl;
-            } else if (!meta.backdropUrl) {
+                tempImg.onerror = () => {
+                    pBackdrop.dataset.lastSrc = ''; 
+                    pBackdrop.classList.remove('loaded');
+                };
+                tempImg.src = targetBackdropUrl;
+            } else if (!targetBackdropUrl) {
                 pBackdrop.classList.remove('loaded');
                 pBackdrop.dataset.lastSrc = '';
             }
 
             // Logo or text hero
-            if (meta.logoUrl) {
+            if (meta.logoUrl && !activeEpInfo) {
+                // Only use the show logo if it's a movie (no episodes), 
+                // for episodes we prefer the text title to show the episode number.
                 pLogo.src = meta.logoUrl;
                 pLogo.style.display = 'block';
                 pTitle.style.display = 'none';
             } else {
                 pLogo.style.display = 'none';
                 pTitle.style.display = 'block';
-                pTitle.innerText = meta.title || '';
+                
+                let displayTitle = meta.title || '';
+                if (activeEpInfo) {
+                    let epStr = '';
+                    if (activeEpInfo.season && activeEpInfo.episode) {
+                        epStr = `S${activeEpInfo.season}:E${activeEpInfo.episode}`;
+                    } else if (activeEpInfo.episode) {
+                        epStr = `Ep ${activeEpInfo.episode}`;
+                    }
+                    if (epStr) {
+                        displayTitle += ` • ${epStr}`;
+                    }
+                    
+                    const epTitle = activeEpInfo.title || '';
+                    if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
+                        displayTitle += ` - ${epTitle}`;
+                    }
+                }
+                
+                pTitle.innerText = displayTitle;
             }
 
             // Status label
@@ -2086,14 +2516,20 @@
 
             // Link list
             if (meta.links && meta.links.length > 0) {
-                const failedSet = new Set(meta.failedLinks || []);
+                const failedArr = meta.failedLinks || [];
                 const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : 0;
 
                 pList.innerHTML = meta.links.map((l, i) => {
                     let st = 'waiting';
                     let icon = '';
-                    if (failedSet.has(l.index)) {
+                    let errorHtml = '';
+                    const failedInfo = failedArr.find(f => f.index === l.index);
+
+                    if (failedInfo) {
                         st = 'failed';
+                        if (failedInfo.reason) {
+                            errorHtml = `<div class="err-reason">${failedInfo.reason}</div>`;
+                        }
                         icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,80,80,0.8)"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
                     } else if (l.index === currIdx) {
                         st = 'active';
@@ -2104,7 +2540,10 @@
                     }
                     const quality = l.quality ? `<span style="font-size:11px;opacity:0.5;margin-left:8px;">${l.quality}</span>` : '';
                     return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.06, 0.5)}s">
-                        <span>${l.name}${quality}</span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                            <div>${l.name}${quality}</div>
+                            ${errorHtml}
+                        </div>
                         <span>${icon}</span>
                     </div>`;
                 }).join('');
@@ -2118,42 +2557,31 @@
                 pList.innerHTML = '';
             }
         } else if (meta.isProbing === false) {
-            // Fade content out first, then crossfade the whole overlay
-            pContent.classList.add('dismissing');
-            // Give MPV ~600ms more to render first frames before we fade the overlay
-            setTimeout(() => {
-                pOverlay.classList.add('dismissing');
-                showControls();
-            }, 600);
-        }
-
-        // Title and Active Episode Check
-        const activeEp = (meta.episodes || []).find(e => e.isActive);
-        const activeId = activeEp ? activeEp.id : '';
-        if (meta.title) {
-            if (currentTitle !== meta.title || currentEpisodeId !== activeId || (meta.currentLinkIndex !== undefined && currentLinkIndex !== meta.currentLinkIndex)) {
-                currentTitle = meta.title;
-                currentEpisodeId = activeId;
-                if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
-                resumeHandled = false;
-                userDismissedProbing = false;
-                if (videoEndedOverlay.style.display !== 'flex') {
-                    document.getElementById('overlay').style.opacity = '';
+            // Kotlin finished scraping/link selection.
+            // Do NOT dismiss the overlay yet! Let C++ wait for the first frame (position > 0.1)
+            const pStatus = document.getElementById('linkProbingStatus');
+            if (pStatus) {
+                pStatus.innerText = 'Connecting to source...';
+            }
+            
+            // Highlight the successfully resolved link
+            const pList = document.getElementById('linkProbingList');
+            if (pList) {
+                const activeProb = pList.querySelector('.link-probing-item.active');
+                if (activeProb) {
+                    activeProb.classList.remove('active');
+                    activeProb.style.background = 'rgba(34, 197, 94, 0.15)';
+                    activeProb.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+                    const iconSpan = activeProb.querySelector('span:last-child');
+                    if (iconSpan) {
+                        iconSpan.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(34, 197, 94, 0.9)"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
+                    }
                 }
             }
-            titleDisplay.innerText = meta.title;
-            document.getElementById('resumeTitle').innerText = meta.title;
         }
-        // Resume
-        if (meta.startPositionMs > 0 && !resumeHandled) {
-            document.getElementById('resumeTime').innerText = fmt(meta.startPositionMs);
-            clearTimeout(hideTimer);
-            document.body.classList.remove('hidden-controls'); // Ensure mouse is visible
-            resumeOverlay.style.display = 'flex';
-            overlay.classList.add('hidden-controls');
-        } else {
-            resumeOverlay.style.display = 'none';
-        }
+
+        evaluateResumeOverlay();
+        evaluateUIStates();
         // Episodes
         if (meta.episodes && meta.episodes.length > 0) {
             episodesBtn.classList.remove('hidden');
@@ -2304,19 +2732,39 @@
     };
 
     const dismissProbingOverlay = (userInitiated = false) => {
-        if (userInitiated) userDismissedProbing = true;
+        if (userInitiated) {
+            userDismissedProbing = true;
+        } else if (window.sessionStartTime && (Date.now() - window.sessionStartTime < 1000)) {
+            // Ignore stale dismiss events from C++ that bleed over from the previous stream 
+            // during the first second of a new playback session.
+            return;
+        }
+        
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
         if (!pOverlay) return;
+        
         // Fade content out immediately
         if (pContent) pContent.classList.add('dismissing');
-        // Give content 300ms to fade, then crossfade the whole overlay
-        setTimeout(() => {
+        
+        const finishDismissal = () => {
             pOverlay.classList.remove('active');
             pOverlay.classList.add('dismissing');
+            
+            const resumeOvl = document.getElementById('resumeOverlay');
+            if (resumeOvl) resumeOvl.style.display = '';
+
             // Only show the player UI when the overlay is dismissed
             showControls();
-        }, 300);
+            evaluateUIStates();
+        };
+
+        if (userInitiated) {
+            finishDismissal();
+        } else {
+            // Give content 300ms to fade, then crossfade the whole overlay
+            setTimeout(finishDismissal, 300);
+        }
     };
     // Expose globally so Kotlin can call via executeScript("window.__dismissProbingOverlay()")
     window.__dismissProbingOverlay = dismissProbingOverlay;
@@ -2343,14 +2791,8 @@
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
             document.getElementById('loadingStatus').innerText = s.loadingStatusText;
         }
-        // Re-evaluate spinner after app-loading state changes
-        const isNativeBuffering = globalIsLoading || isSeeking;
-        const shouldBeLoading = isNativeBuffering || isAppLoading;
-        if (shouldBeLoading) {
-            loadingContainer.classList.add('show');
-        } else {
-            loadingContainer.classList.remove('show');
-        }
+        evaluateUIStates();
+        evaluateResumeOverlay();
     };
 
     // Handles live MPV stats sent by C++ when stats panel is open
@@ -2453,7 +2895,7 @@
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'toastOverlay';
-            overlay.style.cssText = 'position: absolute; bottom: 80px; left: 0; right: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 9999; gap: 8px; padding-bottom: 20px;';
+            overlay.style.cssText = 'position: absolute; bottom: 80px; left: 0; right: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: var(--z-toast); gap: 8px; padding-bottom: 20px;';
             document.body.appendChild(overlay);
         }
         const toast = document.createElement('div');
@@ -2620,6 +3062,9 @@
     zoneCenter.addEventListener('click', e => handleZoneClick('center', e));
     zoneRight.addEventListener('click', e => handleZoneClick('right', e));
 
+    document.getElementById('probingPlayBtn').addEventListener('click', e => { e.stopPropagation(); send('skipScraping'); });
+    document.getElementById('probingCloseBtn').addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
+
     fullscreenBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleFullscreen'); });
     backBtn.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     muteBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleMute'); });
@@ -2636,7 +3081,9 @@
 
     const triggerNextEpisode = () => {
         if (endCountdownTimer) clearInterval(endCountdownTimer);
+        send('hideVideoEnded', '1');
         videoEndedOverlay.style.display = 'none';
+        evaluateUIStates();
         document.getElementById('overlay').style.opacity = '';
         forceShowLoading();
         send('loadNextEpisode');
@@ -2847,6 +3294,7 @@
         closeAllPanels();
         document.getElementById('overlay').style.opacity = '0';
         videoEndedOverlay.style.display = 'flex';
+        evaluateUIStates();
         
         if (endCountdownTimer) clearInterval(endCountdownTimer);
         
@@ -2881,7 +3329,9 @@
         
         btnReplay.onclick = () => {
             if (endCountdownTimer) clearInterval(endCountdownTimer);
+            send('hideVideoEnded', '1');
             videoEndedOverlay.style.display = 'none';
+            evaluateUIStates();
             document.getElementById('overlay').style.opacity = '';
             forceShowLoading();
             send('replayEpisode');

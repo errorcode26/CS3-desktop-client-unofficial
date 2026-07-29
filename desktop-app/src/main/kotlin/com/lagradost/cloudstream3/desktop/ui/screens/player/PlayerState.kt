@@ -20,6 +20,16 @@ class PlayerState {
         com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION) ?: false,
     )
 
+    val toastMessage = MutableStateFlow<String?>(null)
+
+    fun showToast(message: String) {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch {
+            toastMessage.value = message
+            kotlinx.coroutines.delay(4000)
+            toastMessage.compareAndSet(message, null)
+        }
+    }
+
     data class VideoTrack(
         val id: Int,
         val name: String,
@@ -92,14 +102,22 @@ class PlayerState {
 
     fun pause() {
         mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "yes")
+            val res = MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "yes")
+            com.lagradost.common.logging.AppLogger.i("PlayerState pause() set_property_string result: $res")
+            if (res < 0) {
+                MpvLibrary.INSTANCE.mpv_command_string(it, "set pause yes")
+            }
             isPaused.value = true
         }
     }
 
     fun play() {
         mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "no")
+            val res = MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "no")
+            com.lagradost.common.logging.AppLogger.i("PlayerState play() set_property_string result: $res")
+            if (res < 0) {
+                MpvLibrary.INSTANCE.mpv_command_string(it, "set pause no")
+            }
             isPaused.value = false
         }
     }

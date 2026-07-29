@@ -130,6 +130,12 @@ fun BaseMpvPlayer(
                                     if (!hasEverPlayed && !waitingForTimePosReset) {
                                         hasEverPlayed = true
                                         playbackStartedAt = System.currentTimeMillis()
+
+                                        if (startPositionMs > 0) {
+                                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: File loaded, executing initial seek to $startPositionMs ms")
+                                            playerState?.seekTo(startPositionMs)
+                                        }
+
                                         playerState?.isBuffering?.value = false
                                         playerState?.isProbing?.value = false
                                         currentOnPlaybackReady()
@@ -321,10 +327,15 @@ fun BaseMpvPlayer(
                                 val timeoutStr = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT)
                                 val userTimeoutMs = timeoutStr?.toLongOrNull() ?: 20_000L
                                 val timeoutMs = maxOf(userTimeoutMs, 90_000L)
-                                if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && now - loadStartTime > timeoutMs) {
+                                // If we're trying to resume (startPositionMs > 0), use a much shorter timeout (15 seconds).
+                                // If the stream doesn't support Range requests, MPV might try to manually download and discard
+                                // the entire stream from byte 0 to reach the seek point, which looks like an infinite hang to the user.
+                                // We want this to fail fast so we can fallback to the beginning.
+                                val actualTimeoutMs = if (startPositionMs > 0) 15_000L else timeoutMs
+                                if (lastErrorLoadfileAt != currentLoad && !hasEverPlayed && now - loadStartTime > actualTimeoutMs) {
                                     lastErrorLoadfileAt = currentLoad
-                                    com.lagradost.common.logging.AppLogger.e("MPV timeout reached while buffering ($timeoutMs ms)")
-                                    currentOnPlaybackError("Connection timed out. The stream might be dead or too slow.")
+                                    com.lagradost.common.logging.AppLogger.e("MPV timeout reached while buffering ($actualTimeoutMs ms)")
+                                    currentOnPlaybackError(if (startPositionMs > 0) "Resume timed out. The stream may not support seeking." else "Connection timed out. The stream might be dead or too slow.")
                                 }
                             }
                         }
@@ -546,11 +557,9 @@ fun BaseMpvPlayer(
         lib.mpv_set_property_string(handle, "cursor-autohide", "1500")
 
         val startSec = startPositionMs / 1000L
-        if (startSec > 0) {
-            lib.mpv_set_property_string(handle, "start", startSec.toString())
-        } else {
-            lib.mpv_set_property_string(handle, "start", "0")
-        }
+        // ALWAYS start at 0 to prevent cold-seek timeouts on unsupported CDNs.
+        // We will perform a deferred warm-seek in the initialization loop instead.
+        lib.mpv_set_property_string(handle, "start", "0")
 
         if (validated.displayTitle.isNotBlank()) {
             lib.mpv_set_property_string(handle, "force-media-title", validated.displayTitle)
@@ -633,7 +642,7 @@ fun BaseMpvPlayer(
         val capturedHandle = handle
         launch(kotlinx.coroutines.Dispatchers.IO) {
             var attempts = 0
-            while (attempts < 150) {
+            while (attempts < 75) {
                 // Guard: mpv handle may be destroyed if user navigates away quickly.
                 // Calling mpv_get_property_string on a freed handle causes JNA Invalid memory access.
                 if (mpvHandle == null) break
@@ -643,16 +652,21 @@ fun BaseMpvPlayer(
                     break // JNA native crash guard — handle was freed
                 }
                 if ((posStr?.toDoubleOrNull() ?: 0.0) > 0.0) {
-                    if (!hasEverPlayed) {
-                        hasEverPlayed = true
-                        playerState?.isBuffering?.value = false
-                        playerState?.isProbing?.value = false
-                        currentOnPlaybackReady()
-                    }
                     break
                 }
                 kotlinx.coroutines.delay(200)
                 attempts++
+            }
+
+            if (!hasEverPlayed && mpvHandle != null) {
+                com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer: Playback timed out after 15 seconds. Stopping and triggering onPlaybackError.")
+                try {
+                    lib.mpv_command_string(capturedHandle, "stop")
+                } catch (e: Error) {
+                    // Ignore
+                }
+                currentOnPlaybackError("Playback initialization timed out.")
+                return@launch // Stop processing subtitles if we timed out
             }
 
             val defaultSub = finalSubtitles.firstOrNull()

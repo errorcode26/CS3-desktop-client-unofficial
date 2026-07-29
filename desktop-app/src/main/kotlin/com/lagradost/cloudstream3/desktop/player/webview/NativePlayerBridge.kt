@@ -58,6 +58,11 @@ object NativePlayerBridge {
     external fun destroyWebView()
 
     /**
+     * Forces OS focus onto the WebView container so keyboard events route properly.
+     */
+    external fun focusWebView()
+
+    /**
      * Sends a JSON state string to the WebView.
      */
     external fun executeScript(script: String)

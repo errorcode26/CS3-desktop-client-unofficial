@@ -16,7 +16,7 @@
     <!-- To see all debug messages and network requests, change level to "debug" -->
     <!-- To see normal app events, change level to "info" -->
     <!-- To only see problems (current default), change level to "warn" or "error" -->
-    <root level="warn">
+    <root level="info">
         <appender-ref ref="FILE" />
         <appender-ref ref="STDOUT" />
     </root>

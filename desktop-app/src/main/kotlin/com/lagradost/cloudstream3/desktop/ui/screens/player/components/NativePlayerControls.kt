@@ -46,7 +46,7 @@ fun NativePlayerControls(
     modifier: Modifier = Modifier,
     showSources: Boolean = false,
     onShowSourcesChange: (Boolean) -> Unit = {},
-    failedLinks: Set<Int> = emptySet(),
+    failedLinks: Map<Int, String> = emptyMap(),
 ) {
     val showControls by playerState.showControls.collectAsState()
     val isPaused by playerState.isPaused.collectAsState()

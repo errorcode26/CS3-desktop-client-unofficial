@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -182,63 +181,69 @@ fun PlayerLoadingOverlay(
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
-    val contentScale by pulse.animateFloat(
+    val pulse = rememberInfiniteTransition(label = "pulse")
+    val logoScale by pulse.animateFloat(
         initialValue = 1f,
-        targetValue = 1.04f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(durationMillis = 2000, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2500, easing = androidx.compose.animation.core.EaseInOutSine),
+            repeatMode = RepeatMode.Reverse,
         ),
         label = "scale",
     )
-    val contentAlpha by androidx.compose.animation.core.animateFloatAsState(
+    val spinnerAlpha by pulse.animateFloat(
+        initialValue = 0.5f,
         targetValue = 1f,
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 700, delayMillis = 400, easing = androidx.compose.animation.core.LinearEasing),
-        label = "alpha",
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "spinnerAlpha",
     )
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Backdrop
         if (backdropUrl != null) {
             coil3.compose.AsyncImage(
                 model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                     .data(backdropUrl)
                     .size(2560, 1440)
                     .build(),
-                contentDescription = "Backdrop",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black))
         }
 
+        // Gradient overlay — heavier at bottom for elegance
         Box(
             modifier = Modifier.fillMaxSize().background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.3f),
-                        Color.Black.copy(alpha = 0.6f),
-                        Color.Black.copy(alpha = 0.8f),
-                        Color.Black.copy(alpha = 0.9f),
+                        Color.Black.copy(alpha = 0.25f),
+                        Color.Black.copy(alpha = 0.55f),
+                        Color.Black.copy(alpha = 0.80f),
                     ),
                 ),
             ),
         )
 
-        // Top-left Back button
+        // Back button — top-left
         IconButton(
             onClick = onCancel,
-            modifier = Modifier.align(Alignment.TopStart).padding(24.dp),
+            modifier = Modifier.align(Alignment.TopStart).padding(20.dp),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
             )
         }
 
+        // Center content: logo/title + minimal status
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -252,176 +257,62 @@ fun PlayerLoadingOverlay(
                         .build(),
                     contentDescription = "Logo",
                     modifier = Modifier
-                        .heightIn(max = 180.dp)
-                        .widthIn(max = 300.dp)
+                        .heightIn(max = 160.dp)
+                        .widthIn(max = 320.dp)
                         .graphicsLayer {
-                            alpha = contentAlpha
-                            scaleX = contentScale
-                            scaleY = contentScale
+                            scaleX = logoScale
+                            scaleY = logoScale
                         },
                     contentScale = ContentScale.Fit,
                 )
-                Spacer(modifier = Modifier.height(32.dp))
             } else if (title.isNotBlank()) {
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 42.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 24.dp).graphicsLayer {
-                        alpha = contentAlpha
-                        scaleX = contentScale
-                        scaleY = contentScale
-                    },
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .graphicsLayer {
+                            scaleX = logoScale
+                            scaleY = logoScale
+                        },
                 )
-                Spacer(modifier = Modifier.height(32.dp))
             }
 
-            Surface(
-                modifier = Modifier.widthIn(min = 350.dp, max = 450.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = Color(0xB3121212),
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = DesktopUi.Accent,
-                        strokeWidth = 4.dp,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-                    Text(
-                        text = if (title.contains("Loading")) "Loading Streams" else "Loading Episode",
-                        color = DesktopUi.TextMuted,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    if (episodeText.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = episodeText,
-                            color = DesktopUi.TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
+            // Slim spinner
+            CircularProgressIndicator(
+                modifier = Modifier.size(32.dp).graphicsLayer { alpha = spinnerAlpha },
+                color = Color.White,
+                strokeWidth = 2.5.dp,
+            )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = DesktopUi.SurfaceElevated,
-                    ) {
-                        Text(
-                            text = "${links.size} Stream${if (links.size == 1) "" else "s"} Found",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = DesktopUi.Accent,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                        )
-                    }
+            // Episode / status label — no box, just plain text
+            if (episodeText.isNotBlank()) {
+                Text(
+                    text = episodeText,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Real-time Link Probing Animation List
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
-                        contentPadding = PaddingValues(bottom = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(links.size) { index ->
-                            val link = links[index]
-                            val isFailed = failedLinks.contains(index)
-                            val isCurrent = index == currentLinkIndex
-                            val isWaiting = index > currentLinkIndex
-
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = true,
-                                enter = androidx.compose.animation.slideInHorizontally(initialOffsetX = { 50 }) + androidx.compose.animation.fadeIn(),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isCurrent) DesktopUi.Accent.copy(alpha = 0.1f) else Color.Transparent)
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    if (isFailed) {
-                                        Icon(Icons.Default.Close, contentDescription = "Failed", tint = Color.Red, modifier = Modifier.size(16.dp))
-                                    } else if (isCurrent) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = DesktopUi.Accent, strokeWidth = 2.dp)
-                                    } else if (isWaiting) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = "Waiting", tint = DesktopUi.TextMuted, modifier = Modifier.size(16.dp))
-                                    } else {
-                                        // Passed but not active (should not happen usually, but fallback)
-                                        Icon(Icons.Default.PlayArrow, contentDescription = "Passed", tint = Color.Green, modifier = Modifier.size(16.dp))
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Column {
-                                        Text(
-                                            text = link.name,
-                                            color = if (isFailed) {
-                                                Color.Red.copy(alpha = 0.8f)
-                                            } else if (isCurrent) {
-                                                DesktopUi.Accent
-                                            } else {
-                                                DesktopUi.TextPrimary
-                                            },
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                            maxLines = 1,
-                                        )
-                                        if (isCurrent) {
-                                            Text("Trying connection...", color = DesktopUi.TextMuted, fontSize = 11.sp)
-                                        } else if (isFailed) {
-                                            Text("Connection failed", color = Color.Red.copy(alpha = 0.6f), fontSize = 11.sp)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        FilledTonalButton(
-                            onClick = onCancel,
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Color(0xFF2C2C2C),
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Cancel")
-                        }
-
-                        Button(
-                            onClick = onPlayNow,
-                            enabled = links.isNotEmpty(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = DesktopUi.Accent,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Play Now")
-                        }
-                    }
-                }
+            if (links.isNotEmpty()) {
+                Text(
+                    text = "${links.size} stream${if (links.size == 1) "" else "s"} found",
+                    color = DesktopUi.Accent.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
