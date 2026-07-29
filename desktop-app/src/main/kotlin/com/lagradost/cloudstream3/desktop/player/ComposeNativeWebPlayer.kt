@@ -117,12 +117,20 @@ fun ComposeNativeWebPlayer(
                 "year" to year,
                 "tags" to tags,
                 "isProbing" to isProbing,
-                "backdropUrl" to backdropUrl,
-                "logoUrl" to logoUrl,
+                "backdropUrl" to backdropUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
+                "logoUrl" to logoUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
                 "currentLinkIndex" to currentLinkIndex,
                 "failedLinks" to failedLinks.map { mapOf("index" to it.key, "reason" to it.value) },
                 "links" to links.mapIndexed { index, l ->
-                    mapOf("index" to index, "name" to l.name, "quality" to l.quality, "isActive" to (index == currentLinkIndex))
+                    mapOf(
+                        "index" to index, 
+                        "name" to l.name, 
+                        "quality" to l.quality, 
+                        "isActive" to (index == currentLinkIndex),
+                        "isM3u8" to l.isM3u8,
+                        "isDash" to l.isDash,
+                        "url" to l.url
+                    )
                 },
                 "episodes" to episodes.map {
                     mapOf(
@@ -131,7 +139,7 @@ fun ComposeNativeWebPlayer(
                         "season" to it.season,
                         "episode" to it.episode,
                         "isActive" to (it.data == currentEpisodeId),
-                        "posterUrl" to (it.posterUrl ?: seriesPosterUrl),
+                        "posterUrl" to (it.posterUrl ?: seriesPosterUrl)?.let { url -> com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(url) },
                         "description" to it.description,
                         "runTime" to it.runTime,
                     )

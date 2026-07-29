@@ -111,14 +111,18 @@ object LocalStreamProxy {
 
     private val proxyClient by lazy {
         app.baseClient.newBuilder()
-            .connectTimeout(15000L, java.util.concurrent.TimeUnit.MILLISECONDS)
-            .readTimeout(60000L, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .connectionPool(okhttp3.ConnectionPool(128, 300, java.util.concurrent.TimeUnit.SECONDS))
             .dispatcher(
                 okhttp3.Dispatcher().apply {
-                    maxRequests = 64
-                    // With HLS stripping, MPV only sees 2 streams (1 video + 1 audio),
-                    // so we can safely allow more concurrent CDN connections for faster buffering.
-                    maxRequestsPerHost = 8
+                    maxRequests = 256
+                    // Video chunking hits the same CDN host repeatedly, requiring high parallel limits
+                    maxRequestsPerHost = 64
                 },
             )
             .build()
@@ -130,6 +134,9 @@ object LocalStreamProxy {
             routing {
                 get("/proxy") {
                     handleRequest(call)
+                }
+                get("/image") {
+                    handleImageRequest(call)
                 }
             }
         }.start(wait = false)
@@ -157,9 +164,17 @@ object LocalStreamProxy {
         return sessionId
     }
 
-    fun buildProxyUrl(sessionId: String, url: String): String {
+    fun buildProxyUrl(sessionId: String, url: String, action: String? = null, clearKey: String? = null): String {
         val encodedUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray(Charsets.UTF_8))
-        return "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedUrl"
+        var proxy = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedUrl"
+        if (action != null) proxy += "&action=$action"
+        if (clearKey != null) proxy += "&ck=$clearKey"
+        return proxy
+    }
+
+    fun buildImageUrl(url: String): String {
+        val encodedUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray(Charsets.UTF_8))
+        return "http://127.0.0.1:$port/image?u=$encodedUrl"
     }
 
     fun prefetchM3u8(sessionId: String, url: String) {
@@ -168,7 +183,7 @@ object LocalStreamProxy {
 
         val deferred = ProxyScope.async(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val requestBuilder = okhttp3.Request.Builder().url(url)
+                val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
                 val mergedHeaders = session.headers.toMutableMap()
                 val keysToRemove = mergedHeaders.keys.filter {
                     it.equals("Accept-Encoding", ignoreCase = true) ||
@@ -230,11 +245,47 @@ object LocalStreamProxy {
             }
         }
     }
+
+    private suspend fun handleImageRequest(call: io.ktor.server.application.ApplicationCall) {
+        try {
+            val encodedUrl = call.request.queryParameters["u"]
+            if (encodedUrl == null) {
+                call.respond(io.ktor.http.HttpStatusCode.NotFound)
+                return
+            }
+            val url = String(java.util.Base64.getUrlDecoder().decode(encodedUrl), Charsets.UTF_8)
+            val requestBuilder = okhttp3.Request.Builder().url(url)
+            val response = proxyClient.newCall(requestBuilder.build()).await()
+            if (!response.isSuccessful) {
+                response.body?.close()
+                call.respond(io.ktor.http.HttpStatusCode.NotFound)
+                return
+            }
+            val contentType = response.header("Content-Type") ?: "image/jpeg"
+            val bytes = response.body?.bytes()
+            if (bytes != null) {
+                call.respondBytes(bytes, io.ktor.http.ContentType.parse(contentType), io.ktor.http.HttpStatusCode.fromValue(response.code))
+            } else {
+                call.respond(io.ktor.http.HttpStatusCode.NotFound)
+            }
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("Image proxy failed", e)
+            call.respond(io.ktor.http.HttpStatusCode.InternalServerError)
+        }
+    }
+
     private suspend fun handleRequest(call: io.ktor.server.application.ApplicationCall) {
         try {
             val sessionId = call.request.queryParameters["s"]
             val encodedUrl = call.request.queryParameters["u"]
             val isFlatVtt = call.request.queryParameters["flatvtt"] == "true"
+            val action = call.request.queryParameters["action"]
+            val rep = call.request.queryParameters["rep"]
+            val clearKey = call.request.queryParameters["ck"]
+            val kid = call.request.queryParameters["kid"]
+            val k = call.request.queryParameters["k"]
+
+            com.lagradost.common.logging.AppLogger.i("LocalStreamProxy: action=$action, rep=$rep, hasCk=${clearKey != null}, hasKid=${kid != null}, hasK=${k != null}, encodedUrl=$encodedUrl")
 
             if (sessionId == null || encodedUrl == null) {
                 call.respond(HttpStatusCode.NotFound)
@@ -250,7 +301,7 @@ object LocalStreamProxy {
             }
 
             // Check if we have an exact cache hit for the exact URL (useful for m3u8 requests)
-            val cachedDeferred = session.masterCache[url]
+            val cachedDeferred = session.masterCache.remove(url)
             if (cachedDeferred != null) {
                 val bytes = cachedDeferred.await()
                 if (bytes.isNotEmpty()) {
@@ -258,7 +309,6 @@ object LocalStreamProxy {
                     call.respondBytes(bytes, status = HttpStatusCode.OK)
                     return
                 }
-                session.masterCache.remove(url)
             }
 
             val mergedHeaders = session.headers.toMutableMap()
@@ -290,7 +340,7 @@ object LocalStreamProxy {
                 mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
 
-            val requestBuilder = okhttp3.Request.Builder().url(url)
+            val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
             mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
 
             // Use completely async OkHttp fetch with internal retries to prevent ThreadPool exhaustion
@@ -353,6 +403,49 @@ object LocalStreamProxy {
                 AppLogger.e("LocalStreamProxy Request Failed! Code: ${response.code} URL: $url")
                 response.body?.close()
                 call.respond(HttpStatusCode.fromValue(response.code))
+                return
+            }
+
+            if (action == "init_decrypt") {
+                val rawBytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    response.body?.source()?.readByteArray() ?: ByteArray(0)
+                }
+                response.body?.close()
+                val cleaned = StreamDecryptor.cleanInitSegment(rawBytes)
+                call.response.header("Content-Type", "video/mp4")
+                call.respondBytes(cleaned, status = HttpStatusCode.OK)
+                return
+            }
+
+            if (action == "decrypt") {
+                val contentLength = response.body?.contentLength() ?: -1L
+                call.response.header("Content-Type", "video/mp4")
+                call.respondBytesWriter(status = HttpStatusCode.OK, contentLength = contentLength) {
+                    try {
+                        val streamSource = response.body?.source() ?: return@respondBytesWriter
+                        StreamDecryptor.streamingDecryptMediaSegment(streamSource, kid ?: "", k ?: "") { bytes ->
+                            writeFully(bytes)
+                            flush()
+                        }
+                    } finally {
+                        response.body?.close()
+                    }
+                }
+                return
+            }
+
+            if (action == "dash") {
+                val mpdContent = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    response.body?.source()?.readUtf8() ?: ""
+                }
+                response.body?.close()
+                val m3u8 = if (rep == null) {
+                    NativeMpdConverter().convertMasterPlaylist(mpdContent, port, sessionId, url, clearKey)
+                } else {
+                    NativeMpdConverter().convertMediaPlaylist(mpdContent, rep, port, sessionId, url, clearKey)
+                }
+                call.response.header("Content-Type", "application/vnd.apple.mpegurl")
+                call.respondBytes(m3u8.toByteArray(Charsets.UTF_8), status = HttpStatusCode.OK)
                 return
             }
 
@@ -559,10 +652,10 @@ object LocalStreamProxy {
                                                     // FFmpeg's format prober will mistakenly identify the stream as an image and fail to demux the HLS TS chunks.
                                                     // ExoPlayer on Android naturally ignores these by scanning for TS sync bytes (0x47).
                                                     // We corrupt the fake signature so FFmpeg's image probe fails, forcing it to fallback to scanning for TS sync bytes!
-                                                    val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte()) || // PNG
-                                                        (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte()) || // JPG
-                                                        (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte()) || // GIF
-                                                        (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte()) // WEBP (RIFF)
+                                                    val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte() && buffer[2] == 0x4E.toByte()) || // PNG
+                                                        (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte() && buffer[2] == 0xFF.toByte()) || // JPG
+                                                        (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x38.toByte()) || // GIF8
+                                                        (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x46.toByte()) // WEBP (RIFF)
                                                     if (isFakeImage) {
                                                         for (i in 0..7) buffer[i] = 0x00.toByte()
                                                         AppLogger.i("Corrupted fake image signature to force FFmpeg MPEG-TS fallback")
@@ -663,11 +756,11 @@ object LocalStreamProxy {
                 }
             }
         } catch (e: Exception) {
-            AppLogger.e("LocalStreamProxy error: ${e.message}")
+            AppLogger.e("LocalStreamProxy error", e)
             try {
                 call.respond(HttpStatusCode.InternalServerError)
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Failed to send 500 status to client: ${e.message}", e)
+            } catch (ex: Exception) {
+                com.lagradost.common.logging.AppLogger.e("Failed to send 500 status to client", ex)
             }
         }
     }
@@ -797,6 +890,10 @@ object LocalStreamProxy {
                             val bwLabel = if (bw != null) " ${bw / 1000}kbps" else ""
                             val name = if (res != "Unknown") "${res}p$bwLabel" else "Variant$bwLabel"
                             lazyVideoTracks.add(ProxyTrack(proxied, name, "eng", bw))
+                        } else {
+                            val absolute = resolveUrl(baseUrl, trim)
+                            val proxied = buildProxyUrl(sessionId, absolute, "stream")
+                            appendLine(proxied)
                         }
                         pendingVariantLine = null
                     }
@@ -822,7 +919,6 @@ object LocalStreamProxy {
         val hasPlaylistType = content.contains("#EXT-X-PLAYLIST-TYPE", ignoreCase = true)
 
         val rewritten = buildString {
-            var addedPlaylistType = false
             for (line in lines) {
                 val trim = line.trim()
                 if (trim.isEmpty()) continue
@@ -839,10 +935,6 @@ object LocalStreamProxy {
                         appendLine(newLine)
                     } else {
                         appendLine(trim)
-                        if (!isExplicitLive && !hasPlaylistType && !addedPlaylistType && trim.startsWith("#EXTM3U", ignoreCase = true)) {
-                            appendLine("#EXT-X-PLAYLIST-TYPE:VOD")
-                            addedPlaylistType = true
-                        }
                     }
                 } else {
                     val absolute = resolveUrl(baseUrl, trim)
@@ -851,9 +943,6 @@ object LocalStreamProxy {
                     val proxied = buildProxyUrl(sessionId, absolute)
                     appendLine(proxied)
                 }
-            }
-            if (!isExplicitLive && !hasEndList) {
-                appendLine("#EXT-X-ENDLIST")
             }
         }
         return rewritten

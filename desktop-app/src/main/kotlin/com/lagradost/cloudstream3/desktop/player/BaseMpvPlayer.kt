@@ -503,6 +503,11 @@ fun BaseMpvPlayer(
                 // Allow demuxer to seek ahead aggressively:
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
                 lib.mpv_set_property_string(handle, "force-seekable", "yes")
+
+                // Force fast startup and flawless cache rewinding for proxied HLS streams
+                lib.mpv_set_property_string(handle, "stream-lavf-o", "seekable=1,icy=0")
+                lib.mpv_set_property_string(handle, "demuxer-lavf-probesize", "5242880") // 5 MB
+                lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "2") // 2 s
             }
             PlayerLinkHandler.StreamKind.DASH -> {
                 // Build DASH lavf options. cenc_decryption_key MUST be standalone —
@@ -642,7 +647,7 @@ fun BaseMpvPlayer(
         val capturedHandle = handle
         launch(kotlinx.coroutines.Dispatchers.IO) {
             var attempts = 0
-            while (attempts < 75) {
+            while (attempts < 225) {
                 // Guard: mpv handle may be destroyed if user navigates away quickly.
                 // Calling mpv_get_property_string on a freed handle causes JNA Invalid memory access.
                 if (mpvHandle == null) break
@@ -659,7 +664,7 @@ fun BaseMpvPlayer(
             }
 
             if (!hasEverPlayed && mpvHandle != null) {
-                com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer: Playback timed out after 15 seconds. Stopping and triggering onPlaybackError.")
+                com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer: Playback timed out after 45 seconds. Stopping and triggering onPlaybackError.")
                 try {
                     lib.mpv_command_string(capturedHandle, "stop")
                 } catch (e: Error) {

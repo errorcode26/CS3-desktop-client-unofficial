@@ -79,15 +79,20 @@ object PlayerLinkHandler {
             if (link is com.lagradost.cloudstream3.utils.DrmExtractorLink) {
                 val isClearKey = link.uuid == com.lagradost.cloudstream3.utils.CLEARKEY_DRM_UUID
                 if (isClearKey && !link.key.isNullOrBlank()) {
-                    clearKeyHex = try {
-                        val decoded = java.util.Base64.getUrlDecoder().decode(link.key!!)
-                        decoded.joinToString("") { "%02x".format(it) }
-                    } catch (e: Exception) {
-                        try {
-                            val decoded = java.util.Base64.getDecoder().decode(link.key!!)
+                    val rawKey = link.key!!
+                    if (rawKey.contains(":")) {
+                        clearKeyHex = rawKey
+                    } else {
+                        clearKeyHex = try {
+                            val decoded = java.util.Base64.getUrlDecoder().decode(rawKey)
                             decoded.joinToString("") { "%02x".format(it) }
-                        } catch (e2: Exception) {
-                            null
+                        } catch (e: Exception) {
+                            try {
+                                val decoded = java.util.Base64.getDecoder().decode(rawKey)
+                                decoded.joinToString("") { "%02x".format(it) }
+                            } catch (e2: Exception) {
+                                null
+                            }
                         }
                     }
                 }
@@ -101,7 +106,7 @@ object PlayerLinkHandler {
             // mid-stream, causing broken-pieces playback.
             val useProxy = when (kind) {
                 StreamKind.HLS -> true
-                StreamKind.DASH -> false // Proxy does not rewrite XML, so relative URLs break in MPV. FFmpeg handles DASH DRM natively.
+                StreamKind.DASH -> true // Route DASH through proxy for NativeMpdConverter translation to HLS
                 StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
             }
     
@@ -112,7 +117,11 @@ object PlayerLinkHandler {
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(sessionId, url)
                 }
-                com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url)
+                if (kind == StreamKind.DASH) {
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url, action = "dash", clearKey = clearKeyHex)
+                } else {
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url)
+                }
             } else {
                 url
             }

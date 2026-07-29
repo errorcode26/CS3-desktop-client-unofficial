@@ -12,7 +12,7 @@ public class WebView extends View {
     }
 
     public WebSettings getSettings() {
-        return null;
+        return new WebSettings();
     }
 
     public void loadUrl(String url) {

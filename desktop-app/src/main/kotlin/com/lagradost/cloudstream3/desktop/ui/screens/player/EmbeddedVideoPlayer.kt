@@ -309,6 +309,8 @@ fun EmbeddedVideoPlayer(
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(currentEp))
+                            } else {
+                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData))
                             }
                         },
                         onPlaybackReady = {

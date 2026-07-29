@@ -958,6 +958,19 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
+// focusWebView
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_focusWebView(
+    JNIEnv* env, jobject thiz)
+{
+    postUiTask([]() {
+        if (g_containerHwnd) {
+            SetFocus(g_containerHwnd);
+        }
+        if (g_webviewController) {
+            g_webviewController->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
+    });
+}
 
 // executeScript
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_executeScript(

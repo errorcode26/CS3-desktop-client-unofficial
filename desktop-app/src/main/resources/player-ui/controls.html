@@ -576,7 +576,9 @@
         /* ── Floating Panels ────────────────────────────────────────────── */
         .panel {
             position: absolute; bottom: 100px; right: 32px;
-            background: rgba(18, 18, 18, 0.65); backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8);
+            background-color: rgba(18, 18, 18, 0.75); 
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8);
             border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
             color: white; z-index: var(--z-stats); display: none; flex-direction: column;
             box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.15);
@@ -588,13 +590,42 @@
 
         /* Episodes Panel */
         #episodesPanel {
-            /* Handled by .panel base width */
+            width: 520px;
+        }
+        
+        #serversPanel {
+            width: 560px;
         }
         
         #subsPanel {
             /* Handled by .panel base width */
         }
 
+        /* Season Dropdown Selector */
+        .filter-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .filter-chip:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .filter-chip.active {
+            background: #89C4CD;
+            color: #000000;
+            border-color: #89C4CD;
+            box-shadow: 0 0 16px rgba(137, 196, 205, 0.4);
+            font-weight: 700;
+        }
+        
         /* Season Dropdown Selector */
         .season-select-container {
             padding: 10px 20px;
@@ -649,24 +680,24 @@
 
         /* Episode Card */
         .ep-card {
-            display: flex; align-items: center; gap: 14px;
-            padding: 10px 14px; margin: 0 10px 4px; cursor: pointer;
+            display: flex; align-items: center; gap: 16px;
+            padding: 12px 16px; margin: 0 10px 4px; cursor: pointer;
             transition: background 0.15s, transform 0.15s;
             border-radius: 12px; border: 1px solid transparent;
         }
         .ep-card:hover { background: rgba(255,255,255,0.08); }
         .ep-card:active { transform: scale(0.98); }
         .ep-card.active { background: rgba(var(--accent-color-rgb),0.15); border-color: rgba(var(--accent-color-rgb),0.3); }
-        .ep-num { font-size: 13px; color: #666; width: 20px; text-align: right; flex-shrink: 0; }
-        .ep-card.active .ep-num { color: var(--accent-color); font-weight: 600; }
+        .ep-num { font-size: 14px; color: #666; width: 24px; text-align: right; flex-shrink: 0; font-weight: 500; }
+        .ep-card.active .ep-num { color: var(--accent-color); font-weight: 700; }
         .ep-thumb {
-            width: 100px; height: 56px; object-fit: cover; border-radius: 8px;
-            background: #222; flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            width: 144px; height: 81px; object-fit: cover; border-radius: 8px;
+            background: #222; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        .ep-info { flex: 1; min-width: 0; }
-        .ep-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ep-meta { font-size: 11px; color: #888; }
-        .ep-playing { font-size: 10px; font-weight: 700; color: var(--accent-color); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+        .ep-info { flex: 1; min-width: 0; padding-right: 8px; }
+        .ep-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+        .ep-meta { font-size: 13px; color: #888; }
+        .ep-playing { font-size: 11px; font-weight: 700; color: var(--accent-color); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
 
         /* Servers / Settings panel */
         /* Handled by .panel base width */
@@ -1175,12 +1206,19 @@
 
 <!-- ── Servers Panel ──────────────────────────────────────────────────── -->
 <div id="serversPanel" class="panel">
-    <div class="panel-header">
-        <div>
-            <h2>Select Source</h2>
-            <div class="sub" id="serverSubtitle">Choose a video source</div>
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Select Source</h2>
+                <div class="sub" id="serverSubtitle">Choose a video source</div>
+            </div>
+            <button class="close-btn" id="closeServersBtn">✕</button>
         </div>
-        <button class="close-btn" id="closeServersBtn">✕</button>
+        <div id="serversFilterWrap" style="display: none; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 4px;">
+            <div id="filterChipsContainer" style="display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 4px; scrollbar-width: none;">
+                <!-- Chips injected via JS -->
+            </div>
+        </div>
     </div>
     <div class="panel-body" id="serversList"></div>
 </div>
@@ -1710,6 +1748,7 @@
     let subDelaySec = 0, audioDelaySec = 0;
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
     let isAppLoading = false; // Moved up to global scope
+    let linksData = [];
 
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
@@ -2266,6 +2305,78 @@
         }
         
         evaluateUIStates();
+        // Expose globally so input handlers can use it
+        window.renderFilteredEpisodes = renderFilteredEpisodes;
+
+        let activeServerFilter = 'All';
+
+        window.setServerFilter = (filterVal) => {
+            activeServerFilter = filterVal;
+            renderFilteredServers();
+        };
+
+        const renderFilteredServers = () => {
+            const filtered = linksData.filter(l => {
+                if (activeServerFilter === 'All') return true;
+                
+                const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
+                const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
+                
+                if (activeServerFilter === 'Auto / HLS') return isHls || isDash;
+                if (activeServerFilter === 'MP4 (Downloadable)') return !isHls && !isDash;
+                
+                const qStr = String(l.quality).toLowerCase();
+                if (activeServerFilter === '4K') return qStr === '2160' || qStr === '4k';
+                if (activeServerFilter === '1080p') return qStr === '1080';
+                if (activeServerFilter === '720p') return qStr === '720';
+                if (activeServerFilter === '480p / SD') return qStr === '480' || qStr.includes('sd');
+                
+                return false;
+            });
+
+            document.getElementById('serverSubtitle').innerText = `${filtered.length} source${filtered.length !== 1 ? 's' : ''} available`;
+            
+            // Build available chips based on raw linksData
+            const availableChips = new Set(['All']);
+            linksData.forEach(l => {
+                const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
+                const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
+                if (isHls || isDash) availableChips.add('Auto / HLS');
+                else availableChips.add('MP4 (Downloadable)');
+                
+                const qStr = String(l.quality).toLowerCase();
+                if (qStr === '2160' || qStr === '4k') availableChips.add('4K');
+                else if (qStr === '1080') availableChips.add('1080p');
+                else if (qStr === '720') availableChips.add('720p');
+                else if (qStr === '480' || qStr.includes('sd')) availableChips.add('480p / SD');
+            });
+            
+            const order = ['All', '4K', '1080p', '720p', '480p / SD', 'Auto / HLS', 'MP4 (Downloadable)'];
+            const chipsHtml = order.filter(c => availableChips.has(c)).map(c => 
+                `<div class="filter-chip ${activeServerFilter === c ? 'active' : ''}" onclick="setServerFilter('${c}')">${c}</div>`
+            ).join('');
+            
+            document.getElementById('filterChipsContainer').innerHTML = chipsHtml;
+
+            if (filtered.length === 0) {
+                document.getElementById('serversList').innerHTML = `<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">No sources match your filter.</div>`;
+                return;
+            }
+
+            document.getElementById('serversList').innerHTML = filtered.map(l => {
+                const qStr = l.quality ? String(l.quality) : '';
+                const isHD = qStr.includes('1080') || qStr.includes('720') || qStr.toLowerCase().includes('hd');
+                return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink','${l.index}');closeAllPanels();">
+                    <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
+                    <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
+                    <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
+                    <span class="srv-quality">${qStr}</span>
+                    ${qStr ? `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>` : ''}
+                </div>`;
+            }).join('');
+        };
+        window.renderFilteredServers = renderFilteredServers;
+
         evaluateResumeOverlay();
     };
 
@@ -2278,11 +2389,13 @@
         document.getElementById('episodesList').innerHTML = filtered.map((ep, i) => {
             const num = ep.episode || (i + 1);
             const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
-            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode','${ep.id}');closeAllPanels();">
+            const epIdEscaped = (ep.id || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+            const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode','${epIdEscaped}');closeAllPanels();">
                 <span class="ep-num">${num}</span>
                 ${thumb}
                 <div class="ep-info">
-                    <div class="ep-title">${ep.title || ('Episode ' + num)}</div>
+                    <div class="ep-title">${epTitleEscaped}</div>
                     <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
                     ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
                 </div>
@@ -2618,18 +2731,18 @@
         }
         // Links / Servers
         if (meta.links && meta.links.length > 0) {
-            document.getElementById('serverSubtitle').innerText = `${meta.links.length} source${meta.links.length !== 1 ? 's' : ''} available`;
-            document.getElementById('serversList').innerHTML = meta.links.map(l => {
-                const q = l.quality ? String(l.quality) : '';
-                const isHD = q.includes('1080') || q.includes('720') || q.toLowerCase().includes('hd');
-                return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink','${l.index}');closeAllPanels();">
-                    <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
-                    <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
-                    <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
-                    <span class="srv-quality">${q}</span>
-                    ${q ? `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>` : ''}
-                </div>`;
-            }).join('');
+            linksData = meta.links;
+            const filterWrap = document.getElementById('serversFilterWrap');
+            if (meta.links.length > 1) {
+                filterWrap.style.display = 'block';
+            } else {
+                filterWrap.style.display = 'none';
+            }
+            renderFilteredServers();
+        } else {
+            linksData = [];
+            document.getElementById('serverSubtitle').innerText = '0 sources available';
+            document.getElementById('serversList').innerHTML = '';
         }
         // Audio Tracks
         let audioHtml = '';
