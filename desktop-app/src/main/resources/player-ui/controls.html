@@ -576,7 +576,7 @@
         /* ── Floating Panels ────────────────────────────────────────────── */
         .panel {
             position: absolute; bottom: 100px; right: 32px;
-            background-color: rgba(18, 18, 18, 0.75); 
+            background-color: rgba(18, 18, 18, 0.45); 
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
             backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8);
             border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
@@ -584,6 +584,14 @@
             box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.15);
             pointer-events: auto; overflow: hidden;
             width: 400px; max-height: 65vh;
+        }
+        .top-btn, .right-btn {
+            background-color: rgba(18,18,18,0.45);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.9);
         }
         .panel.open { display: flex; animation: panelIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes panelIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -605,7 +613,10 @@
         .filter-chip {
             padding: 6px 14px;
             border-radius: 20px;
-            background: rgba(255,255,255,0.05);
+            background-color: rgba(255,255,255,0.05);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
             border: 1px solid rgba(255,255,255,0.1);
             color: rgba(255,255,255,0.8);
             font-size: 13px;
@@ -631,6 +642,8 @@
             padding: 10px 20px;
             border-bottom: 1px solid rgba(255,255,255,0.07);
             background: rgba(0,0,0,0.15);
+            backdrop-filter: blur(15px) saturate(1.5);
+            -webkit-backdrop-filter: blur(15px) saturate(1.5);
             flex-shrink: 0;
         }
         .season-select {
@@ -705,7 +718,10 @@
         /* Settings panel tab header (segmented control style) */
         .settings-tab-header {
             display: flex; gap: 4px; padding: 3px;
-            background: rgba(255, 255, 255, 0.04);
+            background-color: rgba(0,0,0,0.4);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            backdrop-filter: blur(20px) saturate(1.8);
+            -webkit-backdrop-filter: blur(20px) saturate(1.8);
             border-radius: 8px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.02);
         }
         .settings-tab-btn {
@@ -2299,86 +2315,102 @@
         // AUTO-PLAY FIX TO BREAK DEADLOCK:
         // If MPV has finished buffering/loading the stream but is stuck paused,
         // force it to play so the first frame renders and C++ dismisses the probing screen.
-        if (!globalIsLoading && window.pendingAutoPlay && !globalIsPlaying) {
-            window.pendingAutoPlay = false;
-            send('play');
+        if (window.pendingAutoPlay) {
+            if (globalIsPlaying) {
+                // Video is playing fine natively, clear the flag
+                window.pendingAutoPlay = false;
+            } else if (!globalIsLoading) {
+                // Video finished loading but is stuck paused, force unpause
+                window.pendingAutoPlay = false;
+                send('play');
+            }
         }
         
         evaluateUIStates();
-        // Expose globally so input handlers can use it
-        window.renderFilteredEpisodes = renderFilteredEpisodes;
 
-        let activeServerFilter = 'All';
-
-        window.setServerFilter = (filterVal) => {
-            activeServerFilter = filterVal;
-            renderFilteredServers();
-        };
-
-        const renderFilteredServers = () => {
-            const filtered = linksData.filter(l => {
-                if (activeServerFilter === 'All') return true;
-                
-                const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
-                const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
-                
-                if (activeServerFilter === 'Auto / HLS') return isHls || isDash;
-                if (activeServerFilter === 'MP4 (Downloadable)') return !isHls && !isDash;
-                
-                const qStr = String(l.quality).toLowerCase();
-                if (activeServerFilter === '4K') return qStr === '2160' || qStr === '4k';
-                if (activeServerFilter === '1080p') return qStr === '1080';
-                if (activeServerFilter === '720p') return qStr === '720';
-                if (activeServerFilter === '480p / SD') return qStr === '480' || qStr.includes('sd');
-                
-                return false;
-            });
-
-            document.getElementById('serverSubtitle').innerText = `${filtered.length} source${filtered.length !== 1 ? 's' : ''} available`;
-            
-            // Build available chips based on raw linksData
-            const availableChips = new Set(['All']);
-            linksData.forEach(l => {
-                const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
-                const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
-                if (isHls || isDash) availableChips.add('Auto / HLS');
-                else availableChips.add('MP4 (Downloadable)');
-                
-                const qStr = String(l.quality).toLowerCase();
-                if (qStr === '2160' || qStr === '4k') availableChips.add('4K');
-                else if (qStr === '1080') availableChips.add('1080p');
-                else if (qStr === '720') availableChips.add('720p');
-                else if (qStr === '480' || qStr.includes('sd')) availableChips.add('480p / SD');
-            });
-            
-            const order = ['All', '4K', '1080p', '720p', '480p / SD', 'Auto / HLS', 'MP4 (Downloadable)'];
-            const chipsHtml = order.filter(c => availableChips.has(c)).map(c => 
-                `<div class="filter-chip ${activeServerFilter === c ? 'active' : ''}" onclick="setServerFilter('${c}')">${c}</div>`
-            ).join('');
-            
-            document.getElementById('filterChipsContainer').innerHTML = chipsHtml;
-
-            if (filtered.length === 0) {
-                document.getElementById('serversList').innerHTML = `<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">No sources match your filter.</div>`;
-                return;
-            }
-
-            document.getElementById('serversList').innerHTML = filtered.map(l => {
-                const qStr = l.quality ? String(l.quality) : '';
-                const isHD = qStr.includes('1080') || qStr.includes('720') || qStr.toLowerCase().includes('hd');
-                return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink','${l.index}');closeAllPanels();">
-                    <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
-                    <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
-                    <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
-                    <span class="srv-quality">${qStr}</span>
-                    ${qStr ? `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>` : ''}
-                </div>`;
-            }).join('');
-        };
-        window.renderFilteredServers = renderFilteredServers;
 
         evaluateResumeOverlay();
     };
+
+    // Expose globally so input handlers can use it
+    window.renderFilteredEpisodes = (selectedSeason) => renderFilteredEpisodes(selectedSeason);
+
+    let activeServerFilter = 'All';
+
+    window.setServerFilter = (filterVal) => {
+        activeServerFilter = filterVal;
+        renderFilteredServers();
+    };
+
+    const renderFilteredServers = () => {
+        const filtered = linksData.filter(l => {
+            if (activeServerFilter === 'All') return true;
+            
+            const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
+            const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
+            
+            if (activeServerFilter === 'Auto / HLS') return isHls || isDash;
+            if (activeServerFilter === 'MP4 (Downloadable)') return !isHls && !isDash;
+            
+            const qStr = String(l.quality).toLowerCase();
+            if (activeServerFilter === '4K') return qStr === '2160' || qStr === '4k';
+            if (activeServerFilter === '1080p') return qStr === '1080';
+            if (activeServerFilter === '720p') return qStr === '720';
+            if (activeServerFilter === '480p / SD') return qStr === '480' || qStr.includes('sd');
+            
+            return false;
+        });
+
+        document.getElementById('serverSubtitle').innerText = `${filtered.length} source${filtered.length !== 1 ? 's' : ''} available`;
+        
+        // Build available chips based on raw linksData
+        const availableChips = new Set(['All']);
+        linksData.forEach(l => {
+            const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
+            const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
+            if (isHls || isDash) availableChips.add('Auto / HLS');
+            else availableChips.add('MP4 (Downloadable)');
+            
+            const qStr = String(l.quality).toLowerCase();
+            if (qStr === '2160' || qStr === '4k') availableChips.add('4K');
+            else if (qStr === '1080') availableChips.add('1080p');
+            else if (qStr === '720') availableChips.add('720p');
+            else if (qStr === '480' || qStr.includes('sd')) availableChips.add('480p / SD');
+        });
+        
+        const order = ['All', '4K', '1080p', '720p', '480p / SD', 'Auto / HLS', 'MP4 (Downloadable)'];
+        const chipsHtml = order.filter(c => availableChips.has(c)).map(c => 
+            `<div class="filter-chip ${activeServerFilter === c ? 'active' : ''}" onclick="setServerFilter('${c}')">${c}</div>`
+        ).join('');
+        
+        document.getElementById('filterChipsContainer').innerHTML = chipsHtml;
+
+        if (filtered.length === 0) {
+            document.getElementById('serversList').innerHTML = `<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">No sources match your filter.</div>`;
+            return;
+        }
+
+        document.getElementById('serversList').innerHTML = filtered.map(l => {
+            const qStr = l.quality ? String(l.quality) : '';
+            const qStrLower = qStr.toLowerCase();
+            const is4K = qStrLower.includes('2160') || qStrLower.includes('4k');
+            const isHD = qStrLower.includes('1080') || qStrLower.includes('720') || qStrLower.includes('hd');
+            
+            let badgeText = 'SD';
+            let badgeClass = 'sd';
+            if (is4K) { badgeText = '4K'; badgeClass = 'hd'; }
+            else if (isHD) { badgeText = 'HD'; badgeClass = 'hd'; }
+            
+            return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink','${l.index}');closeAllPanels();">
+                <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
+                <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
+                <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
+                <span class="srv-quality">${qStr}</span>
+                ${qStr ? `<span class="srv-badge ${badgeClass}">${badgeText}</span>` : ''}
+            </div>`;
+        }).join('');
+    };
+    window.renderFilteredServers = renderFilteredServers;
 
     const renderFilteredEpisodes = (selectedSeason) => {
         const filtered = episodesData.filter(ep => {
@@ -2389,9 +2421,9 @@
         document.getElementById('episodesList').innerHTML = filtered.map((ep, i) => {
             const num = ep.episode || (i + 1);
             const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
-            const epIdEscaped = (ep.id || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+            const epIdEncoded = encodeURIComponent(ep.id || '');
             const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode','${epIdEscaped}');closeAllPanels();">
+            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
                 <span class="ep-num">${num}</span>
                 ${thumb}
                 <div class="ep-info">
@@ -3175,7 +3207,15 @@
     zoneCenter.addEventListener('click', e => handleZoneClick('center', e));
     zoneRight.addEventListener('click', e => handleZoneClick('right', e));
 
-    document.getElementById('probingPlayBtn').addEventListener('click', e => { e.stopPropagation(); send('skipScraping'); });
+    document.getElementById('probingPlayBtn').addEventListener('click', e => { 
+        e.stopPropagation(); 
+        const btn = e.currentTarget;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg> Loading...`;
+        btn.style.opacity = '0.7';
+        btn.style.pointerEvents = 'none';
+        userDismissedProbing = true;
+        send('skipScraping'); 
+    });
     document.getElementById('probingCloseBtn').addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
 
     fullscreenBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleFullscreen'); });

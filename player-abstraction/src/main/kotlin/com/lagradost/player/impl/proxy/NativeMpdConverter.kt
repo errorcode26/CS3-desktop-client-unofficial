@@ -1,11 +1,11 @@
 package com.lagradost.player.impl.proxy
 
+import org.w3c.dom.Document
+import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.util.Base64
 import javax.xml.parsers.DocumentBuilderFactory
-import org.w3c.dom.Document
-import org.w3c.dom.Element
 import kotlin.math.ceil
 
 /**
@@ -45,8 +45,11 @@ class NativeMpdConverter {
         var proxy = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedUrl&action=$action"
         if (clearKey != null) {
             val parts = clearKey.split(":")
-            if (parts.size == 2) proxy += "&kid=${parts[0]}&k=${parts[1]}"
-            else if (parts.size == 1) proxy += "&k=${parts[0]}"
+            if (parts.size == 2) {
+                proxy += "&kid=${parts[0]}&k=${parts[1]}"
+            } else if (parts.size == 1) {
+                proxy += "&k=${parts[0]}"
+            }
         }
         if (initUrl != null) {
             val encodedInit = Base64.getUrlEncoder().withoutPadding().encodeToString(initUrl.toByteArray(Charsets.UTF_8))
@@ -60,7 +63,7 @@ class NativeMpdConverter {
         port: Int,
         sessionId: String,
         mpdUrl: String,
-        clearKey: String? = null
+        clearKey: String? = null,
     ): String {
         val doc = parseXml(mpdContent)
         val mpd = doc.documentElement
@@ -82,7 +85,7 @@ class NativeMpdConverter {
             val adapt = adaptationSets.item(i) as Element
             val adaptMime = adapt.getAttribute("mimeType") ?: ""
             val contentType = adapt.getAttribute("contentType") ?: ""
-            
+
             var isAudio = adaptMime.contains("audio") || contentType.contains("audio")
             if (!isAudio) {
                 val reps = adapt.getElementsByTagName("Representation")
@@ -90,7 +93,8 @@ class NativeMpdConverter {
                     val rep = reps.item(j) as Element
                     val repMime = rep.getAttribute("mimeType") ?: ""
                     if (repMime.contains("audio")) {
-                        isAudio = true; break
+                        isAudio = true
+                        break
                     }
                 }
             }
@@ -101,7 +105,7 @@ class NativeMpdConverter {
                 for (j in 0 until reps.length) {
                     val rep = reps.item(j) as Element
                     val repId = rep.getAttribute("id")
-                    
+
                     val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
                     var mediaUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
                     if (clearKey != null) mediaUrl += "&ck=$clearKey"
@@ -112,7 +116,7 @@ class NativeMpdConverter {
                 }
             }
         }
-        
+
         if (audioTracks.isNotEmpty()) sb.appendLine()
 
         // 2. Find Video Tracks
@@ -121,7 +125,7 @@ class NativeMpdConverter {
             val adaptMime = adapt.getAttribute("mimeType") ?: ""
             val contentType = adapt.getAttribute("contentType") ?: ""
             val adaptWidth = adapt.getAttribute("width") ?: ""
-            
+
             var isVideo = adaptMime.contains("video") || contentType.contains("video") || adaptWidth.isNotBlank()
             if (!isVideo) {
                 val reps = adapt.getElementsByTagName("Representation")
@@ -129,7 +133,8 @@ class NativeMpdConverter {
                     val rep = reps.item(j) as Element
                     val repMime = rep.getAttribute("mimeType") ?: ""
                     if (repMime.contains("video") || rep.getAttribute("width").isNotBlank()) {
-                        isVideo = true; break
+                        isVideo = true
+                        break
                     }
                 }
             }
@@ -145,7 +150,7 @@ class NativeMpdConverter {
                     val codecs = rep.getAttribute("codecs").takeIf { it.isNotBlank() } ?: adapt.getAttribute("codecs")
 
                     val attrs = mutableListOf("BANDWIDTH=$bw")
-                    if (w.isNotBlank() && h.isNotBlank()) attrs.add("RESOLUTION=${w}x${h}")
+                    if (w.isNotBlank() && h.isNotBlank()) attrs.add("RESOLUTION=${w}x$h")
                     if (codecs.isNotBlank()) attrs.add("""CODECS="$codecs"""")
                     if (audioTracks.isNotEmpty()) attrs.add("""AUDIO="audio"""")
 
@@ -167,7 +172,7 @@ class NativeMpdConverter {
         port: Int,
         sessionId: String,
         mpdUrl: String,
-        clearKey: String? = null
+        clearKey: String? = null,
     ): String {
         val doc = parseXml(mpdContent)
         val mpd = doc.documentElement
@@ -204,7 +209,7 @@ class NativeMpdConverter {
         val template = getFirstDirectChild(targetRep, "SegmentTemplate")
             ?: getFirstDirectChild(adaptSet, "SegmentTemplate")
             ?: getFirstDirectChild(period, "SegmentTemplate")
-            
+
         if (template == null) return "" // We only support SegmentTemplate for now
 
         val timescale = template.getAttribute("timescale")?.toLongOrNull() ?: 1L
@@ -215,7 +220,7 @@ class NativeMpdConverter {
         val mediaAttr = template.getAttribute("media")
             ?.replace("\$RepresentationID\$", repId)
             ?.replace("\$Bandwidth\$", bandwidth) ?: ""
-        
+
         val initUrl = initAttr?.let { resolveUrl(baseUrl, it) }
 
         val timeline = template.getElementsByTagName("SegmentTimeline").item(0) as? Element
@@ -242,7 +247,7 @@ class NativeMpdConverter {
             var time = 0L
             val startSegNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
             var segNum = startSegNum
-            
+
             val segments = mutableListOf<String>()
             var maxDuration = 0.0
 
@@ -258,11 +263,11 @@ class NativeMpdConverter {
                 for (j in 0..repeat) {
                     val duration = d.toDouble() / timescale.toDouble()
                     if (duration > maxDuration) maxDuration = duration
-                    
+
                     var segUrl = mediaAttr
                         .replace("\$Number\$", segNum.toString())
                         .replace("\$Time\$", time.toString())
-                    
+
                     segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
                         val w = match.groupValues[1].toIntOrNull() ?: 1
                         segNum.toString().padStart(w, '0')
@@ -284,34 +289,33 @@ class NativeMpdConverter {
                 }
                 if (segments.size > 2000) break
             }
-            
+
             sb.appendLine("#EXT-X-TARGETDURATION:${ceil(maxDuration).toInt()}")
             if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSegNum")
             segments.forEach { sb.appendLine(it) }
-
         } else {
             // Duration-based processing
             val d = template.getAttribute("duration")?.toLongOrNull() ?: 1L
             val duration = d.toDouble() / timescale.toDouble()
             sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
-            
+
             val numSegments = if (isLive) 500 else 100
             val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
             if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startNum")
             var time = 0L
-            
+
             for (i in 0 until numSegments) {
                 val segNum = startNum + i
                 var segUrl = mediaAttr
                     .replace("\$Number\$", segNum.toString())
                     .replace("\$Time\$", time.toString())
-                
+
                 segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
                     val w = match.groupValues[1].toIntOrNull() ?: 1
                     segNum.toString().padStart(w, '0')
                 }
                 val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
-                
+
                 val proxySeg = if (useDecryption) {
                     encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
                 } else {

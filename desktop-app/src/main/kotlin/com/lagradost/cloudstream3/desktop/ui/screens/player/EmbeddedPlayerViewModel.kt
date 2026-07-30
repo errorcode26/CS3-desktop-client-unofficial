@@ -265,6 +265,28 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
+    private fun sortLinks(links: List<com.lagradost.cloudstream3.utils.ExtractorLink>, preferredQuality: String): List<com.lagradost.cloudstream3.utils.ExtractorLink> {
+        if (preferredQuality == "Auto" || preferredQuality == "Auto / Highest" || preferredQuality == "Highest Available") {
+            return links.sortedByDescending { it.quality }
+        }
+
+        val targetQuality = when (preferredQuality) {
+            "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
+            "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
+            "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
+            "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
+            else -> com.lagradost.cloudstream3.utils.Qualities.Unknown.value
+        }
+
+        return links.sortedWith(
+            compareByDescending<com.lagradost.cloudstream3.utils.ExtractorLink> {
+                it.quality == targetQuality
+            }.thenByDescending {
+                it.quality
+            },
+        )
+    }
+
     private suspend fun scrapeAndPlay(
         provider: com.lagradost.cloudstream3.MainAPI,
         targetEpisodeId: String,
@@ -324,6 +346,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 },
                 callback = { link ->
                     updateState {
+                        if (!isScrapingLinks) {
+                            return@updateState this
+                        }
                         val newLinks = nextEpisodeLinks + link
                         if (hasStartedPlaying.compareAndSet(false, true)) {
                             val newLaunchData = if (targetEpisodeData != null && newHistory != null) {
@@ -371,6 +396,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             )
 
             updateState {
+                val prefQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+                val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                val newLaunchData = launchData?.copy(links = sortedLinks)
+
                 if (!hasStartedPlaying.get()) {
                     copy(
                         isScrapingLinks = false,
@@ -379,7 +408,11 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         nextEpisodeError = "No links found for this episode.",
                     )
                 } else {
-                    copy(isScrapingLinks = false)
+                    copy(
+                        isScrapingLinks = false,
+                        nextEpisodeLinks = sortedLinks,
+                        launchData = newLaunchData,
+                    )
                 }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {

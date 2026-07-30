@@ -15,7 +15,9 @@ fun SettingsPlayer() {
     var subColor by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF") }
     var subBg by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000") }
     var ytdlFormat by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_YTDL_FORMAT) ?: "bestvideo[height<=?1080]+bestaudio/best") }
+    var preferredQuality by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto") }
     var autoPlay by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true) }
+    var waitForLinks by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true) }
     var autoPlayTimeout by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000") }
 
     Column(
@@ -35,8 +37,25 @@ fun SettingsPlayer() {
             )
 
             SettingsDropdownItem(
-                label = "Default Quality",
-                subtitle = "Preferred video resolution when streaming",
+                label = "Preferred Stream Quality",
+                subtitle = "The preferred video quality when playing native streams",
+                options = listOf(
+                    "Auto" to "Auto / Highest",
+                    "2160p (4K)" to "2160p (4K)",
+                    "1080p" to "1080p",
+                    "720p" to "720p",
+                    "480p" to "480p / SD",
+                ),
+                currentValue = preferredQuality,
+                onSelectionChanged = {
+                    preferredQuality = it
+                    DesktopDataStore.setKey(PlayerConfig.PREF_PREFERRED_QUALITY, it)
+                },
+            )
+
+            SettingsDropdownItem(
+                label = "yt-dlp Default Quality (Advanced)",
+                subtitle = "Preferred video resolution when streaming via yt-dlp",
                 options = listOf(
                     "bestvideo[height<=?1080]+bestaudio/best" to "1080p",
                     "bestvideo[height<=?720]+bestaudio/best" to "720p",
@@ -51,7 +70,17 @@ fun SettingsPlayer() {
             )
         }
 
-        SettingsGroupCard(title = "Features") {
+        SettingsGroupCard(title = "Auto-Play Features") {
+            SettingsToggleItem(
+                label = "Wait for links before Auto-playing",
+                subtitle = "If disabled, the player will instantly play the first link it finds that matches your preferred quality.",
+                checked = waitForLinks,
+                onCheckedChange = {
+                    waitForLinks = it
+                    DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS, it)
+                },
+            )
+
             SettingsToggleItem(
                 label = "Enable Download Buttons",
                 subtitle = "Shows download buttons on episodes and movies that open the link loader.",

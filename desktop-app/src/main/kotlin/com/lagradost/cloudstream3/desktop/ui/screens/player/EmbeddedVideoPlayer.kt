@@ -80,6 +80,10 @@ fun EmbeddedVideoPlayer(
     var lastDurationSec by remember { mutableStateOf(0L) }
     var lastSavedPositionSec by remember { mutableStateOf(0L) }
 
+    var activelyPlayingLink by remember { mutableStateOf<com.lagradost.cloudstream3.utils.ExtractorLink?>(null) }
+    var lastLinkIndex by remember { mutableIntStateOf(-1) }
+    var lastEpisodeId by remember { mutableStateOf<String?>(null) }
+
     val windowState = LocalWindowState.current
     val fullscreenController = LocalFullscreenController.current
     val isFullscreen = fullscreenController?.isFullscreen ?: false
@@ -122,9 +126,10 @@ fun EmbeddedVideoPlayer(
     }
 
     // Reset loading spinner + player state when switching between sources
-    LaunchedEffect(currentLinkIndex) {
-        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: State reset requested due to currentLinkIndex changing to $currentLinkIndex")
+    LaunchedEffect(activelyPlayingLink) {
+        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: State reset requested due to activelyPlayingLink changing")
         playerState.reset()
+        isLoading = true
     }
 
     DisposableEffect(Unit) {
@@ -175,10 +180,6 @@ fun EmbeddedVideoPlayer(
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    var activelyPlayingLink by remember { mutableStateOf<com.lagradost.cloudstream3.utils.ExtractorLink?>(null) }
-                    var lastLinkIndex by remember { mutableStateOf(-1) }
-                    var lastEpisodeId by remember { mutableStateOf<String?>(null) }
-
                     // isProbingOverlay: true until onPlaybackReady fires.
                     // Keyed on episodeId so it resets when switching episodes.
                     // NOT tied to isScrapingLinks — background scraping can continue while video plays.
@@ -202,24 +203,63 @@ fun EmbeddedVideoPlayer(
                         }
                     }
 
+                    // Keep currentLinkIndex in sync if the list is re-sorted by the ViewModel
+                    LaunchedEffect(actualLaunchData.links) {
+                        val activeLink = activelyPlayingLink
+                        if (activeLink != null && actualLaunchData.links.isNotEmpty()) {
+                            // Try to find the exact same object by reference or URL/name match
+                            val newIndex = actualLaunchData.links.indexOfFirst { it === activeLink || (it.url == activeLink.url && it.name == activeLink.name) }
+                            if (newIndex != -1 && newIndex != currentLinkIndex) {
+                                currentLinkIndex = newIndex
+                                lastLinkIndex = newIndex
+                            }
+                        }
+                    }
+
+                    val autoPlay = uiState.autoPlayEnabled
+
+                    val waitForLinks = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true
+                    val preferredQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+                    val targetQualityInt = when (preferredQuality) {
+                        "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
+                        "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
+                        "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
+                        "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
+                        else -> null
+                    }
+                    val hasMatchingLink = if (targetQualityInt != null) {
+                        actualLaunchData.links.any { it.quality == targetQualityInt }
+                    } else {
+                        actualLaunchData.links.isNotEmpty()
+                    }
+
+                    val shouldWaitForScrape = if (!autoPlay || userSkippedScraping) {
+                        !autoPlay && !userSkippedScraping
+                    } else if (waitForLinks) {
+                        isScrapingLinks
+                    } else {
+                        isScrapingLinks && !hasMatchingLink
+                    }
+
                     // Lock the playing link so background scraper additions don't interrupt playback
                     if (actualLaunchData.links.isNotEmpty()) {
-                        if (lastLinkIndex != currentLinkIndex || activelyPlayingLink == null || lastEpisodeId != actualLaunchData.history.episodeId) {
-                            lastLinkIndex = currentLinkIndex
-                            lastEpisodeId = actualLaunchData.history.episodeId
-                            activelyPlayingLink = actualLaunchData.links.getOrNull(currentLinkIndex)
-                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Preparing to load link [$currentLinkIndex] - Name: ${activelyPlayingLink?.name} | URL: ${activelyPlayingLink?.url?.take(50)}...")
+                        // Only lock once we are no longer waiting for the scrape, to allow the VM to sort the list when finished.
+                        if (!shouldWaitForScrape) {
+                            if (lastLinkIndex != currentLinkIndex || activelyPlayingLink == null || lastEpisodeId != actualLaunchData.history.episodeId) {
+                                lastLinkIndex = currentLinkIndex
+                                lastEpisodeId = actualLaunchData.history.episodeId
+                                activelyPlayingLink = actualLaunchData.links.getOrNull(currentLinkIndex)
+                                com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Preparing to load link [$currentLinkIndex] - Name: ${activelyPlayingLink?.name} | URL: ${activelyPlayingLink?.url?.take(50)}...")
+                            }
                         }
                     } else {
-                        if (activelyPlayingLink != null) {
+                        if (activelyPlayingLink != null && !isExiting) {
                             com.lagradost.common.logging.AppLogger.d("EmbeddedVideoPlayer: No links available. Clearing activelyPlayingLink.")
                         }
                         activelyPlayingLink = null
                     }
 
-                    val autoPlay = uiState.autoPlayEnabled
                     val isSwitchingEpisode = isLoadingNextEpisode
-                    val shouldWaitForScrape = isScrapingLinks && !userSkippedScraping && !autoPlay
                     val safeLink = if (shouldWaitForScrape || isExiting || isSwitchingEpisode) null else activelyPlayingLink
 
                     val displayTitle = if (targetEpisodeData != null) {
@@ -282,6 +322,7 @@ fun EmbeddedVideoPlayer(
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange triggered -> new index: $index")
                             playerState.pause()
                             currentLinkIndex = index
+                            userSkippedScraping = true
                             isLoading = true
                             isProbingOverlay = true // Show overlay again while switching to a new link
                         },
@@ -343,6 +384,7 @@ fun EmbeddedVideoPlayer(
                         },
                         onSkipScraping = {
                             userSkippedScraping = true
+                            viewModel.onEvent(PlayerUiEvent.OnCancelScraping)
                         },
                         onFinished = {
                             val hasNext = uiState.hasNextEpisode

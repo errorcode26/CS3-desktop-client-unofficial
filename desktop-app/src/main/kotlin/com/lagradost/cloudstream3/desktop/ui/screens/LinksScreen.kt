@@ -90,12 +90,14 @@ fun LinksSidePanel(
                         val result = vlcPlayer.play(effect.link, effect.displayTitle, effect.subtitles, effect.startMs)
                         if (!result.isSuccess) {
                             viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent.OnStatusTextChanged("Could not start player."))
-                            isLaunchingPlayer = false
-                            currentPlayingUrl = null
                         }
+                        isLaunchingPlayer = false
+                        currentPlayingUrl = null
                     }
                 }
                 is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.LaunchEmbeddedPlayer -> {
+                    isLaunchingPlayer = false
+                    currentPlayingUrl = null
                     playVideo(effect.launchData)
                 }
             }

@@ -48,7 +48,7 @@ object StreamDecryptor {
         source: okio.BufferedSource,
         keyIdHex: String,
         keyHex: String,
-        onBytesDecrypted: suspend (ByteArray) -> Unit
+        onBytesDecrypted: suspend (ByteArray) -> Unit,
     ) {
         val keyIdBytes = hexStringToByteArray(keyIdHex)
         val keyBytes = hexStringToByteArray(keyHex)
@@ -202,7 +202,7 @@ object StreamDecryptor {
             val result = ByteBuffer.allocate(data.size)
 
             val atoms = parser.listAtoms()
-            
+
             // First pass: Calculate total encryption overhead for sidx, and moof overhead for trun offset
             moofOverhead = 0
             totalOverhead = 0
@@ -239,8 +239,11 @@ object StreamDecryptor {
                 when (atom.typeString) {
                     "sidx" -> result.put(processSidx(atom).pack())
                     "moov" -> {
-                        if (processedMoov != null) result.put(processedMoov.pack())
-                        else result.put(StreamDecryptor.processMoov(atom).pack())
+                        if (processedMoov != null) {
+                            result.put(processedMoov.pack())
+                        } else {
+                            result.put(StreamDecryptor.processMoov(atom).pack())
+                        }
                     }
                     "moof" -> {
                         result.put(processMoof(atom).pack())
@@ -326,8 +329,11 @@ object StreamDecryptor {
                 when (atom.typeString) {
                     "sidx" -> preMdatOutput.put(processSidx(atom).pack())
                     "moov" -> {
-                        if (processedMoov != null) preMdatOutput.put(processedMoov.pack())
-                        else preMdatOutput.put(StreamDecryptor.processMoov(atom).pack())
+                        if (processedMoov != null) {
+                            preMdatOutput.put(processedMoov.pack())
+                        } else {
+                            preMdatOutput.put(StreamDecryptor.processMoov(atom).pack())
+                        }
                     }
                     "moof" -> preMdatOutput.put(processMoof(atom).pack())
                     "pssh" -> {} // Drop top-level PSSH
@@ -351,7 +357,7 @@ object StreamDecryptor {
                     for (info in sampleInfoList) {
                         val sampleSize = if (i < trunSampleSizes.size) trunSampleSizes[i] else mdatPayloadSize.toInt()
                         if (sampleSize <= 0) break
-                        
+
                         val sampleBytes = source.readByteArray(sampleSize.toLong())
                         val decryptedSample = decryptSample(sampleBytes, info)
                         onBytesDecrypted(decryptedSample)
@@ -429,12 +435,12 @@ object StreamDecryptor {
                 if (!mdatData.hasRemaining()) break
                 val sampleSize = if (i < trunSampleSizes.size) trunSampleSizes[i] else mdatData.remaining()
                 if (sampleSize > mdatData.remaining()) break
-                
+
                 val sampleBytes = ByteArray(sampleSize)
                 mdatData.get(sampleBytes)
                 decryptedSamples.put(decryptSample(sampleBytes, info))
             }
-            
+
             if (mdatData.hasRemaining()) {
                 val remaining = ByteArray(mdatData.remaining())
                 mdatData.get(remaining)
@@ -508,7 +514,7 @@ object StreamDecryptor {
             if ((flags and 0x000004) != 0) offset += 4
             val sampleCount = data.getInt(4)
             trunSampleSizes = IntArray(sampleCount)
-            
+
             val sizePresent = (flags and 0x000200) != 0
             var currentPos = offset
             for (i in 0 until sampleCount) {
@@ -583,7 +589,9 @@ object StreamDecryptor {
             position = originalPos
             return list
         }
-        fun skip(bytes: Int) { position += bytes }
+        fun skip(bytes: Int) {
+            position += bytes
+        }
     }
 
     private class MP4Atom(val typeString: String, val data: ByteArray) {

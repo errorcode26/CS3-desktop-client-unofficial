@@ -118,7 +118,6 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
     private fun handlePlayLink(event: LinksUiEvent.OnPlayLink) {
         val state = uiState.value
         val isLaunchingPlayer = false // Actually, LinksScreen has this state locally, but we just check if it's currently launching to prevent double launch
-        if (event.currentPlayingUrl != null) return // Already playing something else, or launching
 
         val link = event.link
         val displayTitle = event.displayTitle

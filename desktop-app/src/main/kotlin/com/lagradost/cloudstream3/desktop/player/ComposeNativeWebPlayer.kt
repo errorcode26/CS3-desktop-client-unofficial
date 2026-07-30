@@ -123,13 +123,13 @@ fun ComposeNativeWebPlayer(
                 "failedLinks" to failedLinks.map { mapOf("index" to it.key, "reason" to it.value) },
                 "links" to links.mapIndexed { index, l ->
                     mapOf(
-                        "index" to index, 
-                        "name" to l.name, 
-                        "quality" to l.quality, 
+                        "index" to index,
+                        "name" to l.name,
+                        "quality" to l.quality,
                         "isActive" to (index == currentLinkIndex),
                         "isM3u8" to l.isM3u8,
                         "isDash" to l.isDash,
-                        "url" to l.url
+                        "url" to l.url,
                     )
                 },
                 "episodes" to episodes.map {
