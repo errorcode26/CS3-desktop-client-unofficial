@@ -680,7 +680,8 @@ fun BaseMpvPlayer(
                     val escapedSub = sub.url.replace("\\", "\\\\").replace("\"", "\\\"")
                     val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
                     try {
-                        val flag = if (sub == defaultSub) "select" else "auto"
+                        // Load subtitle into MPV track list but DO NOT force select it
+                        val flag = "auto"
                         lib.mpv_command_string(capturedHandle, "sub-add \"$escapedSub\" $flag \"$escapedTitle\"")
                     } catch (e: Error) {
                         // handle freed, ignore

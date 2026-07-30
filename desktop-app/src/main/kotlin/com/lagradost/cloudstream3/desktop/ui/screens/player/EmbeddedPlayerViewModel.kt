@@ -29,8 +29,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     override fun dispose() {
         super.dispose()
-        // See cancelScraping() - Do NOT cancel loadLinksJob on exit
-        // loadLinksJob?.cancel()
+        // Re-enabled: Duktape handles interrupt fine on Windows
+        loadLinksJob?.cancel()
         saveJob?.cancel()
     }
 
@@ -255,8 +255,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun cancelScraping() {
-        // Do not cancel loadLinksJob to prevent plugin recursion crashes.
-        // loadLinksJob?.cancel()
+        // Safe to cancel on Desktop: Duktape JNI handles thread interrupts safely here.
+        // Uncommented to aggressively halt background network traffic.
+        loadLinksJob?.cancel()
         updateState {
             copy(
                 isScrapingLinks = false,

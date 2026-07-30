@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudStream Player</title>
+    <style>
+/* CSS_INJECT */
+    </style>
+</head>
+<body>
+
+<!-- ── Link Probing Overlay ───────────────────────────────────────────── -->
+<div id="linkProbingOverlay">
+    <img id="linkProbingBackdrop" src="" alt="">
+    <div id="linkProbingGradient"></div>
+    <div id="linkProbingContent">
+        <img id="linkProbingLogo" src="" alt="">
+        <h2 id="linkProbingTitle"></h2>
+        <div class="link-probing-status" id="linkProbingStatus"></div>
+        <!-- link list hidden; action buttons always visible -->
+        <div class="link-probing-list" id="linkProbingList"></div>
+        <div class="link-probing-actions" id="linkProbingActions">
+            <button id="probingPlayBtn" class="probing-btn play">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+                Play Now
+            </button>
+            <button id="probingCloseBtn" class="probing-btn close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Resume Bar (inline, inside .bottom-bar) ───────────────────────── -->
+<!-- NOTE: This element is moved into .bottom-bar by JS on DOMContentLoaded -->
+<div id="resumeOverlay">
+    <span class="resume-bar-label">Resuming from <strong id="resumeTime">00:00</strong></span>
+    <span id="resumeTitle" style="font-size:12px;color:rgba(255,255,255,0.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">CloudStream</span>
+    <span class="resume-bar-spacer"></span>
+    <button class="resume-bar-btn secondary" id="btnStartOver">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        From beginning
+    </button>
+</div>
+
+
+<!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
+<div id="videoEndedOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: var(--z-video-ended); display: none; align-items: center; justify-content: center; pointer-events: auto;">
+    <div style="background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center;">
+        <h2 style="margin: 0 0 10px 0; color: white; font-size: 28px;">Video Ended</h2>
+        <div id="videoEndedSubtext" style="color: #aaa; font-size: 16px; margin-bottom: 30px;">Playing next episode in 5...</div>
+        
+        <div style="display: flex; gap: 16px;">
+            <button id="btnNextEpisode" class="rbtn primary" style="width: 160px; margin: 0; display: none;">Next Episode</button>
+            <button id="btnReplay" class="rbtn secondary" style="width: 120px; margin: 0; background: rgba(255,255,255,0.1);">Replay</button>
+            <button id="btnExitPlayer" class="rbtn secondary" style="width: 120px; margin: 0; background: rgba(255,255,255,0.1);">Exit Player</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ── Subtitle Search Dialog ─────────────────────────────────────────── -->
+<div id="subSearchOverlay">
+    <div class="subsearch-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600; color:white;">Search Subtitles</h3>
+            <button onclick="closeSubSearchModal()" style="background:transparent; border:none; color:#888; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        
+        <!-- Search bar rows -->
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+            <!-- Row 1: Title -->
+            <div style="display:flex;">
+                <input id="subSearchQuery" type="text" placeholder="Title..."
+                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 14px; color:#fff; font-size:14px; outline:none; transition:all 0.2s ease;"/>
+            </div>
+            <!-- Row 2: Filters and Search Button -->
+            <div style="display:flex; gap:10px; align-items:center;">
+                <select id="subSearchLang"
+                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 10px; color:#fff; font-size:13px; outline:none; cursor:pointer; transition:all 0.2s ease;">
+                    <option value="">All</option>
+                    <option value="en" selected>English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="ar">Arabic</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ko">Korean</option>
+                    <option value="ja">Japanese</option>
+                    <option value="zh">Chinese</option>
+                </select>
+                <input id="subSearchSeason" type="text" placeholder="S" maxlength="3"
+                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
+                <input id="subSearchEpisode" type="text" placeholder="E" maxlength="3"
+                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
+                <button id="subSearchBtn"
+                    style="background:#e53935; border:none; border-radius:8px; padding:12px 20px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center;"
+                    onclick="doSubSearch()">Search</button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="subSearchStatus" style="color:#888; font-size:13px; text-align:center; display:none; padding:20px;">Searching...</div>
+        <div id="subSearchResults" class="subsearch-results-container"></div>
+    </div>
+</div>
+
+<!-- ── Episodes Panel ─────────────────────────────────────────────────── -->
+<div id="episodesPanel" class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 id="epPanelTitle">Episodes</h2>
+            <div class="sub" id="epPanelSub"></div>
+        </div>
+        <button class="close-btn" id="closeEpisodesBtn">✕</button>
+    </div>
+    <div class="season-select-container" id="seasonSelectWrap" style="display: none;">
+        <select class="season-select" id="seasonSelect"></select>
+    </div>
+    <div class="panel-body" id="episodesList"></div>
+</div>
+
+<!-- ── Servers Panel ──────────────────────────────────────────────────── -->
+<div id="serversPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Select Source</h2>
+                <div class="sub" id="serverSubtitle">Choose a video source</div>
+            </div>
+            <button class="close-btn" id="closeServersBtn">✕</button>
+        </div>
+        <div id="serversFilterWrap" style="display: none; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 4px;">
+            <div id="filterChipsContainer" style="display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 4px; scrollbar-width: none;">
+                <!-- Chips injected via JS -->
+            </div>
+        </div>
+    </div>
+    <div class="panel-body" id="serversList"></div>
+</div>
+
+<!-- ── Quality & Audio Panel ───────────────────────────────────────────── -->
+<div id="qualityPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Video Quality</h2>
+            <button class="close-btn" id="closeQualityBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="settings-section" style="border-bottom: none;">
+            <div id="videoList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Audio Panel ───────────────────────────────────────────── -->
+<div id="audioPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Audio Tracks (Dubs)</h2>
+            <button class="close-btn" id="closeAudioBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="settings-section" style="border-bottom: none;">
+            <div id="audioList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Unified Subtitles Panel ────────────────────────────────── -->
+<div id="subsPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Subtitles</h2>
+            <button class="close-btn" id="closeSubsBtn">✕</button>
+        </div>
+        <div class="settings-tab-header">
+            <button class="settings-tab-btn active" data-tab-target="sub-tracks">Subtitles</button>
+            <button class="settings-tab-btn" data-tab-target="sub-sync">Sync</button>
+            <button class="settings-tab-btn" data-tab-target="sub-style">Style</button>
+        </div>
+    </div>
+    <div class="panel-body" style="padding-top: 6px;">
+        <!-- Tab 2: Subtitle Tracks -->
+        <div class="settings-tab-content active" id="sub-tracks">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="settings-label">Subtitle Tracks</div>
+                <div id="subList"></div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Subtitle Sync -->
+        <div class="settings-tab-content" id="sub-sync">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="settings-label">Sync Settings</div>
+                <div class="sync-row">
+                    <span class="sync-label">Subtitle Delay</span>
+                    <div class="sync-ctrl">
+                        <button class="sync-btn" id="btnSubDelayDec">−</button>
+                        <span class="sync-val" id="valSubDelay">0ms</span>
+                        <button class="sync-btn" id="btnSubDelayInc">+</button>
+                    </div>
+                </div>
+                <div class="sync-row">
+                    <span class="sync-label">Audio Delay</span>
+                    <div class="sync-ctrl">
+                        <button class="sync-btn" id="btnAudioDelayDec">−</button>
+                        <span class="sync-val" id="valAudioDelay">0ms</span>
+                        <button class="sync-btn" id="btnAudioDelayInc">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Subtitle Style -->
+        <div class="settings-tab-content" id="sub-style">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="settings-label">Subtitle Style</div>
+                <div class="style-row">
+                    <span>Color</span>
+                    <div class="color-row">
+                        <div class="color-dot active" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+                        <div class="color-dot" style="background:#FFFF00" data-color="#FFFF00"></div>
+                        <div class="color-dot" style="background:#00FFFF" data-color="#00FFFF"></div>
+                        <div class="color-dot" style="background:#FF9900" data-color="#FF9900"></div>
+                        <div class="color-dot" style="background:#FF5555" data-color="#FF5555"></div>
+                        <div class="color-dot" style="background:#55FF55" data-color="#55FF55"></div>
+                        <div class="color-dot" style="background:#55FF55" data-color="#55FF55"></div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top:12px;">
+                    <span>Font Size</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subSizeVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">55</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            </div>
+                            <input type="range" class="style-slider" id="subSizeSlider" min="20" max="100" value="55" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+                <div class="style-row">
+                    <span>Background</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subBgVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            </div>
+                            <input type="range" class="style-slider" id="subBgSlider" min="0" max="255" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+                <div class="style-row">
+                    <span>Position</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subPosVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">100</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            </div>
+                            <input type="range" class="style-slider" id="subPosSlider" min="0" max="100" value="100" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Playback Settings Panel ─────────────────────────────────────────── -->
+<div id="settingsPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Playback Settings</h2>
+            <button class="close-btn" id="closeSettingsBtn">✕</button>
+        </div>
+        <div class="settings-tab-header">
+            <button class="settings-tab-btn active" data-tab-target="set-video">Video</button>
+            <button class="settings-tab-btn" data-tab-target="set-shaders">Shaders</button>
+        </div>
+    </div>
+    <div class="panel-body" style="padding-top: 6px;">
+        <!-- Tab 1: Video -->
+        <div class="settings-tab-content active" id="set-video">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="style-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                    <span>Upscale Filter</span>
+                    <div class="chip-row" id="scaleChips">
+                        <div class="chip active" data-scale="spline36">Spline36</div>
+                        <div class="chip" data-scale="lanczos">Lanczos</div>
+                        <div class="chip" data-scale="bicubic">Bicubic</div>
+                        <div class="chip" data-scale="bilinear">Bilinear</div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Stats for Nerds</span>
+                    <button class="chip" id="btnToggleStats" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Tab 3: Shaders -->
+        <div class="settings-tab-content" id="set-shaders">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="settings-label">Active Shader</div>
+                <div id="shaderList" style="display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Populated via JS -->
+                </div>
+                <div style="margin-top: 16px; font-size: 11px; color: rgba(255,255,255,0.4); text-align: center;">
+                    Drop .glsl files in %APPDATA%/CloudStreamDesktop/shaders
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Aspect Ratio Panel ──────────────────────────────────────────────── -->
+<div id="aspectPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Video Aspect & Zoom</h2>
+            <button class="close-btn" id="closeAspectBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="settings-section" style="border-bottom: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div class="settings-label" style="margin-bottom: 0;">Aspect Ratio</div>
+                <button id="btnResetVideo" style="background: rgba(255,255,255,0.08); border: none; color: white; border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: bold; cursor: pointer; transition: background 0.15s;">RESET ALL</button>
+            </div>
+            <div class="chip-row" id="aspectChips">
+                <div class="chip active" data-aspect="original">Original</div>
+                <div class="chip" data-aspect="16:9">16:9</div>
+                <div class="chip" data-aspect="4:3">4:3</div>
+                <div class="chip" data-aspect="stretch">Stretch</div>
+            </div>
+            <div class="style-row" style="margin-top: 16px;">
+                <span>Video Zoom</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="zoomVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
+                    <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                        <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        </div>
+                        <input type="range" class="style-slider" id="zoomSlider" min="0" max="3" step="0.25" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ── Playback Speed Panel ────────────────────────────────────────────── -->
+<div id="speedPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <h2>Playback Speed</h2>
+            <button class="close-btn" id="closeSpeedBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="settings-section" style="border-bottom: none;">
+            <div class="style-row" style="flex-direction: column; align-items: center; gap: 16px; margin: 8px 0;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <button id="speedDecPanelBtn" class="icon-btn" title="Decrease Speed" style="width: 32px; height: 32px; padding: 0; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.08); border-radius: 8px; font-weight: bold; font-size: 18px;">−</button>
+                    <span id="speedSliderVal" title="Reset to 1.0x" style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; width: 48px; text-align: center; cursor: pointer; transition: color 0.15s; user-select: none;">1.0×</span>
+                    <button id="speedIncPanelBtn" class="icon-btn" title="Increase Speed" style="width: 32px; height: 32px; padding: 0; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.08); border-radius: 8px; font-weight: bold; font-size: 18px;">+</button>
+                </div>
+                <div style="position: relative; width: 200px; height: 20px; display: flex; align-items: center;">
+                    <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
+                    </div>
+                    <input type="range" class="style-slider" id="speedSlider" min="-6" max="6" step="1" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                </div>
+                <style>#speedSlider { width: 200px; } #speedSlider::-webkit-slider-runnable-track { background: rgba(255,255,255,0.25); height: 4px; border-radius: 2px; } #speedSlider::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -5px; }</style>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Stats for Nerds Overlay ───────────────────────────────────────── -->
+<div id="statsOverlay">
+    <div class="stats-panel">
+        <div class="stats-header">
+            <div class="stats-header-dot"></div>
+            <span class="stats-header-title">Stats for Nerds</span>
+            <span class="stats-badge" id="statsBadgeFps">-- fps</span>
+        </div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Video</div>
+            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sVideoCodec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Resolution</span><span class="stats-val" id="sResolution">--</span></div>
+            <div class="stats-row"><span class="stats-key">Framerate</span><span class="stats-val" id="sFps">--</span></div>
+            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sVideoBitrate">--</span></div>
+            <div class="stats-row"><span class="stats-key">HW Decode</span><span class="stats-val" id="sHwdec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Dropped Frames</span><span class="stats-val" id="sDropped">--</span></div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Audio</div>
+            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sAudioCodec">--</span></div>
+            <div class="stats-row"><span class="stats-key">Channels</span><span class="stats-val" id="sAudioChannels">--</span></div>
+            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sAudioBitrate">--</span></div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <div class="stats-section">
+            <div class="stats-section-title">Stream</div>
+            <div class="stats-row"><span class="stats-key">Container</span><span class="stats-val" id="sFormat">--</span></div>
+            <div class="stats-row"><span class="stats-key">Buffer</span><span class="stats-val" id="sBuffer">--</span></div>
+        </div>
+
+        <div class="stats-path" id="sPath">--</div>
+    </div>
+</div>
+
+<!-- ── Main Overlay ───────────────────────────────────────────────────── -->
+    <!-- Loading Spinner -->
+    <div id="loadingContainer">
+        <div id="loadingSpinner"></div>
+        <div id="loadingStatus"></div>
+    </div>
+
+<div id="overlay" class="hide-main-ui">
+    <!-- Click Zones -->
+    <div class="click-zones">
+        <div class="click-zone" id="zoneLeft"></div>
+        <div class="click-zone" id="zoneCenter"></div>
+        <div class="click-zone" id="zoneRight"></div>
+    </div>
+
+    <!-- Action Feedback Overlay -->
+    <div id="actionFeedback" class="action-feedback">
+        <div class="action-icon-wrap" id="actionFeedbackIcon"></div>
+    </div>
+
+    <!-- Volume OSD Overlay -->
+    <div id="volumeOsd" class="volume-osd">
+        <div id="volumeOsdIcon" class="volume-osd-icon"></div>
+        <div id="volumeOsdText" class="volume-osd-text">100%</div>
+    </div>
+
+
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <button class="back-btn" id="backBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <span id="titleDisplay" class="player-title">CloudStream Player</span>
+    </div>
+
+    <!-- HW/SW Toggle (Top Right) -->
+    <button id="hwToggleBtn" class="hw-toggle-btn" title="Hardware Decoding (Toggle)">HW</button>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar" id="bottomBar">
+        
+        <!-- Resume inline bar: injected by JS as first child of bottom-bar -->
+
+        <!-- Progress Row (Full Width, above controls) -->
+        <div class="progress-row">
+            <div class="seek-wrap">
+                <div class="seek-track"></div>
+                <div class="seek-buffer" id="seekBuffer"></div>
+                <div class="seek-fill" id="seekFill"></div>
+                <input type="range" id="seekBar" class="seek-slider" min="0" max="1000" value="0" step="0.1">
+            </div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="controls-row">
+
+            <!-- Left: playback controls -->
+            <div class="ctrl-group">
+                <!-- Play/Pause -->
+                <button id="playPauseBtn" class="icon-btn large">
+                    <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%" class="play-pause-svg">
+                        <path class="play-path" d="M8 5.14v14l11-7-11-7z" fill="currentColor"/>
+                        <path class="pause-path" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
+                    </svg>
+                </button>
+                <!-- Skip Back 10s -->
+                <button id="skipBackwardBtn" class="icon-btn" title="Rewind 10s">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>
+                </button>
+                <!-- Skip Forward 10s -->
+                <button id="skipForwardBtn" class="icon-btn" title="Forward 10s">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>
+                </button>
+                <!-- Volume -->
+                <div class="vol-group">
+                    <button id="muteBtn" class="icon-btn" title="Mute">
+                        <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293Z" fill="currentColor"/>
+                            <path id="volWave1" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12Z" fill="currentColor"/>
+                            <path id="volWave2" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M17.071 4.93a10 10 0 0 1 0 14.142l-1.414-1.414a8 8 0 0 0 0-11.314L17.07 4.93Z" fill="currentColor"/>
+                            <path id="volWave3" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M24 12a14 14 0 0 0-4.1-9.9l-1.415 1.415a12 12 0 0 1 0 16.97L19.9 21.9A14 14 0 0 0 24 12Z" fill="currentColor"/>
+                            <path id="volCross" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M23.414 12l2.293-2.293-1.414-1.414L22 10.586 19.707 8.293l-1.414 1.414L20.586 12l-2.293 2.293 1.414 1.414L22 13.414l2.293 2.293 1.414-1.414L23.414 12Z" fill="currentColor" style="opacity: 0; transform: scale(0.5);"/>
+                        </svg>
+                    </button>
+                    <div class="vol-slider-wrap">
+                        <input type="range" id="volumeBar" class="vol-slider" min="0" max="200" value="100">
+                    </div>
+                </div>
+                <!-- Time Display -->
+                <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>
+            </div>
+
+            <!-- Right: utility buttons -->
+            <div class="ctrl-group right">
+                <!-- Next Episode (hidden by default) -->
+                <button id="nextEpBtn" class="icon-btn hidden" title="Next Episode">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+                <!-- Episodes -->
+                <button id="episodesBtn" class="icon-btn hidden" title="Episodes">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+                </button>
+                <!-- Source / Server -->
+                <button id="serversBtn" class="icon-btn" title="Video Sources">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                </button>
+                <!-- Audio Tracks -->
+                <button id="audioBtn" class="icon-btn" title="Audio Tracks">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
+                </button>
+                <!-- Quality -->
+                <button id="qualityBtn" class="icon-btn" title="Video Quality">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
+                </button>
+                <!-- Aspect Ratio -->
+                <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect><path d="M7 12h10"></path></svg>
+                </button>
+                <!-- Playback Speed -->
+                <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 44px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
+                <!-- Subtitles -->
+                <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 3C1 2.44772 1.44772 2 2 2H22C22.5523 2 23 2.44772 23 3V17C23 17.5523 22.5523 18 22 18H19V21C19 21.3688 18.797 21.7077 18.4719 21.8817C18.1467 22.0557 17.7522 22.0366 17.4453 21.8321L11.6972 18H2C1.44772 18 1 17.5523 1 17V3ZM3 4V16H12H12.3028L12.5547 16.1679L17 19.1315V17V16H18H21V4H3ZM10 9L5 9V7L10 7V9ZM19 11H14V13H19V11ZM12 13L5 13V11L12 11V13ZM19 7H12V9H19V7Z" fill="currentColor"></path></svg>
+                </button>
+                <!-- Settings -->
+                <button id="settingsBtn" class="icon-btn" title="Settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" d="M2 12c0-.865.11-1.703.316-2.504A3 3 0 0 0 4.99 4.867a9.99 9.99 0 0 1 4.335-2.505a3 3 0 0 0 5.348 0a9.99 9.99 0 0 1 4.335 2.505a3 3 0 0 0 2.675 4.63a10.036 10.036 0 0 1 0 5.007a3 3 0 0 0-2.675 4.629a9.99 9.99 0 0 1-4.335 2.505a3 3 0 0 0-5.348 0a9.99 9.99 0 0 1-4.335-2.505a3 3 0 0 0-2.675-4.63A10.056 10.056 0 0 1 2 12zm4.804 3c.63 1.091.81 2.346.564 3.524c.408.29.842.541 1.297.75A4.993 4.993 0 0 1 12 18c1.26 0 2.438.471 3.335 1.274c.455-.209.889-.46 1.297-.75A4.993 4.993 0 0 1 17.196 15a4.993 4.993 0 0 1 2.77-2.25a8.126 8.126 0 0 0 0-1.5A4.993 4.993 0 0 1 17.195 9a4.993 4.993 0 0 1-.564-3.524a7.989 7.989 0 0 0-1.297-.75A4.993 4.993 0 0 1 12 6a4.993 4.993 0 0 1-3.335-1.274a7.99 7.99 0 0 0-1.297.75A4.993 4.993 0 0 1 6.804 9a4.993 4.993 0 0 1-2.77 2.25a8.126 8.126 0 0 0 0 1.5A4.993 4.993 0 0 1 6.805 15zM12 15a3 3 0 1 1 0-6a3 3 0 0 1 0 6zm0-2a1 1 0 1 0 0-2a1 1 0 0 0 0 2z"></path></svg>
+                </button>
+                <!-- Fullscreen -->
+                <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 5a2 2 0 0 1 2-2h7v2H2v4H0V5Zm22 0h-7V3h7a2 2 0 0 1 2 2v4h-2V5ZM2 15v4h7v2H2a2 2 0 0 1-2-2v-4h2Zm20 4v-4h2v4a2 2 0 0 1-2 2h-7v-2h7Z" fill="currentColor"></path></svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="pauseBackdrop"></div>
+<div id="pauseInfoOverlay">
+    <div id="pauseInfoNowPlaying">Now Playing</div>
+    <img id="pauseInfoLogo" src="" />
+    <h1 id="pauseInfoTitleFallback"></h1>
+    <div id="pauseInfoMeta">
+        <span id="pauseInfoYear"></span>
+        <span id="pauseInfoTags"></span>
+    </div>
+    <p id="pauseInfoEpisode"></p>
+    <p id="pauseInfoPlot"></p>
+</div>
+
+<script>
+/* JS_INJECT */
+</script>
+</body>
+</html>

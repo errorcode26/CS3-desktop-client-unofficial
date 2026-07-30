@@ -111,62 +111,65 @@ fun ComposeNativeWebPlayer(
 
     LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags) {
         if (isUiReady) {
-            val payload = mapOf(
-                "type" to "metadata_update",
-                "plot" to plot,
-                "year" to year,
-                "tags" to tags,
-                "isProbing" to isProbing,
-                "backdropUrl" to backdropUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
-                "logoUrl" to logoUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
-                "currentLinkIndex" to currentLinkIndex,
-                "failedLinks" to failedLinks.map { mapOf("index" to it.key, "reason" to it.value) },
-                "links" to links.mapIndexed { index, l ->
-                    mapOf(
-                        "index" to index,
-                        "name" to l.name,
-                        "quality" to l.quality,
-                        "isActive" to (index == currentLinkIndex),
-                        "isM3u8" to l.isM3u8,
-                        "isDash" to l.isDash,
-                        "url" to l.url,
+            val payload = PlayerUiSyncState(
+                plot = plot,
+                year = year,
+                tags = tags,
+                isProbing = isProbing,
+                backdropUrl = backdropUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
+                logoUrl = logoUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
+                currentLinkIndex = currentLinkIndex,
+                failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value) },
+                links = links.mapIndexed { index, l ->
+                    LinkPayload(
+                        index = index,
+                        name = l.name,
+                        quality = l.quality,
+                        isActive = (index == currentLinkIndex),
+                        isM3u8 = l.isM3u8,
+                        isDash = l.isDash,
+                        url = l.url
                     )
                 },
-                "episodes" to episodes.map {
-                    mapOf(
-                        "id" to it.data,
-                        "title" to (it.name ?: "Episode ${it.episode}"),
-                        "season" to it.season,
-                        "episode" to it.episode,
-                        "isActive" to (it.data == currentEpisodeId),
-                        "posterUrl" to (it.posterUrl ?: seriesPosterUrl)?.let { url -> com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(url) },
-                        "description" to it.description,
-                        "runTime" to it.runTime,
+                episodes = episodes.map {
+                    EpisodePayload(
+                        id = it.data,
+                        title = it.name ?: "Episode ${it.episode}",
+                        season = it.season,
+                        episode = it.episode,
+                        isActive = (it.data == currentEpisodeId),
+                        posterUrl = (it.posterUrl ?: seriesPosterUrl)?.let { url -> com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(url) },
+                        description = it.description,
+                        runTime = it.runTime
                     )
                 },
-                "audioTracks" to audioTracks.map {
-                    mapOf("id" to it.id, "name" to it.name, "isSelected" to it.isSelected)
+                audioTracks = audioTracks.map {
+                    SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
-                "subTracks" to subtitleTracks.map {
-                    mapOf("id" to it.id, "name" to it.name, "isSelected" to it.isSelected)
+                subTracks = subtitleTracks.map {
+                    SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
-                "lazyAudioTracks" to proxyAudioTracks.map {
-                    mapOf("url" to it.url, "name" to it.name, "language" to it.language)
+                lazyAudioTracks = proxyAudioTracks.map {
+                    LazyTrackPayload(it.url, it.name, it.language)
                 },
-                "lazySubTracks" to proxySubtitleTracks.map {
-                    mapOf("url" to it.url, "name" to it.name, "language" to it.language)
+                lazySubTracks = proxySubtitleTracks.map {
+                    LazyTrackPayload(it.url, it.name, it.language)
                 },
-                "lazyVideoTracks" to proxyVideoTracks.map {
-                    mapOf("url" to it.url, "name" to it.name, "language" to it.language)
+                lazyVideoTracks = proxyVideoTracks.map {
+                    LazyTrackPayload(it.url, it.name, it.language)
                 },
-                "startPositionMs" to startPositionMs,
-                "title" to (title ?: "CloudStream"),
-                "shaders" to com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
-                "activeShader" to activeShader,
-                "activeLazyVideoTrackUrl" to activeLazyVideoTrackUrl,
-                "resolution" to resolution,
+                startPositionMs = startPositionMs,
+                title = title ?: "CloudStream",
+                shaders = com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
+                activeShader = activeShader,
+                activeLazyVideoTrackUrl = activeLazyVideoTrackUrl,
+                resolution = resolution
             )
-            NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
+            
+            val wrapper = MetadataUpdatePayloadWrapper(
+                value = payload
+            )
+            NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(wrapper))
         }
     }
 
@@ -201,9 +204,17 @@ fun ComposeNativeWebPlayer(
 
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
 
-            NativePlayerBridge.postMessage(
-                "{\"type\":\"app_state_update\",\"volume\":$vol,\"isMuted\":$isMuted,\"isAppLoading\":$isAppScraping,\"loadingStatusText\":$loadingTextJson,\"isPaused\":$isPausedState,\"debugWait\":false,\"debugHasEver\":true,\"debugPos\":0.0}",
+            val payload = AppStateUpdatePayload(
+                volume = vol,
+                isMuted = isMuted,
+                isAppLoading = isAppScraping,
+                loadingStatusText = currentLoadingStatusText,
+                isPaused = isPausedState,
+                debugWait = false,
+                debugHasEver = true,
+                debugPos = 0.0
             )
+            NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
             com.lagradost.common.logging.AppLogger.e("pushMetadataToWebView error: ${e.message}")
         }
@@ -249,15 +260,21 @@ fun ComposeNativeWebPlayer(
             val webView2DataDir = File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
             webView2DataDir.mkdirs()
             val tempFile = File(webView2DataDir, "cloudstream_controls.html")
-            val htmlContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/controls.html")
-                ?.use { it.readBytes().toString(Charsets.UTF_8) }
-                ?.replace("{{ACCENT_COLOR}}", accentColorHex)
-                ?.replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
-                ?: ""
-            if (htmlContent.isNotEmpty()) {
+            
+            val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            
+            val htmlContent = htmlTemplate
+                .replace("/* CSS_INJECT */", cssContent)
+                .replace("/* JS_INJECT */", jsContent)
+                .replace("{{ACCENT_COLOR}}", accentColorHex)
+                .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
+            
+            if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
                 tempFile.writeText(htmlContent, Charsets.UTF_8)
             } else {
-                com.lagradost.common.logging.AppLogger.e("[NativePlayer] controls.html resource not found!")
+                com.lagradost.common.logging.AppLogger.e("[NativePlayer] player-ui resources not found!")
             }
 
             NativePlayerBridge.setEventListener(object : NativePlayerBridge.NativePlayerEventListener {
