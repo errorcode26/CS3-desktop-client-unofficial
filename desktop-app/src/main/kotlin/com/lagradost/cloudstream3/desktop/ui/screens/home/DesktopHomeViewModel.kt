@@ -59,8 +59,11 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { name ->
                 if (!name.isNullOrBlank()) {
                     DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, name)
+                    val disabled = DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
+                    updateState { copy(disabledCatalogs = disabled) }
                 } else {
                     DesktopDataStore.removeKey(PREF_SELECTED_PROVIDER)
+                    updateState { copy(disabledCatalogs = emptySet()) }
                 }
             }
         }
@@ -95,6 +98,19 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             is HomeUiEvent.OnSetCurrentHeroColor -> setCurrentHeroColor(event.itemUrl)
             is HomeUiEvent.OnUpdateHeroColor -> updateHeroColor(event.imageUrl, event.itemUrl)
             is HomeUiEvent.OnProviderRefresh -> reloadProvider()
+            is HomeUiEvent.OnShowCatalogSettings -> {
+                updateState { copy(showCatalogSettings = event.show) }
+            }
+            is HomeUiEvent.OnToggleCatalog -> {
+                val currentDisabled = uiState.value.disabledCatalogs
+                val newDisabled = if (event.isEnabled) {
+                    currentDisabled - event.catalogName
+                } else {
+                    currentDisabled + event.catalogName
+                }
+                DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
+                updateState { copy(disabledCatalogs = newDisabled) }
+            }
         }
     }
 

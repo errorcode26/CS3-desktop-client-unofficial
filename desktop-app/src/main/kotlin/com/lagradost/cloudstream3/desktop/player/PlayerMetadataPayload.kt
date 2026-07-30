@@ -68,7 +68,6 @@ data class AppStateUpdatePayload(
     val isMuted: Boolean,
     val isAppLoading: Boolean,
     val loadingStatusText: String?,
-    val isPaused: Boolean,
     val debugWait: Boolean = false,
     val debugHasEver: Boolean = true,
     val debugPos: Double = 0.0

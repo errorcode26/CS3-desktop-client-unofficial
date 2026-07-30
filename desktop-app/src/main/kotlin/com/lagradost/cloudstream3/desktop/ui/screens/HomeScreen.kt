@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -95,18 +97,30 @@ fun ComposeHomeScreen(
         // Main content area
         if (selectedProvider != null && selectedProvider.hasMainPage && selectedProvider.mainPage.isNotEmpty()) {
             val currentProvider = selectedProvider
+            val filteredMainPage = currentProvider.mainPage.filter { it.name !in uiState.disabledCatalogs }
             val listState = rememberLazyListState()
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 32.dp),
-            ) {
-                if (currentProvider.mainPage.isNotEmpty()) {
-                    item {
-                        HomeCategorySection(
-                            pageData = currentProvider.mainPage[0],
-                            provider = currentProvider,
+            ProviderCatalogsDialog(
+                show = uiState.showCatalogSettings,
+                provider = currentProvider,
+                disabledCatalogs = uiState.disabledCatalogs,
+                onToggleCatalog = { catalogName, isEnabled ->
+                    viewModel.onEvent(HomeUiEvent.OnToggleCatalog(currentProvider.name, catalogName, isEnabled))
+                },
+                onDismissRequest = { viewModel.onEvent(HomeUiEvent.OnShowCatalogSettings(false)) }
+            )
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp),
+                ) {
+                    if (filteredMainPage.isNotEmpty()) {
+                        item {
+                            HomeCategorySection(
+                                pageData = filteredMainPage[0],
+                                provider = currentProvider,
                             isFirstPage = true,
                             parentScope = coroutineScope,
                             heroMetaMap = uiState.heroMetaMap,
@@ -140,11 +154,11 @@ fun ComposeHomeScreen(
                     }
                 }
 
-                if (currentProvider.mainPage.size > 1) {
-                    items(currentProvider.mainPage.size - 1, key = { index -> currentProvider.mainPage[index + 1].name }) { index ->
+                if (filteredMainPage.size > 1) {
+                    items(filteredMainPage.size - 1, key = { index -> filteredMainPage[index + 1].name }) { index ->
                         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                             HomeCategorySection(
-                                pageData = currentProvider.mainPage[index + 1],
+                                pageData = filteredMainPage[index + 1],
                                 provider = currentProvider,
                                 isFirstPage = false,
                                 parentScope = coroutineScope,
@@ -165,7 +179,8 @@ fun ComposeHomeScreen(
                     }
                 }
             }
-        } else if (providers.isEmpty()) {
+        }
+    } else if (providers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(

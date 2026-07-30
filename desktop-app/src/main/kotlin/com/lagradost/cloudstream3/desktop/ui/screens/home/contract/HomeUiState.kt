@@ -19,6 +19,8 @@ data class HomeUiState(
     val heroExtractedColor: Color? = null,
     val heroColorMap: Map<String, Color> = emptyMap(),
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
+    val disabledCatalogs: Set<String> = emptySet(),
+    val showCatalogSettings: Boolean = false,
 ) : UiState {
     val selectedProvider: MainAPI?
         get() = providers.firstOrNull { it.name == selectedProviderName }

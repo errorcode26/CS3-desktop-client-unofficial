@@ -189,7 +189,6 @@ fun ComposeNativeWebPlayer(
             val vol = playerState?.volume?.value ?: 100f
             val isMuted = playerState?.isMuted?.value ?: false
             val isBuf = playerState?.isBuffering?.value == true
-            val isPausedState = playerState?.isPaused?.value == true
 
             var currentlyLoading = isBuf
             var isAppScraping = false
@@ -209,7 +208,6 @@ fun ComposeNativeWebPlayer(
                 isMuted = isMuted,
                 isAppLoading = isAppScraping,
                 loadingStatusText = currentLoadingStatusText,
-                isPaused = isPausedState,
                 debugWait = false,
                 debugHasEver = true,
                 debugPos = 0.0
@@ -220,8 +218,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    val isPausedFlow by (playerState?.isPaused ?: kotlinx.coroutines.flow.flowOf(false)).collectAsState(false)
-    LaunchedEffect(isLoading, isBuffering, loadingStatusText, isPausedFlow) {
+    LaunchedEffect(isLoading, isBuffering, loadingStatusText) {
         if (isUiReady && mpvHandle != null) {
             pushMetadataToWebView()
         }
@@ -440,9 +437,12 @@ fun ComposeNativeWebPlayer(
                             }
                         }
                         "togglePlay" -> {
-                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. Current isPaused=${playerState?.isPaused?.value}")
-                            playerState?.let {
-                                if (it.isPaused.value) it.play() else it.pause()
+                            val isMpvPaused = MpvLibrary.getPropertyString(h, "pause") == "yes"
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. MPV state: pause=$isMpvPaused, Kotlin state: isPaused=${playerState?.isPaused?.value}")
+                            if (isMpvPaused) {
+                                playerState?.play()
+                            } else {
+                                playerState?.pause()
                             }
                         }
                         "play" -> {
@@ -571,6 +571,8 @@ fun ComposeNativeWebPlayer(
                     }
                 }
                 videoCanvas.addComponentListener(componentListener)
+                // Force initial layout push so WebView isn't hidden until the first resize
+                NativePlayerBridge.resizeWebView(videoCanvas.width, videoCanvas.height)
                 onDispose {
                     videoCanvas.removeComponentListener(componentListener)
                     NativePlayerBridge.resizeWebView(0, 0)

@@ -47,7 +47,6 @@
         isCurrentlyLoading = false;
         globalIsLoading = false;
         globalIsPlaying = false;
-        window.pendingAutoPlay = true;
         window.sessionStartTime = Date.now();
 
         // Force all overlays to their correct initial state
@@ -134,12 +133,6 @@
                 if (window.hideMainUiTimer) { clearTimeout(window.hideMainUiTimer); window.hideMainUiTimer = null; }
                 if (mainOverlay.classList.contains('hide-main-ui')) {
                     mainOverlay.classList.remove('hide-main-ui');
-                }
-                
-                // Force playback to start if it was stalled in a paused state during load
-                if (window.pendingAutoPlay && !globalIsPlaying) {
-                    window.pendingAutoPlay = false;
-                    send('play');
                 }
             }
         }
@@ -574,19 +567,7 @@
             globalIsLoading = s.isLoading;
         }
         
-        // AUTO-PLAY FIX TO BREAK DEADLOCK:
-        // If MPV has finished buffering/loading the stream but is stuck paused,
-        // force it to play so the first frame renders and C++ dismisses the probing screen.
-        if (window.pendingAutoPlay) {
-            if (globalIsPlaying) {
-                // Video is playing fine natively, clear the flag
-                window.pendingAutoPlay = false;
-            } else if (!globalIsLoading) {
-                // Video finished loading but is stuck paused, force unpause
-                window.pendingAutoPlay = false;
-                send('play');
-            }
-        }
+        // (AUTO-PLAY FIX removed in favor of strict Kotlin state management)
         
         evaluateUIStates();
 
@@ -1215,6 +1196,7 @@
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
             document.getElementById('loadingStatus').innerText = s.loadingStatusText;
         }
+
         evaluateUIStates();
         evaluateResumeOverlay();
     };

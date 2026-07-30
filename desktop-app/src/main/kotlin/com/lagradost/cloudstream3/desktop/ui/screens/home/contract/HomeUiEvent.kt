@@ -13,4 +13,6 @@ sealed interface HomeUiEvent : UiEvent {
     data class OnSetCurrentHeroColor(val itemUrl: String?) : HomeUiEvent
     data class OnUpdateHeroColor(val imageUrl: String?, val itemUrl: String? = null) : HomeUiEvent
     data object OnProviderRefresh : HomeUiEvent
+    data class OnShowCatalogSettings(val show: Boolean) : HomeUiEvent
+    data class OnToggleCatalog(val providerName: String, val catalogName: String, val isEnabled: Boolean) : HomeUiEvent
 }

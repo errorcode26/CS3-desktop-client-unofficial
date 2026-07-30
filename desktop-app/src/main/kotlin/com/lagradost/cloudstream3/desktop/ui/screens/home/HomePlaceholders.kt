@@ -106,12 +106,16 @@ fun CategoryRowPlaceholder(
                     .padding(start = 10.dp, end = 10.dp, top = 24.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                if (showLargeHeader) {
+                    Box(modifier = Modifier.height(24.dp).width(140.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                } else {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
 
             // Row of shimmering posters

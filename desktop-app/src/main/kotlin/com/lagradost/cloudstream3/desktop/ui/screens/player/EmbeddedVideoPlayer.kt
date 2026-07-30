@@ -292,6 +292,93 @@ fun EmbeddedVideoPlayer(
                     val year = uiState.launchData?.loadResponse?.year // or actualLaunchData.loadResponse?.year
                     val tags = actualLaunchData.loadResponse?.tags
 
+                    val handlePlaybackError: (String) -> Unit = { err ->
+                        com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error on link index $currentLinkIndex. Error: $err")
+                        val newFailed = failedLinks + (currentLinkIndex to err)
+                        failedLinks = newFailed
+
+                        val nextIndex = (0 until actualLaunchData.links.size)
+                            .firstOrNull { it > currentLinkIndex && !newFailed.containsKey(it) }
+
+                        when {
+                            nextIndex != null -> {
+                                com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Moving to next link index $nextIndex")
+                                currentLinkIndex = nextIndex
+                                isLoading = true
+                                isProbingOverlay = true // Re-show probing so JS renders updated ✗ and new active spinner
+                            }
+                            newFailed.size >= actualLaunchData.links.size -> {
+                                if (isScrapingLinks) {
+                                    // Wait for more links to arrive (Player stays active, overlay shows waiting)
+                                    com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: All current links failed, but still scraping. Waiting...")
+                                    isLoading = true
+                                    isProbingOverlay = true
+                                } else {
+                                    if (!fallbackToBeginning && actualLaunchData.startPositionMs > 0) {
+                                        // Stream might not support range requests. Fallback to playing from the beginning.
+                                        com.lagradost.common.logging.AppLogger.w("EmbeddedVideoPlayer: All links failed on RESUME. Falling back to startPositionMs = 0")
+                                        fallbackToBeginning = true
+                                        failedLinks = emptyMap()
+                                        currentLinkIndex = 0
+                                        isLoading = true
+                                        isProbingOverlay = true
+                                    } else {
+                                        // All sources failed — dismiss overlay and show error
+                                        com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources failed completely. Terminating playback.")
+                                        isProbingOverlay = false
+                                        onError("All sources failed. Please try again later.")
+                                        onClose()
+                                    }
+                                }
+                            }
+                            else -> {
+                                val anyUntried = (0 until actualLaunchData.links.size)
+                                    .firstOrNull { it !in newFailed }
+                                if (anyUntried != null) {
+                                    com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Moving to untried fallback link index $anyUntried")
+                                    currentLinkIndex = anyUntried
+                                    isLoading = true
+                                    isProbingOverlay = true // Re-show probing for the fallback link
+                                } else {
+                                    if (isScrapingLinks) {
+                                        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: All untried links failed, but still scraping. Waiting...")
+                                        isLoading = true
+                                        isProbingOverlay = true
+                                        // Wait for more links to arrive
+                                    } else {
+                                        if (!fallbackToBeginning && actualLaunchData.startPositionMs > 0) {
+                                            // Fallback to playing from the beginning
+                                            com.lagradost.common.logging.AppLogger.w("EmbeddedVideoPlayer: All untried links failed on RESUME. Falling back to startPositionMs = 0")
+                                            fallbackToBeginning = true
+                                            failedLinks = emptyMap()
+                                            currentLinkIndex = 0
+                                            isLoading = true
+                                            isProbingOverlay = true
+                                        } else {
+                                            // All sources exhausted — dismiss overlay and show error
+                                            com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All untried sources exhausted. Terminating playback.")
+                                            isProbingOverlay = false
+                                            onError("All sources failed. Please try again later.")
+                                            onClose()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Loading Timeout mechanism
+                    LaunchedEffect(activelyPlayingLink, isProbingOverlay) {
+                        if (activelyPlayingLink != null && isProbingOverlay) {
+                            // Give the player 35 seconds to transition out of probing overlay (i.e. start playing)
+                            kotlinx.coroutines.delay(35000)
+                            if (isProbingOverlay) {
+                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Link timed out after 35s. Forcing fallback.")
+                                handlePlaybackError("Connection timed out")
+                            }
+                        }
+                    }
+
                     ComposeNativeWebPlayer(
                         link = safeLink,
                         title = displayTitle,
@@ -391,80 +478,7 @@ fun EmbeddedVideoPlayer(
                             val isAutoPlay = uiState.autoPlayEnabled
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $isAutoPlay);")
                         },
-                        onPlaybackError = { err ->
-                            com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error on link index $currentLinkIndex. Error: $err")
-                            val newFailed = failedLinks + (currentLinkIndex to err)
-                            failedLinks = newFailed
-
-                            val nextIndex = (0 until actualLaunchData.links.size)
-                                .firstOrNull { it > currentLinkIndex && !newFailed.containsKey(it) }
-
-                            when {
-                                nextIndex != null -> {
-                                    com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Moving to next link index $nextIndex")
-                                    currentLinkIndex = nextIndex
-                                    isLoading = true
-                                    isProbingOverlay = true // Re-show probing so JS renders updated ✗ and new active spinner
-                                }
-                                newFailed.size >= actualLaunchData.links.size -> {
-                                    if (isScrapingLinks) {
-                                        // Wait for more links to arrive (Player stays active, overlay shows waiting)
-                                        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: All current links failed, but still scraping. Waiting...")
-                                        isLoading = true
-                                        isProbingOverlay = true
-                                    } else {
-                                        if (!fallbackToBeginning && actualLaunchData.startPositionMs > 0) {
-                                            // Stream might not support range requests. Fallback to playing from the beginning.
-                                            com.lagradost.common.logging.AppLogger.w("EmbeddedVideoPlayer: All links failed on RESUME. Falling back to startPositionMs = 0")
-                                            fallbackToBeginning = true
-                                            failedLinks = emptyMap()
-                                            currentLinkIndex = 0
-                                            isLoading = true
-                                            isProbingOverlay = true
-                                        } else {
-                                            // All sources failed — dismiss overlay and show error
-                                            com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources failed completely. Terminating playback.")
-                                            isProbingOverlay = false
-                                            onError("All sources failed. Please try again later.")
-                                            onClose()
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    val anyUntried = (0 until actualLaunchData.links.size)
-                                        .firstOrNull { it !in newFailed }
-                                    if (anyUntried != null) {
-                                        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Moving to untried fallback link index $anyUntried")
-                                        currentLinkIndex = anyUntried
-                                        isLoading = true
-                                        isProbingOverlay = true // Re-show probing for the fallback link
-                                    } else {
-                                        if (isScrapingLinks) {
-                                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: All untried links failed, but still scraping. Waiting...")
-                                            isLoading = true
-                                            isProbingOverlay = true
-                                            // Wait for more links to arrive
-                                        } else {
-                                            if (!fallbackToBeginning && actualLaunchData.startPositionMs > 0) {
-                                                // Fallback to playing from the beginning
-                                                com.lagradost.common.logging.AppLogger.w("EmbeddedVideoPlayer: All untried links failed on RESUME. Falling back to startPositionMs = 0")
-                                                fallbackToBeginning = true
-                                                failedLinks = emptyMap()
-                                                currentLinkIndex = 0
-                                                isLoading = true
-                                                isProbingOverlay = true
-                                            } else {
-                                                // All sources exhausted — dismiss overlay and show error
-                                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All untried sources exhausted. Terminating playback.")
-                                                isProbingOverlay = false
-                                                onError("All sources failed. Please try again later.")
-                                                onClose()
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
+                        onPlaybackError = handlePlaybackError,
                         onFullscreenToggle = {
                             fullscreenController?.toggle?.invoke()
                         },

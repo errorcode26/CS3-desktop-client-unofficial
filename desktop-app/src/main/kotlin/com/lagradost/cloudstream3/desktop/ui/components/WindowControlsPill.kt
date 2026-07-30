@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -130,35 +131,53 @@ fun WindowControlsPill(
                                 cats
                             }
 
-                            if (categories.size > 1) {
-                                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-                                androidx.compose.foundation.layout.FlowRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    categories.forEach { cat ->
-                                        val isSelected = selectedCategory.value == cat
-                                        Surface(
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                                            color = if (isSelected) theme.Accent else Color.Transparent,
-                                            border = BorderStroke(1.dp, if (isSelected) Color.Transparent else theme.TextMuted.copy(alpha = 0.3f)),
-                                            modifier = Modifier.clickable { selectedCategory.value = cat },
-                                        ) {
-                                            Text(
-                                                text = cat,
-                                                color = if (isSelected) Color.White else theme.TextPrimary,
-                                                fontSize = 12.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (categories.size > 1) {
+                                    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                                    androidx.compose.foundation.layout.FlowRow(
+                                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        categories.forEach { cat ->
+                                            val isSelected = selectedCategory.value == cat
+                                            Surface(
+                                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                                                color = if (isSelected) theme.Accent else Color.Transparent,
+                                                border = BorderStroke(1.dp, if (isSelected) Color.Transparent else theme.TextMuted.copy(alpha = 0.3f)),
+                                                modifier = Modifier.clickable { selectedCategory.value = cat },
+                                            ) {
+                                                Text(
+                                                    text = cat,
+                                                    color = if (isSelected) Color.White else theme.TextPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
                                         }
                                     }
+                                } else {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
-                                androidx.compose.material.Divider(color = theme.Divider, modifier = Modifier.padding(bottom = 4.dp))
+                                
+                                IconButton(
+                                    onClick = {
+                                        homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowCatalogSettings(true))
+                                        isDropdownExpanded.value = false
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = "Manage Catalogs",
+                                        tint = theme.TextMuted
+                                    )
+                                }
                             }
+                            androidx.compose.material.Divider(color = theme.Divider, modifier = Modifier.padding(bottom = 4.dp))
 
                             val filteredProviders = providers.filter { p ->
                                 if (selectedCategory.value == "All") return@filter true

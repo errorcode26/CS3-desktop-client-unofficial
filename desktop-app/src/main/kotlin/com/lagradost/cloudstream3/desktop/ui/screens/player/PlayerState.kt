@@ -142,7 +142,7 @@ class PlayerState {
             lastSeekTime = System.currentTimeMillis()
             targetSeekMs = this.positionMs.value + offsetMs
             val offsetSec = offsetMs / 1000.0
-            MpvLibrary.INSTANCE.mpv_command_string(it, "seek $offsetSec relative")
+            MpvLibrary.INSTANCE.mpv_command_string(it, "seek $offsetSec relative+exact")
             this.positionMs.value = targetSeekMs
         }
     }
@@ -157,13 +157,13 @@ class PlayerState {
             // we consider the seek "completed" and resume normal updates.
             if (kotlin.math.abs(posMs - targetSeekMs) < 2000L) {
                 targetSeekMs = -1L
-            } else if (now - lastSeekTime < 5000L) {
-                // If it's not close to the target, AND we are within a 5-second grace period,
+            } else if (now - lastSeekTime < 10000L) {
+                // If it's not close to the target, AND we are within a 10-second grace period,
                 // it means the player is still reporting the OLD time or is still buffering.
                 // IGNORE this update to prevent rubber-banding.
                 return
             } else {
-                // 5 seconds have passed and it's STILL not close to the target.
+                // 10 seconds have passed and it's STILL not close to the target.
                 // The seek probably failed, was queued behind another, or we hit EOF. Reset and accept.
                 targetSeekMs = -1L
             }
