@@ -35,7 +35,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsAppearance() {
+fun SettingsAppearance(
+    onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
+) {
     val themeAccent by AppearanceConfig.themeAccent.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
@@ -60,6 +62,10 @@ fun SettingsAppearance() {
     val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
     val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
     val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
+    val clockMode by AppearanceConfig.clockMode.collectAsState()
+    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
+    val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
+
 
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var newPresetName by remember { mutableStateOf("") }
@@ -517,104 +523,11 @@ fun SettingsAppearance() {
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            SettingsDropdownItem(
-                label = "Poster Title Position",
-                subtitle = "Choose where the title is displayed on posters",
-                options = listOf(
-                    com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Inside on Hover",
-                    com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below Poster",
-                    com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
-                ),
-                currentValue = posterTitlePosition,
-                onSelectionChanged = { AppearanceConfig.setPosterTitlePosition(it) },
+            SettingsNavigationItem(
+                label = "Poster Layout Editor",
+                subtitle = "Customize poster sizes, spacing, corner radius, and titles",
+                onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) },
             )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsSliderItem(
-                label = "Poster Width",
-                subtitle = "Adjust the size of posters on the home screen",
-                value = posterWidthDp.toFloat(),
-                valueRange = 100f..250f,
-                steps = 29, // 5dp steps: (250-100)/5 - 1 = 29
-                onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsSliderItem(
-                label = "Home Page Spacing",
-                subtitle = "Adjust the spacing between items on the home page",
-                value = homeSpacingDp.toFloat(),
-                valueRange = 0f..32f,
-                steps = 15, // 2dp steps
-                onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsSliderItem(
-                label = "Poster Corner Radius",
-                subtitle = "Adjust how rounded the posters are",
-                value = posterRoundingDp.toFloat(),
-                valueRange = 0f..24f,
-                steps = 23,
-                onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
-            )
-
-            // Realtime Poster Preview
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val animatedWidth by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = posterWidthDp.dp,
-                    animationSpec = androidx.compose.animation.core.tween(300),
-                )
-
-                val animatedSpacing by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = homeSpacingDp.dp,
-                    animationSpec = androidx.compose.animation.core.tween(300),
-                )
-                val animatedRadius by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = posterRoundingDp.dp,
-                    animationSpec = androidx.compose.animation.core.tween(300),
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
-                ) {
-                    repeat(3) { index ->
-                        Surface(
-                            modifier = Modifier
-                                .width(animatedWidth)
-                                .aspectRatio(2f / 3f),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(animatedRadius),
-                            color = if (index == 0) com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.8f) else com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.AccentSoft,
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.3f),
-                            ),
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                if (index == 0) {
-                                    Icon(
-                                        imageVector = Icons.Filled.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(48.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         SettingsGroupCard(title = "Poster Badges") {
@@ -643,6 +556,66 @@ fun SettingsAppearance() {
                 onCheckedChange = { AppearanceConfig.setShowPosterLanguage(it) },
             )
         }
+
+        SettingsGroupCard("Clock & Date") {
+            SettingsDropdownItem(
+                label = "Display Mode",
+                subtitle = "What to show in the top-left of the main menu",
+                options = listOf(
+                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.HIDDEN to "Hidden",
+                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY to "Time Only",
+                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY to "Date Only",
+                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH to "Time & Date",
+                ),
+                currentValue = clockMode,
+                onSelectionChanged = { AppearanceConfig.setClockMode(it) },
+            )
+
+            if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY ||
+                clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
+            ) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                SettingsDropdownItem(
+                    label = "Time Format",
+                    subtitle = "Pattern used to format the clock",
+                    options = listOf(
+                        "HH:mm" to "24h  (14:30)",
+                        "HH:mm:ss" to "24h + seconds  (14:30:00)",
+                        "hh:mm a" to "12h  (02:30 PM)",
+                        "h:mm a" to "12h short  (2:30 PM)",
+                    ),
+                    currentValue = clockTimeFormat,
+                    onSelectionChanged = { AppearanceConfig.setClockTimeFormat(it) },
+                )
+            }
+
+            if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY ||
+                clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
+            ) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                SettingsDropdownItem(
+                    label = "Date Format",
+                    subtitle = "Pattern used to format the date",
+                    options = listOf(
+                        "EEE, dd MMM" to "Fri, 01 Aug",
+                        "EEEE, MMMM d" to "Friday, August 1",
+                        "dd/MM/yyyy" to "01/08/2026",
+                        "MM/dd/yyyy" to "08/01/2026",
+                        "MMM d, yyyy" to "Aug 1, 2026",
+                        "dd-MM-yyyy" to "01-08-2026",
+                    ),
+                    currentValue = clockDateFormat,
+                    onSelectionChanged = { AppearanceConfig.setClockDateFormat(it) },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showSavePresetDialog) {
@@ -905,5 +878,132 @@ fun CustomColorPickerUI(colorHex: String, onColorChanged: (String) -> Unit) {
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+fun SettingsPosterEditorScreen() {
+    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+    val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
+    val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
+    val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        // Sticky Preview Area (Top)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val animatedWidth by androidx.compose.animation.core.animateDpAsState(
+                targetValue = posterWidthDp.dp,
+                animationSpec = androidx.compose.animation.core.tween(300),
+            )
+
+            val animatedSpacing by androidx.compose.animation.core.animateDpAsState(
+                targetValue = homeSpacingDp.dp,
+                animationSpec = androidx.compose.animation.core.tween(300),
+            )
+            val animatedRadius by androidx.compose.animation.core.animateDpAsState(
+                targetValue = posterRoundingDp.dp,
+                animationSpec = androidx.compose.animation.core.tween(300),
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
+            ) {
+                repeat(4) { index ->
+                    Surface(
+                        modifier = Modifier
+                            .width(animatedWidth)
+                            .aspectRatio(2f / 3f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(animatedRadius),
+                        color = if (index == 0) com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.8f) else com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.AccentSoft,
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.3f),
+                        ),
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            if (index == 0) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(48.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scrollable Controls Below
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            SettingsGroupCard(title = "Poster Properties") {
+                SettingsDropdownItem(
+                    label = "Poster Title Position",
+                    subtitle = "Choose where the title is displayed on posters",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Inside on Hover",
+                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below Poster",
+                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
+                    ),
+                    currentValue = posterTitlePosition,
+                    onSelectionChanged = { AppearanceConfig.setPosterTitlePosition(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+
+                SettingsSliderItem(
+                    label = "Poster Width",
+                    subtitle = "Adjust the size of posters on the home screen",
+                    value = posterWidthDp.toFloat(),
+                    valueRange = 100f..250f,
+                    steps = 29, // 5dp steps: (250-100)/5 - 1 = 29
+                    onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+
+                SettingsSliderItem(
+                    label = "Home Page Spacing",
+                    subtitle = "Adjust the spacing between items on the home page",
+                    value = homeSpacingDp.toFloat(),
+                    valueRange = 0f..32f,
+                    steps = 15, // 2dp steps
+                    onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+
+                SettingsSliderItem(
+                    label = "Poster Corner Radius",
+                    subtitle = "Adjust how rounded the posters are",
+                    value = posterRoundingDp.toFloat(),
+                    valueRange = 0f..24f,
+                    steps = 23,
+                    onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }

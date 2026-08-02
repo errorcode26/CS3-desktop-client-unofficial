@@ -9,16 +9,20 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.common.storage.DesktopDataStore
 
 @Composable
-fun SettingsPlayer() {
+fun SettingsPlayer(
+    onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
+) {
     var hwdec by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_HWDEC) ?: "auto-copy") }
     var subSize by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SIZE) ?: "45") }
     var subColor by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF") }
     var subBg by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000") }
+    var subFont by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_FONT)) }
     var ytdlFormat by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_YTDL_FORMAT) ?: "bestvideo[height<=?1080]+bestaudio/best") }
     var preferredQuality by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto") }
     var autoPlay by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true) }
     var waitForLinks by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true) }
     var autoPlayTimeout by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000") }
+    var useInterpolation by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_INTERPOLATION) ?: false) }
 
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 32.dp),
@@ -34,6 +38,16 @@ fun SettingsPlayer() {
                     hwdec = it
                     DesktopDataStore.setKey(PlayerConfig.PREF_HWDEC, it)
                 },
+            )
+
+            SettingsToggleItem(
+                label = "Smooth Video",
+                subtitle = "Uses display-resample to eliminate frame pacing judder on high-refresh-rate screens",
+                checked = useInterpolation,
+                onCheckedChange = {
+                    useInterpolation = it
+                    DesktopDataStore.setKey(PlayerConfig.PREF_INTERPOLATION, it)
+                }
             )
 
             SettingsDropdownItem(
@@ -112,36 +126,10 @@ fun SettingsPlayer() {
         }
 
         SettingsGroupCard(title = "Subtitles") {
-            SettingsDropdownItem(
-                label = "Font Size",
-                subtitle = "Adjust the size of the subtitle text",
-                options = listOf("30" to "Small", "45" to "Medium", "60" to "Large", "75" to "Extra Large"),
-                currentValue = subSize,
-                onSelectionChanged = {
-                    subSize = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SIZE, it)
-                },
-            )
-
-            SettingsDropdownItem(
-                label = "Text Color",
-                options = listOf("#FFFFFF" to "White", "#FFFF00" to "Yellow", "#00FFFF" to "Cyan"),
-                currentValue = subColor,
-                onSelectionChanged = {
-                    subColor = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_COLOR, it)
-                },
-            )
-
-            SettingsDropdownItem(
-                label = "Background Style",
-                subtitle = "Add a dark background box to subtitles for better readability",
-                options = listOf("#00000000" to "Transparent", "#80000000" to "Semi-transparent Black"),
-                currentValue = subBg,
-                onSelectionChanged = {
-                    subBg = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BG, it)
-                },
+            SettingsNavigationItem(
+                label = "Subtitle Appearance",
+                subtitle = "Customize colors, fonts, borders, and shadows",
+                onClick = { onNavigateToSubScreen(SettingsSubScreen.SUBTITLE_EDITOR) },
             )
         }
     }

@@ -420,15 +420,33 @@ object LocalStreamProxy {
             if (action == "decrypt") {
                 val contentLength = response.body?.contentLength() ?: -1L
                 call.response.header("Content-Type", "video/mp4")
-                call.respondBytesWriter(status = HttpStatusCode.OK, contentLength = contentLength) {
-                    try {
-                        val streamSource = response.body?.source() ?: return@respondBytesWriter
-                        StreamDecryptor.streamingDecryptMediaSegment(streamSource, kid ?: "", k ?: "") { bytes ->
-                            writeFully(bytes)
-                            flush()
+                try {
+                    call.respondBytesWriter(status = HttpStatusCode.OK, contentLength = contentLength) {
+                        try {
+                            val streamSource = response.body?.source() ?: return@respondBytesWriter
+                            StreamDecryptor.streamingDecryptMediaSegment(streamSource, kid ?: "", k ?: "") { bytes ->
+                                try {
+                                    writeFully(bytes)
+                                    flush()
+                                } catch (e: Exception) {
+                                    throw Exception("CLIENT_DISCONNECT", e)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (e.message != "CLIENT_DISCONNECT" && e !is java.io.EOFException && e !is java.net.SocketException) {
+                                AppLogger.e("Decryption streaming error for $url", e)
+                            }
+                        } finally {
+                            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    response.body?.close()
+                                } catch (ignored: Exception) {}
+                            }
                         }
-                    } finally {
-                        response.body?.close()
+                    }
+                } catch (e: Exception) {
+                    if (e.message != "CLIENT_DISCONNECT") {
+                        AppLogger.e("Failed to respond to decrypt request", e)
                     }
                 }
                 return

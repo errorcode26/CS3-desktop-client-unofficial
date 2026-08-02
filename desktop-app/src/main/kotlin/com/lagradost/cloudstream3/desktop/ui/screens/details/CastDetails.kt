@@ -72,24 +72,12 @@ fun CastDetailsDialog(
         isLoading = false
     }
 
-    Dialog(
+    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
+        show = show,
         onDismissRequest = triggerDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.width(1000.dp).heightIn(max = 700.dp)
     ) {
-        AnimatedVisibility(
-            visible = show,
-            enter = fadeIn(tween(300)) + scaleIn(tween(300, easing = FastOutSlowInEasing), initialScale = 0.9f),
-            exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.9f),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF121212),
-                modifier = Modifier
-                    .width(1000.dp)
-                    .heightIn(max = 700.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
                     if (isLoading) {
                         Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -259,7 +247,5 @@ fun CastDetailsDialog(
                         }
                     } // Close else
                 } // Close Box
-            } // Close Surface
-        } // Close AnimatedVisibility
-    } // Close Dialog
+    } // Close CloudstreamCustomDialog
 } // Close Fun

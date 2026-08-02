@@ -216,6 +216,17 @@ fun EmbeddedVideoPlayer(
                         }
                     }
 
+                    var hasScrapeTimedOut by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
+
+                    LaunchedEffect(actualLaunchData.history.episodeId, isScrapingLinks) {
+                        if (isScrapingLinks) {
+                            kotlinx.coroutines.delay(10000)
+                            hasScrapeTimedOut = true
+                        } else {
+                            hasScrapeTimedOut = false
+                        }
+                    }
+
                     val autoPlay = uiState.autoPlayEnabled
 
                     val waitForLinks = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true
@@ -235,6 +246,9 @@ fun EmbeddedVideoPlayer(
 
                     val shouldWaitForScrape = if (!autoPlay || userSkippedScraping) {
                         !autoPlay && !userSkippedScraping
+                    } else if (hasScrapeTimedOut && actualLaunchData.links.isNotEmpty()) {
+                        com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Scraper timeout reached (10s) with valid links. Skipping further wait.")
+                        false
                     } else if (waitForLinks) {
                         isScrapingLinks
                     } else {
@@ -395,7 +409,7 @@ fun EmbeddedVideoPlayer(
                         } else {
                             actualLaunchData.startPositionMs
                         },
-                        shouldPauseForResume = !fallbackToBeginning && isInitialLoad && actualLaunchData.startPositionMs > 0,
+                        shouldPauseForResume = false,
                         links = actualLaunchData.links,
                         currentLinkIndex = currentLinkIndex,
                         episodes = episodes,

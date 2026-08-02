@@ -21,7 +21,7 @@ fun SearchResults(
     isLoadingSearch: Boolean,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta> = emptyMap(),
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
-    onItemClick: (MainAPI, SearchResponse, String?) -> Unit,
+    onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
 ) {
     if (isLoadingSearch && searchResultsGrouped.isNullOrEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -65,9 +65,16 @@ fun SearchResults(
                         items(items.size) { index ->
                             val item = items[index]
                             val heroMeta = heroMetaMap[item.url]
-                            PosterCard(item, provider) {
-                                onItemClick(provider, item, heroMeta?.backdropUrl)
-                            }
+                            PosterCard(
+                                item = item,
+                                provider = provider,
+                                onClick = {
+                                    onItemClick(provider, item, heroMeta?.backdropUrl, false)
+                                },
+                                onPlayClick = {
+                                    onItemClick(provider, item, heroMeta?.backdropUrl, true)
+                                }
+                            )
                         }
                     }
                 }

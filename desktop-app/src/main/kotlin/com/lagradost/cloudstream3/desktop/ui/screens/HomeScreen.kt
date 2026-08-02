@@ -34,7 +34,8 @@ fun ComposeHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val providers = uiState.providers
-    val selectedProvider = uiState.selectedProvider
+    val activeProviders = uiState.activeProviders
+    val activeProviderApis = uiState.activeProviderApis
     val historyList = uiState.historyList
     val mergedPluginIcons = uiState.mergedPluginIcons
     val errorSnapshot = uiState.errorSnapshot
@@ -95,20 +96,28 @@ fun ComposeHomeScreen(
             },
     ) {
         // Main content area
-        if (selectedProvider != null && selectedProvider.hasMainPage && selectedProvider.mainPage.isNotEmpty()) {
-            val currentProvider = selectedProvider
-            val filteredMainPage = currentProvider.mainPage.filter { it.name !in uiState.disabledCatalogs }
-            val listState = rememberLazyListState()
+        val allPages = remember(activeProviderApis, uiState.disabledCatalogs) {
+            activeProviderApis.flatMap { prov ->
+                val disabledForProv = uiState.disabledCatalogs[prov.name] ?: emptySet()
+                prov.mainPage.filter { it.name !in disabledForProv }.map { prov to it }
+            }
+        }
 
-            ProviderCatalogsDialog(
-                show = uiState.showCatalogSettings,
-                provider = currentProvider,
-                disabledCatalogs = uiState.disabledCatalogs,
-                onToggleCatalog = { catalogName, isEnabled ->
-                    viewModel.onEvent(HomeUiEvent.OnToggleCatalog(currentProvider.name, catalogName, isEnabled))
-                },
-                onDismissRequest = { viewModel.onEvent(HomeUiEvent.OnShowCatalogSettings(false)) }
-            )
+        HomeManagementDialog(
+            show = uiState.showHomeManagement,
+            allProviders = providers,
+            activeProviders = activeProviders,
+            disabledCatalogs = uiState.disabledCatalogs,
+            pluginIcons = mergedPluginIcons,
+            onDismissRequest = { viewModel.onEvent(HomeUiEvent.OnShowHomeManagement(false)) },
+            onSetSingleProvider = { name -> viewModel.onEvent(HomeUiEvent.OnSetSingleProvider(name)) },
+            onToggleProviderActive = { name, isActive -> viewModel.onEvent(HomeUiEvent.OnToggleProviderActive(name, isActive)) },
+            onMoveProvider = { from, to -> viewModel.onEvent(HomeUiEvent.OnMoveProvider(from, to)) },
+            onToggleCatalog = { prov, cat, enabled -> viewModel.onEvent(HomeUiEvent.OnToggleCatalog(prov, cat, enabled)) }
+        )
+
+        if (allPages.isNotEmpty()) {
+            val listState = rememberLazyListState()
 
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
@@ -116,51 +125,14 @@ fun ComposeHomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 32.dp),
                 ) {
-                    if (filteredMainPage.isNotEmpty()) {
-                        item {
+                    items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].second.name}" }) { index ->
+                        val (currentProvider, pageData) = allPages[index]
+                        val isFirstPage = index == 0
+                        Box(modifier = Modifier.padding(horizontal = if (isFirstPage) 0.dp else 20.dp)) {
                             HomeCategorySection(
-                                pageData = filteredMainPage[0],
+                                pageData = pageData,
                                 provider = currentProvider,
-                            isFirstPage = true,
-                            parentScope = coroutineScope,
-                            heroMetaMap = uiState.heroMetaMap,
-                            heroColorMap = uiState.heroColorMap,
-                            allBookmarks = uiState.bookmarks,
-                            onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
-                            onSetCurrentHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(url)) },
-                            onUpdateHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(url)) },
-                            afterHeroContent = {
-                                HomeHistoryRow(
-                                    historyList = historyList,
-                                    providers = providers,
-                                    onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
-                                    onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
-                                    onViewAllClick = {
-                                        navController.navigate(Screen.History)
-                                    },
-                                    onItemClick = { prov, hist ->
-                                        navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
-                                    },
-                                )
-                            },
-                            isHistoryVisible = historyList.isNotEmpty(),
-                            onViewAll = { provider, title, items ->
-                                navController.navigate(Screen.CategoryGrid(provider.name, title, items))
-                            },
-                            onItemClick = { provider, item, backdrop, autoPlay ->
-                                navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))
-                            },
-                        )
-                    }
-                }
-
-                if (filteredMainPage.size > 1) {
-                    items(filteredMainPage.size - 1, key = { index -> filteredMainPage[index + 1].name }) { index ->
-                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            HomeCategorySection(
-                                pageData = filteredMainPage[index + 1],
-                                provider = currentProvider,
-                                isFirstPage = false,
+                                isFirstPage = isFirstPage,
                                 parentScope = coroutineScope,
                                 heroMetaMap = uiState.heroMetaMap,
                                 heroColorMap = uiState.heroColorMap,
@@ -168,6 +140,23 @@ fun ComposeHomeScreen(
                                 onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
                                 onSetCurrentHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(url)) },
                                 onUpdateHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(url)) },
+                                afterHeroContent = if (isFirstPage) {
+                                    {
+                                        HomeHistoryRow(
+                                            historyList = historyList,
+                                            providers = providers,
+                                            onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
+                                            onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
+                                            onViewAllClick = {
+                                                navController.navigate(Screen.History)
+                                            },
+                                            onItemClick = { prov, hist ->
+                                                navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
+                                            },
+                                        )
+                                    }
+                                } else { {} },
+                                isHistoryVisible = isFirstPage && historyList.isNotEmpty(),
                                 onViewAll = { provider, title, items ->
                                     navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                                 },
@@ -179,8 +168,7 @@ fun ComposeHomeScreen(
                     }
                 }
             }
-        }
-    } else if (providers.isEmpty()) {
+        } else if (providers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(

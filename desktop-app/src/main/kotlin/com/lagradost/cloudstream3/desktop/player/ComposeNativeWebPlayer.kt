@@ -104,12 +104,12 @@ fun ComposeNativeWebPlayer(
 
     val currentIsLoading by rememberUpdatedState(isLoading)
     val currentLoadingStatusText by rememberUpdatedState(loadingStatusText)
-    val isProbing by playerState?.isProbing?.collectAsState(false) ?: mutableStateOf(false)
     val activeShader by (playerState?.activeShader ?: kotlinx.coroutines.flow.flowOf("None")).collectAsState("None")
     val activeLazyVideoTrackUrl by (playerState?.activeLazyVideoTrackUrl ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
+    val activeSubtitleOverrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
 
-    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags) {
+    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
         if (isUiReady) {
             val payload = PlayerUiSyncState(
                 plot = plot,
@@ -162,8 +162,19 @@ fun ComposeNativeWebPlayer(
                 title = title ?: "CloudStream",
                 shaders = com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
                 activeShader = activeShader,
+                activeSubtitleFont = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT),
+                availableSubtitleFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts(),
+                activeSubtitleBackground = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG),
+                activeSubtitleBorderColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR),
+                activeSubtitleBorderSize = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE),
+                activeSubtitleShadowColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR),
+                activeSubtitleShadowOffset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET),
+                activeSubtitleBlur = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR),
+                activeSubtitleBold = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD),
+                activeSubtitleItalic = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC),
                 activeLazyVideoTrackUrl = activeLazyVideoTrackUrl,
-                resolution = resolution
+                resolution = resolution,
+                activeSubtitleOverrideEnabled = activeSubtitleOverrideEnabled,
             )
             
             val wrapper = MetadataUpdatePayloadWrapper(
@@ -203,6 +214,8 @@ fun ComposeNativeWebPlayer(
 
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
 
+            val interpolationEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION) ?: false
+
             val payload = AppStateUpdatePayload(
                 volume = vol,
                 isMuted = isMuted,
@@ -210,7 +223,8 @@ fun ComposeNativeWebPlayer(
                 loadingStatusText = currentLoadingStatusText,
                 debugWait = false,
                 debugHasEver = true,
-                debugPos = 0.0
+                debugPos = 0.0,
+                interpolationEnabled = interpolationEnabled
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -528,6 +542,106 @@ fun ComposeNativeWebPlayer(
                             val id = eventValue.toIntOrNull()
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 playerState?.setSubtitleTrack(id)
+                            }
+                        }
+                        "setSubtitleFont" -> {
+                            val fontName = eventValue.takeIf { it.isNotBlank() }
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, fontName ?: "")
+                                playerState?.setSubtitleFont(fontName)
+                            }
+                        }
+                        "setSubtitleOverrideEnabled" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                playerState?.setSubtitleOverrideEnabled(enabled)
+                            }
+                        }
+                        "resetSubtitleSettings" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
+                                
+                                playerState?.setSubtitleFont(null)
+                                playerState?.setSubtitleOverrideEnabled(false)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bg-color", "#00000000")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", "#000000")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", "3")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", "#00000000")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-offset", "0")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-blur", "0")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bold", "no")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-italic", "no")
+                            }
+                        }
+                        "setSubtitleBackground" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bg-color", eventValue)
+                            }
+                        }
+                        "setSubtitleBorderColor" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", eventValue)
+                            }
+                        }
+                        "setSubtitleBorderSize" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", eventValue)
+                            }
+                        }
+                        "setSubtitleShadowColor" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", eventValue)
+                            }
+                        }
+                        "setSubtitleShadowOffset" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-offset", eventValue)
+                            }
+                        }
+                        "setSubtitleBlur" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-blur", eventValue)
+                            }
+                        }
+                        "setSubtitleBold" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bold", eventValue)
+                            }
+                        }
+                        "setSubtitleItalic" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC, eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-italic", eventValue)
+                            }
+                        }
+                        "toggleInterpolation" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
+                                if (enabled) {
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "display-resample")
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "yes")
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "tscale", "oversample")
+                                } else {
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "audio")
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "no")
+                                }
                             }
                         }
                         "loadNextEpisode", "nextEpisode" -> {

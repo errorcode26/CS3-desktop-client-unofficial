@@ -1,6 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +76,7 @@ fun HomeHistoryRow(
                 val history = historyList[index]
                 val provider = providers.find { it.name == history.apiName }
                 WatchHistoryCard(
+                    modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
                     history = history,
                     provider = provider,
                     onRemove = { onRemoveHistoryItem(history.parentId) },
@@ -82,6 +85,12 @@ fun HomeHistoryRow(
                             onItemClick(provider, history)
                         }
                     },
+                    onPlayClick = {
+                        // For watch history, onClick already resumes playback.
+                        if (provider != null) {
+                            onItemClick(provider, history)
+                        }
+                    }
                 )
             }
         }

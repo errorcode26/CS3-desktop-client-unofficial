@@ -4,6 +4,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -16,6 +18,7 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.blur
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
@@ -153,7 +156,15 @@ fun CloudstreamApp() {
                             }
                         },
                 ) {
-                    val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+                    val blurRadius by androidx.compose.animation.core.animateDpAsState(
+                        targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen || 
+                                          com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) 16.dp else 0.dp
+                    )
+                    
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
+                    ) {
+                        val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
 
                     androidx.compose.animation.AnimatedContent(
                         targetState = screen,
@@ -329,7 +340,12 @@ fun CloudstreamApp() {
                         }
                     }
 
-                    var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                }
+
+                // Context Menu Overlay (unblurred)
+                com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
+
+                var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
                     // The Embedded Video Player Overlay
                     if (currentVideo != null) {
@@ -388,36 +404,42 @@ fun CloudstreamApp() {
                         }
                     }
 
-                    if (showErrorsDialog) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { showErrorsDialog = false },
-                            title = { androidx.compose.material3.Text("Error Logs") },
-                            text = {
-                                val errorSnapshot = com.lagradost.cloudstream3.desktop.DesktopErrorReporter.getSnapshot()
-                                androidx.compose.material3.OutlinedTextField(
-                                    value = errorSnapshot,
-                                    onValueChange = {},
-                                    modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(400.dp),
-                                )
-                            },
-                            confirmButton = {
+                    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
+                        show = showErrorsDialog,
+                        onDismissRequest = { showErrorsDialog = false },
+                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(0.8f).fillMaxHeight(0.8f),
+                    ) {
+                        androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.padding(20.dp)) {
+                            androidx.compose.material3.Text("Error Logs", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
+                            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+                            
+                            val errorSnapshot = com.lagradost.cloudstream3.desktop.DesktopErrorReporter.getSnapshot()
+                            androidx.compose.material3.OutlinedTextField(
+                                value = errorSnapshot,
+                                onValueChange = {},
+                                modifier = androidx.compose.ui.Modifier.fillMaxWidth().weight(1f),
+                            )
+                            
+                            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+                            
+                            androidx.compose.foundation.layout.Row(
+                                modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                            ) {
                                 val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-                                val errorSnapshot = com.lagradost.cloudstream3.desktop.DesktopErrorReporter.getSnapshot()
-                                androidx.compose.foundation.layout.Row {
-                                    androidx.compose.material3.Button(onClick = {
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(errorSnapshot))
-                                    }) {
-                                        androidx.compose.material3.Text("Copy")
-                                    }
-                                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
-                                    androidx.compose.material3.Button(onClick = {
-                                        showErrorsDialog = false
-                                    }) {
-                                        androidx.compose.material3.Text("Close")
-                                    }
+                                androidx.compose.material3.TextButton(onClick = {
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(errorSnapshot))
+                                }) {
+                                    androidx.compose.material3.Text("Copy")
                                 }
-                            },
-                        )
+                                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
+                                androidx.compose.material3.Button(onClick = {
+                                    showErrorsDialog = false
+                                }) {
+                                    androidx.compose.material3.Text("Close")
+                                }
+                            }
+                        }
                     }
                 }
             }

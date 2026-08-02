@@ -16,7 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
+const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
 
 /**
  * Returns true only for real, user-facing content providers:
@@ -49,22 +49,26 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            val savedName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
-            if (savedName != null && APIHolder.allProviders.any { it.name == savedName && it.isRealProvider() }) {
-                updateState { copy(selectedProviderName = savedName) }
+            val savedNames = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
+            if (savedNames != null) {
+                val validNames = savedNames.filter { name -> APIHolder.allProviders.any { it.name == name && it.isRealProvider() } }
+                updateState { copy(activeProviders = validNames) }
+            } else {
+                // Fallback to old key or empty
+                val oldName = DesktopDataStore.getKey<String>("preferred_provider_name")
+                if (oldName != null && APIHolder.allProviders.any { it.name == oldName && it.isRealProvider() }) {
+                    updateState { copy(activeProviders = listOf(oldName)) }
+                }
             }
         }
 
         viewModelScope.launch {
-            uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { name ->
-                if (!name.isNullOrBlank()) {
-                    DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, name)
-                    val disabled = DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
-                    updateState { copy(disabledCatalogs = disabled) }
-                } else {
-                    DesktopDataStore.removeKey(PREF_SELECTED_PROVIDER)
-                    updateState { copy(disabledCatalogs = emptySet()) }
+            uiState.map { it.activeProviders }.distinctUntilChanged().collect { names ->
+                DesktopDataStore.setKey(PREF_ACTIVE_PROVIDERS, names)
+                val disabledMap = names.associateWith { name ->
+                    DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
                 }
+                updateState { copy(disabledCatalogs = disabledMap) }
             }
         }
 
@@ -78,7 +82,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
 
         viewModelScope.launch {
-            combine(uiState.map { it.selectedProvider }, DesktopDataStore.historyUpdates) { _, _ -> }.collect {
+            combine(uiState.map { it.activeProviders }, DesktopDataStore.historyUpdates) { _, _ -> }.collect {
                 updateHistory()
             }
         }
@@ -89,8 +93,25 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     override fun handleEvent(event: HomeUiEvent) {
         when (event) {
-            is HomeUiEvent.OnSelectProvider -> {
-                setSelectedProvider(event.providerName)
+            is HomeUiEvent.OnToggleProviderActive -> {
+                val current = uiState.value.activeProviders.toMutableList()
+                if (event.isActive) {
+                    if (!current.contains(event.providerName)) current.add(event.providerName)
+                } else {
+                    current.remove(event.providerName)
+                }
+                updateState { copy(activeProviders = current) }
+            }
+            is HomeUiEvent.OnSetSingleProvider -> {
+                updateState { copy(activeProviders = listOf(event.providerName)) }
+            }
+            is HomeUiEvent.OnMoveProvider -> {
+                val current = uiState.value.activeProviders.toMutableList()
+                if (event.fromIndex in current.indices && event.toIndex in current.indices) {
+                    val item = current.removeAt(event.fromIndex)
+                    current.add(event.toIndex, item)
+                    updateState { copy(activeProviders = current) }
+                }
             }
             is HomeUiEvent.OnClearHistory -> clearHistory()
             is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
@@ -98,18 +119,20 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             is HomeUiEvent.OnSetCurrentHeroColor -> setCurrentHeroColor(event.itemUrl)
             is HomeUiEvent.OnUpdateHeroColor -> updateHeroColor(event.imageUrl, event.itemUrl)
             is HomeUiEvent.OnProviderRefresh -> reloadProvider()
-            is HomeUiEvent.OnShowCatalogSettings -> {
-                updateState { copy(showCatalogSettings = event.show) }
+            is HomeUiEvent.OnShowHomeManagement -> {
+                updateState { copy(showHomeManagement = event.show) }
             }
             is HomeUiEvent.OnToggleCatalog -> {
-                val currentDisabled = uiState.value.disabledCatalogs
+                val currentDisabledMap = uiState.value.disabledCatalogs.toMutableMap()
+                val currentDisabled = currentDisabledMap[event.providerName] ?: emptySet()
                 val newDisabled = if (event.isEnabled) {
                     currentDisabled - event.catalogName
                 } else {
                     currentDisabled + event.catalogName
                 }
+                currentDisabledMap[event.providerName] = newDisabled
                 DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
-                updateState { copy(disabledCatalogs = newDisabled) }
+                updateState { copy(disabledCatalogs = currentDisabledMap) }
             }
         }
     }
@@ -142,13 +165,23 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         val currentProviders = APIHolder.allProviders.filter { it.isRealProvider() }
         val currentProvState = uiState.value.providers
         if (currentProviders.size != currentProvState.size || !currentProviders.containsAll(currentProvState)) {
-            val currentSelection = uiState.value.selectedProviderName
-            if (currentSelection != null && currentProviders.none { it.name == currentSelection }) {
-                updateState { copy(providers = currentProviders, selectedProviderName = currentProviders.firstOrNull()?.name) }
-            } else if (currentSelection == null && currentProviders.isNotEmpty()) {
-                val restored = currentProviders.firstOrNull { it.name == DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER) }
-                val targetName = restored?.name
-                updateState { copy(providers = currentProviders, selectedProviderName = targetName ?: selectedProviderName) }
+            val currentActive = uiState.value.activeProviders
+            val validActive = currentActive.filter { active -> currentProviders.any { it.name == active } }
+            
+            if (validActive.isNotEmpty()) {
+                updateState { copy(providers = currentProviders, activeProviders = validActive) }
+            } else if (currentProviders.isNotEmpty()) {
+                val restored = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)?.filter { active -> currentProviders.any { it.name == active } }
+                if (!restored.isNullOrEmpty()) {
+                    updateState { copy(providers = currentProviders, activeProviders = restored) }
+                } else {
+                    val fallbackOld = DesktopDataStore.getKey<String>("preferred_provider_name")
+                    if (fallbackOld != null && currentProviders.any { it.name == fallbackOld }) {
+                        updateState { copy(providers = currentProviders, activeProviders = listOf(fallbackOld)) }
+                    } else {
+                        updateState { copy(providers = currentProviders, activeProviders = listOf(currentProviders.first().name)) }
+                    }
+                }
             } else {
                 updateState { copy(providers = currentProviders) }
             }
@@ -215,18 +248,14 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     }
 
     fun reloadProvider() {
-        val current = uiState.value.selectedProviderName
-        if (current != null) {
+        val current = uiState.value.activeProviders
+        if (current.isNotEmpty()) {
             viewModelScope.launch {
-                updateState { copy(selectedProviderName = null) }
+                updateState { copy(activeProviders = emptyList()) }
                 kotlinx.coroutines.delay(10)
-                updateState { copy(selectedProviderName = current) }
+                updateState { copy(activeProviders = current) }
             }
         }
-    }
-
-    fun setSelectedProvider(name: String?) {
-        updateState { copy(selectedProviderName = name) }
     }
 
     override fun dispose() {

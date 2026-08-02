@@ -10,7 +10,7 @@ import com.lagradost.common.storage.WatchHistory
 
 data class HomeUiState(
     val providers: List<MainAPI> = emptyList(),
-    val selectedProviderName: String? = null,
+    val activeProviders: List<String> = emptyList(),
 
     val errorSnapshot: String = DesktopErrorReporter.getSnapshot(),
     val historyList: List<WatchHistory> = emptyList(),
@@ -19,9 +19,9 @@ data class HomeUiState(
     val heroExtractedColor: Color? = null,
     val heroColorMap: Map<String, Color> = emptyMap(),
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
-    val disabledCatalogs: Set<String> = emptySet(),
-    val showCatalogSettings: Boolean = false,
+    val disabledCatalogs: Map<String, Set<String>> = emptyMap(),
+    val showHomeManagement: Boolean = false,
 ) : UiState {
-    val selectedProvider: MainAPI?
-        get() = providers.firstOrNull { it.name == selectedProviderName }
+    val activeProviderApis: List<MainAPI>
+        get() = activeProviders.mapNotNull { name -> providers.firstOrNull { it.name == name } }
 }

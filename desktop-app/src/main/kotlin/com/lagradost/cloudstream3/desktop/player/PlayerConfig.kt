@@ -15,6 +15,15 @@ object PlayerConfig {
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
     const val PREF_INTERPOLATION = "player_interpolation_enabled"
     const val PREF_ACTIVE_SHADER = "player_active_shader"
+    const val PREF_SUB_FONT = "player_sub_font"
+    const val PREF_SUB_BORDER_COLOR = "player_sub_border_color"
+    const val PREF_SUB_BORDER_SIZE = "player_sub_border_size"
+    const val PREF_SUB_SHADOW_COLOR = "player_sub_shadow_color"
+    const val PREF_SUB_SHADOW_OFFSET = "player_sub_shadow_offset"
+    const val PREF_SUB_BLUR = "player_sub_blur"
+    const val PREF_SUB_BOLD = "player_sub_bold"
+    const val PREF_SUB_ITALIC = "player_sub_italic"
+    const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
         // Hardware Acceleration — let MPV auto-detect the best decoder.
@@ -35,6 +44,30 @@ object PlayerConfig {
         // Subtitle Background (Default: None/Transparent -> #00000000)
         val subBg = DesktopDataStore.getKey<String>(PREF_SUB_BG) ?: "#00000000"
         lib.mpv_set_option_string(handle, "sub-bg-color", subBg)
+
+        // Advanced Subtitle Styling
+        DesktopDataStore.getKey<String>(PREF_SUB_BORDER_COLOR)?.let { lib.mpv_set_option_string(handle, "sub-border-color", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_BORDER_SIZE)?.let { lib.mpv_set_option_string(handle, "sub-border-size", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_COLOR)?.let { lib.mpv_set_option_string(handle, "sub-shadow-color", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_OFFSET)?.let { lib.mpv_set_option_string(handle, "sub-shadow-offset", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_BLUR)?.let { lib.mpv_set_option_string(handle, "sub-blur", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_BOLD)?.let { lib.mpv_set_option_string(handle, "sub-bold", it) }
+        DesktopDataStore.getKey<String>(PREF_SUB_ITALIC)?.let { lib.mpv_set_option_string(handle, "sub-italic", it) }
+
+        // Custom Subtitle Font & Override
+        val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)
+        val enableOverride = DesktopDataStore.getKey<Boolean>(PREF_ENABLE_SUB_OVERRIDE) ?: false
+        lib.mpv_set_option_string(handle, "sub-fonts-dir", com.lagradost.common.platform.PlatformPaths.fontsDir.absolutePath)
+        
+        if (!subFont.isNullOrBlank()) {
+            lib.mpv_set_option_string(handle, "sub-font", subFont)
+        }
+        
+        if (enableOverride) {
+            lib.mpv_set_option_string(handle, "sub-ass-override", "force")
+        } else {
+            lib.mpv_set_option_string(handle, "sub-ass-override", "no")
+        }
 
         // YTDL Format / Quality Selection
         val ytdlFormat = DesktopDataStore.getKey<String>(PREF_YTDL_FORMAT) ?: "bestvideo[height<=?1080]+bestaudio/best"

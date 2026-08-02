@@ -6,7 +6,7 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
-import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_SELECTED_PROVIDER
+import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_ACTIVE_PROVIDERS
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
@@ -284,7 +284,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
                         .filter { it.sourcePlugin == plugin.file.absolutePath }
                         .map { it.name }
-                    val activeProvider = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
+                    val activeProviders = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
+                    val activeProvider = activeProviders?.firstOrNull()
                     if (activeProvider != null && pluginProviders.contains(activeProvider)) {
                         sendEffect(ExtensionsUiEffect.ClearActiveProvider(activeProvider))
                     }

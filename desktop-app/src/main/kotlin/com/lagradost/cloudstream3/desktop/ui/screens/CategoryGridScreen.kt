@@ -40,8 +40,11 @@ fun ComposeCategoryGridScreen(
                 item = item,
                 provider = provider,
                 onClick = {
-                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, null))
+                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
                 },
+                onPlayClick = {
+                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
+                }
             )
         }
     }

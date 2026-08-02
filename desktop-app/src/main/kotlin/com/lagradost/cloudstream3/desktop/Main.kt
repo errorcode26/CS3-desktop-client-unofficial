@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -113,7 +114,9 @@ fun main() {
                         animationSpec = tween(500),
                     ) { ready ->
                         if (ready) {
-                            CloudstreamApp()
+                            Box {
+                                CloudstreamApp()
+                            }
                             AppUpdateDialog()
                         } else {
                             Box(

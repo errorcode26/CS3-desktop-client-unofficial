@@ -20,8 +20,19 @@ data class PlayerUiSyncState(
     val title: String,
     val shaders: List<String>,
     val activeShader: String?,
+    val activeSubtitleFont: String?,
+    val availableSubtitleFonts: List<String>,
+    val activeSubtitleBackground: String?,
+    val activeSubtitleBorderColor: String?,
+    val activeSubtitleBorderSize: String?,
+    val activeSubtitleShadowColor: String?,
+    val activeSubtitleShadowOffset: String?,
+    val activeSubtitleBlur: String?,
+    val activeSubtitleBold: String?,
+    val activeSubtitleItalic: String?,
     val activeLazyVideoTrackUrl: String?,
-    val resolution: String?
+    val resolution: String?,
+    val activeSubtitleOverrideEnabled: Boolean,
 )
 
 data class FailedLinkPayload(
@@ -70,7 +81,8 @@ data class AppStateUpdatePayload(
     val loadingStatusText: String?,
     val debugWait: Boolean = false,
     val debugHasEver: Boolean = true,
-    val debugPos: Double = 0.0
+    val debugPos: Double = 0.0,
+    val interpolationEnabled: Boolean = false
 )
 
 data class ToastPayload(

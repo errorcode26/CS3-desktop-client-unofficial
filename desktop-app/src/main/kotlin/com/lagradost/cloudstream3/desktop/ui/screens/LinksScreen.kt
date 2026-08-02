@@ -324,16 +324,15 @@ fun LinksSidePanel(
                 }
             }
 
-            if (playerLaunchError != null) {
-                AlertDialog(
-                    onDismissRequest = { playerLaunchError = null },
-                    title = { Text("Player error") },
-                    text = { Text(playerLaunchError ?: "") },
-                    confirmButton = {
-                        TextButton(onClick = { playerLaunchError = null }) { Text("OK") }
-                    },
-                )
-            }
+            com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+                show = playerLaunchError != null,
+                onDismissRequest = { playerLaunchError = null },
+                title = { Text("Player error") },
+                text = { Text(playerLaunchError ?: "") },
+                confirmButton = {
+                    TextButton(onClick = { playerLaunchError = null }) { Text("OK") }
+                },
+            )
         }
     }
 }

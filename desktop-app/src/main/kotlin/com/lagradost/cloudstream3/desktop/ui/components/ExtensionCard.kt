@@ -41,28 +41,27 @@ fun ExtensionCard(
 ) {
     var showConfirmDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
-    if (showConfirmDialog && onUninstallClick != null) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text("Confirm Uninstall") },
-            text = { Text("Are you sure you want to uninstall '$name'? This will remove the extension from your app.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirmDialog = false
-                        onUninstallClick()
-                    },
-                ) {
-                    Text("Uninstall", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
-    }
+    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+        show = showConfirmDialog && onUninstallClick != null,
+        onDismissRequest = { showConfirmDialog = false },
+        title = { Text("Confirm Uninstall") },
+        text = { Text("Are you sure you want to uninstall '$name'? This will remove the extension from your app.") },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    showConfirmDialog = false
+                    if (onUninstallClick != null) onUninstallClick()
+                },
+            ) {
+                Text("Uninstall", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { showConfirmDialog = false }) {
+                Text("Cancel")
+            }
+        },
+    )
 
     Card(
         modifier = modifier.fillMaxWidth(),

@@ -340,9 +340,9 @@ fun ComposeSearchScreen(
                     onViewAll = { provider, title, items ->
                         navController.navigate(Screen.CategoryGrid(provider.name, title, items))
                     },
-                    onItemClick = { provider, item, backdrop ->
+                    onItemClick = { provider, item, backdrop, autoPlay ->
                         navController.navigate(
-                            Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, false),
+                            Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay),
                         )
                     },
                 )

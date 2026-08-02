@@ -232,6 +232,34 @@ class PlayerState {
         }
     }
 
+    fun setSubtitleFont(fontName: String?) {
+        mpvHandle?.let {
+            if (!fontName.isNullOrBlank()) {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-font", fontName)
+            } else {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-font", "sans-serif")
+            }
+            
+            val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
+            if (overrideEnabled) {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")
+            } else {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "no")
+            }
+        }
+    }
+
+    fun setSubtitleOverrideEnabled(enabled: Boolean) {
+        com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, enabled)
+        mpvHandle?.let {
+            if (enabled) {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")
+            } else {
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "no")
+            }
+        }
+    }
+
     fun setSubtitleTrack(id: Int?) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             mpvHandle?.let {

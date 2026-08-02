@@ -1117,6 +1117,94 @@
             searchInput.value = meta.title;
             searchInput._defaultTitle = meta.title;
         }
+        // Update custom font input
+        const subFontInput = document.getElementById('subFontInput');
+        if (subFontInput && meta.availableSubtitleFonts !== undefined) {
+            let optionsHtml = '<option value="" style="background:#222;">Default</option>';
+            meta.availableSubtitleFonts.forEach(font => {
+                optionsHtml += `<option value="${font}" style="background:#222;">${font}</option>`;
+            });
+            subFontInput.innerHTML = optionsHtml;
+            subFontInput.value = meta.activeSubtitleFont || '';
+        }
+
+        // Subtitle Override Toggle State
+        if (meta.activeSubtitleOverrideEnabled !== undefined) {
+            subOverrideVisible = meta.activeSubtitleOverrideEnabled === true;
+            const btnOverride = document.getElementById('btnToggleSubOverride');
+            if (btnOverride) {
+                if (subOverrideVisible) {
+                    btnOverride.classList.add('active');
+                    btnOverride.innerText = 'On';
+                } else {
+                    btnOverride.classList.remove('active');
+                    btnOverride.innerText = 'Off';
+                }
+            }
+        }
+
+        // Initialize Background Slider
+        if (meta.activeSubtitleBackground) {
+            const bgHex = meta.activeSubtitleBackground;
+            if (bgHex.length === 9) {
+                const alphaHex = bgHex.substring(1, 3);
+                const alphaInt = parseInt(alphaHex, 16);
+                if (!isNaN(alphaInt)) {
+                    const bgSlider = document.getElementById('subBgSlider');
+                    const bgVal = document.getElementById('subBgVal');
+                    if (bgSlider && bgVal) {
+                        bgSlider.value = alphaInt;
+                        bgVal.innerText = alphaInt;
+                    }
+                }
+            }
+        }
+
+        // Advanced Subtitle Styles
+        if (meta.activeSubtitleBorderColor) {
+            document.querySelectorAll('.border-dot').forEach(d => {
+                if (d.dataset.color === meta.activeSubtitleBorderColor) {
+                    document.querySelectorAll('.border-dot').forEach(x => x.classList.remove('active'));
+                    d.classList.add('active');
+                }
+            });
+        }
+        if (meta.activeSubtitleShadowColor) {
+            document.querySelectorAll('.shadow-dot').forEach(d => {
+                if (d.dataset.color === meta.activeSubtitleShadowColor) {
+                    document.querySelectorAll('.shadow-dot').forEach(x => x.classList.remove('active'));
+                    d.classList.add('active');
+                }
+            });
+        }
+        if (meta.activeSubtitleBorderSize) {
+            const slider = document.getElementById('subBorderSizeSlider');
+            if (slider) {
+                slider.value = meta.activeSubtitleBorderSize;
+                document.getElementById('subBorderSizeVal').innerText = meta.activeSubtitleBorderSize;
+            }
+        }
+        if (meta.activeSubtitleShadowOffset) {
+            const slider = document.getElementById('subShadowOffsetSlider');
+            if (slider) {
+                slider.value = meta.activeSubtitleShadowOffset;
+                document.getElementById('subShadowOffsetVal').innerText = meta.activeSubtitleShadowOffset;
+            }
+        }
+        if (meta.activeSubtitleBlur) {
+            const slider = document.getElementById('subBlurSlider');
+            if (slider) {
+                slider.value = meta.activeSubtitleBlur;
+                document.getElementById('subBlurVal').innerText = meta.activeSubtitleBlur;
+            }
+        }
+        
+        let subBoldState = meta.activeSubtitleBold === 'yes';
+        let subItalicState = meta.activeSubtitleItalic === 'yes';
+        const btnBold = document.getElementById('btnSubBold');
+        if (btnBold) btnBold.style.background = subBoldState ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+        const btnItalic = document.getElementById('btnSubItalic');
+        if (btnItalic) btnItalic.style.background = subItalicState ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
 
         // Shaders
         let shaderHtml = '';
@@ -1197,6 +1285,20 @@
             document.getElementById('loadingStatus').innerText = s.loadingStatusText;
         }
 
+        if (s.interpolationEnabled !== undefined) {
+            interpolationEnabled = s.interpolationEnabled === true;
+            const btn = document.getElementById('btnToggleInterpolation');
+            if (btn) {
+                if (interpolationEnabled) {
+                    btn.classList.add('active');
+                    btn.innerText = 'On';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Off';
+                }
+            }
+        }
+
         evaluateUIStates();
         evaluateResumeOverlay();
     };
@@ -1204,9 +1306,9 @@
     // Handles live MPV stats sent by C++ when stats panel is open
     const handleStatsUpdate = (s) => {
         const fmtBitrate = (bps) => {
-            if (!bps || bps <= 0) return 'N/A';
+            if (!bps || bps <= 0) return '0 Kbps';
             if (bps >= 1e6) return (bps / 1e6).toFixed(2) + ' Mbps';
-            return (bps / 1e3).toFixed(0) + ' kbps';
+            return (bps / 1e3).toFixed(0) + ' Kbps';
         };
         const fps = s.fps || 0;
         const dropped = (s.droppedFrames || 0) + (s.voDroppedFrames || 0);
@@ -1221,23 +1323,59 @@
             el.className = 'stats-val' + (cls ? ' ' + cls : '');
         };
 
-        setVal('sVideoCodec', s.videoCodec);
-        setVal('sResolution', (s.width && s.height) ? `${s.width}×${s.height}` : 'N/A');
-        setVal('sFps', fps > 0 ? fps.toFixed(2) + ' fps' : 'N/A',
-            fps > 0 && fps < 20 ? 'warn' : (fps >= 50 ? 'good' : ''));
-        setVal('sVideoBitrate', fmtBitrate(s.videoBitrate));
+        const vId = window.sessionId ? window.sessionId.substring(0, 16) : 'Unknown';
+        const vcpn = Math.random().toString(36).substring(2, 6).toUpperCase();
+        setVal('sVideoId', `${vId} / ${vcpn}`);
 
-        const hwdec = (s.hwdec && s.hwdec !== 'no' && s.hwdec !== 'N/A') ? s.hwdec : 'CPU';
-        setVal('sHwdec', hwdec, hwdec !== 'CPU' ? 'good' : '');
-        setVal('sDropped', dropped.toString(), dropped > 0 ? 'warn' : 'good');
+        const width = window.innerWidth * window.devicePixelRatio;
+        const height = window.innerHeight * window.devicePixelRatio;
+        setVal('sViewportFrames', `${Math.round(width)}x${Math.round(height)}*${window.devicePixelRatio.toFixed(2)} / ${dropped} dropped`);
 
-        setVal('sAudioCodec', s.audioCodec);
-        setVal('sAudioChannels', s.audioChannels);
-        setVal('sAudioBitrate', fmtBitrate(s.audioBitrate));
+        const vWidth = s.width || 0;
+        const vHeight = s.height || 0;
+        const resStr = (vWidth && vHeight) ? `${vWidth}x${vHeight}@${fps > 0 ? Math.round(fps) : 30}` : 'Unknown';
+        setVal('sCurrentOptimalRes', `${resStr} / ${resStr}`);
 
-        setVal('sFormat', s.format);
+        const vol = Math.round((window.currentVolume || 1.0) * 100);
+        setVal('sVolumeNormalized', `${vol}% / ${vol}% (content loudness -- dB)`);
+
+        const vCodec = s.videoCodec || 'unknown';
+        const aCodec = s.audioCodec || 'unknown';
+        const cProfile = s.videoFormat || '';
+        setVal('sCodecs', `${vCodec} (${cProfile}) / ${aCodec} (${s.audioChannels || '2'})`);
+
+        const colorMatrix = s.colorMatrix && s.colorMatrix !== 'N/A' ? s.colorMatrix : '';
+        const colorPrimaries = s.colorPrimaries && s.colorPrimaries !== 'N/A' ? s.colorPrimaries : '';
+        const colorLevels = s.colorLevels && s.colorLevels !== 'N/A' ? s.colorLevels : '';
+        const colorInfo = [colorMatrix, colorPrimaries, colorLevels].filter(x => x).join(' / ') || 'bt709 / bt709';
+        setVal('sColorInfo', colorInfo);
+
+        let host = 'localhost';
+        try {
+            if (s.path && s.path.startsWith('http')) {
+                host = new URL(s.path).host;
+            }
+        } catch(e){}
+        setVal('sHost', host);
+
+        setVal('sConnectionSpeed', fmtBitrate((s.videoBitrate || 0) + (s.audioBitrate || 0)));
+        setVal('sNetworkActivity', '0 KB');
+
         const bufAhead = durationMs > 0 ? ((s.bufferMs || 0) - currentPosMs) / 1000 : null;
-        setVal('sBuffer', bufAhead !== null && bufAhead >= 0 ? bufAhead.toFixed(1) + 's ahead' : 'N/A');
+        setVal('sBuffer', bufAhead !== null && bufAhead >= 0 ? bufAhead.toFixed(1) + ' s' : '0.0 s');
+
+        setVal('sLiveLatency', durationMs > 0 ? 'N/A' : '0.00 s');
+
+        const sRate = s.audioSampleRate || 0;
+        setVal('sAudioCodec', `${aCodec} (${sRate > 0 ? (sRate/1000).toFixed(1) + 'kHz' : ''})`);
+
+        const sync = s.avsync !== undefined && s.avsync !== null ? s.avsync : 0;
+        setVal('sAvSync', sync !== 0 ? (sync * 1000).toFixed(1) + ' ms' : '0.0 ms', Math.abs(sync) > 0.05 ? 'warn' : '');
+
+        const hwdec = (s.hwdec && s.hwdec !== 'no' && s.hwdec !== 'N/A') ? s.hwdec : 'Software (CPU)';
+        setVal('sHwdec', hwdec, hwdec !== 'Software (CPU)' ? 'good' : '');
+
+        setVal('sMysteryText', `vd: ${vWidth} / ad: ${s.audioChannels || 2} / s: ${Math.round(fps)}`);
 
         const pathEl = document.getElementById('sPath');
         if (pathEl) pathEl.innerText = s.path || '--';
@@ -1553,12 +1691,21 @@
     document.getElementById('btnAudioDelayInc').addEventListener('click', e => { e.stopPropagation(); audioDelaySec += 0.1; send('setMpvProperty', `audio-delay:${audioDelaySec.toFixed(1)}`); updateSyncUI(); });
     document.getElementById('btnAudioDelayDec').addEventListener('click', e => { e.stopPropagation(); audioDelaySec -= 0.1; send('setMpvProperty', `audio-delay:${audioDelaySec.toFixed(1)}`); updateSyncUI(); });
     // Sub Style
-    document.querySelectorAll('.color-dot').forEach(d => {
-        d.addEventListener('click', e => {
-            e.stopPropagation();
-            document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('active'));
-            d.classList.add('active');
-            send('setMpvProperty', `sub-color:${d.dataset.color}`);
+    document.querySelectorAll('.color-row').forEach(row => {
+        const dots = row.querySelectorAll('.color-dot');
+        dots.forEach(d => {
+            d.addEventListener('click', e => {
+                e.stopPropagation();
+                dots.forEach(x => x.classList.remove('active'));
+                d.classList.add('active');
+                if (d.classList.contains('border-dot')) {
+                    send('setSubtitleBorderColor', d.dataset.color);
+                } else if (d.classList.contains('shadow-dot')) {
+                    send('setSubtitleShadowColor', d.dataset.color);
+                } else {
+                    send('setMpvProperty', `sub-color:${d.dataset.color}`);
+                }
+            });
         });
     });
     document.getElementById('subSizeSlider').addEventListener('input', e => { 
@@ -1570,7 +1717,37 @@
         e.stopPropagation();
         document.getElementById('subBgVal').innerText = e.target.value;
         const hex = parseInt(e.target.value).toString(16).padStart(2, '0').toUpperCase();
-        send('setMpvProperty', `sub-back-color:#${hex}000000`);
+        send('setSubtitleBackground', `#${hex}000000`);
+    });
+    document.getElementById('subBorderSizeSlider').addEventListener('input', e => {
+        e.stopPropagation();
+        document.getElementById('subBorderSizeVal').innerText = e.target.value;
+        send('setSubtitleBorderSize', e.target.value);
+    });
+    document.getElementById('subShadowOffsetSlider').addEventListener('input', e => {
+        e.stopPropagation();
+        document.getElementById('subShadowOffsetVal').innerText = e.target.value;
+        send('setSubtitleShadowOffset', e.target.value);
+    });
+    document.getElementById('subBlurSlider').addEventListener('input', e => {
+        e.stopPropagation();
+        document.getElementById('subBlurVal').innerText = e.target.value;
+        send('setSubtitleBlur', e.target.value);
+    });
+
+    let localSubBold = false;
+    let localSubItalic = false;
+    document.getElementById('btnSubBold').addEventListener('click', e => {
+        e.stopPropagation();
+        localSubBold = !localSubBold;
+        e.target.style.background = localSubBold ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+        send('setSubtitleBold', localSubBold ? 'yes' : 'no');
+    });
+    document.getElementById('btnSubItalic').addEventListener('click', e => {
+        e.stopPropagation();
+        localSubItalic = !localSubItalic;
+        e.target.style.background = localSubItalic ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+        send('setSubtitleItalic', localSubItalic ? 'yes' : 'no');
     });
     document.getElementById('subPosSlider').addEventListener('input', e => { 
         e.stopPropagation(); 
@@ -1652,6 +1829,78 @@
             statsOverlay.classList.remove('show');
         }
         send('toggleStats');
+    });
+
+    // Interpolation toggle
+    let interpolationEnabled = false; // Initialized from Kotlin payload
+    const btnToggleInterpolation = document.getElementById('btnToggleInterpolation');
+    if (btnToggleInterpolation) {
+        btnToggleInterpolation.addEventListener('click', e => {
+            e.stopPropagation();
+            interpolationEnabled = !interpolationEnabled;
+            if (interpolationEnabled) {
+                btnToggleInterpolation.classList.add('active');
+                btnToggleInterpolation.innerText = 'On';
+            } else {
+                btnToggleInterpolation.classList.remove('active');
+                btnToggleInterpolation.innerText = 'Off';
+            }
+            send('toggleInterpolation', interpolationEnabled.toString());
+        });
+    }
+
+    // Subtitle Override toggle
+    let subOverrideVisible = false;
+    document.getElementById('btnToggleSubOverride')?.addEventListener('click', e => {
+        e.stopPropagation();
+        subOverrideVisible = !subOverrideVisible;
+        const btn = document.getElementById('btnToggleSubOverride');
+        if (subOverrideVisible) {
+            btn.classList.add('active');
+            btn.innerText = 'On';
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = 'Off';
+        }
+        send('setSubtitleOverrideEnabled', subOverrideVisible);
+    });
+
+    // Reset Subtitles
+    document.getElementById('btnResetSubtitles')?.addEventListener('click', e => {
+        e.stopPropagation();
+        send('resetSubtitleSettings');
+        // Instantly reset UI inputs to match defaults
+        document.getElementById('subSizeSlider').value = 45;
+        document.getElementById('subSizeVal').innerText = '45';
+        document.getElementById('subBgSlider').value = 0;
+        document.getElementById('subBgVal').innerText = '0';
+        document.getElementById('subBorderSizeSlider').value = 3;
+        document.getElementById('subBorderSizeVal').innerText = '3';
+        document.getElementById('subShadowOffsetSlider').value = 0;
+        document.getElementById('subShadowOffsetVal').innerText = '0';
+        document.getElementById('subBlurSlider').value = 0;
+        document.getElementById('subBlurVal').innerText = '0';
+        document.getElementById('subPosSlider').value = 100;
+        document.getElementById('subPosVal').innerText = '100';
+        
+        document.querySelectorAll('.border-dot').forEach(d => d.classList.remove('active'));
+        document.querySelector('.border-dot[data-color="#000000"]')?.classList.add('active');
+        
+        document.querySelectorAll('.shadow-dot').forEach(d => d.classList.remove('active'));
+        document.querySelector('.shadow-dot[data-color="#00000000"]')?.classList.add('active');
+        
+        document.getElementById('btnSubBold')?.classList.remove('active');
+        document.getElementById('btnSubItalic')?.classList.remove('active');
+        
+        const fontInput = document.getElementById('subFontInput');
+        if (fontInput) fontInput.value = '';
+
+        subOverrideVisible = false;
+        const btnOverride = document.getElementById('btnToggleSubOverride');
+        if (btnOverride) {
+            btnOverride.classList.remove('active');
+            btnOverride.innerText = 'Off';
+        }
     });
 
     // Tabs Navigation (scoped to parent panel)

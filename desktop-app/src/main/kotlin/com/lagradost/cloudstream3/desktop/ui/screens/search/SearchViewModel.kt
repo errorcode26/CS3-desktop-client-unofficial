@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_ACTIVE_PROVIDERS
 import com.lagradost.cloudstream3.desktop.ui.screens.home.isRealProvider
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
@@ -31,13 +32,14 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     init {
         updateState { copy(isGlobalSearchEnabled = false) }
         viewModelScope.launch(Dispatchers.IO) {
-            val selectedProviderName = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
+            val activeProviders = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
+            val selectedProviderName = activeProviders?.firstOrNull() ?: DesktopDataStore.getKey<String>("preferred_provider_name")
             updateState { copy(selectedProviderName = selectedProviderName) }
         }
 
         viewModelScope.launch {
             uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { providerName ->
-                providerName?.let { DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, it) }
+                providerName?.let { DesktopDataStore.setKey("search_selected_provider_name", it) }
             }
         }
 

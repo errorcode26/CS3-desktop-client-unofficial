@@ -162,7 +162,7 @@
 <div id="audioPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Audio Tracks (Dubs)</h2>
+            <h2>Audio Tracks</h2>
             <button class="close-btn" id="closeAudioBtn">✕</button>
         </div>
     </div>
@@ -222,6 +222,16 @@
         <div class="settings-tab-content" id="sub-style">
             <div class="settings-section" style="border-bottom: none;">
                 <div class="settings-label">Subtitle Style</div>
+                <div class="style-row" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Override Video Subtitles</span>
+                    <button class="chip" id="btnToggleSubOverride" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div class="style-row" style="margin-bottom:12px; display:flex; flex-direction:column; align-items:flex-start;">
+                    <span style="margin-bottom:6px;">Custom Font</span>
+                    <select id="subFontInput" onchange="send('setSubtitleFont', this.value)" style="width:100%; padding:8px; border-radius:6px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; font-size:14px; outline:none; appearance: none;">
+                        <option value="" style="background:#222;">Default</option>
+                    </select>
+                </div>
                 <div class="style-row">
                     <span>Color</span>
                     <div class="color-row">
@@ -283,6 +293,64 @@
                     </div>
                 </div>
                 <div class="style-row">
+                    <span>Border Color</span>
+                    <div class="color-row">
+                        <div class="color-dot border-dot active" style="background:#000000" data-color="#000000"></div>
+                        <div class="color-dot border-dot" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+                        <div class="color-dot border-dot" style="background:#FFFF00" data-color="#FFFF00"></div>
+                        <div class="color-dot border-dot" style="background:#00FFFF" data-color="#00FFFF"></div>
+                        <div class="color-dot border-dot" style="background:#FF9900" data-color="#FF9900"></div>
+                        <div class="color-dot border-dot" style="background:#FF5555" data-color="#FF5555"></div>
+                        <div class="color-dot border-dot" style="background:#55FF55" data-color="#55FF55"></div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top:12px;">
+                    <span>Border Size</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subBorderSizeVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">3</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <input type="range" class="style-slider" id="subBorderSizeSlider" min="0" max="10" step="1" value="3" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+                <div class="style-row">
+                    <span>Shadow Color</span>
+                    <div class="color-row">
+                        <div class="color-dot shadow-dot active" style="background:#000000" data-color="#000000"></div>
+                        <div class="color-dot shadow-dot" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+                        <div class="color-dot shadow-dot" style="background:#FFFF00" data-color="#FFFF00"></div>
+                        <div class="color-dot shadow-dot" style="background:#00FFFF" data-color="#00FFFF"></div>
+                        <div class="color-dot shadow-dot" style="background:#FF9900" data-color="#FF9900"></div>
+                        <div class="color-dot shadow-dot" style="background:#FF5555" data-color="#FF5555"></div>
+                        <div class="color-dot shadow-dot" style="background:#55FF55" data-color="#55FF55"></div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top:12px;">
+                    <span>Shadow Offset</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subShadowOffsetVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <input type="range" class="style-slider" id="subShadowOffsetSlider" min="0" max="10" step="1" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top:12px;">
+                    <span>Blur</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="subBlurVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
+                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
+                            <input type="range" class="style-slider" id="subBlurSlider" min="0" max="10" step="1" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+                <div class="style-row" style="margin-top:12px;">
+                    <span>Font Style</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button id="btnSubBold" style="padding: 4px 12px; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: none; cursor: pointer;">Bold</button>
+                        <button id="btnSubItalic" style="padding: 4px 12px; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: none; cursor: pointer;">Italic</button>
+                    </div>
+                </div>
+                <div class="style-row">
                     <span>Position</span>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="subPosVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">100</span>
@@ -305,6 +373,9 @@
                             <input type="range" class="style-slider" id="subPosSlider" min="0" max="100" value="100" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
                         </div>
                     </div>
+                </div>
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button id="btnResetSubtitles" style="background: rgba(255,60,60,0.2); border: 1px solid rgba(255,60,60,0.4); color: white; border-radius: 4px; padding: 6px 16px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s;">RESET TO DEFAULT</button>
                 </div>
             </div>
         </div>
@@ -339,6 +410,10 @@
                 <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
                     <span>Stats for Nerds</span>
                     <button class="chip" id="btnToggleStats" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Smooth Video</span>
+                    <button class="chip" id="btnToggleInterpolation" style="padding: 4px 14px; min-width: 60px;">Off</button>
                 </div>
             </div>
         </div>
@@ -451,39 +526,28 @@
 <div id="statsOverlay">
     <div class="stats-panel">
         <div class="stats-header">
-            <div class="stats-header-dot"></div>
-            <span class="stats-header-title">Stats for Nerds</span>
+            <span class="stats-header-title">Stats for nerds</span>
             <span class="stats-badge" id="statsBadgeFps">-- fps</span>
         </div>
-
-        <div class="stats-section">
-            <div class="stats-section-title">Video</div>
-            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sVideoCodec">--</span></div>
-            <div class="stats-row"><span class="stats-key">Resolution</span><span class="stats-val" id="sResolution">--</span></div>
-            <div class="stats-row"><span class="stats-key">Framerate</span><span class="stats-val" id="sFps">--</span></div>
-            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sVideoBitrate">--</span></div>
-            <div class="stats-row"><span class="stats-key">HW Decode</span><span class="stats-val" id="sHwdec">--</span></div>
-            <div class="stats-row"><span class="stats-key">Dropped Frames</span><span class="stats-val" id="sDropped">--</span></div>
+        <div class="stats-grid">
+            <div class="stats-key">Video ID / sCPN</div><div class="stats-val" id="sVideoId">--</div>
+            <div class="stats-key">Viewport / Frames</div><div class="stats-val" id="sViewportFrames">--</div>
+            <div class="stats-key">Current / Optimal Res</div><div class="stats-val" id="sCurrentOptimalRes">--</div>
+            <div class="stats-key">Volume / Normalized</div><div class="stats-val" id="sVolumeNormalized">--</div>
+            <div class="stats-key">Codecs</div><div class="stats-val" id="sCodecs">--</div>
+            <div class="stats-key">Color</div><div class="stats-val" id="sColorInfo">--</div>
+            <div class="stats-key">Host</div><div class="stats-val" id="sHost">--</div>
+            <div class="stats-key">Connection Speed</div><div class="stats-val" id="sConnectionSpeed">-- Kbps</div>
+            <div class="stats-key">Network Activity</div><div class="stats-val" id="sNetworkActivity">-- KB</div>
+            <div class="stats-key">Buffer Health</div><div class="stats-val" id="sBuffer">--</div>
+            <div class="stats-key">Live Latency</div><div class="stats-val" id="sLiveLatency">--</div>
+            <div class="stats-key">Audio Format</div><div class="stats-val" id="sAudioCodec">--</div>
+            <div class="stats-key">A/V Sync</div><div class="stats-val" id="sAvSync">-- ms</div>
+            <div class="stats-key">HW Decode</div><div class="stats-val" id="sHwdec">--</div>
+            <div class="stats-key">Mystery Text</div><div class="stats-val" id="sMysteryText">--</div>
+            <div class="stats-divider"></div>
+            <div class="stats-path" id="sPath">--</div>
         </div>
-
-        <div class="stats-divider"></div>
-
-        <div class="stats-section">
-            <div class="stats-section-title">Audio</div>
-            <div class="stats-row"><span class="stats-key">Codec</span><span class="stats-val" id="sAudioCodec">--</span></div>
-            <div class="stats-row"><span class="stats-key">Channels</span><span class="stats-val" id="sAudioChannels">--</span></div>
-            <div class="stats-row"><span class="stats-key">Bitrate</span><span class="stats-val" id="sAudioBitrate">--</span></div>
-        </div>
-
-        <div class="stats-divider"></div>
-
-        <div class="stats-section">
-            <div class="stats-section-title">Stream</div>
-            <div class="stats-row"><span class="stats-key">Container</span><span class="stats-val" id="sFormat">--</span></div>
-            <div class="stats-row"><span class="stats-key">Buffer</span><span class="stats-val" id="sBuffer">--</span></div>
-        </div>
-
-        <div class="stats-path" id="sPath">--</div>
     </div>
 </div>
 

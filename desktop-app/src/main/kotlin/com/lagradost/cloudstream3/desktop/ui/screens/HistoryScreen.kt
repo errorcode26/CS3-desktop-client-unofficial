@@ -109,6 +109,7 @@ fun ComposeHistoryScreen(navController: NavController) {
                             history = history,
                             provider = provider,
                             modifier = Modifier
+                                .animateItem()
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 9f),
                             onRemove = {
@@ -129,6 +130,19 @@ fun ComposeHistoryScreen(navController: NavController) {
                                     )
                                 }
                             },
+                            onPlayClick = {
+                                if (provider != null) {
+                                    navController.navigate(
+                                        Screen.Details(
+                                            providerName = provider.name,
+                                            url = history.showUrl,
+                                            preloadedName = history.showName,
+                                            preloadedPoster = history.posterUrl,
+                                            preloadedBg = null,
+                                        ),
+                                    )
+                                }
+                            }
                         )
                     }
                 }

@@ -38,9 +38,9 @@ fun AppUpdateDialog() {
     val latestRelease by AppUpdater.latestRelease.collectAsState()
     val release = latestRelease ?: return
     var showUpdateDialog by remember { mutableStateOf(true) }
-    if (!showUpdateDialog) return
 
-    AlertDialog(
+    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+        show = showUpdateDialog,
         onDismissRequest = { showUpdateDialog = false },
         title = { Text("Update Available: v${release.tag_name.removePrefix("v")}", style = MaterialTheme.typography.titleLarge) },
         text = {
@@ -58,10 +58,14 @@ fun AppUpdateDialog() {
                     com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
                 }
                 showUpdateDialog = false
-            }) { Text("Download") }
+            }) {
+                Text("Download")
+            }
         },
         dismissButton = {
-            TextButton(onClick = { showUpdateDialog = false }) { Text("Later") }
+            TextButton(onClick = { showUpdateDialog = false }) {
+                Text("Ignore")
+            }
         },
     )
 }

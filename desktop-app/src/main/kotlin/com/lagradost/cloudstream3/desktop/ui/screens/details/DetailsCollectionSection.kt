@@ -99,6 +99,9 @@ fun DetailsCollectionSection(
                                 onClick = {
                                     onNavigate(Screen.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, false))
                                 },
+                                onPlayClick = {
+                                    onNavigate(Screen.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, true))
+                                }
                             )
                         }
                     }

@@ -151,16 +151,15 @@ fun ComposeLibraryScreen(navController: NavController) {
         }
     }
 
-    if (showError != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onEvent(LibraryUiEvent.OnDismissError) },
-            title = { Text("Provider Missing") },
-            text = { Text(showError) },
-            confirmButton = {
-                Button(onClick = { viewModel.onEvent(LibraryUiEvent.OnDismissError) }) { Text("OK") }
-            },
-        )
-    }
+    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+        show = showError != null,
+        onDismissRequest = { viewModel.onEvent(LibraryUiEvent.OnDismissError) },
+        title = { Text("Provider Missing") },
+        text = { Text(showError ?: "") },
+        confirmButton = {
+            Button(onClick = { viewModel.onEvent(LibraryUiEvent.OnDismissError) }) { Text("OK") }
+        },
+    )
 }
 
 @Composable

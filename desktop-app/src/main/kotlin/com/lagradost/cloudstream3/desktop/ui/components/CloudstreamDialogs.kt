@@ -36,6 +36,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.runtime.DisposableEffect
+
+object GlobalDialogState {
+    var activeDialogCount by mutableStateOf(0)
+    val isAnyDialogOpen: Boolean get() = activeDialogCount > 0
+}
+
 /**
  * Use for simple dialogs: confirmations, warnings, single text-field inputs.
  * Do NOT use for lists/grids — use [CloudstreamCustomDialog] instead.
@@ -54,11 +62,19 @@ fun CloudstreamAlertDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    var isVisible by remember { mutableStateOf(false) }
+    val transitionState = remember { MutableTransitionState(false) }
+    transitionState.targetState = show
 
-    LaunchedEffect(show) { isVisible = show }
+    val isVisible = transitionState.currentState || transitionState.targetState
+    
+    DisposableEffect(isVisible) {
+        if (isVisible) GlobalDialogState.activeDialogCount++
+        onDispose {
+            if (isVisible) GlobalDialogState.activeDialogCount--
+        }
+    }
 
-    if (show || isVisible) {
+    if (isVisible) {
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
         val isAmoled = appThemeBackground == "Pure Black"
 
@@ -67,7 +83,7 @@ fun CloudstreamAlertDialog(
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             AnimatedVisibility(
-                visible = isVisible,
+                visibleState = transitionState,
                 enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
                 exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
             ) {
@@ -101,11 +117,19 @@ fun CloudstreamCustomDialog(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    var isVisible by remember { mutableStateOf(false) }
+    val transitionState = remember { MutableTransitionState(false) }
+    transitionState.targetState = show
 
-    LaunchedEffect(show) { isVisible = show }
+    val isVisible = transitionState.currentState || transitionState.targetState
+    
+    DisposableEffect(isVisible) {
+        if (isVisible) GlobalDialogState.activeDialogCount++
+        onDispose {
+            if (isVisible) GlobalDialogState.activeDialogCount--
+        }
+    }
 
-    if (show || isVisible) {
+    if (isVisible) {
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
         val isAmoled = appThemeBackground == "Pure Black"
 
@@ -114,7 +138,7 @@ fun CloudstreamCustomDialog(
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             AnimatedVisibility(
-                visible = isVisible,
+                visibleState = transitionState,
                 enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
                 exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
             ) {

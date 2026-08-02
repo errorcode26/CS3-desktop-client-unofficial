@@ -126,21 +126,17 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         }
     }
 
-    if (playbackError != null) {
-        AlertDialog(
-            onDismissRequest = { playbackError = null },
-            title = { Text("Playback Failed") },
-            text = { Text(playbackError ?: "Unknown error") },
-            confirmButton = {
-                TextButton(onClick = { playbackError = null }) {
-                    Text("OK")
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+        show = playbackError != null,
+        onDismissRequest = { playbackError = null },
+        title = { Text("Playback Failed") },
+        text = { Text(playbackError ?: "Unknown error") },
+        confirmButton = {
+            TextButton(onClick = { playbackError = null }) {
+                Text("OK")
+            }
+        },
+    )
 
     Surface(modifier = Modifier.fillMaxSize()) {
         var hasAutoPlayed by remember { mutableStateOf(false) }

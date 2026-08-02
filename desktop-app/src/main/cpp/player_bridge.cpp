@@ -509,15 +509,18 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                 return r;
                             };
 
-                            double vbitrate = 0.0, abitrate = 0.0, vfps = 0.0;
-                            int64_t vw = 0, vh = 0, drop = 0, vodrop = 0;
+                            double vbitrate = 0.0, abitrate = 0.0, vfps = 0.0, dispfps = 0.0, avsync = 0.0;
+                            int64_t vw = 0, vh = 0, drop = 0, vodrop = 0, asamprate = 0;
                             get_prop(g_mpvHandle, "width",              MPV_FORMAT_INT64,  &vw);
                             get_prop(g_mpvHandle, "height",             MPV_FORMAT_INT64,  &vh);
                             get_prop(g_mpvHandle, "video-bitrate",      MPV_FORMAT_DOUBLE, &vbitrate);
                             get_prop(g_mpvHandle, "audio-bitrate",      MPV_FORMAT_DOUBLE, &abitrate);
                             get_prop(g_mpvHandle, "estimated-vf-fps",   MPV_FORMAT_DOUBLE, &vfps);
+                            get_prop(g_mpvHandle, "display-fps",        MPV_FORMAT_DOUBLE, &dispfps);
+                            get_prop(g_mpvHandle, "avsync",             MPV_FORMAT_DOUBLE, &avsync);
                             get_prop(g_mpvHandle, "drop-frame-count",   MPV_FORMAT_INT64,  &drop);
                             get_prop(g_mpvHandle, "vo-drop-frame-count",MPV_FORMAT_INT64,  &vodrop);
+                            get_prop(g_mpvHandle, "audio-params/samplerate", MPV_FORMAT_INT64, &asamprate);
 
                             std::string vcodec   = readStrFree("video-codec");
                             std::string acodec   = readStrFree("audio-codec");
@@ -525,30 +528,37 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             std::string achans   = readStrFree("audio-channels");
                             std::string fmt      = readStrFree("file-format");
                             std::string path     = readStrFree("path");
+                            std::string vformat  = readStrFree("video-format");
+                            std::string cmatrix  = readStrFree("video-params/colormatrix");
+                            std::string cprim    = readStrFree("video-params/primaries");
+                            std::string clevels  = readStrFree("video-params/colorlevels");
 
-                            char statsBuf[1024];
-                            snprintf(statsBuf, sizeof(statsBuf),
-                                "{\"type\":\"stats_update\""
-                                ",\"videoCodec\":%s,\"audioCodec\":%s"
-                                ",\"width\":%lld,\"height\":%lld"
-                                ",\"videoBitrate\":%.0f,\"audioBitrate\":%.0f"
-                                ",\"fps\":%.2f"
-                                ",\"droppedFrames\":%lld,\"voDroppedFrames\":%lld"
-                                ",\"hwdec\":%s,\"audioChannels\":%s"
-                                ",\"format\":%s,\"path\":%s}",
-                                vcodec.c_str(), acodec.c_str(),
-                                (long long)vw, (long long)vh,
-                                vbitrate, abitrate,
-                                vfps,
-                                (long long)drop, (long long)vodrop,
-                                hwdec.c_str(), achans.c_str(),
-                                fmt.c_str(), path.c_str()
-                            );
+                            std::string statsStr = "{\"type\":\"stats_update\""
+                                ",\"videoCodec\":" + vcodec + 
+                                ",\"audioCodec\":" + acodec +
+                                ",\"width\":" + std::to_string(vw) + 
+                                ",\"height\":" + std::to_string(vh) +
+                                ",\"videoBitrate\":" + std::to_string((long long)vbitrate) + 
+                                ",\"audioBitrate\":" + std::to_string((long long)abitrate) +
+                                ",\"fps\":" + std::to_string(vfps) +
+                                ",\"displayFps\":" + std::to_string(dispfps) +
+                                ",\"avsync\":" + std::to_string(avsync) +
+                                ",\"droppedFrames\":" + std::to_string(drop) + 
+                                ",\"voDroppedFrames\":" + std::to_string(vodrop) +
+                                ",\"hwdec\":" + hwdec + 
+                                ",\"audioChannels\":" + achans +
+                                ",\"audioSampleRate\":" + std::to_string(asamprate) +
+                                ",\"videoFormat\":" + vformat +
+                                ",\"colorMatrix\":" + cmatrix +
+                                ",\"colorPrimaries\":" + cprim +
+                                ",\"colorLevels\":" + clevels +
+                                ",\"format\":" + fmt + 
+                                ",\"path\":" + path + "}";
 
-                            int sz = MultiByteToWideChar(CP_UTF8, 0, statsBuf, -1, nullptr, 0);
+                            int sz = MultiByteToWideChar(CP_UTF8, 0, statsStr.c_str(), -1, nullptr, 0);
                             if (sz > 0) {
                                 std::wstring wStats(sz, 0);
-                                MultiByteToWideChar(CP_UTF8, 0, statsBuf, -1, &wStats[0], sz);
+                                MultiByteToWideChar(CP_UTF8, 0, statsStr.c_str(), -1, &wStats[0], sz);
                                 g_webview->PostWebMessageAsJson(wStats.c_str());
                             }
                         }
@@ -586,6 +596,22 @@ LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         GetClientRect(hwnd, &rect);
         FillRect((HDC)wParam, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
         return 1;
+    }
+    if (msg == WM_SIZE) {
+        if (g_containerHwnd) {
+            int w = LOWORD(lParam);
+            int h = HIWORD(lParam);
+            SetWindowPos(g_containerHwnd, nullptr, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+            if (g_webviewController) {
+                RECT bounds = {0, 0, w, h};
+                g_webviewController->put_Bounds(bounds);
+            }
+        }
+    }
+    if (msg == WM_SETFOCUS) {
+        if (g_webviewController) {
+            g_webviewController->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
     }
     return CallWindowProc(g_originalHostWndProc, hwnd, msg, wParam, lParam);
 }

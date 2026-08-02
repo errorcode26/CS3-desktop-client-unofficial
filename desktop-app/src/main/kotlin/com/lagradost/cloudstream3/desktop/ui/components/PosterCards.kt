@@ -20,6 +20,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,6 +44,7 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PosterCard(
     item: SearchResponse,
@@ -45,6 +53,7 @@ fun PosterCard(
     itemWidth: androidx.compose.ui.unit.Dp? = null,
     gridScale: String = AppearanceConfig.gridScale.value,
     onClick: () -> Unit,
+    onPlayClick: (() -> Unit)? = null,
 ) {
     val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
     val shape = RoundedCornerShape(posterCornerRadius.dp)
@@ -63,6 +72,8 @@ fun PosterCard(
     val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
     val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
 
+    var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+
     Column(modifier = modifier.width(width)) {
         Surface(
             modifier = Modifier
@@ -70,7 +81,32 @@ fun PosterCard(
                 .posterHoverEffect(shape)
                 .clip(shape)
                 .hoverable(interactionSource)
-                .clickable(onClick = onClick),
+                .onGloballyPositioned { coordinates ->
+                    bounds = Rect(
+                        offset = coordinates.positionInWindow(),
+                        size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                    )
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Release) {
+                                if (event.button == PointerButton.Secondary) {
+                                    GlobalContextMenuState.showForPoster(
+                                        bounds = bounds,
+                                        item = item,
+                                        provider = provider,
+                                        onClick = onClick,
+                                        onPlayClick = onPlayClick
+                                    )
+                                } else if (event.button == PointerButton.Primary) {
+                                    onClick()
+                                }
+                            }
+                        }
+                    }
+                },
             shape = shape,
             color = DesktopUi.SurfaceCard,
             tonalElevation = 2.dp,
@@ -140,95 +176,6 @@ fun PosterCard(
                     }
                 }
 
-                val bookmarkId = if (provider != null) "${provider.name}_${item.url.hashCode()}" else ""
-                var showBookmarkMenu by remember { mutableStateOf(false) }
-                val allBookmarks by com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.bookmarksFlow.collectAsState()
-                val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
-
-                val bookmarkAlpha by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = if (isHovered || currentBookmark != null || showBookmarkMenu) 1f else 0f,
-                    label = "bookmarkAlpha",
-                )
-
-                if (bookmarkAlpha > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .graphicsLayer { alpha = bookmarkAlpha },
-                    ) {
-                        IconButton(
-                            onClick = { if (provider != null) showBookmarkMenu = true },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                contentDescription = "Bookmark",
-                                tint = if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White,
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showBookmarkMenu,
-                            onDismissRequest = { showBookmarkMenu = false },
-                            modifier = Modifier
-                                .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                .padding(4.dp),
-                        ) {
-                            Text(
-                                "Add to Library",
-                                color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            )
-                            com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                val isSelected = currentBookmark?.watchType == type.id
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            type.stringRes,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        )
-                                    },
-                                    onClick = {
-                                        val newBookmark = DesktopBookmark(
-                                            id = bookmarkId,
-                                            name = item.name,
-                                            url = item.url,
-                                            apiName = provider!!.name,
-                                            posterUrl = item.posterUrl,
-                                            watchType = type.id,
-                                        )
-                                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
-                                        showBookmarkMenu = false
-                                    },
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
-                                )
-                            }
-                            if (currentBookmark != null) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                                    },
-                                    onClick = {
-                                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
-                                        showBookmarkMenu = false
-                                    },
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                                )
-                            }
-                        }
-                    }
-                }
 
                 // Gradient at the bottom with the title
                 androidx.compose.animation.AnimatedVisibility(
@@ -292,6 +239,7 @@ fun PosterCard(
     }
 }
 
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun WatchHistoryCard(
     history: WatchHistory,
@@ -299,6 +247,7 @@ fun WatchHistoryCard(
     modifier: Modifier = Modifier.width(380.dp).height(380.dp * 9f / 16f),
     onRemove: () -> Unit,
     onClick: () -> Unit,
+    onPlayClick: (() -> Unit)? = null,
 ) {
     val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
     val shape = RoundedCornerShape(posterCornerRadius.dp)
@@ -331,6 +280,8 @@ fun WatchHistoryCard(
         ""
     }
 
+    var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -339,7 +290,33 @@ fun WatchHistoryCard(
             }
             .clip(shape)
             .hoverable(interactionSource)
-            .clickable(onClick = onClick),
+            .onGloballyPositioned { coordinates ->
+                bounds = Rect(
+                    offset = coordinates.positionInWindow(),
+                    size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                )
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == PointerEventType.Release) {
+                            if (event.button == PointerButton.Secondary) {
+                                GlobalContextMenuState.showForWatchHistory(
+                                    bounds = bounds,
+                                    history = history,
+                                    provider = provider,
+                                    onRemove = onRemove,
+                                    onClick = onClick,
+                                    onPlayClick = onPlayClick
+                                )
+                            } else if (event.button == PointerButton.Primary) {
+                                onClick()
+                            }
+                        }
+                    }
+                }
+            },
     ) {
         val imgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
             ?: history.screenshotUrl

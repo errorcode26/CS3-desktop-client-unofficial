@@ -278,9 +278,12 @@ fun BaseMpvPlayer(
                             if (currentLoad > 0 && currentLoad != lastProcessedLoadfileAt) {
                                 lastProcessedLoadfileAt = currentLoad
                                 lastEofReached = false
-                                hasEverPlayed = false
+                                // NOTE: Do NOT reset hasEverPlayed or waitingForTimePosReset here.
+                                // MPV events 6 (START_FILE) and 8 (FILE_LOADED) own those flags.
+                                // Resetting them in the poll races with the event handlers on fast
+                                // streams (events fire in ~1ms, poll runs at ~100ms), causing the
+                                // 15s timeout to trigger on streams that already started successfully.
                                 playbackStartedAt = 0L
-                                waitingForTimePosReset = false
                                 diagnosticLogged = false
                             }
 

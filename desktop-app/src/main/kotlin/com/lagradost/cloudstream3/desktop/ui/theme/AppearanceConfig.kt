@@ -17,6 +17,14 @@ enum class PosterTitlePosition {
     }
 }
 
+enum class ClockDisplayMode {
+    HIDDEN, TIME_ONLY, DATE_ONLY, BOTH;
+
+    companion object {
+        fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) } ?: HIDDEN
+    }
+}
+
 object AppearanceConfig {
     private const val PREF_THEME_ACCENT = "pref_theme_accent"
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
@@ -50,6 +58,9 @@ object AppearanceConfig {
     private const val PREF_BACKGROUND_GRADIENT_TYPE = "pref_background_gradient_type"
     private const val PREF_BACKGROUND_GRADIENT_INTENSITY = "pref_background_gradient_intensity"
     private const val PREF_CUSTOM_PRESETS = "pref_custom_presets"
+    private const val PREF_CLOCK_MODE = "pref_clock_mode"
+    private const val PREF_CLOCK_TIME_FORMAT = "pref_clock_time_format"
+    private const val PREF_CLOCK_DATE_FORMAT = "pref_clock_date_format"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -83,6 +94,10 @@ object AppearanceConfig {
     val backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
     val backgroundGradientType = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial")
     val backgroundGradientIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f)
+
+    val clockMode = MutableStateFlow(ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE)))
+    val clockTimeFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_TIME_FORMAT) ?: "HH:mm")
+    val clockDateFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_DATE_FORMAT) ?: "EEE, dd MMM")
 
     private val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
     val customPresets = MutableStateFlow(
@@ -264,6 +279,21 @@ object AppearanceConfig {
     fun setBackgroundGradientIntensity(intensity: Float) {
         backgroundGradientIntensity.value = intensity
         DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_INTENSITY, intensity)
+    }
+
+    fun setClockMode(mode: ClockDisplayMode) {
+        clockMode.value = mode
+        DesktopDataStore.setKey(PREF_CLOCK_MODE, mode.name)
+    }
+
+    fun setClockTimeFormat(format: String) {
+        clockTimeFormat.value = format
+        DesktopDataStore.setKey(PREF_CLOCK_TIME_FORMAT, format)
+    }
+
+    fun setClockDateFormat(format: String) {
+        clockDateFormat.value = format
+        DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
     }
 
     fun saveCustomPreset(preset: ThemePreset) {

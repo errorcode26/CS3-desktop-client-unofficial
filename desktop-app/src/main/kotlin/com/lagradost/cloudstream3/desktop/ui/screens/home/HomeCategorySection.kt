@@ -204,6 +204,7 @@ fun HomeCategorySection(
                                         provider = provider,
                                         itemWidth = optimalItemWidth,
                                         onClick = { onItemClick(provider, posterItem, null, false) },
+                                        onPlayClick = { onItemClick(provider, posterItem, null, true) },
                                     )
                                 }
                             }

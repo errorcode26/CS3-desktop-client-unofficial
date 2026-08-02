@@ -1258,7 +1258,7 @@
 <div id="audioPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Audio Tracks (Dubs)</h2>
+            <h2>Audio Tracks</h2>
             <button class="close-btn" id="closeAudioBtn">✕</button>
         </div>
     </div>
@@ -1318,6 +1318,10 @@
         <div class="settings-tab-content" id="sub-style">
             <div class="settings-section" style="border-bottom: none;">
                 <div class="settings-label">Subtitle Style</div>
+                <div class="style-row" style="margin-bottom:12px; display:flex; flex-direction:column; align-items:flex-start;">
+                    <span style="margin-bottom:6px;">Custom Font</span>
+                    <input type="text" id="subFontInput" placeholder="Default (or type 'Arial')" onchange="send('setSubtitleFont', this.value)" style="width:100%; padding:8px; border-radius:6px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; font-size:14px; outline:none;" />
+                </div>
                 <div class="style-row">
                     <span>Color</span>
                     <div class="color-row">
@@ -1435,6 +1439,10 @@
                 <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
                     <span>Stats for Nerds</span>
                     <button class="chip" id="btnToggleStats" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Smooth Video</span>
+                    <button class="chip" id="btnToggleInterpolation" style="padding: 4px 14px; min-width: 60px;">Off</button>
                 </div>
             </div>
         </div>
@@ -2857,6 +2865,11 @@
             searchInput.value = meta.title;
             searchInput._defaultTitle = meta.title;
         }
+        // Update custom font input
+        const subFontInput = document.getElementById('subFontInput');
+        if (subFontInput && meta.activeSubtitleFont !== undefined) {
+            subFontInput.value = meta.activeSubtitleFont || '';
+        }
 
         // Shaders
         let shaderHtml = '';
@@ -2936,6 +2949,21 @@
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
             document.getElementById('loadingStatus').innerText = s.loadingStatusText;
         }
+
+        if (s.interpolationEnabled !== undefined) {
+            interpolationEnabled = s.interpolationEnabled === true;
+            const btn = document.getElementById('btnToggleInterpolation');
+            if (btn) {
+                if (interpolationEnabled) {
+                    btn.classList.add('active');
+                    btn.innerText = 'On';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Off';
+                }
+            }
+        }
+
         evaluateUIStates();
         evaluateResumeOverlay();
     };
@@ -3391,6 +3419,22 @@
             statsOverlay.classList.remove('show');
         }
         send('toggleStats');
+    });
+
+    // Interpolation toggle
+    let interpolationEnabled = false; // We should ideally get this from Kotlin on init, but toggling works
+    document.getElementById('btnToggleInterpolation').addEventListener('click', e => {
+        e.stopPropagation();
+        interpolationEnabled = !interpolationEnabled;
+        const btn = document.getElementById('btnToggleInterpolation');
+        if (interpolationEnabled) {
+            btn.classList.add('active');
+            btn.innerText = 'On';
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = 'Off';
+        }
+        send('toggleInterpolation', interpolationEnabled.toString());
     });
 
     // Tabs Navigation (scoped to parent panel)
