@@ -72,6 +72,9 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
             if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                 toggleFunc()
                 true
+            } else if (keyEvent.key == Key.F12 && keyEvent.type == KeyEventType.KeyDown) {
+                com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState.toggle()
+                true
             } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && controller.isFullscreen) {
                 toggleFunc()
                 true

@@ -1,0 +1,589 @@
+{
+  "@@locale": "zh",
+  "appTitle": "SkyStream",
+  "languageName": "简体中文",
+  "home": "首页",
+  "search": "搜索",
+  "explore": "探索",
+  "library": "媒体库",
+  "settings": "设置",
+  "extensions": "扩展",
+  "updateAvailable": "发现新版本",
+  "retry": "重试",
+  "factoryReset": "恢复出厂设置",
+  "startupError": "启动错误",
+  "general": "常规",
+  "appTheme": "应用主题",
+  "recordWatchHistory": "记录观看历史",
+  "defaultHomeScreen": "默认启动页",
+  "player": "播放器",
+  "defaultPlayer": "默认播放器",
+  "leftGesture": "左侧手势",
+  "rightGesture": "右侧手势",
+  "doubleTapToSeek": "双击快进/快退",
+  "swipeToSeek": "滑动快进/快退",
+  "seekDuration": "快进/快退秒数",
+  "bufferDepth": "缓冲深度",
+  "defaultResizeMode": "默认填充模式",
+  "hardwareDecoding": "硬件解码",
+  "network": "网络",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH 供应商",
+  "manageExtensions": "管理扩展",
+  "appData": "应用数据",
+  "resetDataKeepExtensions": "重置数据（保留扩展）",
+  "developer": "开发者",
+  "developerOptions": "开发者选项",
+  "about": "关于",
+  "version": "版本",
+  "enabled": "开启",
+  "disabled": "关闭",
+  "system": "跟随系统",
+  "dark": "深色",
+  "light": "浅色",
+  "later": "以后再说",
+  "updateNow": "立即更新",
+  "save": "保存",
+  "cancel": "取消",
+  "close": "关闭",
+  "delete": "删除",
+  "viewDetails": "查看详情",
+  "clearAll": "清除全部",
+  "clearAllHistory": "清除观看历史",
+  "all": "全部",
+  "none": "无",
+  "confirmDownload": "确认下载",
+  "downloadNow": "立即下载",
+  "selectSource": "选择来源",
+  "downloadUnavailable": "暂无可下载源",
+  "selectAnotherSource": "选择其他来源",
+  "watchHistoryCleared": "观看历史已清除",
+  "downloadingUpdate": "正在下载更新...",
+  "errorPrefix": "错误: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "可用更新: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "选择一个供应商以开始",
+  "tapExtensionIcon": "点击角落的扩展图标",
+  "continueWatching": "继续观看",
+  "noInternetConnection": "无网络连接",
+  "siteNotReachable": "无法访问该站点",
+  "checkConnectionOrDownloads": "请检查网络连接或查看已下载内容。",
+  "tryVpnOrConnection": "请尝试使用 VPN 或检查网络连接。",
+  "errorDetails": "错误详情: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "转到下载",
+  "selectProvider": "选择供应商",
+  "searchHint": "搜索电影、剧集...",
+  "searchFavoriteContent": "搜索你喜爱的内容",
+  "pressSearchOrEnter": "按下搜索键或回车开始",
+  "noResultsFound": "未找到结果。",
+  "couldNotLoadTrending": "无法加载热门趋势",
+  "popularMovies": "热门电影",
+  "popularTVShows": "热门剧集",
+  "newMovies": "最新电影",
+  "newTVShows": "最新剧集",
+  "featuredMovies": "精选电影",
+  "featuredTVShows": "精选剧集",
+  "lastVideosTVShows": "最新更新剧集",
+  "downloads": "下载",
+  "bookmarks": "收藏",
+  "noDownloadsYet": "暂无下载内容",
+  "episodesCount": "{count} 集 • 已看完 {done} 集",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "删除所有剧集",
+  "confirmDeleteAllEpisodes": "确定要删除 \"{title}\" 的所有 {count} 集内容及文件吗？",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "删除全部",
+  "completed": "完成",
+  "statusQueued": "排队中...",
+  "statusDownloading": "下载中...",
+  "statusFinished": "已完成",
+  "statusFailed": "失败",
+  "statusCanceled": "已取消",
+  "statusPaused": "已暂停",
+  "statusWaiting": "等待中...",
+  "fileNotFoundRemoving": "未找到文件。正在移除记录。",
+  "fileNotFound": "未找到文件",
+  "deleteDownload": "删除下载",
+  "confirmDeleteDownload": "确定要删除此下载内容及文件吗？",
+  "libraryEmpty": "你的媒体库是空的",
+  "language": "语言",
+  "english": "英语",
+  "hindi": "印地语",
+  "kannada": "卡纳达语",
+  "unknown": "未知",
+  "recommended": "推荐",
+  "on": "开",
+  "off": "关",
+  "installRemoveProviders": "安装或移除供应商",
+  "resetDataSubtitle": "重置设置和数据库，保留插件",
+  "factoryResetSubtitle": "删除所有数据、设置和扩展",
+  "developerOptionsSubtitle": "调试工具与本地播放",
+  "loading": "加载中...",
+  "sec": "秒",
+  "min": "分",
+  "internalPlayer": "内置播放器 (media_kit)",
+  "builtInPlayer": "内置播放器",
+  "customNotSet": "自定义（未设置）",
+  "selectGesture": "选择 {side} 手势",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "左侧",
+  "right": "右侧",
+  "selectSeekDuration": "选择快进/快退秒数",
+  "selectBufferDepth": "选择缓冲深度",
+  "subtitleSettings": "字幕设置",
+  "size": "大小: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "背景",
+  "customDohUrlLabel": "自定义 DoH 地址",
+  "enterCustomDohUrl": "输入你的 DoH URL",
+  "chooseTheme": "选择主题",
+  "resetDataDialogTitle": "重置数据？",
+  "resetDataDialogContent": "这将清除设置、收藏和历史。已安装的扩展不会被移除。",
+  "factoryResetDialogTitle": "恢复出厂设置？",
+  "factoryResetDialogContent": "这将删除所有内容：收藏、历史、设置及所有扩展。操作不可逆。",
+  "selectLanguage": "选择语言",
+  "synopsis": "剧情简介",
+  "noDescription": "暂无描述。",
+  "videoAlreadyDownloadedPrompt": "此视频已下载。你想如何操作？",
+  "playNow": "立即播放",
+  "deleteDownloadPrompt": "删除下载？",
+  "deleteDownloadConfirmation": "确定要删除此文件吗？操作不可逆。",
+  "no": "否",
+  "yesDelete": "是，删除",
+  "downloadPaused": "下载已暂停",
+  "downloading": "下载中",
+  "speed": "速度",
+  "remaining": "剩余",
+  "resume": "恢复",
+  "pause": "暂停",
+  "torrentContent": "种子内容",
+  "audioTracks": "音轨",
+  "noAudioTracks": "未找到音轨",
+  "subtitles": "字幕",
+  "options": "选项",
+  "noSubtitlesFound": "未找到字幕",
+  "playbackSpeed": "播放速度",
+  "subtitleOptions": "字幕选项",
+  "hlsSubtitleWarning": "此平台上的 HLS 播放器不支持外挂字幕。",
+  "loadFromDevice": "从设备加载",
+  "syncDelay": "同步 / 延迟",
+  "styleSettings": "样式设置",
+  "searchOnline": "在线搜索",
+  "subtitleSync": "字幕同步",
+  "subtitleDelayWarning": "当前播放引擎不支持字幕延迟设置。",
+  "resetDelay": "重置延迟",
+  "subtitleStyles": "字幕样式",
+  "mediaKitStylingWarning": "字幕样式设置目前仅支持 media_kit 播放器。",
+  "resetToDefault": "恢复默认",
+  "fontSize": "字体大小",
+  "verticalPosition": "垂直位置",
+  "textColor": "文字颜色",
+  "backgroundColor": "背景颜色",
+  "backgroundOpacity": "背景不透明度",
+  "subtitleSearch": "搜索字幕",
+  "searchSubtitleNameHint": "字幕名称...",
+  "enterSearchSubtitlePrompt": "输入名称以搜索字幕。",
+  "noSubtitleResults": "未找到结果。请尝试其他词项。",
+  "downloadingApplyingSubtitle": "正在下载并应用字幕...",
+  "failedToDownloadSubtitle": "下载字幕失败。",
+  "failedToLoadSubtitles": "加载字幕失败。请重试。",
+  "noReposFound": "未找到存储库或插件",
+  "downloadAllProviders": "下载全部",
+  "removeRepository": "移除存储库",
+  "addRepo": "添加存储库",
+  "extensionsNotInRepos": "不在存储库中的扩展",
+  "noLongerInRepo": "不再存在于任何存储库中",
+  "addRepoToBrowse": "添加存储库以浏览和更新插件",
+  "debugExtensions": "调试扩展",
+  "removeRepoConfirm": "移除 {repoName}？",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "这将移除存储库并卸载其包含的所有插件。",
+  "addRepository": "添加存储库",
+  "repoUrlOrShortcode": "存储库地址或短代码",
+  "assetPlugin": "资源插件",
+  "installed": "已安装",
+  "updateTo": "更新至 {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "安装",
+  "error": "错误",
+  "ok": "确定",
+  "pluginSettings": "{pluginName} 设置",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "电影",
+  "series": "剧集",
+  "anime": "动漫",
+  "liveStreams": "直播",
+  "debug": "调试",
+  "extensionsUpdated": "{count, plural, other{{count} 个扩展已更新}}",
+  "invalidNavigation": "导航无效。请返回。",
+  "startOver": "重新开始",
+  "goBack": "返回",
+  "resolving": "解析中...",
+  "downloaded": "已下载",
+  "download": "下载",
+  "debugOnlyFeature": "此功能仅在调试版本中可用",
+  "streamUrl": "串流地址",
+  "play": "播放",
+  "verifyingSourceSize": "正在验证来源和大小...",
+  "fileSaveLocationNotification": "文件将保存到下载文件夹中。",
+  "resumingPlayback": "继续播放",
+  "pausedAt": "暂停于 {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, other{{count} 秒后自动继续}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "立即继续",
+  "playbackError": "播放错误",
+  "confirmClearHistory": "确定要清除所有观看历史吗？",
+  "seasonWithNumber": "第 {number} 季",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "启动中...",
+  "percentWatched": "已观看 {percent}%",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "中字",
+  "dub": "配音",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "调试工具",
+  "playLocalVideo": "播放本地视频",
+  "playLocalVideoSubtitle": "播放设备上的视频",
+  "streamUrlSubtitle": "播放网络地址",
+  "streamTorrent": "播放种子",
+  "streamTorrentSubtitle": "选择本地种子文件播放",
+  "loadPluginFromAssets": "从资源加载插件",
+  "enterVideoUrlHint": "输入视频地址 (http, magnet 等)",
+  "networkStream": "网络串流",
+  "removedFromHistory": "已从历史中移除 {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "自定义",
+  "refreshingLiveStream": "刷新直播...",
+  "removeFromHistory": "从历史中移除",
+  "live": "直播",
+  "volume": "音量",
+  "brightness": "亮度",
+  "fit": "适应",
+  "zoom": "缩放",
+  "stretch": "拉伸",
+  "titleWithParam": "标题: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "来源: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "大小: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "错误: {error}。正在使用内置播放器。",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "未检测到 {playerName}。正在启动内置播放器。",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "第 {number} 季 ({count} 集)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "为 {playerName} 选择来源",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "未安装插件",
+  "availableSources": "可用来源",
+  "seasons": "季",
+  "episodes": "集",
+  "selectSourceToPlay": "请选择上方可用来源播放。",
+  "episodeCountOnly": "{count} 集",
+  "noEpisodesFound": "未找到剧集",
+  "local": "本地",
+  "remote": "远程",
+  "torrent": "种子",
+  "unlock": "解锁",
+  "lock": "锁定",
+  "sources": "来源",
+  "tracks": "轨道",
+  "content": "内容",
+  "stats": "统计",
+  "resize": "缩放",
+  "next": "下一个",
+  "pip": "画中画",
+  "rotate": "旋转",
+  "windowed": "窗口化",
+  "fullscreen": "全屏",
+  "movieDetails": "电影详情",
+  "showDetails": "查看详情",
+  "tagline": "宣传语",
+  "status": "状态",
+  "releaseDate": "上映日期",
+  "firstAirDate": "首播日期",
+  "originalLanguage": "原始语言",
+  "originCountry": "出品国家",
+  "budgetLabel": "预算",
+  "revenueLabel": "票房",
+  "paused": "暂停中",
+  "watched": "已观看",
+  "watching": "正在观看",
+  "lastWatched": "最后观看",
+  "movie": "电影",
+  "tvShow": "剧集",
+  "failedToLoadContent": "加载内容失败",
+  "director": "导演",
+  "creator": "主创",
+  "showMore": "展开",
+  "showLess": "收起",
+  "viewAll": "查看全部",
+  "seasonsCount": "{count} 季",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "无网络连接",
+  "timeoutError": "请求超时。请重试。",
+  "serverError": "服务器错误。请稍后重试。",
+  "contentNotFoundError": "未找到内容。",
+  "accessDeniedError": "访问被拒绝。请检查凭据。",
+  "serviceUnavailableError": "服务器不可用。稍后重试。",
+  "generalError": "出了些问题。请重试。",
+  "skip": "跳过",
+  "goLive": "进入直播",
+  "dismiss": "关闭",
+  "nextUp": "下一集",
+  "sourceAttempt": "播放源 {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "重试中",
+  "failed": "失败",
+  "selected": "已选择",
+  "playing": "播放中",
+  "pending": "等待中",
+  "discord": "Discord",
+  "discordSubtitle": "加入我们的服务器",
+  "telegram": "Telegram",
+  "telegramSubtitle": "加入我们的频道",
+  "developedBy": "由 {name} 开发",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi 视频质量偏好",
+  "mobileQualityPreference": "移动网络视频质量偏好",
+  "anyNoPreference": "不限（无偏好）",
+  "subtitleAccounts": "字幕账户",
+  "notLoggedIn": "未登录",
+  "loggedInAs": "已登录为 {username}",
+  "apiKeyConfigured": "API 密钥已配置",
+  "keyNotSet": "未设置密钥",
+  "testConnection": "测试连接",
+  "connectedSuccessfully": "连接成功",
+  "connectionFailed": "连接失败",
+  "username": "用户名",
+  "password": "密码",
+  "noAccountRegister": "没有账户？在此注册",
+  "apiKey": "API 密钥",
+  "email": "电子邮箱",
+  "fetchMyApiKey": "获取我的 API 密钥",
+  "keyVerified": "密钥已验证",
+  "invalidApiKey": "无效的 API 密钥",
+  "openSubtitlesAuthSubtitle": "输入您的账户凭据以获得更高限制和无广告字幕。",
+  "subDlAuthSubtitle": "直接输入您的 SubDL API 密钥，或者在下方使用您的账户凭据获取。",
+  "orFetchViaAccount": "或通过账户获取",
+  "subSourceAuthSubtitle": "SubSource 开箱即用，但您可以添加个人官方 API 密钥以提高可靠性。",
+  "apiKeyOptionalOverride": "API 密钥（可选覆盖）",
+  "enterKeyToOverrideDefault": "输入密钥以覆盖默认设置",
+  "getApiKeyFromProfile": "从 SubSource 个人资料获取您的 API 密钥",
+  "qualityNotGuaranteed": "不保证质量。来源按偏好排序，但播放取决于提供商实际提供的内容。",
+  "keepSourcesOriginalOrder": "保持来源原始顺序",
+  "openLink": "打开链接",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "诊断",
+  "viewLogs": "查看日志",
+  "viewLogsSubtitle": "查看应用程序活动和错误",
+  "goToExtensions": "前往扩展",
+  "noPluginsMessage": "安装扩展以浏览和流式传输内容。"
+}

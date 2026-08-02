@@ -19,6 +19,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,17 +59,31 @@ fun HomeCategorySection(
             mutex.withLock {
                 if (categoryCache[cacheKey] == null) {
                     errorMessage = null
-                    try {
-                        val request = MainPageRequest(pageData.name, pageData.data, pageData.horizontalImages)
-                        val response = withContext(Dispatchers.IO) { provider.getMainPage(1, request) }
+                    val request = MainPageRequest(pageData.name, pageData.data, pageData.horizontalImages)
+                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loading home category: '${pageData.name}'")
+                    val result = SafePluginInvoker.invoke(
+                        tag = "HomeCategory:${provider.name}:${pageData.name.ifBlank { "Category" }}",
+                        timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                    ) {
+                        provider.getMainPage(1, request)
+                    }
+
+                    if (result.isSuccess) {
+                        val response = result.getOrNull()
                         if (response != null && response.items.isNotEmpty()) {
+                            com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loaded ${response.items.size} items for category '${pageData.name}'")
                             categoryCache[cacheKey] = response
                         } else {
                             errorMessage = "No items found."
                         }
-                    } catch (e: Throwable) {
-                        DesktopErrorReporter.report("getMainPage failed for ${provider.name} - ${pageData.name.ifBlank { "Unknown Category" }}", e)
-                        errorMessage = e.localizedMessage ?: "Connection error"
+                    } else {
+                        val ex = result.exceptionOrNull()
+                        if (ex is kotlinx.coroutines.CancellationException) {
+                            throw ex
+                        }
+                        com.lagradost.common.logging.AppLogger.w("Plugin:${provider.name}", "Failed to load category '${pageData.name}': ${ex?.message}")
+                        DesktopErrorReporter.report("getMainPage failed for ${provider.name} - ${pageData.name.ifBlank { "Unknown Category" }}", ex ?: Exception("Unknown error"))
+                        errorMessage = ex?.localizedMessage ?: "Connection error"
                     }
                 }
                 homePage = categoryCache[cacheKey]

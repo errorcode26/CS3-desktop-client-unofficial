@@ -644,7 +644,8 @@
             if (is4K) { badgeText = '4K'; badgeClass = 'hd'; }
             else if (isHD) { badgeText = 'HD'; badgeClass = 'hd'; }
             
-            return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink','${l.index}');closeAllPanels();">
+            const urlEncoded = encodeURIComponent(l.url || '');
+            return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink', decodeURIComponent('${urlEncoded}'));closeAllPanels();">
                 <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
                 <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
                 <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>

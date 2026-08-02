@@ -60,12 +60,21 @@ Before running, you need a local copy of the `libmpv` shared library for video d
    `desktop-app/appResources/windows/mpv/`
 
 ### 3. Run Locally
-To compile and launch the desktop application in developer mode:
-```bash
-.\gradlew.bat :desktop-app:run
+To launch the desktop application, simply run the unified launcher script:
+```bat
+.\launch.bat
 ```
-> [!WARNING]
-> Running this command bypasses `jpackage` and the release `.cfg` configuration entirely. Always build the actual `.exe` using `compile.bat` and test it locally before pushing packaging or JNI changes, otherwise you might introduce silent crashes in the release build!
+Or specify direct command-line targets:
+```bat
+.\launch.bat dev       # Launches with Dev Studio & Live LogCat (F12)
+.\launch.bat release   # Launches packaged standalone .exe (builds if needed)
+.\launch.bat build     # Compiles standalone release EXE
+.\launch.bat test      # Runs all unit test suites & verification checks
+```
+
+> [!TIP]
+> Press **F12** anywhere inside the app to toggle the live Dev Studio LogCat console.
+
 To quickly run only the isolated media player test harness (without starting the entire app UI):
 ```bash
 # For WebView player testing:
@@ -89,7 +98,7 @@ If you are tweaking the raw C++ code for the WebView2 JNI player bridge (`deskto
 
 ### 5. Build Installer (Optional)
 If you need to generate a standalone Windows `.exe` setup installer for testing:
-1. Run `compile.bat` to clean and compile the latest executable binaries.
+1. Run `launch.bat build` to clean and compile the latest executable binaries.
 2. Open Inno Setup Compiler and compile [installer/setup.iss](installer/setup.iss).
 
 The compiled setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.

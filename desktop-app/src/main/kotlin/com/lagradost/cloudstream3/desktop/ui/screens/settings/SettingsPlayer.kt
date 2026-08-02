@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsPlayer(
@@ -24,6 +25,8 @@ fun SettingsPlayer(
     var autoPlayTimeout by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000") }
     var useInterpolation by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_INTERPOLATION) ?: false) }
 
+    val scope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -36,7 +39,9 @@ fun SettingsPlayer(
                 currentValue = hwdec,
                 onSelectionChanged = {
                     hwdec = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_HWDEC, it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_HWDEC, it)
+                    }
                 },
             )
 
@@ -46,7 +51,9 @@ fun SettingsPlayer(
                 checked = useInterpolation,
                 onCheckedChange = {
                     useInterpolation = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_INTERPOLATION, it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_INTERPOLATION, it)
+                    }
                 }
             )
 
@@ -63,7 +70,9 @@ fun SettingsPlayer(
                 currentValue = preferredQuality,
                 onSelectionChanged = {
                     preferredQuality = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_PREFERRED_QUALITY, it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_PREFERRED_QUALITY, it)
+                    }
                 },
             )
 
@@ -79,7 +88,9 @@ fun SettingsPlayer(
                 currentValue = ytdlFormat,
                 onSelectionChanged = {
                     ytdlFormat = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_YTDL_FORMAT, it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_YTDL_FORMAT, it)
+                    }
                 },
             )
         }
@@ -91,7 +102,9 @@ fun SettingsPlayer(
                 checked = waitForLinks,
                 onCheckedChange = {
                     waitForLinks = it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS, it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS, it)
+                    }
                 },
             )
 
@@ -101,7 +114,9 @@ fun SettingsPlayer(
                 checked = !autoPlay,
                 onCheckedChange = {
                     autoPlay = !it
-                    DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY, !it)
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY, !it)
+                    }
                 },
             )
 
@@ -119,7 +134,9 @@ fun SettingsPlayer(
                     currentValue = autoPlayTimeout,
                     onSelectionChanged = {
                         autoPlayTimeout = it
-                        DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT, it)
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            DesktopDataStore.setKey(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT, it)
+                        }
                     },
                 )
             }

@@ -1,0 +1,589 @@
+{
+  "@@locale": "tr",
+  "appTitle": "SkyStream",
+  "languageName": "Türkçe",
+  "home": "Ana Sayfa",
+  "search": "Ara",
+  "explore": "Keşfet",
+  "library": "Kütüphane",
+  "settings": "Ayarlar",
+  "extensions": "Eklentiler",
+  "updateAvailable": "Güncelleme Mevcut",
+  "retry": "Yeniden Dene",
+  "factoryReset": "Fabrika Ayarlarına Sıfırla",
+  "startupError": "Başlatma Hatası",
+  "general": "Genel",
+  "appTheme": "Uygulama Teması",
+  "recordWatchHistory": "İzleme Geçmişini Kaydet",
+  "defaultHomeScreen": "Varsayılan Ana Ekran",
+  "player": "Oynatıcı",
+  "defaultPlayer": "Varsayılan Oynatıcı",
+  "leftGesture": "Sol Hareket",
+  "rightGesture": "Sağ Hareket",
+  "doubleTapToSeek": "İleri/Geri Sarmak İçin Çift Tıkla",
+  "swipeToSeek": "İleri/Geri Sarmak İçin Kaydır",
+  "seekDuration": "Atlama Süresi",
+  "bufferDepth": "Tampon Derinliği",
+  "defaultResizeMode": "Varsayılan Boyutlandırma Modu",
+  "hardwareDecoding": "Donanım Dekoderi",
+  "network": "Ağ",
+  "dnsOverHttps": "HTTPS üzerinden DNS (DoH)",
+  "dohProvider": "DoH Sağlayıcısı",
+  "manageExtensions": "Eklentileri Yönet",
+  "appData": "Uygulama Verileri",
+  "resetDataKeepExtensions": "Verileri Sıfırla (Eklentileri Koru)",
+  "developer": "Geliştirici",
+  "developerOptions": "Geliştirici Seçenekleri",
+  "about": "Hakkında",
+  "version": "Sürüm",
+  "enabled": "Etkin",
+  "disabled": "Devre Dışı",
+  "system": "Sistem",
+  "dark": "Karanlık",
+  "light": "Aydınlık",
+  "later": "Sonra",
+  "updateNow": "Şimdi Güncelle",
+  "save": "Kaydet",
+  "cancel": "İptal",
+  "close": "Kapat",
+  "delete": "Sil",
+  "viewDetails": "Detayları Görüntüle",
+  "clearAll": "Tümünü Temizle",
+  "clearAllHistory": "Geçmişi Temizle",
+  "all": "Tümü",
+  "none": "Hiçbiri",
+  "confirmDownload": "İndirmeyi Onayla",
+  "downloadNow": "Şimdi İndir",
+  "selectSource": "Kaynak Seç",
+  "downloadUnavailable": "İndirme Mevcut Değil",
+  "selectAnotherSource": "Başka Bir Kaynak Seç",
+  "watchHistoryCleared": "İzleme geçmişi temizlendi",
+  "downloadingUpdate": "Güncelleme indiriliyor...",
+  "errorPrefix": "Hata: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Güncelleme Mevcut: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "İzlemeye başlamak için bir sağlayıcı seçin",
+  "tapExtensionIcon": "Köşedeki eklenti simgesine dokunun",
+  "continueWatching": "İzlemeye Devam Et",
+  "noInternetConnection": "İnternet Bağlantısı Yok",
+  "siteNotReachable": "Siteye Erişilemiyor",
+  "checkConnectionOrDownloads": "Bağlantınızı kontrol edin veya indirilen içeriklerinizi görüntüleyin.",
+  "tryVpnOrConnection": "Lütfen siteye VPN ile erişmeyi deneyin veya internet bağlantınızı kontrol edin.",
+  "errorDetails": "Hata Detayları: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "İndirilenlere Git",
+  "selectProvider": "Sağlayıcı Seç",
+  "searchHint": "Film, dizi ara...",
+  "searchFavoriteContent": "Favori içeriğinizi arayın",
+  "pressSearchOrEnter": "Başlamak için Ara tuşuna veya Enter'a basın",
+  "noResultsFound": "Sonuç bulunamadı.",
+  "couldNotLoadTrending": "Trend olanlar yüklenemedi",
+  "popularMovies": "Popüler Filmler",
+  "popularTVShows": "Popüler Diziler",
+  "newMovies": "Yeni Filmler",
+  "newTVShows": "Yeni Diziler",
+  "featuredMovies": "Öne Çıkan Filmler",
+  "featuredTVShows": "Öne Çıkan Diziler",
+  "lastVideosTVShows": "Son Diziler",
+  "downloads": "İndirilenler",
+  "bookmarks": "Yer İmleri",
+  "noDownloadsYet": "Henüz indirme yok",
+  "episodesCount": "{count} Bölüm • {done} Tamamlandı",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Tüm Bölümleri Sil",
+  "confirmDeleteAllEpisodes": "\"{title}\" dizisinin tüm {count} bölümünü ve dosyalarını silmek istediğinizden emin misiniz?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Tümünü Sil",
+  "completed": "Tamamlandı",
+  "statusQueued": "Sırada...",
+  "statusDownloading": "İndiriliyor...",
+  "statusFinished": "Bitti",
+  "statusFailed": "Başarısız",
+  "statusCanceled": "İptal Edildi",
+  "statusPaused": "Duraklatıldı",
+  "statusWaiting": "Bekliyor...",
+  "fileNotFoundRemoving": "Dosya diskte bulunamadı. Kayıt siliniyor.",
+  "fileNotFound": "Dosya bulunamadı",
+  "deleteDownload": "İndirmeyi Sil",
+  "confirmDeleteDownload": "Bu indirmeyi ve dosyasını silmek istediğinizden emin misiniz?",
+  "libraryEmpty": "Kütüphaneniz boş",
+  "language": "Dil",
+  "english": "İngilizce",
+  "hindi": "Hintçe",
+  "kannada": "Kannada",
+  "unknown": "Bilinmiyor",
+  "recommended": "Önerilen",
+  "on": "Açık",
+  "off": "Kapalı",
+  "installRemoveProviders": "Sağlayıcıları kur veya kaldır",
+  "resetDataSubtitle": "Ayarları ve veritabanını temizle, eklentileri koru",
+  "factoryResetSubtitle": "Tüm verileri, ayarları ve eklentileri sil",
+  "developerOptionsSubtitle": "Hata ayıklama araçları ve yerel oynatma",
+  "loading": "Yükleniyor...",
+  "sec": "sn",
+  "min": "dk",
+  "internalPlayer": "Dahili (media_kit)",
+  "builtInPlayer": "Yerleşik oynatıcı",
+  "customNotSet": "Özel (ayarlanmadı)",
+  "selectGesture": "{side} Hareketi Seç",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "Sol",
+  "right": "Sağ",
+  "selectSeekDuration": "Atlama Süresini Seç",
+  "selectBufferDepth": "Tampon Derinliğini Seç",
+  "subtitleSettings": "Altyazı Ayarları",
+  "size": "Boyut: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Arka Plan",
+  "customDohUrlLabel": "Özel DoH URL",
+  "enterCustomDohUrl": "Kendi DoH URL'nizi girin",
+  "chooseTheme": "Tema Seç",
+  "resetDataDialogTitle": "Verileri Sıfırla?",
+  "resetDataDialogContent": "Bu işlem Ayarları, Favorileri ve Geçmişi temizleyecektir. Kurulu Eklentileriniz silinmeyecektir.",
+  "factoryResetDialogTitle": "Fabrika Ayarlarına Sıfırla?",
+  "factoryResetDialogContent": "Bu işlem HER ŞEYİ silecek: Favoriler, Geçmiş, Ayarlar ve TÜM Eklentiler. Bu işlem geri alınamaz.",
+  "selectLanguage": "Dil Seç",
+  "synopsis": "Özet",
+  "noDescription": "Açıklama mevcut değil.",
+  "videoAlreadyDownloadedPrompt": "Bu video zaten indirildi. Ne yapmak appliesiniz?",
+  "playNow": "Şimdi Oynat",
+  "deleteDownloadPrompt": "İndirmeyi Sil?",
+  "deleteDownloadConfirmation": "Bu dosyayı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+  "no": "Hayır",
+  "yesDelete": "Evet, Sil",
+  "downloadPaused": "İndirme Duraklatıldı",
+  "downloading": "İndiriliyor",
+  "speed": "Hız",
+  "remaining": "Kalan",
+  "resume": "Devam Et",
+  "pause": "Duraklat",
+  "torrentContent": "Torrent İçeriği",
+  "audioTracks": "Ses Rayları",
+  "noAudioTracks": "Ses rayı bulunamadı",
+  "subtitles": "Altyazılar",
+  "options": "Seçenekler",
+  "noSubtitlesFound": "Altyazı parçası bulunamadı",
+  "playbackSpeed": "Oynatma Hızı",
+  "subtitleOptions": "Altyazı Seçenekleri",
+  "hlsSubtitleWarning": "Harici altyazı dosyaları bu platformdaki aktif HLS oynatıcısında desteklenmiyor.",
+  "loadFromDevice": "Cihazdan Yükle",
+  "syncDelay": "Senkronizasyon / Gecikme",
+  "styleSettings": "Stil Ayarları",
+  "searchOnline": "Çevrimiçi Ara (Altyazı Arama)",
+  "subtitleSync": "Altyazı Senkronizasyonu",
+  "subtitleDelayWarning": "Altyazı gecikmesi aktif oynatıcı tarafından desteklenmiyor.",
+  "resetDelay": "Gecikmeyi Sıfırla",
+  "subtitleStyles": "Altyazı Stilleri",
+  "mediaKitStylingWarning": "Altyazı stillendirme şu an sadece media_kit oynatıcısında mevcut.",
+  "resetToDefault": "Varsayılana Sıfırla",
+  "fontSize": "Yazı Tipi Boyutu",
+  "verticalPosition": "Dikey Pozisyon",
+  "textColor": "Metin Rengi",
+  "backgroundColor": "Arka Plan Rengi",
+  "backgroundOpacity": "Arka Plan Opaklığı",
+  "subtitleSearch": "Altyazı Arama",
+  "searchSubtitleNameHint": "Altyazı adı ara...",
+  "enterSearchSubtitlePrompt": "Altyazı bulmak için bir isim girin veya arayın.",
+  "noSubtitleResults": "Sonuç bulunamadı. Başka bir sorgu deneyin.",
+  "downloadingApplyingSubtitle": "Altyazı indiriliyor ve uygulanıyor...",
+  "failedToDownloadSubtitle": "Altyazı indirilemedi.",
+  "failedToLoadSubtitles": "Altyazılar yüklenemedi. Lütfen tekrar deneyin.",
+  "noReposFound": "Depo veya eklenti bulunamadı",
+  "downloadAllProviders": "Tümünü indir",
+  "removeRepository": "Depoyu Kaldır",
+  "addRepo": "Depo Ekle",
+  "extensionsNotInRepos": "Depolarda Olmayan Eklentiler",
+  "noLongerInRepo": "Artık herhangi bir depoda listelenmiyor",
+  "addRepoToBrowse": "Eklentilere göz atmak ve güncellemek için bir depo ekleyin",
+  "debugExtensions": "Eklentileri Hata Ayıkla",
+  "removeRepoConfirm": "{repoName} kaldırılsın mı?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "bu işlem depoyu kaldıracak ve TÜM eklentilerini silecek.",
+  "addRepository": "Depo Ekle",
+  "repoUrlOrShortcode": "Depo URL'si veya Kısa Kod",
+  "assetPlugin": "Varlık Eklentisi",
+  "installed": "Kurulu",
+  "updateTo": "{version} sürümüne güncelle",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Kur",
+  "error": "Hata",
+  "ok": "Tamam",
+  "pluginSettings": "{pluginName} Ayarları",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmler",
+  "series": "Diziler",
+  "anime": "Anime",
+  "liveStreams": "Canlı Yayınlar",
+  "debug": "HATA AYIKLAMA",
+  "extensionsUpdated": "{count, plural, =1{1 eklenti güncellendi} other{{count} eklenti güncellendi}}",
+  "invalidNavigation": "Geçersiz navigasyon. Lütfen geri gidin.",
+  "startOver": "Yeniden Başla",
+  "goBack": "Geri Dön",
+  "resolving": "Çözümleniyor...",
+  "downloaded": "İndirildi",
+  "download": "İndir",
+  "debugOnlyFeature": "Bu özellik sadece Hata Ayıklama yapılarında mevcuttur",
+  "streamUrl": "Yayın URL'si",
+  "play": "Oynat",
+  "verifyingSourceSize": "Kaynak ve boyut doğrulanıyor...",
+  "fileSaveLocationNotification": "Dosya İndirilenler klasörünüze kaydedilecektir.",
+  "resumingPlayback": "Oynatmaya Devam Ediliyor",
+  "pausedAt": "{time} konumunda duraklatıldı",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 saniye içinde otomatik olarak devam edecek} other{{count} saniye içinde otomatik olarak devam edecek}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Şimdi Devam Et",
+  "playbackError": "Oynatma Hatası",
+  "confirmClearHistory": "İzleme geçmişinden tüm öğeleri kaldırmak istediğinizden emin misiniz?",
+  "seasonWithNumber": "Sezon {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Başlatılıyor...",
+  "percentWatched": "%{percent} izlendi",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Altyazı",
+  "dub": "Dublaj",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Hata Ayıklama Araçları",
+  "playLocalVideo": "Yerel video dosyasını oynat",
+  "playLocalVideoSubtitle": "Cihazdan herhangi bir videoyu oynat",
+  "streamUrlSubtitle": "Ağ URL'sinden oynat",
+  "streamTorrent": "Torrent yayınla",
+  "streamTorrentSubtitle": "Oynatmak için yerel bir torrent dosyası seçin",
+  "loadPluginFromAssets": "Eklentiyi varlıklardan yükle",
+  "enterVideoUrlHint": "Video URL'sini girin (http, magnet, vb.)",
+  "networkStream": "Ağ Yayını",
+  "removedFromHistory": "{title} geçmişten kaldırıldı",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Özel",
+  "refreshingLiveStream": "Canlı yayın yenileniyor...",
+  "removeFromHistory": "Geçmişten Kaldır",
+  "live": "CANLI",
+  "volume": "Ses",
+  "brightness": "Parlaklık",
+  "fit": "Sığdır",
+  "zoom": "Yakınlaştır",
+  "stretch": "Uzat",
+  "titleWithParam": "Başlık: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Kaynak: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Boyut: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Hata: {error}. Dahili oynatıcı kullanılıyor.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} algılanamadı. Dahili oynatıcı başlatılıyor.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Sezon {number} ({count} Bölüm)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} için Kaynak Seç",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Eklenti kurulu değil",
+  "availableSources": "Mevcut Kaynaklar",
+  "seasons": "Sezonlar",
+  "episodes": "Bölümler",
+  "selectSourceToPlay": "Lütfen oynatmak için yukarıdaki 'Mevcut Kaynaklar'dan bir kaynak seçin.",
+  "episodeCountOnly": "{count, plural, =1{1 Bölüm} other{{count} Bölüm}}",
+  "noEpisodesFound": "Bölüm bulunamadı",
+  "local": "Yerel",
+  "remote": "Uzak",
+  "torrent": "Torrent",
+  "unlock": "Kilidi Aç",
+  "lock": "Kilitle",
+  "sources": "Kaynaklar",
+  "tracks": "İzler",
+  "content": "İçerik",
+  "stats": "İstatistikler",
+  "resize": "Boyutlandır",
+  "next": "Sonraki",
+  "pip": "PiP",
+  "rotate": "Döndür",
+  "windowed": "Pencereli",
+  "fullscreen": "Tam Ekran",
+  "movieDetails": "Film Detayları",
+  "showDetails": "Detayları Göster",
+  "tagline": "Slogan",
+  "status": "Durum",
+  "releaseDate": "Yayın Tarihi",
+  "firstAirDate": "İlk Bölüm Tarihi",
+  "originalLanguage": "Orijinal Dil",
+  "originCountry": "Menşei Ülke",
+  "budgetLabel": "Bütçe",
+  "revenueLabel": "Hasılat",
+  "paused": "Duraklatıldı",
+  "watched": "İzlendi",
+  "watching": "İzleniyor",
+  "lastWatched": "Son İzlenen",
+  "movie": "Film",
+  "tvShow": "Dizi",
+  "failedToLoadContent": "İçerik yüklenemedi",
+  "director": "Yönetmen",
+  "creator": "Yaratıcı",
+  "showMore": "Daha Fazla",
+  "showLess": "Daha Az",
+  "viewAll": "Tümünü Gör",
+  "seasonsCount": "{count} Sezon",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "İnternet bağlantısı yok",
+  "timeoutError": "İstek zaman aşımına uğradı. Lütfen tekrar deneyin.",
+  "serverError": "Sunucu hatası. Lütfen daha sonra tekrar deneyin.",
+  "contentNotFoundError": "İçerik bulunamadı.",
+  "accessDeniedError": "Erişim reddedildi. Bilgilerinizi kontrol edin.",
+  "serviceUnavailableError": "Sunucu kullanılamıyor. Daha sonra tekrar deneyin.",
+  "generalError": "Bir şeyler yanlış gitti. Lütfen tekrar deneyin.",
+  "skip": "Atla",
+  "goLive": "Canlıya Geç",
+  "dismiss": "Kapat",
+  "nextUp": "Sıradaki",
+  "sourceAttempt": "Kaynak {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Deneniyor",
+  "failed": "Başarısız",
+  "selected": "Seçildi",
+  "playing": "Oynatılıyor",
+  "pending": "Bekliyor",
+  "discord": "Discord",
+  "discordSubtitle": "Sunucumuza katılın",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Kanalımıza katılın",
+  "developedBy": "{name} tarafından geliştirildi",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi kalite tercihi",
+  "mobileQualityPreference": "Mobil kalite tercihi",
+  "anyNoPreference": "Fark etmez",
+  "subtitleAccounts": "Altyazı hesapları",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Bağlantıyı test et",
+  "connectedSuccessfully": "Bağlantı başarılı",
+  "connectionFailed": "Bağlantı başarısız",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API anahtarı",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Tanılama",
+  "viewLogs": "Günlükleri görüntüle",
+  "viewLogsSubtitle": "Uygulama etkinliğini ve hataları görüntüle",
+  "goToExtensions": "Uzantılara git",
+  "noPluginsMessage": "İçeriğe göz atmak ve akış yapmak için uzantıları yükleyin."
+}

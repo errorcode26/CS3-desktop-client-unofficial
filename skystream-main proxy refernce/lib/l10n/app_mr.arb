@@ -1,0 +1,589 @@
+{
+  "@@locale": "mr",
+  "appTitle": "SkyStream",
+  "languageName": "मराठी",
+  "home": "मुख्यपृष्ठ",
+  "search": "शोध",
+  "explore": "शोध घ्या",
+  "library": "ग्रंथालय",
+  "settings": "सेटिंग्ज",
+  "extensions": "एक्सटेंशन्स",
+  "updateAvailable": "अपडेट उपलब्ध आहे",
+  "retry": "पुन्हा प्रयत्न करा",
+  "factoryReset": "फॅक्टरी रिसेट",
+  "startupError": "प्रारंभ त्रुटी",
+  "general": "सामान्य",
+  "appTheme": "अ‍ॅप थीम",
+  "recordWatchHistory": "पाहिलेला इतिहास जतन करा",
+  "defaultHomeScreen": "डीफॉल्ट मुख्यपृष्ठ स्क्रीन",
+  "player": "प्लेअर",
+  "defaultPlayer": "डीफॉल्ट प्लेअर",
+  "leftGesture": "डावी हालचाल (Gesture)",
+  "rightGesture": "उजवी हालचाल (Gesture)",
+  "doubleTapToSeek": "शोधण्यासाठी दोनदा टॅप करा",
+  "swipeToSeek": "शोधण्यासाठी स्वाइप करा",
+  "seekDuration": "शोध कालावधी",
+  "bufferDepth": "बफर डेप्थ",
+  "defaultResizeMode": "डीफॉल्ट रिसाइझ मोड",
+  "hardwareDecoding": "हार्डवेअर डिकोडिंग",
+  "network": "नेटवर्क",
+  "dnsOverHttps": "HTTPS वर DNS",
+  "dohProvider": "DoH प्रदाता",
+  "manageExtensions": "एक्सटेंशन्स व्यवस्थापित करा",
+  "appData": "अ‍ॅप डेटा",
+  "resetDataKeepExtensions": "डेटा रिसेट करा (एक्सटेंशन्स ठेवा)",
+  "developer": "डेव्हलपर",
+  "developerOptions": "डेव्हलपर पर्याय",
+  "about": "बद्दल",
+  "version": "आवृत्ती",
+  "enabled": "सक्षम",
+  "disabled": "अक्षम",
+  "system": "सिस्टम",
+  "dark": "गडद",
+  "light": "प्रकाशमय",
+  "later": "नंतर",
+  "updateNow": "आत्ता अपडेट करा",
+  "save": "जतन करा",
+  "cancel": "रद्द करा",
+  "close": "बंद करा",
+  "delete": "हटवा",
+  "viewDetails": "तपशील पहा",
+  "clearAll": "सर्व साफ करा",
+  "clearAllHistory": "सर्व इतिहास साफ करा",
+  "all": "सर्व",
+  "none": "काहीही नाही",
+  "confirmDownload": "डाउनलोडची पुष्टी करा",
+  "downloadNow": "आत्ता डाउनलोड करा",
+  "selectSource": "स्रोत निवडा",
+  "downloadUnavailable": "डाउनलोड उपलब्ध नाही",
+  "selectAnotherSource": "दुसरा स्रोत निवडा",
+  "watchHistoryCleared": "इतिहास साफ केला",
+  "downloadingUpdate": "अपडेट डाउनलोड होत आहे...",
+  "errorPrefix": "त्रुटी: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "अपडेट उपलब्ध आहे: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "पाहणे सुरू करण्यासाठी प्रदाता निवडा",
+  "tapExtensionIcon": "कोपऱ्यातील एक्सटेंशन चिन्हावर टॅप करा",
+  "continueWatching": "पाहणे सुरू ठेवा",
+  "noInternetConnection": "इंटरनेट कनेक्शन नाही",
+  "siteNotReachable": "साइट पोहोचण्यायोग्य नाही",
+  "checkConnectionOrDownloads": "तुमचे कनेक्शन तपासा किंवा तुमचे डाउनलोड केलेले साहित्य पहा.",
+  "tryVpnOrConnection": "कृपया VPN वापरून साइट पहा किंवा तुमचे इंटरनेट कनेक्शन तपासा.",
+  "errorDetails": "त्रुटी तपशील: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "डाउनलोड्सवर जा",
+  "selectProvider": "प्रदाता निवडा",
+  "searchHint": "चित्रपट, मालिका शोधा...",
+  "searchFavoriteContent": "तुमचे आवडते साहित्य शोधा",
+  "pressSearchOrEnter": "सुरू करण्यासाठी सर्च की किंवा Enter दाबा",
+  "noResultsFound": "निकाल सापडले नाहीत.",
+  "couldNotLoadTrending": "ट्रेंडिंग आयटम लोड करता आले नाहीत",
+  "popularMovies": "लोकप्रिय चित्रपट",
+  "popularTVShows": "लोकप्रिय टीव्ही शो",
+  "newMovies": "नवीन चित्रपट",
+  "newTVShows": "नवीन टीव्ही शो",
+  "featuredMovies": "वैशिष्ट्यीकृत चित्रपट",
+  "featuredTVShows": "वैशिष्ट्यीकृत टीव्ही शो",
+  "lastVideosTVShows": "शेवटचे टीव्ही शो",
+  "downloads": "डाउनलोड्स",
+  "bookmarks": "बुकमार्क्स",
+  "noDownloadsYet": "अद्याप कोणतेही डाउनलोड नाहीत",
+  "episodesCount": "{count} भाग • {done} पूर्ण",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "सर्व भाग हटवा",
+  "confirmDeleteAllEpisodes": "तुम्हाला खात्री आहे की तुम्ही \"{title}\" चे सर्व {count} भाग आणि त्यांच्या फायली हटवू इच्छिता?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "सर्व हटवा",
+  "completed": "पूर्ण झाले",
+  "statusQueued": "रांगेत...",
+  "statusDownloading": "डाउनलोड होत आहे...",
+  "statusFinished": "पूर्ण झाले",
+  "statusFailed": "अयशस्वी",
+  "statusCanceled": "रद्द केले",
+  "statusPaused": "थांबवले",
+  "statusWaiting": "प्रतीक्षा करत आहे...",
+  "fileNotFoundRemoving": "डिस्कवर फाइल आढळली नाही. रेकॉर्ड हटवत आहे.",
+  "fileNotFound": "फाइल आढळली नाही",
+  "deleteDownload": "डाउनलोड हटवा",
+  "confirmDeleteDownload": "तुम्हाला खात्री आहे की तुम्ही हे डाउनलोड आणि त्याची फाइल हटवू इच्छिता?",
+  "libraryEmpty": "तुमचे ग्रंथालय रिकामे आहे",
+  "language": "भाषा",
+  "english": "इंग्रजी",
+  "hindi": "हिंदी",
+  "kannada": "कन्नड",
+  "unknown": "अज्ञात",
+  "recommended": "शिफारस केलेले",
+  "on": "सुरू",
+  "off": "बंद",
+  "installRemoveProviders": "प्रदाते स्थापित करा किंवा हटवा",
+  "resetDataSubtitle": "सेटिंग्ज आणि डेटाबेस साफ करा, प्लगइन्स ठेवा",
+  "factoryResetSubtitle": "सर्व डेटा, सेटिंग्ज आणि एक्सटेंशन्स हटवा",
+  "developerOptionsSubtitle": "डीबग टूल्स आणि लोकल प्ले",
+  "loading": "लोड होत आहे...",
+  "sec": "सेकंद",
+  "min": "मिनिट",
+  "internalPlayer": "अंतर्गत प्लेअर (media_kit)",
+  "builtInPlayer": "बिल्ट-इन प्लेअर",
+  "customNotSet": "सानुकूल (सेट नाही)",
+  "selectGesture": "{side} हालचाल निवडा",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "डावी",
+  "right": "उजवी",
+  "selectSeekDuration": "शोध कालावधी निवडा",
+  "selectBufferDepth": "बफर डेप्थ निवडा",
+  "subtitleSettings": "उपशीर्षक (Subtitle) सेटिंग्ज",
+  "size": "आकार: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "पार्श्वभूमी",
+  "customDohUrlLabel": "सानुकूल DoH URL",
+  "enterCustomDohUrl": "तुमचे स्वतःचे DoH URL प्रविष्ट करा",
+  "chooseTheme": "थीम निवडा",
+  "resetDataDialogTitle": "डेटा रिसेट करायचा?",
+  "resetDataDialogContent": "यामुळे सेटिंग्ज, आवडी आणि इतिहास साफ होईल. तुमचे स्थापित एक्सटेंशन्स हटवले जाणार नाहीत.",
+  "factoryResetDialogTitle": "फॅक्टरी रिसेट करायचा?",
+  "factoryResetDialogContent": "यामुळे सर्व काही हटवले जाईल: आवडी, इतिहास, सेटिंग्ज आणि सर्व एक्सटेंशन्स. हे पूर्ववत केले जाऊ शकत नाही.",
+  "selectLanguage": "भाषा निवडा",
+  "synopsis": "सारांश",
+  "noDescription": "वर्णन उपलब्ध नाही.",
+  "videoAlreadyDownloadedPrompt": "हा व्हिडिओ आधीच डाउनलोड झाला आहे. आपण काय करू इच्छिता?",
+  "playNow": "आत्ता पहा",
+  "deleteDownloadPrompt": "डाउनलोड हटवायचे?",
+  "deleteDownloadConfirmation": "तुम्हाला खात्री आहे की तुम्ही ही फाइल हटवू इच्छिता? हे पूर्ववत केले जाऊ शकत नाही.",
+  "no": "नाही",
+  "yesDelete": "हो, हटवा",
+  "downloadPaused": "डाउनलोड थांबवले",
+  "downloading": "डाउनलोड होत आहे",
+  "speed": "वेग",
+  "remaining": "शिल्लक",
+  "resume": "पुन्हा सुरू करा",
+  "pause": "थांबवा",
+  "torrentContent": "टॉरेंट साहित्य",
+  "audioTracks": "ऑडिओ ट्रॅक",
+  "noAudioTracks": "कोणतेही ऑडिओ ट्रॅक आढळले नाहीत",
+  "subtitles": "उपशीर्षके",
+  "options": "पर्याय",
+  "noSubtitlesFound": "कोणतीही उपशीर्षके आढळली नाहीत",
+  "playbackSpeed": "प्लेबॅक वेग",
+  "subtitleOptions": "उपशीर्षक पर्याय",
+  "hlsSubtitleWarning": "या प्लॅटफॉर्मवर सक्रिय HLS प्लेअरवर बाह्य उपशीर्षक फायली समर्थित नाहीत.",
+  "loadFromDevice": "डिव्हाइसवरून लोड करा",
+  "syncDelay": "सिंक / विलंब",
+  "styleSettings": "स्टाईल सेटिंग्ज",
+  "searchOnline": "ऑनलाइन शोधा (उपशीर्षक शोध)",
+  "subtitleSync": "उपशीर्षक सिंक",
+  "subtitleDelayWarning": "सक्रिय प्लेबॅक इंजिनद्वारे उपशीर्षक विलंब समर्थित नाही.",
+  "resetDelay": "विलंब रिसेट करा",
+  "subtitleStyles": "उपशीर्षक शैली",
+  "mediaKitStylingWarning": "उपशीर्षक स्टाईलिंग सध्या केवळ media_kit प्लेअरवर उपलब्ध आहे.",
+  "resetToDefault": "डीफॉल्टवर रिसेट करा",
+  "fontSize": "फॉन्ट आकार",
+  "verticalPosition": "उभी स्थिती",
+  "textColor": "मजकूर रंग",
+  "backgroundColor": "पार्श्वभूमी रंग",
+  "backgroundOpacity": "पार्श्वभूमी पारदर्शकता",
+  "subtitleSearch": "उपशीर्षक शोध",
+  "searchSubtitleNameHint": "उपशीर्षक नाव शोधा...",
+  "enterSearchSubtitlePrompt": "उपशीर्षके शोधण्यासाठी नाव प्रविष्ट करा.",
+  "noSubtitleResults": "निकाल सापडले नाहीत. दुसरा शोध करून पहा.",
+  "downloadingApplyingSubtitle": "उपशीर्षक डाउनलोड आणि लागू करत आहे...",
+  "failedToDownloadSubtitle": "उपशीर्षक डाउनलोड करणे अयशस्वी.",
+  "failedToLoadSubtitles": "उपशीर्षके लोड करणे अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+  "noReposFound": "कोणतेही रिपॉझिटरीज किंवा प्लगइन्स आढळले नाहीत",
+  "downloadAllProviders": "सर्व डाउनलोड करा",
+  "removeRepository": "रिपॉझिटरी हटवा",
+  "addRepo": "रिपो जोडा",
+  "extensionsNotInRepos": "रिपॉझिटरीजमध्ये नसलेली एक्सटेंशन्स",
+  "noLongerInRepo": "आता कोणत्याही रिपॉझिटरीमध्ये सूचीबद्ध नाही",
+  "addRepoToBrowse": "प्लगइन्स पाहण्यासाठी आणि अपडेट करण्यासाठी रिपॉझिटरी जोडा",
+  "debugExtensions": "डीबग एक्सटेंशन्स",
+  "removeRepoConfirm": "{repoName} हटवायचे?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "यामुळे रिपॉझिटरी हटवली जाईल आणि त्याचे सर्व प्लगइन्स अनइन्स्टॉल होतील.",
+  "addRepository": "रिपॉझिटरी जोडा",
+  "repoUrlOrShortcode": "रिपॉझिटरी URL किंवा शॉर्टकोड",
+  "assetPlugin": "अ‍ॅसेट प्लगइन",
+  "installed": "संस्थापित",
+  "updateTo": "{version} वर अपडेट करा",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "संस्थापित करा",
+  "error": "त्रुटी",
+  "ok": "ठीक आहे",
+  "pluginSettings": "{pluginName} सेटिंग्ज",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "चित्रपट",
+  "series": "मालिका",
+  "anime": "अ‍ॅनिम",
+  "liveStreams": "थेट प्रवाह (Live)",
+  "debug": "डीबग",
+  "extensionsUpdated": "{count, plural, =1{1 एक्सटेंशन अपडेट केले} other{{count} एक्सटेंशन्स अपडेट केले}}",
+  "invalidNavigation": "अवैध नेव्हिगेशन. कृपया परत जा.",
+  "startOver": "पुन्हा सुरू करा",
+  "goBack": "परत जा",
+  "resolving": "सोडवत आहे...",
+  "downloaded": "डाउनलोड केले",
+  "download": "डाउनलोड",
+  "debugOnlyFeature": "हे वैशिष्ट्य केवळ डीबग बिल्ड्समध्ये उपलब्ध आहे",
+  "streamUrl": "स्ट्रीम URL",
+  "play": "सुरू करा",
+  "verifyingSourceSize": "स्रोत आणि आकार सत्यापित करत आहे...",
+  "fileSaveLocationNotification": "फाइल तुमच्या डाउनलोड्स फोल्डरमध्ये जतन केली जाईल.",
+  "resumingPlayback": "पुन्हा सुरू होत आहे",
+  "pausedAt": "{time} वर थांबवले",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 सेकंदात आपोआप सुरू होईल} other{{count} सेकंदात आपोआप सुरू होईल}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "आत्ता सुरू करा",
+  "playbackError": "प्लेबॅक त्रुटी",
+  "confirmClearHistory": "तुम्हाला खात्री आहे की तुम्ही इतिहासामधून सर्व आयटम हटवू इच्छिता?",
+  "seasonWithNumber": "सीझन {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "सुरू होत आहे...",
+  "percentWatched": "{percent}% पाहिले",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "सब",
+  "dub": "डब",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "डीबग टूल्स",
+  "playLocalVideo": "स्थानिक व्हिडिओ फाइल सुरू करा",
+  "playLocalVideoSubtitle": "साधनावरील कोणताही व्हिडिओ सुरू करा",
+  "streamUrlSubtitle": "नेटवर्क URL वरून सुरू करा",
+  "streamTorrent": "टॉरेंट स्ट्रीम करा",
+  "streamTorrentSubtitle": "सुरू करण्यासाठी स्थानिक टॉरेंट फाइल निवडा",
+  "loadPluginFromAssets": "अ‍ॅसेट्समधून प्लगइन लोड करा",
+  "enterVideoUrlHint": "व्हिडिओ URL प्रविष्ट करा (http, magnet इ.)",
+  "networkStream": "नेटवर्क स्ट्रीम",
+  "removedFromHistory": "इतिहासामधून {title} हटवले",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "सानुकूल",
+  "refreshingLiveStream": "थेट प्रवाह रिफ्रेश होत आहे...",
+  "removeFromHistory": "इतिहासामधून हटवा",
+  "live": "थेट",
+  "volume": "आवाज",
+  "brightness": "ब्राइटनेस",
+  "fit": "फिट",
+  "zoom": "झूम",
+  "stretch": "खेचा",
+  "titleWithParam": "शीर्षक: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "स्रोत: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "आकार: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "त्रुटी: {error}. अंतर्गत प्लेअर वापरला जात आहे.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} आढळला नाही. अंतर्गत प्लेअर सुरू होत आहे.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "सीझन {number} ({count} भाग)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} साठी स्रोत निवडा",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "कोणतेही प्लगइन्स स्थापित नाहीत",
+  "availableSources": "उपलब्ध स्रोत",
+  "seasons": "सीझन",
+  "episodes": "भाग",
+  "selectSourceToPlay": "कृपया पाहण्यासाठी वरील 'उपलब्ध स्रोत' मधून स्रोत निवडा.",
+  "episodeCountOnly": "{count, plural, =1{1 भाग} other{{count} भाग}}",
+  "noEpisodesFound": "कोणतेही भाग आढळले नाहीत",
+  "local": "स्थानिक",
+  "remote": "रिमोट",
+  "torrent": "टॉरेंट",
+  "unlock": "अनलॉक",
+  "lock": "लॉक",
+  "sources": "स्रोत",
+  "tracks": "ट्रॅक",
+  "content": "साहित्य",
+  "stats": "आकडेवारी",
+  "resize": "आकार बदला",
+  "next": "पुढील",
+  "pip": "PiP",
+  "rotate": "फिरवा",
+  "windowed": "विंडोड",
+  "fullscreen": "पूर्ण स्क्रीन",
+  "movieDetails": "चित्रपट तपशील",
+  "showDetails": "तपशील पहा",
+  "tagline": "टॅगलाईन",
+  "status": "स्थिती",
+  "releaseDate": "प्रकाशन तारीख",
+  "firstAirDate": "पहिली प्रसारण तारीख",
+  "originalLanguage": "मूळ भाषा",
+  "originCountry": "मूळ देश",
+  "budgetLabel": "बजेट",
+  "revenueLabel": "उत्पन्न",
+  "paused": "थांबवले",
+  "watched": "पाहिले",
+  "watching": "पाहत आहे",
+  "lastWatched": "शेवटी पाहिलेले",
+  "movie": "चित्रपट",
+  "tvShow": "टीव्ही शो",
+  "failedToLoadContent": "साहित्य लोड करण्यात अयशस्वी",
+  "director": "दिग्दर्शक",
+  "creator": "निर्माता",
+  "showMore": "अधिक पहा",
+  "showLess": "कमी पहा",
+  "viewAll": "सर्व पहा",
+  "seasonsCount": "{count} सीझन",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "इंटरनेट कनेक्शन नाही",
+  "timeoutError": "वेळ संपली. कृपया पुन्हा प्रयत्न करा.",
+  "serverError": "सर्व्हर त्रुटी. कृपया थोड्या वेळाने प्रयत्न करा.",
+  "contentNotFoundError": "साहित्य सापडले नाही.",
+  "accessDeniedError": "प्रवेश नाकारला. तुमची माहिती तपासा.",
+  "serviceUnavailableError": "सर्व्हर अनुपलब्ध आहे.",
+  "generalError": "काहीतरी चूक झाली आहे.",
+  "skip": "वगळा",
+  "goLive": "थेट सुरू करा",
+  "dismiss": "काढून टाका",
+  "nextUp": "पुढील",
+  "sourceAttempt": "{total} पैकी {index} स्रोत",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "प्रयत्न करत आहे",
+  "failed": "अयशस्वी",
+  "selected": "निवडले",
+  "playing": "सुरू आहे",
+  "pending": "प्रलंबित",
+  "discord": "Discord",
+  "discordSubtitle": "आमच्या सर्व्हरमध्ये सामील व्हा",
+  "telegram": "Telegram",
+  "telegramSubtitle": "आमच्या चॅनेलमध्ये सामील व्हा",
+  "developedBy": "{name} द्वारे विकसित",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "वाय-फाय गुणवत्ता प्राधान्य",
+  "mobileQualityPreference": "मोबाईल गुणवत्ता प्राधान्य",
+  "anyNoPreference": "काहीही प्राधान्य नाही",
+  "subtitleAccounts": "उपशीर्षक खाती",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "कनेक्शन तपासा",
+  "connectedSuccessfully": "यशस्वीरित्या जोडले गेले",
+  "connectionFailed": "कनेक्शन अयशस्वी",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API की",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "निदान (Diagnostics)",
+  "viewLogs": "लॉग पहा",
+  "viewLogsSubtitle": "अनुप्रयोग क्रियाकलाप आणि त्रुटी पहा",
+  "goToExtensions": "एक्सटेंशनवर जा",
+  "noPluginsMessage": "सामग्री ब्राउझ आणि प्रवाहित करण्यासाठी एक्सटेंशन स्थापित करा."
+}

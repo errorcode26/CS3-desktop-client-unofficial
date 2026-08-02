@@ -12,6 +12,9 @@ dependencies {
     // Logging and common utils
     implementation(project(":common"))
 
+    // Coroutines for plugin dispatcher & invoker isolation
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+
     // Dalvik-to-JVM transcompiler
     implementation("de.femtopedia.dex2jar:dex-tools:2.4.35")
 
@@ -26,6 +29,7 @@ dependencies {
     implementation("net.dongliu:apk-parser:2.6.10")
 
     testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
 }
 
 tasks.withType<Test> {

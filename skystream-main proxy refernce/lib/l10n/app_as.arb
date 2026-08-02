@@ -1,0 +1,589 @@
+{
+  "@@locale": "as",
+  "appTitle": "SkyStream",
+  "languageName": "অসমীয়া",
+  "home": "গৃহ",
+  "search": "সন্ধান কৰক",
+  "explore": "অণ্বেষণ",
+  "library": "পুথিভঁৰাল",
+  "settings": "ছেটিংছ",
+  "extensions": "এক্সটেনচন",
+  "updateAvailable": "আপডেট উপলব্ধ",
+  "retry": "পুনৰ চেষ্টা কৰক",
+  "factoryReset": "ফেক্টৰী ৰিছেট",
+  "startupError": "ষ্টাৰ্টআপ গৰাহ",
+  "general": "সাধাৰণ",
+  "appTheme": "এপ থীম",
+  "recordWatchHistory": "চোৱা ইতিহাস ৰেকৰ্ড কৰক",
+  "defaultHomeScreen": "ডিফৰ্ট হোম স্ক্ৰীণ",
+  "player": "প্লেয়াৰ",
+  "defaultPlayer": "ডিফল্ট প্লেয়াৰ",
+  "leftGesture": "বাওঁ জেস্চাৰ",
+  "rightGesture": "সোঁ জেস্চাৰ",
+  "doubleTapToSeek": "খুঁজিবলৈ দুবাৰ টেপ কৰক",
+  "swipeToSeek": "খুঁজিবলৈ সোয়াইপ কৰক",
+  "seekDuration": "সিক ডিউৰেচন",
+  "bufferDepth": "বাফাৰ ডেপথ",
+  "defaultResizeMode": "ডিফল্ট ৰিচাইজ মোড",
+  "hardwareDecoding": "হাৰ্ডৱেৰ ডিকোডিং",
+  "network": "নেটৱৰ্ক",
+  "dnsOverHttps": "DNS অভাৰ HTTPS",
+  "dohProvider": "DoH প্ৰদানকাৰী",
+  "manageExtensions": "এক্সটেনচন পৰিচালনা কৰক",
+  "appData": "এপ তথ্য",
+  "resetDataKeepExtensions": "তথ্য ৰিছেট কৰক (এক্সটেনচন ৰাখক)",
+  "developer": "ডেভেলপাৰ",
+  "developerOptions": "ডেভেলপাৰ বিকল্প",
+  "about": "বিষয়ে",
+  "version": "সংস্কৰণ",
+  "enabled": "সক্ষম",
+  "disabled": "অক্ষম",
+  "system": "ছিষ্টেম",
+  "dark": "ডার্ক",
+  "light": "লাইট",
+  "later": "পাছত",
+  "updateNow": "এতিয়াই আপডেট কৰক",
+  "save": "সংৰক্ষণ কৰক",
+  "cancel": "বাতিল কৰক",
+  "close": "বন্ধ কৰক",
+  "delete": "মচি পেলাওক",
+  "viewDetails": "বিৱৰণ চাওক",
+  "clearAll": "সকলো পৰিষ্কাৰ কৰক",
+  "clearAllHistory": "সকলো ইতিহাস মচক",
+  "all": "সকলো",
+  "none": "একো নাই",
+  "confirmDownload": "ডাউনলোড নিশ্চিত কৰক",
+  "downloadNow": "এতিয়াই ডাউনলোড কৰক",
+  "selectSource": "উৎস নিৰ্বাচন কৰক",
+  "downloadUnavailable": "ডাউনলোড উপলব্ধ নহয়",
+  "selectAnotherSource": "আন এটি উৎস নিৰ্বাচন কৰক",
+  "watchHistoryCleared": "চোৱা ইতিহাস মচা হ'ল",
+  "downloadingUpdate": "আপডেট ডাউনলোড হৈ আছে...",
+  "errorPrefix": "ত্ৰুটি: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "আপডেট উপলব্ধ: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "চোৱা আৰম্ভ কৰিবলৈ এজন প্ৰদানকাৰী বাছক",
+  "tapExtensionIcon": "চুকত থকা এক্সটেনচন আইকনটো টিপক",
+  "continueWatching": "চোৱা অব্যাহত ৰাখক",
+  "noInternetConnection": "কোনো ইণ্টাৰনেট সংযোগ নাই",
+  "siteNotReachable": "ছাইটত প্ৰৱেশ কৰিব পৰা নাই",
+  "checkConnectionOrDownloads": "আপোনাৰ সংযোগ পৰীক্ষা কৰক বা ডাউনলোড কৰা সামগ্ৰী চাওক।",
+  "tryVpnOrConnection": "অনুগ্ৰহ কৰি VPN ৰে ছাইটত প্ৰৱেশ কৰিবলৈ চেষ্টা কৰক বা ইণ্টাৰনেট সংযোগ পৰীক্ষা কৰক।",
+  "errorDetails": "ত্ৰুটিৰ বিৱৰণ: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "ডাউনলোণ্ডলৈ যাওক",
+  "selectProvider": "প্ৰদানকাৰী নিৰ্বাচন কৰক",
+  "searchHint": "চলচ্চিত্ৰ, ছিৰিজ সন্ধান কৰক...",
+  "searchFavoriteContent": "আপোনাৰ প্ৰিয় সামগ্ৰী সন্ধান কৰক",
+  "pressSearchOrEnter": "আৰম্ভ কৰিবলৈ চার্চ কী বা এণ্টাৰ টিপক",
+  "noResultsFound": "কোনো ফলাফল পোৱা নগ'ল।",
+  "couldNotLoadTrending": "ট্ৰেণ্ডিং আইটেম লোড কৰিব পৰা নগ'ল",
+  "popularMovies": "জনপ্ৰিয় চলচ্চিত্ৰ",
+  "popularTVShows": "জনপ্ৰিয় টিভি শ্ব'",
+  "newMovies": "নতুন চলচ্চিত্ৰ",
+  "newTVShows": "নতুন টিভি শ্ব'",
+  "featuredMovies": "ফিচাৰ্ড চলচ্চিত্ৰ",
+  "featuredTVShows": "ফিচাৰ্ড টিভি শ্ব'",
+  "lastVideosTVShows": "শেহতীয়া টিভি শ্ব' ভিডিঅ'",
+  "downloads": "ডাউনলোড",
+  "bookmarks": "বুকমার্ক",
+  "noDownloadsYet": "এতিয়ালৈকে কোনো ডাউনলোড নাই",
+  "episodesCount": "{count} টা খণ্ড • {done} টা সম্পূৰ্ণ",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "সকলো খণ্ড মচি পেলাওক",
+  "confirmDeleteAllEpisodes": "আপুনি নিশ্চিতনে যে আপুনি \"{title}\" ৰ সকলো {count} টা খণ্ড আৰু ফাইল মচিব বিচাৰে?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "সকলো মচক",
+  "completed": "সম্পূৰ্ণ",
+  "statusQueued": "শাৰীত আছে...",
+  "statusDownloading": "ডাউনলোড হৈ আছে...",
+  "statusFinished": "শেষ হ'ল",
+  "statusFailed": "ব্যৰ্থ হ'ল",
+  "statusCanceled": "বাতিল কৰা হ'ল",
+  "statusPaused": "বিৰতি দিয়া হৈছে",
+  "statusWaiting": "অপেক্ষা কৰি আছে...",
+  "fileNotFoundRemoving": "ফাইল ডিস্কত পোৱা নগ'ল। ৰেকৰ্ড মচা হৈছে।",
+  "fileNotFound": "ফাইল পোৱা নগ'ল",
+  "deleteDownload": "ডাউনলোড মচক",
+  "confirmDeleteDownload": "আপুনি নিশ্চিতনে যে আপুনি এই ডাউনলোড আৰু ফাইলটো মচিব বিচাৰে?",
+  "libraryEmpty": "আপোনাৰ পুথিভঁৰাল খালী",
+  "language": "ভাষা",
+  "english": "ইংৰাজী",
+  "hindi": "হিন্দী",
+  "kannada": "কানাড়া",
+  "unknown": "অজ্ঞাত",
+  "recommended": "প্ৰস্তাৱিত",
+  "on": "অন",
+  "off": "অফ",
+  "installRemoveProviders": "প্ৰদানকাৰী ইনষ্টল বা মচক",
+  "resetDataSubtitle": "ছেটিংছ আৰু ডাটাবেছ পৰিষ্কাৰ কৰক, প্লাগিন ৰাখক",
+  "factoryResetSubtitle": "সকলো তথ্য, ছেটিংছ আৰু এক্সটেনচন মচি পেলাওক",
+  "developerOptionsSubtitle": "ডিবাগ সঁজুলি আৰু স্থানীয় প্লেবেক",
+  "loading": "লোড হৈ আছে...",
+  "sec": "ছেকেণ্ড",
+  "min": "মিনিট",
+  "internalPlayer": "অভ্যন্তৰীণ প্লেয়াৰ (media_kit)",
+  "builtInPlayer": "বিল্ট-ইন প্লেয়াৰ",
+  "customNotSet": "কাষ্টম (ছেট কৰা নাই)",
+  "selectGesture": "{side} জেস্চাৰ বাছক",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "বাওঁ",
+  "right": "সোঁ",
+  "selectSeekDuration": "সিক ডিউৰেচন বাছক",
+  "selectBufferDepth": "বাফাৰ ডেপথ বাছক",
+  "subtitleSettings": "চাবটাইটল ছেটিংছ",
+  "size": " আকাৰ: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "বেকগ্ৰাউণ্ড",
+  "customDohUrlLabel": "কাষ্টম DoH URL",
+  "enterCustomDohUrl": "আপোনাৰ নিজৰ DoH URL লিখক",
+  "chooseTheme": "থীম বাছক",
+  "resetDataDialogTitle": "তথ্য ৰিছেট কৰিবনে?",
+  "resetDataDialogContent": "ই ছেটিংছ, প্ৰিয় আৰু ইতিহাস পৰিষ্কাৰ কৰিব। ইনষ্টল কৰা এক্সটেনচনবোৰ মচা নহয়।",
+  "factoryResetDialogTitle": "ফেক্টৰী ৰিছেট কৰিবনে?",
+  "factoryResetDialogContent": "ই সকলো মচি পেলাব: প্ৰিয়, ইতিহাস, ছেটিংছ আৰু সকলো এক্সটেনচন। ই অপৰিৱর্তনীয়।",
+  "selectLanguage": "ভাষা বাছক",
+  "synopsis": "সাৰাংশ",
+  "noDescription": "কোনো বিৱৰণ উপলব্ধ নহয়।",
+  "videoAlreadyDownloadedPrompt": "এই ভিডিঅ'টো ইতিমধ্যে ডাউনলোড কৰা হৈছে। আপুনি কি কৰিব খোজে?",
+  "playNow": "এতিয়াই চাওক",
+  "deleteDownloadPrompt": "ডাউনলোড মচিবনে?",
+  "deleteDownloadConfirmation": "আপুনি নিশ্চিতনে যে আপুনি এই ফাইলটো মচিব বিচাৰে? ই অপৰিৱর্তনীয়।",
+  "no": "নহয়",
+  "yesDelete": "হয়, মচক",
+  "downloadPaused": "ডাউনলোড ৰৈ আছে",
+  "downloading": "ডাউনলোড হৈ আছে",
+  "speed": "গতি",
+  "remaining": "বাকী",
+  "resume": "পুনৰ আৰম্ভ কৰক",
+  "pause": "বিৰতি",
+  "torrentContent": "টৰেণ্ট কন্টেন্ট",
+  "audioTracks": "অডিঅ' ট্ৰেক",
+  "noAudioTracks": "কোনো অডিঅ' ট্ৰেক পোৱা নগ'ল",
+  "subtitles": "চাবটাইটল",
+  "options": "বিকল্প",
+  "noSubtitlesFound": "কোনো চাবটাইটল ট্ৰেক পোৱা নগ'ল",
+  "playbackSpeed": "প্লেবেক গতি",
+  "subtitleOptions": "চাবটাইটল বিকল্প",
+  "hlsSubtitleWarning": "এই প্লেটফৰ্মত সক্ৰিয় HLS প্লেয়াৰত বাহ্যিক চাবটাইটল ফাইল সমৰ্থিত নহয়।",
+  "loadFromDevice": "ডিভাইচৰ পৰা লোড কৰক",
+  "syncDelay": "চিনক / পলম",
+  "styleSettings": "ষ্টাইল ছেটিংছ",
+  "searchOnline": "অনলাইনত সন্ধান কৰক (চাবটাইটল চার্চ)",
+  "subtitleSync": "চাবটাইটল চিনক",
+  "subtitleDelayWarning": "সক্ৰিয় প্লেবেক ইঞ্জিনৰ দ্বাৰা চাবটাইটল পলম সমৰ্থিত নহয়।",
+  "resetDelay": "পলম ৰিছেট কৰক",
+  "subtitleStyles": "চাবটাইটল ষ্টাইল",
+  "mediaKitStylingWarning": "চাবটাইটল ষ্টাইলিং এতিয়া কেৱল media_kit প্লেয়াৰতহে উপলব্ধ।",
+  "resetToDefault": "ডিফল্টলৈ ৰিছেট কৰক",
+  "fontSize": "ফন্টৰ আকাৰ",
+  "verticalPosition": "উলম্ব অৱস্থান",
+  "textColor": "টেক্সটৰ ৰং",
+  "backgroundColor": "বেকগ্ৰাউণ্ডৰ ৰং",
+  "backgroundOpacity": "বেকগ্ৰাউণ্ডৰ অস্বচ্ছতা",
+  "subtitleSearch": "চাবটাইটল সন্ধান",
+  "searchSubtitleNameHint": "চাবটাইটলৰ নাম সন্ধান কৰক...",
+  "enterSearchSubtitlePrompt": "চাবটাইটল পাবলৈ এটা নাম লিখক বা সন্ধান কৰক।",
+  "noSubtitleResults": "কোনো ফলাফল পোৱা নগ'ল। অন্য এটা সন্ধান কৰক।",
+  "downloadingApplyingSubtitle": "চাবটাইটল ডাউনলোড আৰু প্ৰয়োগ কৰা হৈছে...",
+  "failedToDownloadSubtitle": "চাবটাইটল ডাউনলোড কৰাত ব্যৰ্থ হ'ল।",
+  "failedToLoadSubtitles": "চাবটাইটল লোড কৰাত ব্যৰ্থ হ'ল। অনুগ্ৰহ কৰি পুনৰ চেষ্টা কৰক।",
+  "noReposFound": "কোনো ৰিপোজিটৰী বা প্লাগইন পোৱা নগ'ল",
+  "downloadAllProviders": "সকলো ডাউনলোড কৰক",
+  "removeRepository": "ৰিপোজিটৰী মচক",
+  "addRepo": "ৰিপো যোগ কৰক",
+  "extensionsNotInRepos": "ৰিপোজিটৰীত নথকা এক্সটেনচন",
+  "noLongerInRepo": "এতিয়া কোনো ৰিপোজিটৰীত তালিকাভুক্ত নহয়",
+  "addRepoToBrowse": "প্লাগইন চাবলৈ আৰু আপডেট কৰিবলৈ এটা ৰিপোজিটৰী যোগ কৰক",
+  "debugExtensions": "ডিবাগ এক্সটেনচন",
+  "removeRepoConfirm": "{repoName} মচিবনে?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": " ইয়াৰ ফলত ৰিপোজিটৰী মচা হ'ব আৰু ইয়াৰ সকলো প্লাগইন আনইনষ্টল হ'ব।",
+  "addRepository": "ৰিপোজিটৰী যোগ কৰক",
+  "repoUrlOrShortcode": "ৰিপোজিটৰী URL বা চৰ্টকোড",
+  "assetPlugin": "এছেট প্লাগইন",
+  "installed": "ইনষ্টল হ'ল",
+  "updateTo": "{version} লৈ আপডেট কৰক",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "ইনষ্টল কৰক",
+  "error": "ত্ৰুটি",
+  "ok": "ঠিক আছে",
+  "pluginSettings": "{pluginName} ছেটিংছ",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "চলচ্চিত্ৰ",
+  "series": "ছিৰিজ",
+  "anime": "এনিমে",
+  "liveStreams": "লাইভ ষ্ট্ৰীম",
+  "debug": "ডিবাগ",
+  "extensionsUpdated": "{count, plural, =1{১ টা এক্সটেনচন আপডেট হ'ল} other{{count} টা এক্সটেনচন আপডেট হ'ল}}",
+  "invalidNavigation": "অবৈধ নেভিগেশ্যন। অনুগ্ৰহ কৰি পাছলৈ যাওক।",
+  "startOver": "পুনৰ আৰম্ভ কৰক",
+  "goBack": "পাছলৈ যাওক",
+  "resolving": "সমাধান কৰা হৈছে...",
+  "downloaded": "ডাউনলোড হ'ল",
+  "download": "ডাউনলোড",
+  "debugOnlyFeature": "এই ফিচাৰটো কেৱল ডিবাগ বিল্ডতহে উপলব্ধ",
+  "streamUrl": "ষ্ট্ৰীম URL",
+  "play": "চাওক",
+  "verifyingSourceSize": "উৎস আৰু আকাৰৰ সত্যতা নিৰূপণ কৰা হৈছে...",
+  "fileSaveLocationNotification": "ফাইলটো আপোনাৰ ডাউনলোড ফোল্ডাৰত সংৰক্ষণ কৰা হ'ব।",
+  "resumingPlayback": "প্লেবেক পুনৰ আৰম্ভ হৈছে",
+  "pausedAt": "{time} ত ৰৈছে",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{১ ছেকেণ্ডত স্বয়ংক্ৰিয়ভাৱে পুনৰ আৰম্ভ হ'ব} other{{count} ছেকেণ্ডত স্বয়ংক্ৰিয়ভাৱে পুনৰ আৰম্ভ হ'ব}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "এতিয়াই পুনৰ আৰম্ভ কৰক",
+  "playbackError": "প্লেবেক ত্ৰুটি",
+  "confirmClearHistory": "আপুনি নিশ্চিতনে যে আপুনি চোৱা ইতিহাসৰ পৰা সকলো সামগ্ৰী মচিব বিচাৰে?",
+  "seasonWithNumber": "ছিজন {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "আৰম্ভ হৈছে...",
+  "percentWatched": "{percent}% চোৱা হ'ল",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "চাব",
+  "dub": "ডাব",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "ডিবাগ সঁজুলি",
+  "playLocalVideo": "স্থানীয় ভিডিঅ' ফাইল প্লে কৰক",
+  "playLocalVideoSubtitle": "ডিভাইচৰ যিকোনো ভিডিঅ' প্লে কৰক",
+  "streamUrlSubtitle": "নেটৱৰ্ক URL ৰ পৰা প্লে কৰক",
+  "streamTorrent": "টৰেণ্ট ষ্ট্ৰীম কৰক",
+  "streamTorrentSubtitle": "চাবলৈ এটা স্থানীয় টৰেণ্ট ফাইল বাছক",
+  "loadPluginFromAssets": "এছেটৰ পৰা প্লাগইন লোড কৰক",
+  "enterVideoUrlHint": "ভিডিঅ' URL লিখক (http, magnet ইত্যাদি)",
+  "networkStream": "নেটৱৰ্ক ষ্ট্ৰীম",
+  "removedFromHistory": "ইতিহাসৰ পৰা {title} মচা হ'ল",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "কাষ্টম",
+  "refreshingLiveStream": "লাইভ ষ্ট্ৰীম ৰিফ্ৰেছ কৰা হৈছে...",
+  "removeFromHistory": "ইতিহাসৰ পৰা মচক",
+  "live": "লাইভ",
+  "volume": "ভলিউম",
+  "brightness": "উজ্জ্বলতা",
+  "fit": "ফিট",
+  "zoom": "জুম",
+  "stretch": "ষ্ট্ৰেচ",
+  "titleWithParam": "শিৰোনাম: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "উৎস: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "আকাৰ: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "ত্ৰুটি: {error}। অভ্যন্তৰীণ প্লেয়াৰ ব্যৱহাৰ কৰা হৈছে।",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} ধৰা পৰা নাই। অভ্যন্তৰীণ প্লেয়াৰ আৰম্ভ হৈছে।",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "ছিজন {number} ({count} টা খণ্ড)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} ৰ বাবে উৎস বাছক",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "কোনো প্লাগইন ইনষ্টল হোৱা নাই",
+  "availableSources": "উপলব্ধ উৎস",
+  "seasons": "ছিজন",
+  "episodes": "খণ্ড",
+  "selectSourceToPlay": "চাবলৈ ওপৰৰ 'উপলব্ধ উৎস' ৰ পৰা এটা উৎস বাছক।",
+  "episodeCountOnly": "{count, plural, =1{১ টা খণ্ড} other{{count} টা খণ্ড}}",
+  "noEpisodesFound": "কোনো খণ্ড পোৱা নগ'ল",
+  "local": "স্থানীয়",
+  "remote": "ৰিমোট",
+  "torrent": "টৰেণ্ট",
+  "unlock": "আনলক",
+  "lock": "লক",
+  "sources": "উৎস",
+  "tracks": "ট্ৰেক",
+  "content": "সামগ্ৰী",
+  "stats": "পৰিসংখ্যা",
+  "resize": "ৰিচাইজ",
+  "next": "পৰৱৰ্তী",
+  "pip": "PiP",
+  "rotate": "ঘূৰাই দিয়ক",
+  "windowed": "উইণ্ডো মোড",
+  "fullscreen": "সম্পূৰ্ণ স্ক্ৰীণ",
+  "movieDetails": "চলচ্চিত্ৰৰ বিৱৰণ",
+  "showDetails": "বিৱৰণ দেখুৱাওক",
+  "tagline": "টেগলাইন",
+  "status": "স্থিতি",
+  "releaseDate": "মুক্তিৰ তাৰিখ",
+  "firstAirDate": "প্ৰথম সম্প্ৰচাৰৰ তাৰিখ",
+  "originalLanguage": "মূল ভাষা",
+  "originCountry": "মূল দেশ",
+  "budgetLabel": "বাজেট",
+  "revenueLabel": "ৰাজহ",
+  "paused": "ৰৈ আছে",
+  "watched": "চোৱা হৈ গ'ল",
+  "watching": "চাই আছে",
+  "lastWatched": "শেহতীয়াকৈ চোৱা",
+  "movie": "চলচ্চিত্ৰ",
+  "tvShow": "টিভি শ্ব'",
+  "failedToLoadContent": "সামগ্ৰী লোড কৰাত ব্যৰ্থ হ'ল",
+  "director": "নিৰ্দেশক",
+  "creator": "স্ৰষ্টা",
+  "showMore": "অধিক দেখুৱাওক",
+  "showLess": "কম দেখুৱাওক",
+  "viewAll": "সকলো চাওক",
+  "seasonsCount": "{count, plural, =1{১ টা ছিজন} other{{count} টা ছিজন}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "কোনো ইণ্টাৰনেট সংযোগ নাই",
+  "timeoutError": "সময় পাৰ হৈ গৈছে। অনুগ্ৰহ কৰি পুনৰ চেষ্টা কৰক।",
+  "serverError": "ছাৰ্ভাৰ ত্ৰুটি। অনুগ্ৰহ কৰি পাছত পুনৰ চেষ্টা কৰক।",
+  "contentNotFoundError": "সামগ্ৰী পোৱা নগ'ল।",
+  "accessDeniedError": "প্ৰৱেশ অস্বীকাৰ কৰা হৈছে। আপোনাৰ প্ৰমাণপত্ৰবোৰ পৰীক্ষা কৰক।",
+  "serviceUnavailableError": "ছাৰ্ভাৰ উপলব্ধ নহয়। পাছত পুনৰ চেষ্টা কৰক।",
+  "generalError": "কিবা ভুল হৈছে। অনুগ্ৰহ কৰি আকৌ চেষ্টা কৰক।",
+  "skip": "বাদ দিয়ক",
+  "goLive": "লাইভলৈ যাওক",
+  "dismiss": "বাতিল কৰক",
+  "nextUp": "পাছত আছে",
+  "sourceAttempt": "{total} টা উৎসৰ ভিতৰত {index} নম্বৰ উৎস",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "চেষ্টা কৰি থকা হৈছে",
+  "failed": "ব্যৰ্থ হ'ল",
+  "selected": "নিৰ্বাচিত",
+  "playing": "প্লে হৈ আছে",
+  "pending": "পেন্ডিং হৈ আছে",
+  "discord": "Discord",
+  "discordSubtitle": "আমাৰ ছাৰ্ভাৰত যোগদান কৰক",
+  "telegram": "Telegram",
+  "telegramSubtitle": "আমাৰ চেনেলত যোগদান কৰক",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi গুণগত অগ্ৰাধিকাৰ",
+  "mobileQualityPreference": "মবাইল গুণগত অগ্ৰাধিকাৰ",
+  "anyNoPreference": "যিকোনো (কোনো অগ্ৰাধিকাৰ নাই)",
+  "subtitleAccounts": "চাবটাইটল একাউণ্ট",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "সংযোগ পৰীক্ষা কৰক",
+  "connectedSuccessfully": "সফলতাৰে সংযোগ কৰা হ'ল",
+  "connectionFailed": "সংযোগ ব্যৰ্থ হ'ল",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API কী",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "নিদান",
+  "viewLogs": "লগ চাওক",
+  "viewLogsSubtitle": "এপ্লিকেচনৰ কাৰ্যকলাপ আৰু ত্ৰুটি চাওক",
+  "goToExtensions": "এক্সটেনচনলৈ যাওক",
+  "noPluginsMessage": "বিষয়বস্তু ব্ৰাউজ আৰু ষ্ট্ৰিম কৰিবলৈ এক্সটেনচন ইনষ্টল কৰক।"
+}

@@ -48,16 +48,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
 
+import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
+import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+
 /**
  * Single unified entry point for CloudStream Desktop Client.
  */
-fun main() {
+fun main(args: Array<String> = emptyArray()) {
     initCrashHandler()
     initWindowsEnvironment()
+
+    val isDevMode = args.any { it.equals("--dev", ignoreCase = true) || it.equals("--dev-logger", ignoreCase = true) } ||
+            System.getProperty("cloudstream.dev") != null
 
     AppLogger.i("Launching CloudStream Desktop Client...")
     AppLogger.i("Platform: ${PlatformPaths.currentOS}")
     AppLogger.i("App data directory: ${PlatformPaths.appDataDir.absolutePath}")
+
+    if (isDevMode) {
+        AppLogger.i("Dev Mode enabled via startup arguments.")
+        DevStudioState.open(detached = true)
+    }
 
     ShaderManager.extractBundledShaders()
 
@@ -76,6 +90,8 @@ fun main() {
         )
 
         val fullscreenHelper = rememberFullscreenHelper()
+        val isDevOpen by DevStudioState.isOpen.collectAsState()
+        val isDevDetached by DevStudioState.isDetachedWindow.collectAsState()
 
         Window(
             onCloseRequest = ::exitApplication,
@@ -114,8 +130,20 @@ fun main() {
                         animationSpec = tween(500),
                     ) { ready ->
                         if (ready) {
-                            Box {
+                            Box(modifier = Modifier.fillMaxSize()) {
                                 CloudstreamApp()
+
+                                // In-app Docked Dev Studio Overlay
+                                if (isDevOpen && !isDevDetached) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight(0.50f)
+                                            .align(Alignment.BottomCenter)
+                                    ) {
+                                        DevStudioView(isDetached = false)
+                                    }
+                                }
                             }
                             AppUpdateDialog()
                         } else {
@@ -132,6 +160,26 @@ fun main() {
                         }
                     }
                 }
+            }
+        }
+
+        // Secondary Standalone Floating Window for Dev Studio
+        if (isDevOpen && isDevDetached) {
+            val devWindowState = rememberWindowState(
+                width = 1100.dp,
+                height = 700.dp,
+                position = WindowPosition.Aligned(Alignment.Center),
+            )
+            Window(
+                onCloseRequest = { DevStudioState.close() },
+                title = "CloudStream Dev Studio & Live LogCat",
+                state = devWindowState,
+                icon = painterResource("app_icon_small.png"),
+            ) {
+                DevStudioView(
+                    isDetached = true,
+                    onClose = { DevStudioState.close() },
+                )
             }
         }
     }

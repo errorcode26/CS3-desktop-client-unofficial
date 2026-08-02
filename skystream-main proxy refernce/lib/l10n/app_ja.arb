@@ -1,0 +1,589 @@
+{
+  "@@locale": "ja",
+  "appTitle": "SkyStream",
+  "languageName": "日本語",
+  "home": "ホーム",
+  "search": "検索",
+  "explore": "探索",
+  "library": "ライブラリ",
+  "settings": "設定",
+  "extensions": "拡張機能",
+  "updateAvailable": "アップデートがあります",
+  "retry": "再試行",
+  "factoryReset": "初期化",
+  "startupError": "起動エラー",
+  "general": "全般",
+  "appTheme": "アプリのテーマ",
+  "recordWatchHistory": "視聴履歴を記録する",
+  "defaultHomeScreen": "デフォルトのホーム画面",
+  "player": "プレイヤー",
+  "defaultPlayer": "デフォルトのプレイヤー",
+  "leftGesture": "左側のジェスチャー",
+  "rightGesture": "右側のジェスチャー",
+  "doubleTapToSeek": "ダブルタップでスキップ",
+  "swipeToSeek": "スワイプでスキップ",
+  "seekDuration": "スキップ秒数",
+  "bufferDepth": "バッファの深さ",
+  "defaultResizeMode": "デフォルトの画面モード",
+  "hardwareDecoding": "ハードウェア・デコーディング",
+  "network": "ネットワーク",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH プロバイダー",
+  "manageExtensions": "拡張機能の管理",
+  "appData": "アプリのデータ",
+  "resetDataKeepExtensions": "データをリセット（拡張機能は保持）",
+  "developer": "開発者",
+  "developerOptions": "開発者向けオプション",
+  "about": "アプリについて",
+  "version": "バージョン",
+  "enabled": "有効",
+  "disabled": "無効",
+  "system": "システム",
+  "dark": "ダーク",
+  "light": "ライト",
+  "later": "後で",
+  "updateNow": "今すぐアップデート",
+  "save": "保存",
+  "cancel": "キャンセル",
+  "close": "閉じる",
+  "delete": "削除",
+  "viewDetails": "詳細を表示",
+  "clearAll": "すべてクリア",
+  "clearAllHistory": "視聴履歴をクリア",
+  "all": "すべて",
+  "none": "なし",
+  "confirmDownload": "ダウンロードの確認",
+  "downloadNow": "今すぐダウンロード",
+  "selectSource": "ソースを選択",
+  "downloadUnavailable": "ダウンロード不可",
+  "selectAnotherSource": "別のソースを選択",
+  "watchHistoryCleared": "視聴履歴をクリアしました",
+  "downloadingUpdate": "アップデートをダウンロード中...",
+  "errorPrefix": "エラー: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "アップデートがあります: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "開始するにはプロバイダーを選択してください",
+  "tapExtensionIcon": "隅にある拡張機能アイコンをタップしてください",
+  "continueWatching": "続きから見る",
+  "noInternetConnection": "インターネットに接続されていません",
+  "siteNotReachable": "サイトにアクセスできません",
+  "checkConnectionOrDownloads": "接続を確認するか、ダウンロードしたコンテンツを確認してください。",
+  "tryVpnOrConnection": "VPNを試すか、インターネット接続を確認してください。",
+  "errorDetails": "エラーの詳細: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "ダウンロード一覧へ",
+  "selectProvider": "プロバイダーを選択",
+  "searchHint": "映画、ドラマを検索...",
+  "searchFavoriteContent": "お気に入りのコンテンツを検索",
+  "pressSearchOrEnter": "検索キーまたはEnterを押して開始",
+  "noResultsFound": "結果が見つかりませんでした。",
+  "couldNotLoadTrending": "トレンドを読み込めませんでした",
+  "popularMovies": "人気の映画",
+  "popularTVShows": "人気のドラマ",
+  "newMovies": "新作映画",
+  "newTVShows": "新作ドラマ",
+  "featuredMovies": "注目の映画",
+  "featuredTVShows": "注目のドラマ",
+  "lastVideosTVShows": "最新のドラマ",
+  "downloads": "ダウンロード",
+  "bookmarks": "ブックマーク",
+  "noDownloadsYet": "ダウンロードはありません",
+  "episodesCount": "{count} エピソード • {done} 完了",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "すべてのエピソードを削除",
+  "confirmDeleteAllEpisodes": "「{title}」の全 {count} エピソードとファイルを削除してもよろしいですか？",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "すべて削除",
+  "completed": "完了",
+  "statusQueued": "待機中...",
+  "statusDownloading": "ダウンロード中...",
+  "statusFinished": "完了",
+  "statusFailed": "失敗",
+  "statusCanceled": "キャンセル済み",
+  "statusPaused": "一時停止",
+  "statusWaiting": "待機中...",
+  "fileNotFoundRemoving": "ファイルが見つかりません。履歴を削除しています。",
+  "fileNotFound": "ファイルが見つかりません",
+  "deleteDownload": "ダウンロードを削除",
+  "confirmDeleteDownload": "このダウンロードとファイルを削除してもよろしいですか？",
+  "libraryEmpty": "ライブラリが空です",
+  "language": "言語",
+  "english": "英語",
+  "hindi": "ヒンディー語",
+  "kannada": "カンナダ語",
+  "unknown": "不明",
+  "recommended": "おすすめ",
+  "on": "オン",
+  "off": "オフ",
+  "installRemoveProviders": "プロバイダーのインストール/削除",
+  "resetDataSubtitle": "設定とデータベースをクリア（プラグインは保持）",
+  "factoryResetSubtitle": "すべてのデータ、設定、拡張機能を削除",
+  "developerOptionsSubtitle": "デバッグツールとローカル再生",
+  "loading": "読み込み中...",
+  "sec": "秒",
+  "min": "分",
+  "internalPlayer": "内部プレイヤー (media_kit)",
+  "builtInPlayer": "内蔵プレイヤー",
+  "customNotSet": "カスタム（未設定）",
+  "selectGesture": "{side} のジェスチャーを選択",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "左",
+  "right": "右",
+  "selectSeekDuration": "スキップ秒数を選択",
+  "selectBufferDepth": "バッファの深さを選択",
+  "subtitleSettings": "字幕の設定",
+  "size": "サイズ: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "背景",
+  "customDohUrlLabel": "カスタム DoH URL",
+  "enterCustomDohUrl": "独自の DoH URL を入力してください",
+  "chooseTheme": "テーマを選択",
+  "resetDataDialogTitle": "データをリセットしますか？",
+  "resetDataDialogContent": "設定、お気に入り、履歴をクリアします。インストール済みの拡張機能は削除されません。",
+  "factoryResetDialogTitle": "初期化しますか？",
+  "factoryResetDialogContent": "お気に入り、履歴、設定、すべての拡張機能を含むすべてのデータを削除します。この操作は取り消せません。",
+  "selectLanguage": "言語を選択",
+  "synopsis": "あらすじ",
+  "noDescription": "説明はありません。",
+  "videoAlreadyDownloadedPrompt": "この動画はすでにダウンロードされています。どうしますか？",
+  "playNow": "今すぐ再生",
+  "deleteDownloadPrompt": "ダウンロードを削除しますか？",
+  "deleteDownloadConfirmation": "このファイルを削除してもよろしいですか？この操作は取り消せません。",
+  "no": "いいえ",
+  "yesDelete": "はい、削除する",
+  "downloadPaused": "ダウンロードを一時停止しました",
+  "downloading": "ダウンロード中",
+  "speed": "速度",
+  "remaining": "残り",
+  "resume": "再開",
+  "pause": "一時停止",
+  "torrentContent": "トレントの内容",
+  "audioTracks": "音声トラック",
+  "noAudioTracks": "音声トラックが見つかりませんでした",
+  "subtitles": "字幕",
+  "options": "オプション",
+  "noSubtitlesFound": "字幕トラックが見つかりませんでした",
+  "playbackSpeed": "再生速度",
+  "subtitleOptions": "字幕のオプション",
+  "hlsSubtitleWarning": "このプラットフォームのHLSプレイヤーでは外部字幕ファイルはサポートされていません。",
+  "loadFromDevice": "デバイスから読み込む",
+  "syncDelay": "同期 / 遅延",
+  "styleSettings": "スタイル設定",
+  "searchOnline": "オンラインで検索（字幕検索）",
+  "subtitleSync": "字幕の同期",
+  "subtitleDelayWarning": "有効な再生エンジンは字幕の遅延をサポートしていません。",
+  "resetDelay": "遅延をリセット",
+  "subtitleStyles": "字幕のスタイル",
+  "mediaKitStylingWarning": "字幕のスタイル設定は現在 media_kit プレイヤーでのみ利用可能です。",
+  "resetToDefault": "デフォルトに戻す",
+  "fontSize": "文字サイズ",
+  "verticalPosition": "垂直位置",
+  "textColor": "文字色",
+  "backgroundColor": "背景色",
+  "backgroundOpacity": "背景の不透明度",
+  "subtitleSearch": "字幕検索",
+  "searchSubtitleNameHint": "字幕名を入力...",
+  "enterSearchSubtitlePrompt": "検索する字幕名を入力してください。",
+  "noSubtitleResults": "結果が見つかりませんでした。別の言葉で検索してください。",
+  "downloadingApplyingSubtitle": "字幕をダウンロードして適用中...",
+  "failedToDownloadSubtitle": "字幕のダウンロードに失敗しました。",
+  "failedToLoadSubtitles": "字幕の読み込みに失敗しました。もう一度お試しください。",
+  "noReposFound": "リポジトリまたはプラグインが見つかりませんでした",
+  "downloadAllProviders": "すべてダウンロード",
+  "removeRepository": "リポジトリを削除",
+  "addRepo": "リポジトリを追加",
+  "extensionsNotInRepos": "リポジトリ外の拡張機能",
+  "noLongerInRepo": "リポジトリにリストされていません",
+  "addRepoToBrowse": "プラグインを閲覧、更新するにはリポジトリを追加してください",
+  "debugExtensions": "拡張機能のデバッグ",
+  "removeRepoConfirm": "{repoName} を削除しますか？",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "これによりリポジトリが削除され、含まれるすべてのプラグインがアンインストールされます。",
+  "addRepository": "リポジトリの追加",
+  "repoUrlOrShortcode": "リポジトリのURLまたはショートコード",
+  "assetPlugin": "アセットプラグイン",
+  "installed": "インストール済み",
+  "updateTo": "{version} に更新",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "インストール",
+  "error": "エラー",
+  "ok": "OK",
+  "pluginSettings": "{pluginName} の設定",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "映画",
+  "series": "シリーズ",
+  "anime": "アニメ",
+  "liveStreams": "ライブ配信",
+  "debug": "デバッグ",
+  "extensionsUpdated": "{count, plural, other{{count} 個の拡張機能を更新しました}}",
+  "invalidNavigation": "無効なナビゲーションです。戻ってください。",
+  "startOver": "最初からやり直す",
+  "goBack": "戻る",
+  "resolving": "解決中...",
+  "downloaded": "ダウンロード済み",
+  "download": "ダウンロード",
+  "debugOnlyFeature": "この機能はデバッグビルドでのみ利用可能です",
+  "streamUrl": "ストリームURL",
+  "play": "再生",
+  "verifyingSourceSize": "ソースとサイズを確認中...",
+  "fileSaveLocationNotification": "ファイルはダウンロードフォルダに保存されます。",
+  "resumingPlayback": "再生を再開中",
+  "pausedAt": "{time} で一時停止",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, other{{count} 秒後に自動的に再開します}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "今すぐ再開",
+  "playbackError": "再生エラー",
+  "confirmClearHistory": "視聴履歴のすべての項目を削除してもよろしいですか？",
+  "seasonWithNumber": "シーズン {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "開始中...",
+  "percentWatched": "{percent}% 視聴済み",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "字幕",
+  "dub": "吹替",
+  "playEpisode": "{label} 第{season}期 第{episode}話",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "デバッグツール",
+  "playLocalVideo": "ローカル動画ファイルを再生",
+  "playLocalVideoSubtitle": "デバイス内の動画を再生",
+  "streamUrlSubtitle": "ネットワークURLから再生",
+  "streamTorrent": "トレントをストリーム再生",
+  "streamTorrentSubtitle": "再生するトレントファイルを選択",
+  "loadPluginFromAssets": "アセットからプラグインを読み込む",
+  "enterVideoUrlHint": "動画URLを入力 (http, magnetなど)",
+  "networkStream": "ネットワークストリーム",
+  "removedFromHistory": "履歴から「{title}」を削除しました",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "カスタム",
+  "refreshingLiveStream": "ライブ配信を更新中...",
+  "removeFromHistory": "履歴から削除",
+  "live": "ライブ",
+  "volume": "音量",
+  "brightness": "明るさ",
+  "fit": "フィット",
+  "zoom": "ズーム",
+  "stretch": "ストレッチ",
+  "titleWithParam": "タイトル: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "ソース: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "サイズ: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "エラー: {error}. 内部プレイヤーを使用中。",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} が見つかりません。内部プレイヤーを起動します。",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "シーズン {number} ({count} エピソード)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} のソースを選択",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "プラグインがインストールされていません",
+  "availableSources": "利用可能なソース",
+  "seasons": "シーズン",
+  "episodes": "エピソード",
+  "selectSourceToPlay": "上の「利用可能なソース」から再生するソースを選択してください。",
+  "episodeCountOnly": "{count, plural, other{{count} エピソード}}",
+  "noEpisodesFound": "エピソードが見つかりませんでした",
+  "local": "ローカル",
+  "remote": "リモート",
+  "torrent": "トレント",
+  "unlock": "アンロック",
+  "lock": "ロック",
+  "sources": "ソース",
+  "tracks": "トラック",
+  "content": "コンテンツ",
+  "stats": "ステータス",
+  "resize": "リサイズ",
+  "next": "次へ",
+  "pip": "PiP",
+  "rotate": "回転",
+  "windowed": "ウィンドウ",
+  "fullscreen": "全画面",
+  "movieDetails": "映画の詳細",
+  "showDetails": "詳細を表示",
+  "tagline": "キャッチコピー",
+  "status": "ステータス",
+  "releaseDate": "公開日",
+  "firstAirDate": "初回放送日",
+  "originalLanguage": "元の言語",
+  "originCountry": "製作国",
+  "budgetLabel": "予算",
+  "revenueLabel": "興行収入",
+  "paused": "停止中",
+  "watched": "視聴済み",
+  "watching": "視聴中",
+  "lastWatched": "後の視聴",
+  "movie": "映画",
+  "tvShow": "ドラマ",
+  "failedToLoadContent": "読み込みに失敗しました",
+  "director": "監督",
+  "creator": "クリエイター",
+  "showMore": "もっと見る",
+  "showLess": "折りたたむ",
+  "viewAll": "すべて表示",
+  "seasonsCount": "{count} シーズン",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "ネット未接続",
+  "timeoutError": "タイムアウト。再試行してください。",
+  "serverError": "サーバエラー。後でやり直してください。",
+  "contentNotFoundError": "見つかりませんでした。",
+  "accessDeniedError": "拒否されました。設定を確認してください。",
+  "serviceUnavailableError": "サーバを利用できません。",
+  "generalError": "問題が発生しました。",
+  "skip": "スキップ",
+  "goLive": "ライブへ移動",
+  "dismiss": "閉じる",
+  "nextUp": "次のエピソード",
+  "sourceAttempt": "ソース {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "試行中",
+  "failed": "失敗",
+  "selected": "選択済み",
+  "playing": "再生中",
+  "pending": "保留中",
+  "discord": "Discord",
+  "discordSubtitle": "サーバーに参加する",
+  "telegram": "Telegram",
+  "telegramSubtitle": "チャンネルに参加する",
+  "developedBy": "{name} によって開発されました",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi 画質設定",
+  "mobileQualityPreference": "モバイルデータ通信 画質設定",
+  "anyNoPreference": "指定なし",
+  "subtitleAccounts": "字幕アカウント",
+  "notLoggedIn": "ログインしていません",
+  "loggedInAs": "{username} としてログイン中",
+  "apiKeyConfigured": "API キー設定済み",
+  "keyNotSet": "キーが設定されていません",
+  "testConnection": "接続テスト",
+  "connectedSuccessfully": "接続に成功しました",
+  "connectionFailed": "接続に失敗しました",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "アカウントをお持ちでないですか？ こちらで登録",
+  "apiKey": "API キー",
+  "email": "Email",
+  "fetchMyApiKey": "API キーを取得",
+  "keyVerified": "キーを確認しました",
+  "invalidApiKey": "無効な API キー",
+  "openSubtitlesAuthSubtitle": "より高い制限と広告なしの字幕を利用するには、アカウント情報を入力してください。",
+  "subDlAuthSubtitle": "SubDL API キーを直接入力するか、以下のアカウント情報を使用して取得してください。",
+  "orFetchViaAccount": "またはアカウント経由で取得",
+  "subSourceAuthSubtitle": "SubSource は設定なしで使用できますが、信頼性を高めるために個人の API キーを追加できます。",
+  "apiKeyOptionalOverride": "API キー (オプション)",
+  "enterKeyToOverrideDefault": "デフォルトを上書きするキーを入力",
+  "getApiKeyFromProfile": "SubSource プロフィールから API キーを取得",
+  "qualityNotGuaranteed": "画質は保証されません。ソースは好み順に並べられますが、再生はプロバイダーの提供状況によります。",
+  "keepSourcesOriginalOrder": "ソースの元の順序を維持する",
+  "openLink": "リンクを開く",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "診断",
+  "viewLogs": "ログを表示",
+  "viewLogsSubtitle": "アプリのアクティビティとエラーを表示",
+  "goToExtensions": "拡張機能へ移動",
+  "noPluginsMessage": "コンテンツの閲覧とストリーミングのために拡張機能をインストールしてください。"
+}

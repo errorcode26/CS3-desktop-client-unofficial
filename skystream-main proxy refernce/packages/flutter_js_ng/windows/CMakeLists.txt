@@ -1,0 +1,36 @@
+cmake_minimum_required(VERSION 3.15)
+
+set(PROJECT_NAME "flutter_js")
+project(${PROJECT_NAME} LANGUAGES CXX C)
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
+# This value is used when generating builds using this plugin, so it must
+# not be changed
+set(PLUGIN_NAME "flutter_js_plugin")
+
+set(QUICKJS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cxx")
+add_definitions(-DCONFIG_VERSION="2024-01-01" -DQUICKJS -DCONFIG_BIGNUM -D_GNU_SOURCE)
+
+add_library(${PLUGIN_NAME} SHARED
+  "flutter_js_plugin.cpp"
+  "${QUICKJS_SRC_DIR}/quickjs/cutils.c"
+  "${QUICKJS_SRC_DIR}/quickjs/libregexp.c"
+  "${QUICKJS_SRC_DIR}/quickjs/libunicode.c"
+  "${QUICKJS_SRC_DIR}/quickjs/libbf.c"
+  "${QUICKJS_SRC_DIR}/quickjs/quickjs.c"
+  "${QUICKJS_SRC_DIR}/libfastdev_quickjs_runtime.cpp"
+)
+apply_standard_settings(${PLUGIN_NAME})
+set_target_properties(${PLUGIN_NAME} PROPERTIES
+  CXX_VISIBILITY_PRESET hidden)
+target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
+target_include_directories(${PLUGIN_NAME} INTERFACE
+  "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(${PLUGIN_NAME} PRIVATE "${QUICKJS_SRC_DIR}/quickjs")
+
+if(MSVC)
+    set_target_properties(${PLUGIN_NAME} PROPERTIES C_STANDARD 11)
+    target_compile_options(${PLUGIN_NAME} PRIVATE /experimental:c11atomics /WX- /W0)
+endif()
+
+target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)

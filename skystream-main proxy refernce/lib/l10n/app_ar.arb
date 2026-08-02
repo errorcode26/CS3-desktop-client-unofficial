@@ -1,0 +1,589 @@
+{
+  "@@locale": "ar",
+  "appTitle": "SkyStream",
+  "languageName": "العربية",
+  "home": "الرئيسية",
+  "search": "بحث",
+  "explore": "استكشاف",
+  "library": "المكتبة",
+  "settings": "الإعدادات",
+  "extensions": "الإضافات",
+  "updateAvailable": "يتوفر تحديث",
+  "retry": "إعادة المحاولة",
+  "factoryReset": "إعادة ضبط المصنع",
+  "startupError": "خطأ في بدء التشغيل",
+  "general": "عام",
+  "appTheme": "مظهر التطبيق",
+  "recordWatchHistory": "سجل المشاهدة",
+  "defaultHomeScreen": "الشاشة الرئيسية الافتراضية",
+  "player": "المشغل",
+  "defaultPlayer": "المشغل الافتراضي",
+  "leftGesture": "إيماءة اليسار",
+  "rightGesture": "إيماءة اليمين",
+  "doubleTapToSeek": "النقر المزدوج للتقديم/التأخير",
+  "swipeToSeek": "السحب للتقديم/التأخير",
+  "seekDuration": "مدة القفز",
+  "bufferDepth": "عمق التخزين المؤقت",
+  "defaultResizeMode": "وضع تغيير الحجم الافتراضي",
+  "hardwareDecoding": "فك ترميز العتاد",
+  "network": "الشبكة",
+  "dnsOverHttps": "DNS عبر HTTPS",
+  "dohProvider": "مزود DoH",
+  "manageExtensions": "إدارة الإضافات",
+  "appData": "بيانات التطبيق",
+  "resetDataKeepExtensions": "إعادة ضبط البيانات (مع الاحتفاظ بالإضافات)",
+  "developer": "المطور",
+  "developerOptions": "خيارات المطور",
+  "about": "حول",
+  "version": "الإصدار",
+  "enabled": "مفعل",
+  "disabled": "معطل",
+  "system": "النظام",
+  "dark": "داكن",
+  "light": "فاتح",
+  "later": "لاحقاً",
+  "updateNow": "التحديث الآن",
+  "save": "حفظ",
+  "cancel": "إلغاء",
+  "close": "إغلاق",
+  "delete": "حذف",
+  "viewDetails": "عرض التفاصيل",
+  "clearAll": "مسح الكل",
+  "clearAllHistory": "مسح كل السجل",
+  "all": "الكل",
+  "none": "لا شيء",
+  "confirmDownload": "تأكيد التنزيل",
+  "downloadNow": "تنزيل الآن",
+  "selectSource": "اختر المصدر",
+  "downloadUnavailable": "التنزيل غير متاح",
+  "selectAnotherSource": "اختر مصدراً آخر",
+  "watchHistoryCleared": "تم مسح سجل المشاهدة",
+  "downloadingUpdate": "جارٍ تنزيل التحديث...",
+  "errorPrefix": "خطأ: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "التحديث متاح: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "اختر مزوداً لبدء المشاهدة",
+  "tapExtensionIcon": "اضغط على أيقونة الإضافة في الزاوية",
+  "continueWatching": "مواصلة المشاهدة",
+  "noInternetConnection": "لا يوجد اتصال بالإنترنت",
+  "siteNotReachable": "لا يمكن الوصول إلى الموقع",
+  "checkConnectionOrDownloads": "تحقق من اتصالك أو شاهد المحتوى الذي قمت بتنزيله.",
+  "tryVpnOrConnection": "يرجى محاولة الوصول إلى الموقع باستخدام VPN أو التحقق من اتصالك بالإنترنت.",
+  "errorDetails": "تفاصيل الخطأ: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "الانتقال إلى التنزيلات",
+  "selectProvider": "اختر المزود",
+  "searchHint": "ابحث عن أفلام وسلاسل...",
+  "searchFavoriteContent": "ابحث عن محتواك المفضل",
+  "pressSearchOrEnter": "اضغط على مفتاح البحث أو Enter للبدء",
+  "noResultsFound": "لم يتم العثور على نتائج.",
+  "couldNotLoadTrending": "تعذر تحميل العناصر الشائعة",
+  "popularMovies": "أفلام شعبية",
+  "popularTVShows": "مسلسلات تلفزيونية شعبية",
+  "newMovies": "أفلام جديدة",
+  "newTVShows": "مسلسلات تلفزيونية جديدة",
+  "featuredMovies": "أفلام مختارة",
+  "featuredTVShows": "مسلسلات تلفزيونية مختارة",
+  "lastVideosTVShows": "آخر المسلسلات التلفزيونية",
+  "downloads": "التنزيلات",
+  "bookmarks": "الإشارات المرجعية",
+  "noDownloadsYet": "لا توجد تنزيلات بعد",
+  "episodesCount": "{count} حلقة • {done} اكتملت",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "حذف جميع الحلقات",
+  "confirmDeleteAllEpisodes": "هل أنت متأكد أنك تريد حذف جميع الحلقات الـ {count} من \"{title}\" وملفاتها؟",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "حذف الكل",
+  "completed": "مكتمل",
+  "statusQueued": "في الانتظار...",
+  "statusDownloading": "جارٍ التنزيل...",
+  "statusFinished": "انتهى",
+  "statusFailed": "فشل",
+  "statusCanceled": "ملغى",
+  "statusPaused": "متوقف مؤقتاً",
+  "statusWaiting": "انتظار...",
+  "fileNotFoundRemoving": "الملف غير موجود على القرص. جارٍ إزالة السجل.",
+  "fileNotFound": "الملف غير موجود",
+  "deleteDownload": "حذف التنزيل",
+  "confirmDeleteDownload": "هل أنت متأكد أنك تريد حذف هذا التنزيل وملفه؟",
+  "libraryEmpty": "مكتبتك فارغة",
+  "language": "اللغة",
+  "english": "الإنجليزية",
+  "hindi": "الهندية",
+  "kannada": "الكانادية",
+  "unknown": "غير معروف",
+  "recommended": "موصى به",
+  "on": "تشغيل",
+  "off": "إيقاف",
+  "installRemoveProviders": "تثبيت أو إزالة المزودين",
+  "resetDataSubtitle": "مسح الإعدادات وقاعدة البيانات، والحفاظ على الإضافات",
+  "factoryResetSubtitle": "حذف جميع البيانات والإعدادات والإضافات",
+  "developerOptionsSubtitle": "أدوات التصحيح والتشغيل المحلي",
+  "loading": "جارٍ التحميل...",
+  "sec": "ثانية",
+  "min": "دقيقة",
+  "internalPlayer": "مشغل داخلي (media_kit)",
+  "builtInPlayer": "المشغل المدمج",
+  "customNotSet": "مخصص (غير محدد)",
+  "selectGesture": "اختر إيماءة {side}",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "اليسار",
+  "right": "اليمين",
+  "selectSeekDuration": "اختر مدة القفز",
+  "selectBufferDepth": "اختر عمق التخزين المؤقت",
+  "subtitleSettings": "إعدادات الترجمة",
+  "size": "الحجم: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "الخلفية",
+  "customDohUrlLabel": "رابط DoH مخصص",
+  "enterCustomDohUrl": "أدخل رابط DoH الخاص بك",
+  "chooseTheme": "اختر المظهر",
+  "resetDataDialogTitle": "إعادة ضبط البيانات؟",
+  "resetDataDialogContent": "سيؤدي هذا إلى مسح الإعدادات والمفضلات والسجل. لن يتم حذف إضافاتك المثبتة.",
+  "factoryResetDialogTitle": "إعادة ضبط المصنع؟",
+  "factoryResetDialogContent": "سيؤدي هذا إلى حذف كل شيء: المفضلات والسجل والإعدادات وجميع الإضافات. لا يمكن التراجع عن هذا الإجراء.",
+  "selectLanguage": "اختر اللغة",
+  "synopsis": "ملخص",
+  "noDescription": "لا يوجد وصف متاح.",
+  "videoAlreadyDownloadedPrompt": "هذا الفيديو تم تنزيله بالفعل. ماذا تريد أن تفعل؟",
+  "playNow": "تشغيل الآن",
+  "deleteDownloadPrompt": "حذف التنزيل؟",
+  "deleteDownloadConfirmation": "هل أنت متأكد أنك تريد حذف هذا الملف؟ لا يمكن التراجع عن هذا الإجراء.",
+  "no": "لا",
+  "yesDelete": "نعم، حذف",
+  "downloadPaused": "التنزيل متوقف مؤقتاً",
+  "downloading": "جارٍ التنزيل",
+  "speed": "السرعة",
+  "remaining": "المتبقي",
+  "resume": "استئناف",
+  "pause": "إيقاف مؤقت",
+  "torrentContent": "محتوى تورنت",
+  "audioTracks": "المسارات الصوتية",
+  "noAudioTracks": "لم يتم العثور على مسارات صوتية",
+  "subtitles": "الترجمات",
+  "options": "خيارات",
+  "noSubtitlesFound": "لم يتم العثور على مسارات ترجمة",
+  "playbackSpeed": "سرعة التشغيل",
+  "subtitleOptions": "خيارات الترجمة",
+  "hlsSubtitleWarning": "ملفات الترجمة الخارجية غير مدعومة على مشغل HLS النشط على هذه المنصة.",
+  "loadFromDevice": "تحميل من الجهاز",
+  "syncDelay": "المزامنة / التأخير",
+  "styleSettings": "إعدادات النمط",
+  "searchOnline": "بحث عبر الإنترنت (بحث عن الترجمة)",
+  "subtitleSync": "مزامنة الترجمة",
+  "subtitleDelayWarning": "تأخير الترجمة غير مدعوم من قبل محرك التشغيل النشط.",
+  "resetDelay": "إعادة ضبط التأخير",
+  "subtitleStyles": "أنماط الترجمة",
+  "mediaKitStylingWarning": "تنسيق الترجمة متاح فقط على مشغل media_kit حالياً.",
+  "resetToDefault": "إعادة الضبط للافتراضي",
+  "fontSize": "حجم الخط",
+  "verticalPosition": "الموضع العمودي",
+  "textColor": "لون النص",
+  "backgroundColor": "لون الخلفية",
+  "backgroundOpacity": "شفافية الخلفية",
+  "subtitleSearch": "البحث عن الترجمة",
+  "searchSubtitleNameHint": "ابحث عن اسم الترجمة...",
+  "enterSearchSubtitlePrompt": "أدخل اسماً أو ابحث للعثور على الترجمة.",
+  "noSubtitleResults": "لم يتم العثور على نتائج. جرب استعلاماً آخر.",
+  "downloadingApplyingSubtitle": "جارٍ تنزيل وتطبيق الترجمة...",
+  "failedToDownloadSubtitle": "فشل تنزيل الترجمة.",
+  "failedToLoadSubtitles": "فشل تحميل الترجمة. يرجى المحاولة مرة أخرى.",
+  "noReposFound": "لم يتم العثور على مستودعات أو إضافات",
+  "downloadAllProviders": "تنزيل الكل",
+  "removeRepository": "إزالة المستودع",
+  "addRepo": "إضافة مستودع",
+  "extensionsNotInRepos": "إضافات ليست في المستودعات",
+  "noLongerInRepo": "لم يعد مدرجاً في أي مستودع",
+  "addRepoToBrowse": "أضف مستودعاً لتصفح وتحديث الإضافات",
+  "debugExtensions": "تصحيح الإضافات",
+  "removeRepoConfirm": "إزالة {repoName}؟",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "سيؤدي هذا إلى إزالة المستودع وإلغاء تثبيت جميع إضافاته.",
+  "addRepository": "إضافة مستودع",
+  "repoUrlOrShortcode": "رابط المستودع أو الرمز المختصر",
+  "assetPlugin": "إضافة أصل",
+  "installed": "مثبت",
+  "updateTo": "التحديث إلى {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "تثبيت",
+  "error": "خطأ",
+  "ok": "موافق",
+  "pluginSettings": "إعدادات {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "الأفلام",
+  "series": "المسلسلات",
+  "anime": "الأنمي",
+  "liveStreams": "البث المباشر",
+  "debug": "تصحيح",
+  "extensionsUpdated": "{count, plural, =1{تم تحديث إضافة واحدة} other{تم تحديث {count} إضافات}}",
+  "invalidNavigation": "انتقال غير صالح. يرجى العودة.",
+  "startOver": "البدء من جديد",
+  "goBack": "العودة",
+  "resolving": "جارٍ الحل...",
+  "downloaded": "تم التنزيل",
+  "download": "تنزيل",
+  "debugOnlyFeature": "هذه الميزة متاحة فقط في إصدارات التصحيح",
+  "streamUrl": "رابط البث",
+  "play": "تشغيل",
+  "verifyingSourceSize": "جارٍ التحقق من المصدر والحجم...",
+  "fileSaveLocationNotification": "سيتم حفظ الملف في مجلد التنزيلات الخاص بك.",
+  "resumingPlayback": "استئناف التشغيل",
+  "pausedAt": "توقف عند {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{يستأنف تلقائياً خلال ثانية واحدة} other{يستأنف تلقائياً خلال {count} ثوانٍ}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "استئناف الآن",
+  "playbackError": "خطأ في التشغيل",
+  "confirmClearHistory": "هل أنت متأكد أنك تريد إزالة جميع العناصر من سجل المشاهدة؟",
+  "seasonWithNumber": "الموسم {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "جارٍ البدء...",
+  "percentWatched": "{percent}% تمت مشاهدته",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "ترجمة",
+  "dub": "دبلجة",
+  "playEpisode": "{label} م{season} ح{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "أدوات التصحيح",
+  "playLocalVideo": "تشغيل فيديو محلي",
+  "playLocalVideoSubtitle": "تشغيل أي فيديو من الجهاز",
+  "streamUrlSubtitle": "التشغيل من رابط شبكة",
+  "streamTorrent": "بث تورنت",
+  "streamTorrentSubtitle": "اختر ملف تورنت محلي للتشغيل",
+  "loadPluginFromAssets": "تحميل الإضافة من الأصول",
+  "enterVideoUrlHint": "أدخل رابط الفيديو (http, magnet, etc.)",
+  "networkStream": "بث الشبكة",
+  "removedFromHistory": "تمت إزالة {title} من السجل",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "مخصص",
+  "refreshingLiveStream": "جارٍ تحديث البث المباشر...",
+  "removeFromHistory": "إزالة من السجل",
+  "live": "مباشر",
+  "volume": "الصوت",
+  "brightness": "السطوع",
+  "fit": "ملاءمة",
+  "zoom": "تغيير الحجم والتركيز",
+  "stretch": "تمطيط",
+  "titleWithParam": "العنوان: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "المصدر: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "الحجم: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "خطأ: {error}. يتم استخدام المشغل الداخلي.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "لم يتم اكتشاف {playerName}. جارٍ بدء المشغل الداخلي.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "الموسم {number} ({count} حلقة)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "اختر المصدر لـ {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "لا توجد إضافات مثبتة",
+  "availableSources": "المصادر المتاحة",
+  "seasons": "المواسم",
+  "episodes": "الحلقات",
+  "selectSourceToPlay": "يرجى اختيار مصدر من 'المصادر المتاحة' أعلاه للتشغيل.",
+  "episodeCountOnly": "{count, plural, =1{حلقة واحدة} other{{count} حلقات}}",
+  "noEpisodesFound": "لم يتم العثور على حلقات",
+  "local": "محلي",
+  "remote": "عن بعد",
+  "torrent": "تورنت",
+  "unlock": "فتح القفل",
+  "lock": "قفل",
+  "sources": "المصادر",
+  "tracks": "المسارات",
+  "content": "المحتوى",
+  "stats": "الإحصائيات",
+  "resize": "تغيير الحجم",
+  "next": "التالي",
+  "pip": "صورة داخل صورة",
+  "rotate": "تدوير",
+  "windowed": "نوافذ",
+  "fullscreen": "ملء الشاشة",
+  "movieDetails": "تفاصيل الفيلم",
+  "showDetails": "عرض التفاصيل",
+  "tagline": "شعار",
+  "status": "الحالة",
+  "releaseDate": "تاريخ الإصدار",
+  "firstAirDate": "تاريخ أول عرض",
+  "originalLanguage": "اللغة الأصلية",
+  "originCountry": "بلد المنشأ",
+  "budgetLabel": "الميزانية",
+  "revenueLabel": "الإيرادات",
+  "paused": "متوقف",
+  "watched": "تمت مشاهدته",
+  "watching": "مشاهدة الآن",
+  "lastWatched": "آخر مشاهدة",
+  "movie": "فيلم",
+  "tvShow": "مسلسل تلفزيوني",
+  "failedToLoadContent": "فشل تحميل المحتوى",
+  "director": "المخرج",
+  "creator": "المبتكر",
+  "showMore": "عرض المزيد",
+  "showLess": "عرض أقل",
+  "viewAll": "عرض الكل",
+  "seasonsCount": "{count} مواسم",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "لا يوجد اتصال بالإنترنت",
+  "timeoutError": "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.",
+  "serverError": "خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.",
+  "contentNotFoundError": "المحتوى غير موجود.",
+  "accessDeniedError": "تم رفض الوصول. تحقق من بيانات الاعتماد الخاصة بك.",
+  "serviceUnavailableError": "الخادم غير متاح. حاول مرة أخرى لاحقاً.",
+  "generalError": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "skip": "تخطي",
+  "goLive": "البث المباشر",
+  "dismiss": "إغلاق",
+  "nextUp": "التالي",
+  "sourceAttempt": "المصدر {index} من {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "محاولة",
+  "failed": "فشل",
+  "selected": "مختار",
+  "playing": "تشغيل",
+  "pending": "قيد الانتظار",
+  "discord": "Discord",
+  "discordSubtitle": "انضم إلى خادمنا",
+  "telegram": "Telegram",
+  "telegramSubtitle": "انضم إلى قناتنا",
+  "developedBy": "تم التطوير بواسطة {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "تفضيل جودة الواي فاي",
+  "mobileQualityPreference": "تفضيل جودة الهاتف المحمول",
+  "anyNoPreference": "أي نوع (لا يوجد تفضيل)",
+  "subtitleAccounts": "حسابات الترجمة",
+  "notLoggedIn": "غير مسجّل الدخول",
+  "loggedInAs": "تم تسجيل الدخول باسم {username}",
+  "apiKeyConfigured": "تم تكوين مفتاح API",
+  "keyNotSet": "لم يتم تعيين المفتاح",
+  "testConnection": "اختبار الاتصال",
+  "connectedSuccessfully": "تم الاتصال بنجاح",
+  "connectionFailed": "فشل الاتصال",
+  "username": "اسم المستخدم",
+  "password": "كلمة المرور",
+  "noAccountRegister": "ليس لديك حساب؟ سجل هنا",
+  "apiKey": "مفتاح API",
+  "email": "البريد الإلكتروني",
+  "fetchMyApiKey": "جلب مفتاح API الخاص بي",
+  "keyVerified": "تم التحقق من المفتاح",
+  "invalidApiKey": "مفتاح API غير صالح",
+  "openSubtitlesAuthSubtitle": "أدخل بيانات اعتماد حسابك للحصول على حدود أعلى وترجمات خالية من الإعلانات.",
+  "subDlAuthSubtitle": "أدخل مفتاح SubDL API الخاص بك مباشرة، أو احصل عليه باستخدام بيانات اعتماد حسابك أدناه.",
+  "orFetchViaAccount": "أو الجلب عبر الحساب",
+  "subSourceAuthSubtitle": "يعمل SubSource تلقائياً، ولكن يمكنك إضافة مفتاح API رسمي شخصي لتجاوز الافتراضي للحصول على موثوقية أفضل.",
+  "apiKeyOptionalOverride": "مفتاح API (تجاوز اختياري)",
+  "enterKeyToOverrideDefault": "أدخل المفتاح لتجاوز الافتراضي",
+  "getApiKeyFromProfile": "احصل على مفتاح API الخاص بك من ملف SubSource الشخصي",
+  "qualityNotGuaranteed": "الجودة غير مضمونة. يتم فرز المصادر حسب التفضيل، ولكن التشغيل يعتمد على ما يقدمه المزود بالفعل.",
+  "keepSourcesOriginalOrder": "الحفاظ على المصادر في ترتيبها الأصلي",
+  "openLink": "فتح الرابط",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "التشخيصات",
+  "viewLogs": "عرض السجلات",
+  "viewLogsSubtitle": "عرض نشاط التطبيق والأخطاء",
+  "goToExtensions": "الذهاب إلى الإضافات",
+  "noPluginsMessage": "قم بتثبيت الإضافات لتصفح وبث المحتوى."
+}

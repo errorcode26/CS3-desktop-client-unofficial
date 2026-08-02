@@ -1,0 +1,589 @@
+{
+  "@@locale": "it",
+  "appTitle": "SkyStream",
+  "languageName": "Italiano",
+  "home": "Home",
+  "search": "Cerca",
+  "explore": "Esplora",
+  "library": "Libreria",
+  "settings": "Impostazioni",
+  "extensions": "Estensioni",
+  "updateAvailable": "Aggiornamento disponibile",
+  "retry": "Riprova",
+  "factoryReset": "Ripristino di fabbrica",
+  "startupError": "Errore di avvio",
+  "general": "Generale",
+  "appTheme": "Tema applicazione",
+  "recordWatchHistory": "Registra cronologia",
+  "defaultHomeScreen": "Schermata home predefinita",
+  "player": "Lettore",
+  "defaultPlayer": "Lettore predefinito",
+  "leftGesture": "Gesto sinistro",
+  "rightGesture": "Gesto destro",
+  "doubleTapToSeek": "Doppio tocco per cercare",
+  "swipeToSeek": "Scorri per cercare",
+  "seekDuration": "Durata salto",
+  "bufferDepth": "Profondità buffer",
+  "defaultResizeMode": "Ridimensionamento predefinito",
+  "hardwareDecoding": "Decodifica hardware",
+  "network": "Rete",
+  "dnsOverHttps": "DNS su HTTPS",
+  "dohProvider": "Provider DoH",
+  "manageExtensions": "Gestisci estensioni",
+  "appData": "Dati applicazione",
+  "resetDataKeepExtensions": "Ripristina dati (mantieni estensioni)",
+  "developer": "Sviluppatore",
+  "developerOptions": "Opzioni sviluppatore",
+  "about": "Informazioni",
+  "version": "Versione",
+  "enabled": "Attivato",
+  "disabled": "Disattivato",
+  "system": "Sistema",
+  "dark": "Scuro",
+  "light": "Chiaro",
+  "later": "Più tardi",
+  "updateNow": "Aggiorna ora",
+  "save": "Salva",
+  "cancel": "Annulla",
+  "close": "Chiudi",
+  "delete": "Elimina",
+  "viewDetails": "Visualizza dettagli",
+  "clearAll": "Cancella tutto",
+  "clearAllHistory": "Cancella cronologia",
+  "all": "Tutto",
+  "none": "Nessuno",
+  "confirmDownload": "Conferma download",
+  "downloadNow": "Scarica ora",
+  "selectSource": "Seleziona fonte",
+  "downloadUnavailable": "Download non disponibile",
+  "selectAnotherSource": "Seleziona un'altra fonte",
+  "watchHistoryCleared": "Cronologia cancellata",
+  "downloadingUpdate": "Scaricamento aggiornamento...",
+  "errorPrefix": "Errore: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Aggiornamento disponibile: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Seleziona un provider per iniziare",
+  "tapExtensionIcon": "Tocca l'icona dell'estensione nell'angolo",
+  "continueWatching": "Continua a guardare",
+  "noInternetConnection": "Nessuna connessione Internet",
+  "siteNotReachable": "Sito non raggiungibile",
+  "checkConnectionOrDownloads": "Controlla la connessione o guarda i contenuti scaricati.",
+  "tryVpnOrConnection": "Prova ad accedere con una VPN o controlla la connessione.",
+  "errorDetails": "Dettagli errore: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Vai ai download",
+  "selectProvider": "Seleziona provider",
+  "searchHint": "Cerca film, serie...",
+  "searchFavoriteContent": "Cerca i tuoi contenuti preferiti",
+  "pressSearchOrEnter": "Premi Cerca o Invio per iniziare",
+  "noResultsFound": "Nessun risultato trovato.",
+  "couldNotLoadTrending": "Impossibile caricare i trend",
+  "popularMovies": "Film popolari",
+  "popularTVShows": "Serie TV popolari",
+  "newMovies": "Nuovi film",
+  "newTVShows": "Nuove serie TV",
+  "featuredMovies": "Film in evidenza",
+  "featuredTVShows": "Serie TV in evidenza",
+  "lastVideosTVShows": "Ultime serie TV",
+  "downloads": "Download",
+  "bookmarks": "Segnalibri",
+  "noDownloadsYet": "Nessun download presente",
+  "episodesCount": "{count} Episodi • {done} Completati",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Elimina tutti gli episodi",
+  "confirmDeleteAllEpisodes": "Sei sicuro di voler eliminare tutti i {count} episodi di \"{title}\" e i relativi file?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Elimina tutto",
+  "completed": "Completato",
+  "statusQueued": "In coda...",
+  "statusDownloading": "Scaricamento...",
+  "statusFinished": "Finito",
+  "statusFailed": "Fallito",
+  "statusCanceled": "Annullato",
+  "statusPaused": "In pausa",
+  "statusWaiting": "In attesa...",
+  "fileNotFoundRemoving": "File non trovato sul disco. Rimozione record.",
+  "fileNotFound": "File non trovato",
+  "deleteDownload": "Elimina download",
+  "confirmDeleteDownload": "Sei sicuro di voler eliminare questo download e il relativo file?",
+  "libraryEmpty": "La tua libreria è vuota",
+  "language": "Lingua",
+  "english": "Inglese",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Sconosciuto",
+  "recommended": "Consigliato",
+  "on": "ON",
+  "off": "OFF",
+  "installRemoveProviders": "Installa o rimuovi provider",
+  "resetDataSubtitle": "Cancella impostazioni e database, mantieni plugin",
+  "factoryResetSubtitle": "Elimina tutti i dati, impostazioni ed estensioni",
+  "developerOptionsSubtitle": "Strumenti di debug e riproduzione locale",
+  "loading": "Caricamento...",
+  "sec": "sec",
+  "min": "min",
+  "internalPlayer": "Interno (media_kit)",
+  "builtInPlayer": "Lettore integrato",
+  "customNotSet": "Personalizzato (non impostato)",
+  "selectGesture": "Seleziona gesto {side}",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "Sinistra",
+  "right": "Destra",
+  "selectSeekDuration": "Durata salto",
+  "selectBufferDepth": "Profondità buffer",
+  "subtitleSettings": "Impostazioni sottotitoli",
+  "size": "Dimensione: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Sfondo",
+  "customDohUrlLabel": "URL DoH personalizzato",
+  "enterCustomDohUrl": "Inserisci il tuo URL DoH",
+  "chooseTheme": "Scegli tema",
+  "resetDataDialogTitle": "Ripristina dati?",
+  "resetDataDialogContent": "Questo cancellerà Impostazioni, Preferiti e Cronologia. Le estensioni installate NON verranno eliminate.",
+  "factoryResetDialogTitle": "Ripristino di fabbrica?",
+  "factoryResetDialogContent": "Questo eliminerà TUTTO: Preferiti, Cronologia, Impostazioni e TUTTE le estensioni. L'azione è irreversibile.",
+  "selectLanguage": "Seleziona lingua",
+  "synopsis": "Sinossi",
+  "noDescription": "Nessuna descrizione disponibile.",
+  "videoAlreadyDownloadedPrompt": "Questo video è già stato scaricato. Cosa vuoi fare?",
+  "playNow": "Riproduci ora",
+  "deleteDownloadPrompt": "Elimina download?",
+  "deleteDownloadConfirmation": "Sei sicuro di voler eliminare questo file? L'azione è irreversibile.",
+  "no": "No",
+  "yesDelete": "Sì, elimina",
+  "downloadPaused": "Download in pausa",
+  "downloading": "Scaricamento",
+  "speed": "Velocità",
+  "remaining": "Rimanente",
+  "resume": "Riprendi",
+  "pause": "Pausa",
+  "torrentContent": "Contenuto Torrent",
+  "audioTracks": "Tracce Audio",
+  "noAudioTracks": "Nessuna traccia audio trovata",
+  "subtitles": "Sottotitoli",
+  "options": "Opzioni",
+  "noSubtitlesFound": "Nessuna traccia sottotitoli trovata",
+  "playbackSpeed": "Velocità di riproduzione",
+  "subtitleOptions": "Opzioni sottotitoli",
+  "hlsSubtitleWarning": "I sottotitoli esterni non sono supportati dal lettore HLS attivo su questa piattaforma.",
+  "loadFromDevice": "Carica dal dispositivo",
+  "syncDelay": "Sincronizzazione / Ritardo",
+  "styleSettings": "Impostazioni stile",
+  "searchOnline": "Cerca online (Subtitle Search)",
+  "subtitleSync": "Sincronia sottotitoli",
+  "subtitleDelayWarning": "Il ritardo sottotitoli non è supportato dal motore di riproduzione attuale.",
+  "resetDelay": "Ripristina ritardo",
+  "subtitleStyles": "Stili sottotitoli",
+  "mediaKitStylingWarning": "La personalizzazione dei sottotitoli è disponibile solo sul lettore media_kit al momento.",
+  "resetToDefault": "Ripristina predefiniti",
+  "fontSize": "Dimensione carattere",
+  "verticalPosition": "Posizione verticale",
+  "textColor": "Colore testo",
+  "backgroundColor": "Colore sfondo",
+  "backgroundOpacity": "Opacità sfondo",
+  "subtitleSearch": "Ricerca sottotitoli",
+  "searchSubtitleNameHint": "Cerca nome sottotitolo...",
+  "enterSearchSubtitlePrompt": "Inserisci un nome per trovare i sottotitoli.",
+  "noSubtitleResults": "Nessun risultato trovato. Prova un'altra ricerca.",
+  "downloadingApplyingSubtitle": "Scaricamento e applicazione sottotitolo...",
+  "failedToDownloadSubtitle": "Scaricamento sottotitolo fallito.",
+  "failedToLoadSubtitles": "Caricamento sottotitoli fallito. Riprova.",
+  "noReposFound": "Nessun repository o plugin trovato",
+  "downloadAllProviders": "Scarica tutto",
+  "removeRepository": "Rimuovi repository",
+  "addRepo": "Aggiungi repository",
+  "extensionsNotInRepos": "Estensioni non nei repository",
+  "noLongerInRepo": "Non più presente in alcun repository",
+  "addRepoToBrowse": "Aggiungi un repository per sfogliare e aggiornare i plugin",
+  "debugExtensions": "Debug estensioni",
+  "removeRepoConfirm": "Rimuovere {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Questo rimuoverà il repository e disinstallerà TUTTI i suoi plugin.",
+  "addRepository": "Aggiungi repository",
+  "repoUrlOrShortcode": "URL o Shortcode repository",
+  "assetPlugin": "Plugin asset",
+  "installed": "Installato",
+  "updateTo": "Aggiorna a {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Installa",
+  "error": "Errore",
+  "ok": "OK",
+  "pluginSettings": "Impostazioni {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Film",
+  "series": "Serie TV",
+  "anime": "Anime",
+  "liveStreams": "Dirette live",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, =1{1 estensione aggiornata} other{{count} estensioni aggiornate}}",
+  "invalidNavigation": "Navigazione non valida. Torna indietro.",
+  "startOver": "Ricomincia",
+  "goBack": "Torna indietro",
+  "resolving": "Risoluzione...",
+  "downloaded": "Scaricato",
+  "download": "Scarica",
+  "debugOnlyFeature": "Questa funzione è disponibile solo nelle build di Debug",
+  "streamUrl": "URL Streaming",
+  "play": "Riproduci",
+  "verifyingSourceSize": "Verifica fonte e dimensioni...",
+  "fileSaveLocationNotification": "Il file verrà salvato nella cartella Download.",
+  "resumingPlayback": "Ripresa riproduzione",
+  "pausedAt": "In pausa a {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{Ripresa automatica tra 1 secondo} other{Ripresa automatica tra {count} secondi}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Riprendi ora",
+  "playbackError": "Errore riproduzione",
+  "confirmClearHistory": "Sei sicuro di voler rimuovere tutti gli elementi dalla cronologia?",
+  "seasonWithNumber": "Stagione {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Avvio...",
+  "percentWatched": "{percent}% guardato",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Strumenti debug",
+  "playLocalVideo": "Riproduci file video locale",
+  "playLocalVideoSubtitle": "Riproduci qualsiasi video dal dispositivo",
+  "streamUrlSubtitle": "Riproduci da URL di rete",
+  "streamTorrent": "Streaming torrent",
+  "streamTorrentSubtitle": "Seleziona un file torrent locale per la riproduzione",
+  "loadPluginFromAssets": "Carica plugin dagli asset",
+  "enterVideoUrlHint": "Inserisci URL video (http, magnet, ecc.)",
+  "networkStream": "Streaming di rete",
+  "removedFromHistory": "{title} rimosso dalla cronologia",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Personalizzato",
+  "refreshingLiveStream": "Aggiornamento diretta live...",
+  "removeFromHistory": "Rimuovi dalla cronologia",
+  "live": "LIVE",
+  "volume": "Volume",
+  "brightness": "Luminosità",
+  "fit": "Adatta",
+  "zoom": "Zoom",
+  "stretch": "Allunga",
+  "titleWithParam": "Titolo: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Fonte: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Dimensione: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Errore: {error}. Utilizzo del lettore interno.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} non rilevato. Avvio lettore interno.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Stagione {number} ({count} Episodi)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Seleziona fonte per {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Nessun plugin installato",
+  "availableSources": "Fonti disponibili",
+  "seasons": "Stagioni",
+  "episodes": "Episodi",
+  "selectSourceToPlay": "Seleziona una fonte sopra per riprodurre.",
+  "episodeCountOnly": "{count, plural, =1{1 Episodio} other{{count} Episodi}}",
+  "noEpisodesFound": "Nessun episodio trovato",
+  "local": "Locale",
+  "remote": "Remoto",
+  "torrent": "Torrent",
+  "unlock": "Sblocca",
+  "lock": "Blocca",
+  "sources": "Fonti",
+  "tracks": "Tracce",
+  "content": "Contenuto",
+  "stats": "Statistiche",
+  "resize": "Ridimensiona",
+  "next": "Successivo",
+  "pip": "PiP",
+  "rotate": "Ruota",
+  "windowed": "Finestra",
+  "fullscreen": "Schermo intero",
+  "movieDetails": "Dettagli Film",
+  "showDetails": "Mostra Dettagli",
+  "tagline": "Tagline",
+  "status": "Stato",
+  "releaseDate": "Data d'uscita",
+  "firstAirDate": "Data prima messa in onda",
+  "originalLanguage": "Lingua originale",
+  "originCountry": "Paese d'origine",
+  "budgetLabel": "Budget",
+  "revenueLabel": "Incasso",
+  "paused": "In pausa",
+  "watched": "Visto",
+  "watching": "In visione",
+  "lastWatched": "Ultima visione",
+  "movie": "Film",
+  "tvShow": "Serie TV",
+  "failedToLoadContent": "Caricamento contenuti fallito",
+  "director": "Regista",
+  "creator": "Creatore",
+  "showMore": "Mostra di più",
+  "showLess": "Mostra meno",
+  "viewAll": "Vedi tutto",
+  "seasonsCount": "{count, plural, =1{1 Stagione} other{{count} Stagioni}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Nessuna connessione Internet",
+  "timeoutError": "Richiesta scaduta. Riprova.",
+  "serverError": "Errore del server. Riprova più tardi.",
+  "contentNotFoundError": "Contenuto non trovato.",
+  "accessDeniedError": "Accesso negato. Controlla le tue credenziali.",
+  "serviceUnavailableError": "Server non disponibile. Riprova più tardi.",
+  "generalError": "Si è verificato un errore. Per favore riprova.",
+  "skip": "Salta",
+  "goLive": "Vai in diretta",
+  "dismiss": "Chiudi",
+  "nextUp": "Prossimo",
+  "sourceAttempt": "Fonte {index} di {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Tentativo",
+  "failed": "Fallito",
+  "selected": "Selezionato",
+  "playing": "In riproduzione",
+  "pending": "In attesa",
+  "discord": "Discord",
+  "discordSubtitle": "Unisciti al nostro server",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Unisciti al nostro canale",
+  "developedBy": "Sviluppato da {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Preferenza qualità Wi-Fi",
+  "mobileQualityPreference": "Preferenza qualità mobile",
+  "anyNoPreference": "Qualsiasi (nessuna preferenza)",
+  "subtitleAccounts": "Account sottotitoli",
+  "notLoggedIn": "Accesso non effettuato",
+  "loggedInAs": "Accesso effettuato come {username}",
+  "apiKeyConfigured": "Chiave API configurata",
+  "keyNotSet": "Chiave non impostata",
+  "testConnection": "Testa connessione",
+  "connectedSuccessfully": "Connesso con successo",
+  "connectionFailed": "Connessione fallita",
+  "username": "Nome utente",
+  "password": "Password",
+  "noAccountRegister": "Non hai un account? Registrati qui",
+  "apiKey": "Chiave API",
+  "email": "Email",
+  "fetchMyApiKey": "Recupera la mia chiave API",
+  "keyVerified": "Chiave verificata",
+  "invalidApiKey": "Chiave API non valida",
+  "openSubtitlesAuthSubtitle": "Inserisci le tue credenziali per limiti più elevati e sottotitoli senza pubblicità.",
+  "subDlAuthSubtitle": "Inserisci direttamente la tua chiave API SubDL o recuperala inserendo le tue credenziali.",
+  "orFetchViaAccount": "O RECUPERA TRAMITE ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource funziona normalmente, ma puoi aggiungere una chiave API ufficiale per maggiore affidabilità.",
+  "apiKeyOptionalOverride": "Chiave API (Opzionale)",
+  "enterKeyToOverrideDefault": "Inserisci chiave per sovrascrivere predefinita",
+  "getApiKeyFromProfile": "Ottieni la tua chiave API dal profilo SubSource",
+  "qualityNotGuaranteed": "La qualità non è garantita. Le fonti sono ordinate per preferenza, ma dipendono dall'offerta effettiva del fornitore.",
+  "keepSourcesOriginalOrder": "Mantieni l'ordine originale delle fonti",
+  "openLink": "Apri link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostica",
+  "viewLogs": "Visualizza registri",
+  "viewLogsSubtitle": "Visualizza attività ed errori dell'applicazione",
+  "goToExtensions": "Vai alle estensioni",
+  "noPluginsMessage": "Installa le estensioni per sfogliare e trasmettere contenuti."
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Scopes cleartext (http://) traffic.
+
+  Rationale: SkyStream runs user-installed JS plugins that may scrape sources
+  using http:// URLs (legacy streaming sites that haven't moved to TLS).
+  The audit (B7) flagged the blanket `usesCleartextTraffic="true"` as too
+  permissive. Without scoping, _all_ outbound traffic would be allowed in
+  cleartext — including TMDB and our own update endpoint.
+
+  Strategy here:
+  - Default (base-config): cleartext PERMITTED. Reverting to blanket-allow
+    matches the previous behaviour while still enabling per-domain pinning
+    in future. We keep this until provider plugins are audited or migrated
+    to https-only.
+  - Localhost: explicitly allowed (the in-app proxy at 127.0.0.1).
+  - TMDB image/api endpoints: TLS-only (no cleartext fallback).
+  - Update endpoint (api.github.com): TLS-only.
+
+  To tighten further later: flip cleartextTrafficPermitted to false in the
+  base-config and add per-domain overrides for known plugin sources.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Localhost: always allowed cleartext (in-app proxy). -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+
+    <!-- TMDB: TLS-only. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">themoviedb.org</domain>
+        <domain includeSubdomains="true">tmdb.org</domain>
+    </domain-config>
+
+    <!-- Update endpoint: TLS-only. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.github.com</domain>
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+    </domain-config>
+</network-security-config>

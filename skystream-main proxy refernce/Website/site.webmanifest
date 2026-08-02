@@ -1,0 +1,26 @@
+{
+  "name": "SkyStream",
+  "short_name": "SkyStream",
+  "description": "Free open-source media streaming app for Android, iOS, Windows, macOS and Linux.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#070b10",
+  "theme_color": "#070b10",
+  "icons": [
+    {
+      "src": "favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+framework module "TorrServer" {
+	header "ref.h"
+    header "Server.objc.h"
+    header "Universe.objc.h"
+    header "TorrServer.h"
+
+    export *
+}

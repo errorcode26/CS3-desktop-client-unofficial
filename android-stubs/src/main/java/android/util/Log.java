@@ -5,11 +5,11 @@ import com.lagradost.common.logging.AppLogger;
 @android.annotation.Implemented
 public final class Log {
     public static int d(String tag, String msg) {
-        AppLogger.INSTANCE.d(tag, msg);
+        AppLogger.INSTANCE.d(tag, msg, null);
         return 0;
     }
     public static int d(String tag, String msg, Throwable tr) {
-        AppLogger.INSTANCE.d(tag, msg);
+        AppLogger.INSTANCE.d(tag, msg, tr);
         return 0;
     }
     public static int e(String tag, String msg) {
@@ -21,19 +21,19 @@ public final class Log {
         return 0;
     }
     public static int i(String tag, String msg) {
-        AppLogger.INSTANCE.i(tag, msg);
+        AppLogger.INSTANCE.i(tag, msg, null);
         return 0;
     }
     public static int i(String tag, String msg, Throwable tr) {
-        AppLogger.INSTANCE.i(tag, msg);
+        AppLogger.INSTANCE.i(tag, msg, tr);
         return 0;
     }
     public static int v(String tag, String msg) {
-        AppLogger.INSTANCE.d(tag, msg); // VERBOSE maps to DEBUG in SLF4J
+        AppLogger.INSTANCE.v(tag, msg, null);
         return 0;
     }
     public static int v(String tag, String msg, Throwable tr) {
-        AppLogger.INSTANCE.d(tag, msg);
+        AppLogger.INSTANCE.v(tag, msg, tr);
         return 0;
     }
     public static int w(String tag, String msg) {
@@ -45,7 +45,7 @@ public final class Log {
         return 0;
     }
     public static int w(String tag, Throwable tr) {
-        AppLogger.INSTANCE.w(tag, "", tr);
+        AppLogger.INSTANCE.w(tag, tr != null ? tr.getMessage() != null ? tr.getMessage() : "Warning" : "", tr);
         return 0;
     }
     public static String getStackTraceString(Throwable tr) {

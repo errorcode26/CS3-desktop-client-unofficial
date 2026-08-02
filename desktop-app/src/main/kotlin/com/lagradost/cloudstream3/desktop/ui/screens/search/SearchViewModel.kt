@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEff
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiState
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -121,25 +122,28 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 // Temporary concurrent map to hold results as they arrive
                 val tempResults = java.util.concurrent.ConcurrentHashMap<String, List<SearchResponse>>()
 
-                withContext(Dispatchers.IO) {
-                    activeProviders.map { p ->
-                        launch {
-                            try {
-                                val res = p.search(query, 1)
-                                if (res != null && res.items.isNotEmpty()) {
-                                    tempResults[p.name] = res.items
-                                    // Update state incrementally so results appear as they arrive,
-                                    // but use a snapshot copy to avoid ConcurrentModificationException
-                                    updateState { copy(searchResultsGrouped = tempResults.toMap()) }
-                                }
-                            } catch (e: kotlinx.coroutines.CancellationException) {
-                                throw e
-                            } catch (e: Throwable) {
-                                DesktopErrorReporter.report("Search provider ${p.name} failed", e)
-                            }
+                activeProviders.map { p ->
+                    launch {
+                        com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Searching query: '$query'")
+                        val res = SafePluginInvoker.invokeOrNull(
+                            tag = "Search:${p.name}",
+                            timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                        ) {
+                            p.search(query, 1)
                         }
-                    }.forEach { it.join() }
-                }
+                        if (res != null && res.items.isNotEmpty()) {
+                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
+                            tempResults[p.name] = res.items
+                            // Update state incrementally so results appear as they arrive,
+                            // but use a snapshot copy to avoid ConcurrentModificationException
+                            updateState { copy(searchResultsGrouped = tempResults.toMap()) }
+                        } else {
+                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
+                        }
+                    }
+                }.forEach { it.join() }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 DesktopErrorReporter.report("Search failed", e)
             } finally {

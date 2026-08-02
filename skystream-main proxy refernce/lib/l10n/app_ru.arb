@@ -1,0 +1,589 @@
+{
+  "@@locale": "ru",
+  "appTitle": "SkyStream",
+  "languageName": "Русский",
+  "home": "Главная",
+  "search": "Поиск",
+  "explore": "Обзор",
+  "library": "Библиотека",
+  "settings": "Настройки",
+  "extensions": "Расширения",
+  "updateAvailable": "Доступно обновление",
+  "retry": "Повторить",
+  "factoryReset": "Сброс к заводским настройкам",
+  "startupError": "Ошибка запуска",
+  "general": "Общие",
+  "appTheme": "Тема приложения",
+  "recordWatchHistory": "Записывать историю просмотров",
+  "defaultHomeScreen": "Главный экран по умолчанию",
+  "player": "Плеер",
+  "defaultPlayer": "Плеер по умолчанию",
+  "leftGesture": "Левый жест",
+  "rightGesture": "Правый жест",
+  "doubleTapToSeek": "Двойное касание для перемотки",
+  "swipeToSeek": "Свайп для перемотки",
+  "seekDuration": "Длительность перемотки",
+  "bufferDepth": "Глубина буфера",
+  "defaultResizeMode": "Режим масштабирования по умолчанию",
+  "hardwareDecoding": "Аппаратное декодирование",
+  "network": "Сеть",
+  "dnsOverHttps": "DNS через HTTPS",
+  "dohProvider": "Провайдер DoH",
+  "manageExtensions": "Управление расширениями",
+  "appData": "Данные приложения",
+  "resetDataKeepExtensions": "Сброс данных (сохранить расширения)",
+  "developer": "Разработчик",
+  "developerOptions": "Параметры разработчика",
+  "about": "О приложении",
+  "version": "Версия",
+  "enabled": "Включено",
+  "disabled": "Выключено",
+  "system": "Система",
+  "dark": "Темная",
+  "light": "Светлая",
+  "later": "Позже",
+  "updateNow": "Обновить сейчас",
+  "save": "Сохранить",
+  "cancel": "Отмена",
+  "close": "Закрыть",
+  "delete": "Удалить",
+  "viewDetails": "Подробнее",
+  "clearAll": "Очистить все",
+  "clearAllHistory": "Очистить всю историю",
+  "all": "Все",
+  "none": "Ничего",
+  "confirmDownload": "Подтверждение скачивания",
+  "downloadNow": "Скачать сейчас",
+  "selectSource": "Выберите источник",
+  "downloadUnavailable": "Недоступно",
+  "selectAnotherSource": "Выбрать другой",
+  "watchHistoryCleared": "История просмотров очищена",
+  "downloadingUpdate": "Загрузка обновления...",
+  "errorPrefix": "Ошибка: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Доступно обновление: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Выберите провайдера, чтобы начать просмотр",
+  "tapExtensionIcon": "Нажмите на иконку расширения в углу",
+  "continueWatching": "Продолжить просмотр",
+  "noInternetConnection": "Нет подключения к интернету",
+  "siteNotReachable": "Сайт недоступен",
+  "checkConnectionOrDownloads": "Проверьте соединение или посмотрите скачанный контент.",
+  "tryVpnOrConnection": "Попробуйте использовать VPN или проверьте соединение.",
+  "errorDetails": "Детали ошибки: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Перейти к загрузкам",
+  "selectProvider": "Выберите провайдера",
+  "searchHint": "Поиск фильмов, сериалов...",
+  "searchFavoriteContent": "Поиск любимого контента",
+  "pressSearchOrEnter": "Нажмите на поиск или Enter, чтобы начать",
+  "noResultsFound": "Ничего не найдено.",
+  "couldNotLoadTrending": "Не удалось загрузить тренды",
+  "popularMovies": "Популярные фильмы",
+  "popularTVShows": "Популярные сериалы",
+  "newMovies": "Новые фильмы",
+  "newTVShows": "Новые сериалы",
+  "featuredMovies": "Рекомендуемые фильмы",
+  "featuredTVShows": "Рекомендуемые сериалы",
+  "lastVideosTVShows": "Последние сериалы",
+  "downloads": "Загрузки",
+  "bookmarks": "Закладки",
+  "noDownloadsYet": "Загрузок пока нет",
+  "episodesCount": "{count} серий • {done} просмотрено",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Удалить все серии",
+  "confirmDeleteAllEpisodes": "Вы уверены, что хотите удалить все серии ({count}) «{title}» и их файлы?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Удалить все",
+  "completed": "Завершено",
+  "statusQueued": "В очереди...",
+  "statusDownloading": "Загрузка...",
+  "statusFinished": "Завершено",
+  "statusFailed": "Ошибка",
+  "statusCanceled": "Отменено",
+  "statusPaused": "Приостановлено",
+  "statusWaiting": "Ожидание...",
+  "fileNotFoundRemoving": "Файл не найден на диске. Удаление записи.",
+  "fileNotFound": "Файл не найден",
+  "deleteDownload": "Удалить загрузку",
+  "confirmDeleteDownload": "Вы уверены, что хотите удалить эту загрузку?",
+  "libraryEmpty": "Ваша библиотека пуста",
+  "language": "Язык",
+  "english": "Английский",
+  "hindi": "Хинди",
+  "kannada": "Каннада",
+  "unknown": "Неизвестно",
+  "recommended": "Рекомендуемое",
+  "on": "Вкл",
+  "off": "Выкл",
+  "installRemoveProviders": "Установка и удаление провайдеров",
+  "resetDataSubtitle": "Очистить настройки и БД, сохранить плагины",
+  "factoryResetSubtitle": "Удалить все данные, настройки и расширения",
+  "developerOptionsSubtitle": "Инструменты отладки и локальное воспроизведение",
+  "loading": "Загрузка...",
+  "sec": "сек",
+  "min": "мин",
+  "internalPlayer": "Внутренний (media_kit)",
+  "builtInPlayer": "Встроенный плеер",
+  "customNotSet": "Пользовательский (не задан)",
+  "selectGesture": "Выберите жест ({side})",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "слева",
+  "right": "справа",
+  "selectSeekDuration": "Выберите длительность перемотки",
+  "selectBufferDepth": "Выберите глубину буфера",
+  "subtitleSettings": "Настройки субтитров",
+  "size": "Размер: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Фон",
+  "customDohUrlLabel": "Свой DoH URL",
+  "enterCustomDohUrl": "Введите свой DoH URL",
+  "chooseTheme": "Выберите тему",
+  "resetDataDialogTitle": "Сбросить данные?",
+  "resetDataDialogContent": "Это удалит настройки, избранное и историю. Установленные расширения НЕ будут удалены.",
+  "factoryResetDialogTitle": "Заводской сброс?",
+  "factoryResetDialogContent": "Это удалит ВСЕ: избранное, историю, настройки и ВСЕ расширения. Это действие нельзя отменить.",
+  "selectLanguage": "Выберите язык",
+  "synopsis": "Синопсис",
+  "noDescription": "Описание отсутствует.",
+  "videoAlreadyDownloadedPrompt": "Это видео уже скачано. Что вы хотите сделать?",
+  "playNow": "Смотреть сейчас",
+  "deleteDownloadPrompt": "Удалить загрузку?",
+  "deleteDownloadConfirmation": "Вы уверены, что хотите удалить этот файл? Это действие нельзя отменить.",
+  "no": "Нет",
+  "yesDelete": "Да, удалить",
+  "downloadPaused": "Загрузка приостановлена",
+  "downloading": "Загрузка",
+  "speed": "Скорость",
+  "remaining": "Осталось",
+  "resume": "Продолжить",
+  "pause": "Пауза",
+  "torrentContent": "Содержимое торрента",
+  "audioTracks": "Аудиодорожки",
+  "noAudioTracks": "Аудиодорожки не найдены",
+  "subtitles": "Субтитры",
+  "options": "Опции",
+  "noSubtitlesFound": "Субтитры не найдены",
+  "playbackSpeed": "Скорость воспроизведения",
+  "subtitleOptions": "Настройки субтитров",
+  "hlsSubtitleWarning": "Внешние субтитры не поддерживаются для HLS на этой платформе.",
+  "loadFromDevice": "Загрузить с устройства",
+  "syncDelay": "Синхронизация / Задержка",
+  "styleSettings": "Настройки стиля",
+  "searchOnline": "Поиск онлайн (поиск субтитров)",
+  "subtitleSync": "Синхронизация субтитров",
+  "subtitleDelayWarning": "Задержка субтитров не поддерживается текущим плеером.",
+  "resetDelay": "Сбросить задержку",
+  "subtitleStyles": "Стили субтитров",
+  "mediaKitStylingWarning": "Стилизация субтитров доступна только в плеере media_kit.",
+  "resetToDefault": "Сбросить по умолчанию",
+  "fontSize": "Размер шрифта",
+  "verticalPosition": "Вертикальная позиция",
+  "textColor": "Цвет текста",
+  "backgroundColor": "Цвет фона",
+  "backgroundOpacity": "Прозрачность фона",
+  "subtitleSearch": "Поиск субтитров",
+  "searchSubtitleNameHint": "Название субтитров...",
+  "enterSearchSubtitlePrompt": "Введите название для поиска субтитров.",
+  "noSubtitleResults": "Результатов не найдено.",
+  "downloadingApplyingSubtitle": "Загрузка и применение субтитров...",
+  "failedToDownloadSubtitle": "Не удалось скачать субтитры.",
+  "failedToLoadSubtitles": "Не удалось загрузить субтитры. Попробуйте еще раз.",
+  "noReposFound": "Репозитории или плагины не найдены",
+  "downloadAllProviders": "Скачать все",
+  "removeRepository": "Удалить репозиторий",
+  "addRepo": "Добавить репозиторий",
+  "extensionsNotInRepos": "Расширения не из репозиториев",
+  "noLongerInRepo": "Больше не значится ни в одном репозитории",
+  "addRepoToBrowse": "Добавьте репозиторий для просмотра плагинов",
+  "debugExtensions": "Отладка расширений",
+  "removeRepoConfirm": "Удалить {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Это удалит репозиторий и ВСЕ его плагины.",
+  "addRepository": "Добавить репозиторий",
+  "repoUrlOrShortcode": "URL репозитория или короткий код",
+  "assetPlugin": "Встроенный плагин",
+  "installed": "Установлено",
+  "updateTo": "Обновить до {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Установить",
+  "error": "Ошибка",
+  "ok": "ОК",
+  "pluginSettings": "Настройки {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Фильмы",
+  "series": "Сериалы",
+  "anime": "Аниме",
+  "liveStreams": "Прямые трансляции",
+  "debug": "ОТЛАДКА",
+  "extensionsUpdated": "{count, plural, one{Обновлено 1 расширение} few{Обновлено {count} расширения} other{Обновлено {count} расширений}}",
+  "invalidNavigation": "Неверная навигация.",
+  "startOver": "Начать сначала",
+  "goBack": "Назад",
+  "resolving": "Разрешение ссылок...",
+  "downloaded": "Скачано",
+  "download": "Скачать",
+  "debugOnlyFeature": "Только для дебаг-сборок",
+  "streamUrl": "URL потока",
+  "play": "Смотреть",
+  "verifyingSourceSize": "Проверка источника и размера...",
+  "fileSaveLocationNotification": "Файл будет сохранен в папку «Загрузки».",
+  "resumingPlayback": "Возобновление воспроизведения",
+  "pausedAt": "Пауза на {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, one{Автоматическое возобновление через 1 секунду} few{Автоматическое возобновление через {count} секунды} other{Автоматическое возобновление через {count} секунд}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Возобновить сейчас",
+  "playbackError": "Ошибка воспроизведения",
+  "confirmClearHistory": "Вы уверены, что хотите очистить историю?",
+  "seasonWithNumber": "Сезон {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Запуск...",
+  "percentWatched": "просмотрено {percent}%",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Суб",
+  "dub": "Дуб",
+  "playEpisode": "{label} С{season} Э{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Инструменты отладки",
+  "playLocalVideo": "Локальное видео",
+  "playLocalVideoSubtitle": "Воспроизвести файл с устройства",
+  "streamUrlSubtitle": "Воспроизвести из сети (URL)",
+  "streamTorrent": "Торрент-поток",
+  "streamTorrentSubtitle": "Выберите торрент-файл",
+  "loadPluginFromAssets": "Загрузить плагин из ресурсов",
+  "enterVideoUrlHint": "Введите URL видео (http, magnet и т. д.)",
+  "networkStream": "Сетевой поток",
+  "removedFromHistory": "Удалено из истории: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Свой",
+  "refreshingLiveStream": "Обновление трансляции...",
+  "removeFromHistory": "Удалить из истории",
+  "live": "ПРЯМОЙ ЭФИР",
+  "volume": "Громкость",
+  "brightness": "Яркость",
+  "fit": "Заполнение",
+  "zoom": "Зум",
+  "stretch": "Растянуть",
+  "titleWithParam": "Название: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Источник: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Размер: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Ошибка: {error}. Используется внутренний плеер.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} не найден.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Сезон {number} ({count} серий)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Источник для {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Нет установленных плагинов",
+  "availableSources": "Доступные источники",
+  "seasons": "Сезоны",
+  "episodes": "Серии",
+  "selectSourceToPlay": "Выберите источник из списка выше.",
+  "episodeCountOnly": "{count, plural, one{1 серия} few{{count} серии} other{{count} серий}}",
+  "noEpisodesFound": "Серии не найдены",
+  "local": "Локальное",
+  "remote": "Удаленное",
+  "torrent": "Торрент",
+  "unlock": "Разблокировать",
+  "lock": "Блокировка",
+  "sources": "Источники",
+  "tracks": "Дорожки",
+  "content": "Контент",
+  "stats": "Статистика",
+  "resize": "Размер",
+  "next": "След.",
+  "pip": "Картинка в картинке",
+  "rotate": "Поворот",
+  "windowed": "В окне",
+  "fullscreen": "На весь экран",
+  "movieDetails": "О фильме",
+  "showDetails": "Показать детали",
+  "tagline": "Слоган",
+  "status": "Статус",
+  "releaseDate": "Дата выхода",
+  "firstAirDate": "Первый выход",
+  "originalLanguage": "Язык оригинала",
+  "originCountry": "Страна",
+  "budgetLabel": "Бюджет",
+  "revenueLabel": "Сборы",
+  "paused": "Пауза",
+  "watched": "Просмотрено",
+  "watching": "Просмотр",
+  "lastWatched": "Последний просмотр",
+  "movie": "Фильм",
+  "tvShow": "Сериал",
+  "failedToLoadContent": "Ошибка загрузки",
+  "director": "Режиссер",
+  "creator": "Создатель",
+  "showMore": "Показать больше",
+  "showLess": "Показать меньше",
+  "viewAll": "Все",
+  "seasonsCount": "{count, plural, one{1 сезон} few{{count} сезона} other{{count} сезонов}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Нет интернета",
+  "timeoutError": "Время ожидания истекло.",
+  "serverError": "Ошибка сервера.",
+  "contentNotFoundError": "Не найдено.",
+  "accessDeniedError": "Доступ запрещен.",
+  "serviceUnavailableError": "Сервис недоступен.",
+  "generalError": "Произошла ошибка.",
+  "skip": "Пропустить",
+  "goLive": "В эфир",
+  "dismiss": "Закрыть",
+  "nextUp": "Далее",
+  "sourceAttempt": "Источник {index} из {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Пробуем",
+  "failed": "Ошибка",
+  "selected": "Выбрано",
+  "playing": "Играет",
+  "pending": "Ожидание",
+  "discord": "Discord",
+  "discordSubtitle": "Присоединяйтесь к нашему серверу",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Присоединяйтесь к нашему каналу",
+  "developedBy": "Разработано {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Качество при Wi-Fi",
+  "mobileQualityPreference": "Качество при мобильной сети",
+  "anyNoPreference": "Любое (без предпочтений)",
+  "subtitleAccounts": "Аккаунты субтитров",
+  "notLoggedIn": "Вход не выполнен",
+  "loggedInAs": "Вы вошли как {username}",
+  "apiKeyConfigured": "API-ключ настроен",
+  "keyNotSet": "Ключ не установлен",
+  "testConnection": "Проверить соединение",
+  "connectedSuccessfully": "Успешно подключено",
+  "connectionFailed": "Ошибка подключения",
+  "username": "Имя пользователя",
+  "password": "Пароль",
+  "noAccountRegister": "Нет аккаунта? Зарегистрируйтесь здесь",
+  "apiKey": "API-ключ",
+  "email": "Электронная почта",
+  "fetchMyApiKey": "Получить мой API-ключ",
+  "keyVerified": "Ключ проверен",
+  "invalidApiKey": "Неверный API-ключ",
+  "openSubtitlesAuthSubtitle": "Введите данные своего аккаунта для увеличения лимитов и отключения рекламы.",
+  "subDlAuthSubtitle": "Введите ключ SubDL API напрямую или получите его, используя данные своего аккаунта ниже.",
+  "orFetchViaAccount": "ИЛИ ПОЛУЧИТЬ ЧЕРЕЗ АККАУНТ",
+  "subSourceAuthSubtitle": "SubSource работает из коробки, но вы можете добавить личный API-ключ для повышения надежности.",
+  "apiKeyOptionalOverride": "API-ключ (необязательно)",
+  "enterKeyToOverrideDefault": "Введите ключ для переопределения стандартного",
+  "getApiKeyFromProfile": "Получите API-ключ в профиле SubSource",
+  "qualityNotGuaranteed": "Качество не гарантируется. Источники сортируются по предпочтению, но воспроизведение зависит от того, что предлагает провайдер.",
+  "keepSourcesOriginalOrder": "Сохранять оригинальный порядок источников",
+  "openLink": "Открыть ссылку",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Диагностика",
+  "viewLogs": "Просмотр журналов",
+  "viewLogsSubtitle": "Просмотр активности и ошибок приложения",
+  "goToExtensions": "Перейти к расширениям",
+  "noPluginsMessage": "Установите расширения для просмотра и трансляции контента."
+}

@@ -1,0 +1,589 @@
+{
+  "@@locale": "id",
+  "appTitle": "SkyStream",
+  "languageName": "Bahasa Indonesia",
+  "home": "Beranda",
+  "search": "Cari",
+  "explore": "Jelajahi",
+  "library": "Perpustakaan",
+  "settings": "Pengaturan",
+  "extensions": "Ekstensi",
+  "updateAvailable": "Pembaruan Tersedia",
+  "retry": "Coba Lagi",
+  "factoryReset": "Reset Pabrik",
+  "startupError": "Kesalahan Awal",
+  "general": "Umum",
+  "appTheme": "Tema Aplikasi",
+  "recordWatchHistory": "Rekam Riwayat Tontonan",
+  "defaultHomeScreen": "Layar Utama Default",
+  "player": "Pemutar",
+  "defaultPlayer": "Pemutar Default",
+  "leftGesture": "Gestur Kiri",
+  "rightGesture": "Gestur Kanan",
+  "doubleTapToSeek": "Ketuk Dua Kali untuk Mencari",
+  "swipeToSeek": "Geser untuk Mencari",
+  "seekDuration": "Durasi Lompatan",
+  "bufferDepth": "Kedalaman Buffer",
+  "defaultResizeMode": "Mode Ukuran Default",
+  "hardwareDecoding": "Dekode Perangkat Keras",
+  "network": "Jaringan",
+  "dnsOverHttps": "DNS melalui HTTPS",
+  "dohProvider": "Penyedia DoH",
+  "manageExtensions": "Kelola Ekstensi",
+  "appData": "Data Aplikasi",
+  "resetDataKeepExtensions": "Reset Data (Simpan Ekstensi)",
+  "developer": "Pengembang",
+  "developerOptions": "Opsi Pengembang",
+  "about": "Tentang",
+  "version": "Versi",
+  "enabled": "Aktif",
+  "disabled": "Nonaktif",
+  "system": "Sistem",
+  "dark": "Gelap",
+  "light": "Terang",
+  "later": "Nanti",
+  "updateNow": "Perbarui Sekarang",
+  "save": "Simpan",
+  "cancel": "Batal",
+  "close": "Tutup",
+  "delete": "Hapus",
+  "viewDetails": "Lihat Detail",
+  "clearAll": "Hapus Semua",
+  "clearAllHistory": "Hapus Semua Riwayat",
+  "all": "Semua",
+  "none": "Tidak ada",
+  "confirmDownload": "Konfirmasi Unduhan",
+  "downloadNow": "Unduh Sekarang",
+  "selectSource": "Pilih Sumber",
+  "downloadUnavailable": "Unduhan Tidak Tersedia",
+  "selectAnotherSource": "Pilih Sumber Lain",
+  "watchHistoryCleared": "Riwayat tontonan dihapus",
+  "downloadingUpdate": "Mengunduh pembaruan...",
+  "errorPrefix": "Kesalahan: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Pembaruan Tersedia: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Pilih penyedia untuk mulai menonton",
+  "tapExtensionIcon": "Ketuk ikon ekstensi di pojok",
+  "continueWatching": "Lanjutkan Menonton",
+  "noInternetConnection": "Tidak ada Koneksi Internet",
+  "siteNotReachable": "Situs Tidak Dapat Dijangkau",
+  "checkConnectionOrDownloads": "Periksa koneksi Anda atau lihat konten yang Anda unduh.",
+  "tryVpnOrConnection": "Cobalah mengakses situs dengan VPN atau periksa koneksi internet Anda.",
+  "errorDetails": "Detail Kesalahan: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Ke Unduhan",
+  "selectProvider": "Pilih Penyedia",
+  "searchHint": "Cari film, serial...",
+  "searchFavoriteContent": "Cari konten favorit Anda",
+  "pressSearchOrEnter": "Tekan tombol Cari atau Enter untuk memulai",
+  "noResultsFound": "Tidak ditemukan hasil.",
+  "couldNotLoadTrending": "Gagal memuat tren",
+  "popularMovies": "Film Populer",
+  "popularTVShows": "Acara TV Populer",
+  "newMovies": "Film Baru",
+  "newTVShows": "Acara TV Baru",
+  "featuredMovies": "Film Unggulan",
+  "featuredTVShows": "Acara TV Unggulan",
+  "lastVideosTVShows": "Acara TV Video Terakhir",
+  "downloads": "Unduhan",
+  "bookmarks": "Penanda",
+  "noDownloadsYet": "Belum ada unduhan",
+  "episodesCount": "{count} Episode • {done} Selesai",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Hapus Semua Episode",
+  "confirmDeleteAllEpisodes": "Anda yakin ingin menghapus semua {count} episode dari \"{title}\" beserta filenya?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Hapus Semua",
+  "completed": "Selesai",
+  "statusQueued": "Dalam antrean...",
+  "statusDownloading": "Mengunduh...",
+  "statusFinished": "Selesai",
+  "statusFailed": "Gagal",
+  "statusCanceled": "Dibatalkan",
+  "statusPaused": "Ditunda",
+  "statusWaiting": "Menunggu...",
+  "fileNotFoundRemoving": "File tidak ditemukan di disk. Menghapus catatan.",
+  "fileNotFound": "File tidak ditemukan",
+  "deleteDownload": "Hapus Unduhan",
+  "confirmDeleteDownload": "Anda yakin ingin menghapus unduhan ini beserta filenya?",
+  "libraryEmpty": "Perpustakaan Anda kosong",
+  "language": "Bahasa",
+  "english": "Inggris",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Tidak Diketahui",
+  "recommended": "Direkomendasikan",
+  "on": "Aktif",
+  "off": "Mati",
+  "installRemoveProviders": "Pasang atau hapus penyedia",
+  "resetDataSubtitle": "Bersihkan pengaturan & database, simpan plugin",
+  "factoryResetSubtitle": "Hapus semua data, pengaturan, dan ekstensi",
+  "developerOptionsSubtitle": "Alat debug & putar lokal",
+  "loading": "Memuat...",
+  "sec": "dtk",
+  "min": "mnt",
+  "internalPlayer": "Internal (media_kit)",
+  "builtInPlayer": "Pemutar bawaan",
+  "customNotSet": "Kustom (belum diatur)",
+  "selectGesture": "Pilih Gestur {side}",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "Kiri",
+  "right": "Kanan",
+  "selectSeekDuration": "Pilih Durasi Lompatan",
+  "selectBufferDepth": "Pilih Kedalaman Buffer",
+  "subtitleSettings": "Pengaturan Terjemahan",
+  "size": "Ukuran: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Latar Belakang",
+  "customDohUrlLabel": "URL DoH Kustom",
+  "enterCustomDohUrl": "Masukkan URL DoH Anda sendiri",
+  "chooseTheme": "Pilih Tema",
+  "resetDataDialogTitle": "Reset Data?",
+  "resetDataDialogContent": "Ini akan membersihkan Pengaturan, Favorit, dan Riwayat. Ekstensi terinstal Anda TIDAK akan dihapus.",
+  "factoryResetDialogTitle": "Reset Pabrik?",
+  "factoryResetDialogContent": "Ini akan menghapus SEMUANYA: Favorit, Riwayat, Pengaturan, dan SEMUA Ekstensi. Ini tidak dapat dibatalkan.",
+  "selectLanguage": "Pilih Bahasa",
+  "synopsis": "Sinopsis",
+  "noDescription": "Deskripsi tidak tersedia.",
+  "videoAlreadyDownloadedPrompt": "Video ini sudah diunduh. Apa yang ingin Anda lakukan?",
+  "playNow": "Putar Sekarang",
+  "deleteDownloadPrompt": "Hapus Unduhan?",
+  "deleteDownloadConfirmation": "Anda yakin ingin menghapus file ini? Ini tidak dapat dibatalkan.",
+  "no": "Tidak",
+  "yesDelete": "Ya, Hapus",
+  "downloadPaused": "Unduhan Ditunda",
+  "downloading": "Mengunduh",
+  "speed": "Kecepatan",
+  "remaining": "Tersisa",
+  "resume": "Lanjutkan",
+  "pause": "Jeda",
+  "torrentContent": "Konten Torrent",
+  "audioTracks": "Trek Audio",
+  "noAudioTracks": "Trek audio tidak ditemukan",
+  "subtitles": "Terjemahan",
+  "options": "Opsi",
+  "noSubtitlesFound": "Trek terjemahan tidak ditemukan",
+  "playbackSpeed": "Kecepatan Putar",
+  "subtitleOptions": "Opsi Terjemahan",
+  "hlsSubtitleWarning": "File terjemahan eksternal tidak didukung pada pemutar HLS aktif di platform ini.",
+  "loadFromDevice": "Muat dari Perangkat",
+  "syncDelay": "Sinkronisasi / Penundaan",
+  "styleSettings": "Pengaturan Gaya",
+  "searchOnline": "Cari Daring (Cari Terjemahan)",
+  "subtitleSync": "Sinkronisasi Terjemahan",
+  "subtitleDelayWarning": "Penundaan terjemahan tidak didukung oleh mesin pemutar aktif.",
+  "resetDelay": "Reset Penundaan",
+  "subtitleStyles": "Gaya Terjemahan",
+  "mediaKitStylingWarning": "Gaya terjemahan hanya tersedia di pemutar media_kit saat ini.",
+  "resetToDefault": "Reset ke Default",
+  "fontSize": "Ukuran Font",
+  "verticalPosition": "Posisi Vertikal",
+  "textColor": "Warna Teks",
+  "backgroundColor": "Warna Latar Belakang",
+  "backgroundOpacity": "Opasitas Latar Belakang",
+  "subtitleSearch": "Cari Terjemahan",
+  "searchSubtitleNameHint": "Cari nama terjemahan...",
+  "enterSearchSubtitlePrompt": "Masukkan nama atau cari untuk menemukan terjemahan.",
+  "noSubtitleResults": "Hasil tidak ditemukan. Coba kueri lain.",
+  "downloadingApplyingSubtitle": "Mengunduh & menerapkan terjemahan...",
+  "failedToDownloadSubtitle": "Gagal mengunduh terjemahan.",
+  "failedToLoadSubtitles": "Gagal memuat terjemahan. Silakan coba lagi.",
+  "noReposFound": "Repositori atau plugin tidak ditemukan",
+  "downloadAllProviders": "Unduh semua",
+  "removeRepository": "Hapus Repositori",
+  "addRepo": "Tambah Repo",
+  "extensionsNotInRepos": "Ekstensi Tidak di Repositori",
+  "noLongerInRepo": "Tidak lagi terdaftar di repositori manapun",
+  "addRepoToBrowse": "Tambah repositori untuk menjelajah dan memperbarui plugin",
+  "debugExtensions": "Debug Ekstensi",
+  "removeRepoConfirm": "Hapus {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Ini akan menghapus repositori dan mencopot SEMUA pluginnya.",
+  "addRepository": "Tambah Repositori",
+  "repoUrlOrShortcode": "URL Repositori atau Kode Pintas",
+  "assetPlugin": "Plugin Aset",
+  "installed": "Terinstal",
+  "updateTo": "Perbarui ke {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Pasang",
+  "error": "Kesalahan",
+  "ok": "OKE",
+  "pluginSettings": "Pengaturan {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Film",
+  "series": "Serial",
+  "anime": "Anime",
+  "liveStreams": "Siaran Langsung",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, =1{1 ekstensi diperbarui} other{{count} ekstensi diperbarui}}",
+  "invalidNavigation": "Navigasi tidak valid. Silakan kembali.",
+  "startOver": "Mulai Lagi",
+  "goBack": "Kembali",
+  "resolving": "Mengurai...",
+  "downloaded": "Diunduh",
+  "download": "Unduh",
+  "debugOnlyFeature": "Fitur ini hanya tersedia pada build Debug",
+  "streamUrl": "URL Siaran",
+  "play": "Putar",
+  "verifyingSourceSize": "Memverifikasi sumber & ukuran...",
+  "fileSaveLocationNotification": "File akan disimpan di folder Unduhan Anda.",
+  "resumingPlayback": "Melanjutkan Pemutaran",
+  "pausedAt": "Ditunda pada {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{Melanjutkan otomatis dalam 1 detik} other{Melanjutkan otomatis dalam {count} detik}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Lanjutkan Sekarang",
+  "playbackError": "Kesalahan Pemutaran",
+  "confirmClearHistory": "Anda yakin ingin menghapus semua item dari riwayat tontonan Anda?",
+  "seasonWithNumber": "Musim {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Memulai...",
+  "percentWatched": "{percent}% ditonton",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Alat Debug",
+  "playLocalVideo": "Putar file video lokal",
+  "playLocalVideoSubtitle": "Putar video apapun dari perangkat",
+  "streamUrlSubtitle": "Putar dari URL jaringan",
+  "streamTorrent": "Siarkan torrent",
+  "streamTorrentSubtitle": "Pilih file torrent lokal untuk diputar",
+  "loadPluginFromAssets": "Muat plugin dari aset",
+  "enterVideoUrlHint": "Masukkan URL video (http, magnet, dll.)",
+  "networkStream": "Siaran Jaringan",
+  "removedFromHistory": "Menghapus {title} dari riwayat",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Kustom",
+  "refreshingLiveStream": "Menyegarkan siaran langsung...",
+  "removeFromHistory": "Hapus dari Riwayat",
+  "live": "LANGSUNG",
+  "volume": "Volume",
+  "brightness": "Kecerahan",
+  "fit": "Pas",
+  "zoom": "Perbesar",
+  "stretch": "Regangkan",
+  "titleWithParam": "Judul: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Sumber: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Ukuran: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Kesalahan: {error}. Menggunakan pemutar internal.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} tidak terdeteksi. Memulai pemutar internal.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Musim {number} ({count} Episode)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Pilih Sumber untuk {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Tidak ada plugin terinstal",
+  "availableSources": "Sumber Tersedia",
+  "seasons": "Musim",
+  "episodes": "Episode",
+  "selectSourceToPlay": "Silakan pilih sumber dari 'Sumber Tersedia' di atas untuk diputar.",
+  "episodeCountOnly": "{count, plural, =1{1 Episode} other{{count} Episode}}",
+  "noEpisodesFound": "Episode tidak ditemukan",
+  "local": "Lokal",
+  "remote": "Jarak Jauh",
+  "torrent": "Torrent",
+  "unlock": "Buka Kunci",
+  "lock": "Kunci",
+  "sources": "Sumber",
+  "tracks": "Trek",
+  "content": "Konten",
+  "stats": "Statistik",
+  "resize": "Ubah Ukuran",
+  "next": "Berikutnya",
+  "pip": "PiP",
+  "rotate": "Putar",
+  "windowed": "Jendela",
+  "fullscreen": "Layar Penuh",
+  "movieDetails": "Detail Film",
+  "showDetails": "Lihat Detail",
+  "tagline": "Slogan",
+  "status": "Status",
+  "releaseDate": "Tanggal Rilis",
+  "firstAirDate": "Tanggal Siaran Pertama",
+  "originalLanguage": "Bahasa Asli",
+  "originCountry": "Negara Asal",
+  "budgetLabel": "Anggaran",
+  "revenueLabel": "Pendapatan",
+  "paused": "Ditunda",
+  "watched": "Ditonton",
+  "watching": "Sedang Menonton",
+  "lastWatched": "Terakhir Ditonton",
+  "movie": "Film",
+  "tvShow": "Acara TV",
+  "failedToLoadContent": "Gagal memuat konten",
+  "director": "Sutradara",
+  "creator": "Pembuat",
+  "showMore": "Lihat Lebih Banyak",
+  "showLess": "Lihat Lebih Sedikit",
+  "viewAll": "Lihat Semua",
+  "seasonsCount": "{count, plural, =1{1 Musim} other{{count} Musim}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Tidak ada koneksi internet",
+  "timeoutError": "Waktu permintaan habis. Silakan coba lagi.",
+  "serverError": "Kesalahan server. Silakan coba lagi nanti.",
+  "contentNotFoundError": "Konten tidak ditemukan.",
+  "accessDeniedError": "Akses ditolak. Periksa kredensial Anda.",
+  "serviceUnavailableError": "Server tidak tersedia. Coba lagi nanti.",
+  "generalError": "Terjadi kesalahan. Silakan coba lagi.",
+  "skip": "Lewati",
+  "goLive": "Siaran Langsung",
+  "dismiss": "Tutup",
+  "nextUp": "Berikutnya",
+  "sourceAttempt": "Sumber {index} dari {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Mencoba",
+  "failed": "Gagal",
+  "selected": "Dipilih",
+  "playing": "Memutar",
+  "pending": "Menunggu",
+  "discord": "Discord",
+  "discordSubtitle": "Bergabunglah dengan server kami",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Bergabunglah dengan saluran kami",
+  "developedBy": "Dikembangkan oleh {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Preferensi kualitas Wi-Fi",
+  "mobileQualityPreference": "Preferensi kualitas seluler",
+  "anyNoPreference": "Tanpa preferensi",
+  "subtitleAccounts": "Akun subtitle",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Tes koneksi",
+  "connectedSuccessfully": "Berhasil terhubung",
+  "connectionFailed": "Koneksi gagal",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "Kunci API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostik",
+  "viewLogs": "Lihat log",
+  "viewLogsSubtitle": "Lihat aktivitas aplikasi & kesalahan",
+  "goToExtensions": "Buka Ekstensi",
+  "noPluginsMessage": "Instal ekstensi untuk menelusuri dan mengalirkan konten."
+}

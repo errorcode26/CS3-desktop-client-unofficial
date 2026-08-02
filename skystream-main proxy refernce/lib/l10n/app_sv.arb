@@ -1,0 +1,589 @@
+{
+  "@@locale": "sv",
+  "appTitle": "SkyStream",
+  "languageName": "Svenska",
+  "home": "Hem",
+  "search": "Sök",
+  "explore": "Utforska",
+  "library": "Bibliotek",
+  "settings": "Inställningar",
+  "extensions": "Tillägg",
+  "updateAvailable": "Uppdatering tillgänglig",
+  "retry": "Försök igen",
+  "factoryReset": "Fabriksåterställning",
+  "startupError": "Startfel",
+  "general": "Allmänt",
+  "appTheme": "App-tema",
+  "recordWatchHistory": "Spara tittarhistorik",
+  "defaultHomeScreen": "Standardhemskärm",
+  "player": "Spelare",
+  "defaultPlayer": "Standardspelare",
+  "leftGesture": "Vänster gest",
+  "rightGesture": "Höger gest",
+  "doubleTapToSeek": "Dubbelklicka för att spola",
+  "swipeToSeek": "Svep för att spola",
+  "seekDuration": "Spolningstid",
+  "bufferDepth": "Buffertdjup",
+  "defaultResizeMode": "Standardvisningsläge",
+  "hardwareDecoding": "Hårdvaruavkodning",
+  "network": "Nätverk",
+  "dnsOverHttps": "DNS över HTTPS",
+  "dohProvider": "DoH-leverantör",
+  "manageExtensions": "Hantera tillägg",
+  "appData": "Appdata",
+  "resetDataKeepExtensions": "Återställ data (behåll tillägg)",
+  "developer": "Utvecklare",
+  "developerOptions": "Utvecklaralternativ",
+  "about": "Om appen",
+  "version": "Version",
+  "enabled": "Aktiverad",
+  "disabled": "Inaktiverad",
+  "system": "System",
+  "dark": "Mörkt",
+  "light": "Ljust",
+  "later": "Senare",
+  "updateNow": "Uppdatera nu",
+  "save": "Spara",
+  "cancel": "Avbryt",
+  "close": "Stäng",
+  "delete": "Radera",
+  "viewDetails": "Visa detaljer",
+  "clearAll": "Rensa allt",
+  "clearAllHistory": "Rensa historik",
+  "all": "Alla",
+  "none": "Ingen",
+  "confirmDownload": "Bekräfta nedladdning",
+  "downloadNow": "Ladda ner nu",
+  "selectSource": "Välj källa",
+  "downloadUnavailable": "Ej tillgänglig",
+  "selectAnotherSource": "Välj en annan",
+  "watchHistoryCleared": "Tittarhistorik rensad",
+  "downloadingUpdate": "Laddar ner uppdatering...",
+  "errorPrefix": "Fel: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Uppdatering tillgänglig: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Välj en leverantör för att börja titta",
+  "tapExtensionIcon": "Tryck på tilläggsikonen i hörnet",
+  "continueWatching": "Fortsätt titta",
+  "noInternetConnection": "Ingen internetanslutning",
+  "siteNotReachable": "Sidan kan inte nås",
+  "checkConnectionOrDownloads": "Kontrollera din anslutning eller se ditt nedladdade innehåll.",
+  "tryVpnOrConnection": "Försök använda en VPN eller kontrollera din internetanslutning.",
+  "errorDetails": "Feldetaljer: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Gå till nedladdningar",
+  "selectProvider": "Välj leverantör",
+  "searchHint": "Sök filmer, serier...",
+  "searchFavoriteContent": "Sök efter ditt favoritinnehåll",
+  "pressSearchOrEnter": "Tryck på Sök eller Enter för att börja",
+  "noResultsFound": "Inga resultat hittades.",
+  "couldNotLoadTrending": "Kunde inte ladda trender",
+  "popularMovies": "Populära filmer",
+  "popularTVShows": "Populära serier",
+  "newMovies": "Nya filmer",
+  "newTVShows": "Nya serier",
+  "featuredMovies": "Utvalda filmer",
+  "featuredTVShows": "Utvalda serier",
+  "lastVideosTVShows": "Senaste serierna",
+  "downloads": "Nedladdningar",
+  "bookmarks": "Bokmärken",
+  "noDownloadsYet": "Inga nedladdningar ännu",
+  "episodesCount": "{count} avsnitt • {done} klara",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Radera alla avsnitt",
+  "confirmDeleteAllEpisodes": "Är du säker på att du vill radera alla {count} avsnitt av \"{title}\" och deras filer?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Radera alla",
+  "completed": "Klar",
+  "statusQueued": "I kö...",
+  "statusDownloading": "Laddar ner...",
+  "statusFinished": "Klar",
+  "statusFailed": "Misslyckades",
+  "statusCanceled": "Avbruten",
+  "statusPaused": "Pausad",
+  "statusWaiting": "Väntar...",
+  "fileNotFoundRemoving": "Filen hittades inte på disken. Tar bort posten.",
+  "fileNotFound": "Filen hittades inte",
+  "deleteDownload": "Radera nedladdning",
+  "confirmDeleteDownload": "Är du säker på att du vill radera denna nedladdning?",
+  "libraryEmpty": "Ditt bibliotek är tomt",
+  "language": "Språk",
+  "english": "Engelska",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Okänt",
+  "recommended": "Rekommenderat",
+  "on": "På",
+  "off": "Av",
+  "installRemoveProviders": "Installera eller ta bort leverantörer",
+  "resetDataSubtitle": "Rensa inställningar och databas, behåll insticksfiler",
+  "factoryResetSubtitle": "Radera all data, inställningar och tillägg",
+  "developerOptionsSubtitle": "Felsökningsverktyg och lokal uppspelning",
+  "loading": "Laddar...",
+  "sec": "sek",
+  "min": "min",
+  "internalPlayer": "Intern (media_kit)",
+  "builtInPlayer": "Inbyggd spelare",
+  "customNotSet": "Anpassad (inte inställd)",
+  "selectGesture": "Välj {side} gest",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "vänster",
+  "right": "höger",
+  "selectSeekDuration": "Välj spolningstid",
+  "selectBufferDepth": "Välj buffertdjup",
+  "subtitleSettings": "Undertextinställningar",
+  "size": "Storlek: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Bakgrund",
+  "customDohUrlLabel": "Anpassad DoH-URL",
+  "enterCustomDohUrl": "Ange din egen DoH-URL",
+  "chooseTheme": "Välj tema",
+  "resetDataDialogTitle": "Återställa data?",
+  "resetDataDialogContent": "Detta rensar inställningar, favoriter och historik. Dina installerade tillägg kommer INTE raderas.",
+  "factoryResetDialogTitle": "Fabriksåterställning?",
+  "factoryResetDialogContent": "Detta raderar ALLT: favoriter, historik, inställningar och ALLA tillägg. Detta kan inte ångras.",
+  "selectLanguage": "Välj språk",
+  "synopsis": "Sammanfattning",
+  "noDescription": "Ingen beskrivning tillgänglig.",
+  "videoAlreadyDownloadedPrompt": "Denna video har redan laddats ner. Vad vill du göra?",
+  "playNow": "Spela nu",
+  "deleteDownloadPrompt": "Radera nedladdning?",
+  "deleteDownloadConfirmation": "Är du säker på att du vill radera denna fil? Detta kan inte ångras.",
+  "no": "Nej",
+  "yesDelete": "Ja, radera",
+  "downloadPaused": "Nedladdning pausad",
+  "downloading": "Laddar ner",
+  "speed": "Hastighet",
+  "remaining": "Återstår",
+  "resume": "Fortsätt",
+  "pause": "Pausa",
+  "torrentContent": "Torrent-innehåll",
+  "audioTracks": "Ljudspår",
+  "noAudioTracks": "Inga ljudspår hittades",
+  "subtitles": "Undertexter",
+  "options": "Alternativ",
+  "noSubtitlesFound": "Inga undertextspår hittades",
+  "playbackSpeed": "Uppspelningshastighet",
+  "subtitleOptions": "Alternativ för undertexter",
+  "hlsSubtitleWarning": "Externa undertextfiler stöds inte för HLS på denna plattform.",
+  "loadFromDevice": "Ladda från enhet",
+  "syncDelay": "Synk / Fördröjning",
+  "styleSettings": "Stilinställningar",
+  "searchOnline": "Sök online (behåll undertexter)",
+  "subtitleSync": "Undertextsynk",
+  "subtitleDelayWarning": "Fördröjning av undertexter stöds inte av den nuvarande spelaren.",
+  "resetDelay": "Återställ fördröjning",
+  "subtitleStyles": "Undertextstilar",
+  "mediaKitStylingWarning": "Stilinställningar för undertexter är för tillfället endast tillgängliga i media_kit-spelaren.",
+  "resetToDefault": "Återställ till standard",
+  "fontSize": "Textstorlek",
+  "verticalPosition": "Vertikal position",
+  "textColor": "Textfärg",
+  "backgroundColor": "Bakgrundsfärg",
+  "backgroundOpacity": "Bakgrundens opacitet",
+  "subtitleSearch": "Sök efter undertexter",
+  "searchSubtitleNameHint": "Sök undertextnamn...",
+  "enterSearchSubtitlePrompt": "Ange ett namn för att söka efter undertexter.",
+  "noSubtitleResults": "Inga resultat hittades.",
+  "downloadingApplyingSubtitle": "Laddar ner och använder undertext...",
+  "failedToDownloadSubtitle": "Kunde inte ladda ner undertext.",
+  "failedToLoadSubtitles": "Kunde inte ladda undertexter. Försök igen.",
+  "noReposFound": "Inga källor eller insticksfiler hittades",
+  "downloadAllProviders": "Ladda ner alla",
+  "removeRepository": "Ta bort källa",
+  "addRepo": "Lägg till källa",
+  "extensionsNotInRepos": "Tillägg som inte finns i källor",
+  "noLongerInRepo": "Finns inte längre i någon källa",
+  "addRepoToBrowse": "Lägg till en källa för att bläddra bland insticksfiler",
+  "debugExtensions": "Felsök tillägg",
+  "removeRepoConfirm": "Ta bort {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Detta tar bort källan och avinstallerar ALLA dess insticksfiler.",
+  "addRepository": "Lägg till källa",
+  "repoUrlOrShortcode": "Källans URL eller kortkod",
+  "assetPlugin": "Inbyggd insticksfil",
+  "installed": "Installerad",
+  "updateTo": "Uppdatera till {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Installera",
+  "error": "Fel",
+  "ok": "OK",
+  "pluginSettings": "Inställningar för {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmer",
+  "series": "Serier",
+  "anime": "Anime",
+  "liveStreams": "Livestreamar",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 tillägg uppdaterat} other{{count} tillägg uppdaterade}}",
+  "invalidNavigation": "Ogiltig navigering.",
+  "startOver": "Börja om",
+  "goBack": "Gå tillbaka",
+  "resolving": "Löser länkar...",
+  "downloaded": "Nedladdad",
+  "download": "Ladda ner",
+  "debugOnlyFeature": "Endast för debug-versioner",
+  "streamUrl": "Stream-URL",
+  "play": "Spela",
+  "verifyingSourceSize": "Verifierar källa och storlek...",
+  "fileSaveLocationNotification": "Filen kommer att sparas i mappen Hämtade filer.",
+  "resumingPlayback": "Återupptar uppspelning",
+  "pausedAt": "Pausad vid {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Återupptar automatiskt om {count} sek",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Återuppta nu",
+  "playbackError": "Uppspelningsfel",
+  "confirmClearHistory": "Radera all historik?",
+  "seasonWithNumber": "Säsong {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Startar...",
+  "percentWatched": "{percent}% tittat",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Felsökningsverktyg",
+  "playLocalVideo": "Lokal video",
+  "playLocalVideoSubtitle": "Spela fil från enhet",
+  "streamUrlSubtitle": "Spela från nätverks-URL",
+  "streamTorrent": "Stream torrent",
+  "streamTorrentSubtitle": "Välj lokal torrent-fil",
+  "loadPluginFromAssets": "Ladda insticksfil från tillgångar",
+  "enterVideoUrlHint": "Ange video-URL (http, magnet etc.)",
+  "networkStream": "Nätverksström",
+  "removedFromHistory": "Tog bort från historik: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Anpassad",
+  "refreshingLiveStream": "Uppdaterar livestream...",
+  "removeFromHistory": "Ta bort från historik",
+  "live": "LIVE",
+  "volume": "Volym",
+  "brightness": "Ljusstyrka",
+  "fit": "Passa",
+  "zoom": "Zooma",
+  "stretch": "Sträck ut",
+  "titleWithParam": "Titel: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Källa: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Storlek: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Fel: {error}. Använder intern spelare.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} hittades inte.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Säsong {number} ({count} avsnitt)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Källa för {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Inga insticksfiler installerade",
+  "availableSources": "Tillgängliga källor",
+  "seasons": "Säsonger",
+  "episodes": "Avsnitt",
+  "selectSourceToPlay": "Välj en källa att spela upp.",
+  "episodeCountOnly": "{count, plural, one{1 avsnitt} other{{count} avsnitt}}",
+  "noEpisodesFound": "Inga avsnitt hittades",
+  "local": "Lokal",
+  "remote": "Fjärr",
+  "torrent": "Torrent",
+  "unlock": "Lås upp",
+  "lock": "Lås",
+  "sources": "Källor",
+  "tracks": "Spår",
+  "content": "Innehåll",
+  "stats": "Statistik",
+  "resize": "Storlek",
+  "next": "Nästa",
+  "pip": "PiP",
+  "rotate": "Rotera",
+  "windowed": "Fönster",
+  "fullscreen": "Helskärm",
+  "movieDetails": "Filminformation",
+  "showDetails": "Visa detaljer",
+  "tagline": "Tagline",
+  "status": "Status",
+  "releaseDate": "Utgivningsdatum",
+  "firstAirDate": "Sändes första gången",
+  "originalLanguage": "Originalspråk",
+  "originCountry": "Ursprungsland",
+  "budgetLabel": "Budget",
+  "revenueLabel": "Intäkt",
+  "paused": "Pausad",
+  "watched": "Sett",
+  "watching": "Tittar",
+  "lastWatched": "Senast sedda",
+  "movie": "Film",
+  "tvShow": "Serie",
+  "failedToLoadContent": "Laddning misslyckades",
+  "director": "Regissör",
+  "creator": "Skapare",
+  "showMore": "Visa mer",
+  "showLess": "Visa mindre",
+  "viewAll": "Visa alla",
+  "seasonsCount": "{count, plural, one{1 säsong} other{{count} säsonger}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Inget internet",
+  "timeoutError": "Tiden gick ut.",
+  "serverError": "Serverfel.",
+  "contentNotFoundError": "Hittades inte.",
+  "accessDeniedError": "Åtkomst nekad.",
+  "serviceUnavailableError": "Tjänsten inte tillgänglig.",
+  "generalError": "Ett fel uppstod.",
+  "skip": "Hoppa över",
+  "goLive": "Gå live",
+  "dismiss": "Stäng",
+  "nextUp": "Nästa",
+  "sourceAttempt": "Källa {index} av {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Försöker",
+  "failed": "Misslyckades",
+  "selected": "Vald",
+  "playing": "Spelar",
+  "pending": "Väntar",
+  "discord": "Discord",
+  "discordSubtitle": "Gå med i vår server",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Gå med i vår kanal",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Kvalitetsinställning för Wi-Fi",
+  "mobileQualityPreference": "Kvalitetsinställning för mobilnät",
+  "anyNoPreference": "Inget val",
+  "subtitleAccounts": "Undertextkonton",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Testa anslutning",
+  "connectedSuccessfully": "Ansluten",
+  "connectionFailed": "Anslutning misslyckades",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API-nyckel",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostik",
+  "viewLogs": "Visa loggar",
+  "viewLogsSubtitle": "Visa appaktivitet och fel",
+  "goToExtensions": "Gå till tillägg",
+  "noPluginsMessage": "Installera tillägg för att bläddra och strömma innehåll."
+}

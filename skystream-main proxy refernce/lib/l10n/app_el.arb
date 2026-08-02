@@ -1,0 +1,589 @@
+{
+  "@@locale": "el",
+  "appTitle": "SkyStream",
+  "languageName": "Ελληνικά",
+  "home": "Αρχική",
+  "search": "Αναζήτηση",
+  "explore": "Εξερεύνηση",
+  "library": "Βιβλιοθήκη",
+  "settings": "Ρυθμίσεις",
+  "extensions": "Επεκτάσεις",
+  "updateAvailable": "Διαθέσιμη ενημέρωση",
+  "retry": "Δοκιμάστε ξανά",
+  "factoryReset": "Επαναφορά εργοστασιακών ρυθμίσεων",
+  "startupError": "Σφάλμα εκκίνησης",
+  "general": "Γενικά",
+  "appTheme": "Θέμα εφαρμογής",
+  "recordWatchHistory": "Καταγραφή ιστορικού προβολών",
+  "defaultHomeScreen": "Προεπιλεγμένη αρχική οθόνη",
+  "player": "Πρόγραμμα αναπαραγωγής",
+  "defaultPlayer": "Προεπιλεγμένο πρόγραμμα αναπαραγωγής",
+  "leftGesture": "Αριστερή χειρονομία",
+  "rightGesture": "Δεξιά χειρονομία",
+  "doubleTapToSeek": "Διπλό πάτημα για αναζήτηση",
+  "swipeToSeek": "Σύρετε για αναζήτηση",
+  "seekDuration": "Διάρκεια αναζήτησης",
+  "bufferDepth": "Βάθος προσωρινής μνήμης",
+  "defaultResizeMode": "Προεπιλεγμένη λειτουργία μεγέθους",
+  "hardwareDecoding": "Αποκωδικοποίηση υλικού",
+  "network": "Δίκτυο",
+  "dnsOverHttps": "DNS μέσω HTTPS",
+  "dohProvider": "Πάροχος DoH",
+  "manageExtensions": "Διαχείριση επεκτάσεων",
+  "appData": "Δεδομένα εφαρμογής",
+  "resetDataKeepExtensions": "Επαναφορά δεδομένων (διατήρηση επεκτάσεων)",
+  "developer": "Προγραμματιστής",
+  "developerOptions": "Επιλογές προγραμματιστή",
+  "about": "Σχετικά",
+  "version": "Έκδοση",
+  "enabled": "Ενεργοποιημένο",
+  "disabled": "Απενεργοποιημένο",
+  "system": "Σύστημα",
+  "dark": "Σκούρο",
+  "light": "Ανοιχτό",
+  "later": "Αργότερα",
+  "updateNow": "Ενημέρωση τώρα",
+  "save": "Αποθήκευση",
+  "cancel": "Ακύρωση",
+  "close": "Κλείσιμο",
+  "delete": "Διαγραφή",
+  "viewDetails": "Προβολή λεπτομερειών",
+  "clearAll": "Εκκαθάριση όλων",
+  "clearAllHistory": "Εκκαθάριση ιστορικού προβολών",
+  "all": "Όλα",
+  "none": "Κανένα",
+  "confirmDownload": "Επιβεβαίωση λήψης",
+  "downloadNow": "Λήψη τώρα",
+  "selectSource": "Επιλογή πηγής",
+  "downloadUnavailable": "Η λήψη δεν είναι διαθέσιμη",
+  "selectAnotherSource": "Επιλέξτε άλλη πηγή",
+  "watchHistoryCleared": "Το ιστορικό προβολών εκκαθαρίστηκε",
+  "downloadingUpdate": "Λήψη ενημέρωσης...",
+  "errorPrefix": "Σφάλμα: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Διαθέσιμη ενημέρωση: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Επιλέξτε έναν πάροχο για να ξεκινήσετε",
+  "tapExtensionIcon": "Πατήστε το εικονίδιο επέκτασης στη γωνία",
+  "continueWatching": "Συνέχεια προβολής",
+  "noInternetConnection": "Δεν υπάρχει σύνδεση στο διαδίκτυο",
+  "siteNotReachable": "Ο ιστότοπος δεν είναι προσβάσιμος",
+  "checkConnectionOrDownloads": "Ελέγξτε τη σύνδεσή σας ή δείτε τις λήψεις σας.",
+  "tryVpnOrConnection": "Δοκιμάστε με VPN ή ελέγξτε τη σύνδεσή σας στο διαδίκτυο.",
+  "errorDetails": "Λεπτομέρειες σφάλματος: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Μετάβαση στις λήψεις",
+  "selectProvider": "Επιλογή παρόχου",
+  "searchHint": "Αναζήτηση ταινιών, σειρών...",
+  "searchFavoriteContent": "Αναζητήστε το αγαπημένο σας περιεχόμενο",
+  "pressSearchOrEnter": "Πατήστε το πλήκτρο αναζήτησης ή Enter για να ξεκινήσετε",
+  "noResultsFound": "Δεν βρέθηκαν αποτελέσματα.",
+  "couldNotLoadTrending": "Δεν ήταν δυνατή η φόρτωση των τάσεων",
+  "popularMovies": "Δημοφιλείς ταινίες",
+  "popularTVShows": "Δημοφιλείς σειρές",
+  "newMovies": "Νέες ταινίες",
+  "newTVShows": "Νέες σειρές",
+  "featuredMovies": "Προτεινόμενες ταινίες",
+  "featuredTVShows": "Προτεινόμενες σειρές",
+  "lastVideosTVShows": "Τελευταία επεισόδια",
+  "downloads": "Λήψεις",
+  "bookmarks": "Σελιδοδείκτες",
+  "noDownloadsYet": "Δεν υπάρχουν ακόμα λήψεις",
+  "episodesCount": "{count} επεισόδια • {done} ολοκληρώθηκαν",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Διαγραφή όλων των επεισοδίων",
+  "confirmDeleteAllEpisodes": "Είστε σίγουροι ότι θέλετε να διαγράψετε και τα {count} επεισόδια του \"{title}\" και τα αρχεία τους;",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Διαγραφή όλων",
+  "completed": "Ολοκληρώθηκε",
+  "statusQueued": "Σε ουρά...",
+  "statusDownloading": "Λήψη...",
+  "statusFinished": "Ολοκληρώθηκε",
+  "statusFailed": "Αποτυχία",
+  "statusCanceled": "Ακυρώθηκε",
+  "statusPaused": "Σε παύση",
+  "statusWaiting": "Αναμονή...",
+  "fileNotFoundRemoving": "Το αρχείο δεν βρέθηκε στον δίσκο. Διαγραφή εγγραφής.",
+  "fileNotFound": "Το αρχείο δεν βρέθηκε",
+  "deleteDownload": "Διαγραφή λήψης",
+  "confirmDeleteDownload": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτήν τη λήψη και το αρχείο της;",
+  "libraryEmpty": "Η βιβλιοθήκη σας είναι άδεια",
+  "language": "Γλώσσα",
+  "english": "Αγγλικά",
+  "hindi": "Χίντι",
+  "kannada": "Κανάντα",
+  "unknown": "Άγνωστο",
+  "recommended": "Προτεινόμενο",
+  "on": "Ενεργό",
+  "off": "Ανενεργό",
+  "installRemoveProviders": "Εγκατάσταση ή αφαίρεση παρόχων",
+  "resetDataSubtitle": "Εκκαθάριση ρυθμίσεων και βάσης, διατήρηση πρόσθετων",
+  "factoryResetSubtitle": "Διαγραφή όλων των δεδομένων, ρυθμίσεων και επεκτάσεων",
+  "developerOptionsSubtitle": "Εργαλεία αποσφαλμάτωσης και τοπική αναπαραγωγή",
+  "loading": "Φόρτωση...",
+  "sec": "δευτ.",
+  "min": "λεπτά",
+  "internalPlayer": "Εσωτερικό (media_kit)",
+  "builtInPlayer": "Ενσωματωμένο πρόγραμμα αναπαραγωγής",
+  "customNotSet": "Προσαρμοσμένο (μη ορισμένο)",
+  "selectGesture": "Επιλογή {side} χειρονομίας",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "αριστερή",
+  "right": "δεξιά",
+  "selectSeekDuration": "Επιλογή διάρκειας αναζήτησης",
+  "selectBufferDepth": "Επιλογή βάθους προσωρινής μνήμης",
+  "subtitleSettings": "Ρυθμίσεις υπότιτλων",
+  "size": "Μέγεθος: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Φόντο",
+  "customDohUrlLabel": "Προσαρμοσμένο DoH URL",
+  "enterCustomDohUrl": "Εισαγάγετε το δικό σας DoH URL",
+  "chooseTheme": "Επιλογή θέματος",
+  "resetDataDialogTitle": "Επαναφορά δεδομένων;",
+  "resetDataDialogContent": "Αυτό θα εκκαθαρίσει Ρυθμίσεις, Αγαπημένα και Ιστορικό. Οι εγκατεστημένες επεκτάσεις ΔΕΝ θα διαγραφούν.",
+  "factoryResetDialogTitle": "Εργοστασιακή επαναφορά;",
+  "factoryResetDialogContent": "Αυτό θα διαγράψει τα ΠΑΝΤΑ. Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+  "selectLanguage": "Επιλογή γλώσσας",
+  "synopsis": "Σύνοψη",
+  "noDescription": "Δεν υπάρχει διαθέσιμη περιγραφή.",
+  "videoAlreadyDownloadedPrompt": "Αυτό το βίντεο έχει ήδη ληφθεί. Τι θέλετε να κάνετε;",
+  "playNow": "Προβολή τώρα",
+  "deleteDownloadPrompt": "Διαγραφή λήψης;",
+  "deleteDownloadConfirmation": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το αρχείο; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+  "no": "Όχι",
+  "yesDelete": "Ναι, διαγραφή",
+  "downloadPaused": "Η λήψη τέθηκε σε παύση",
+  "downloading": "Λήψη",
+  "speed": "Ταχύτητα",
+  "remaining": "Απομένει",
+  "resume": "Συνέχεια",
+  "pause": "Παύση",
+  "torrentContent": "Περιεχόμενο Torrent",
+  "audioTracks": "Κομμάτια ήχου",
+  "noAudioTracks": "Δεν βρέθηκαν κομμάτια ήχου",
+  "subtitles": "Υπότιτλοι",
+  "options": "Επιλογές",
+  "noSubtitlesFound": "Δεν βρέθηκαν υπότιτλοι",
+  "playbackSpeed": "Ταχύτητα αναπαραγωγής",
+  "subtitleOptions": "Επιλογές υπότιτλων",
+  "hlsSubtitleWarning": "Οι εξωτερικοί υπότιτλοι δεν υποστηρίζονται για HLS σε αυτήν την πλατφόρμα.",
+  "loadFromDevice": "Φόρτωση από τη συσκευή",
+  "syncDelay": "Συγχρονισμός / Καθυστέρηση",
+  "styleSettings": "Ρυθμίσεις στυλ",
+  "searchOnline": "Αναζήτηση στο διαδίκτυο (αναζήτηση υπότιτλων)",
+  "subtitleSync": "Συγχρονισμός υπότιτλων",
+  "subtitleDelayWarning": "Η καθυστέρηση υπότιτλων δεν υποστηρίζεται από το τρέχον πρόγραμμα αναπαραγωγής.",
+  "resetDelay": "Επαναφορά καθυστέρησης",
+  "subtitleStyles": "Στυλ υπότιτλων",
+  "mediaKitStylingWarning": "Το στυλ υπότιτλων είναι προς το παρόν διαθέσιμο μόνο στο media_kit.",
+  "resetToDefault": "Επαναφορά στις προεπιλογές",
+  "fontSize": "Μέγεθος γραμματοσειράς",
+  "verticalPosition": "Κάθετη θέση",
+  "textColor": "Χρώμα κειμένου",
+  "backgroundColor": "Χρώμα φόντου",
+  "backgroundOpacity": "Διαφάνεια φόντου",
+  "subtitleSearch": "Αναζήτηση υπότιτλων",
+  "searchSubtitleNameHint": "Όνομα υπότιτλου...",
+  "enterSearchSubtitlePrompt": "Εισαγάγετε ένα όνομα για αναζήτηση υπότιτλων.",
+  "noSubtitleResults": "Δεν βρέθηκαν αποτελέσματα. Δοκιμάστε άλλη αναζήτηση.",
+  "downloadingApplyingSubtitle": "Λήψη και εφαρμογή υπότιτλου...",
+  "failedToDownloadSubtitle": "Αποτυχία λήψης υπότιτλου.",
+  "failedToLoadSubtitles": "Αποτυχία φόρτωσης υπότιτλων. Δοκιμάστε ξανά.",
+  "noReposFound": "Δεν βρέθηκαν αποθετήρια ή πρόσθετα",
+  "downloadAllProviders": "Λήψη όλων",
+  "removeRepository": "Αφαίρεση αποθετηρίου",
+  "addRepo": "Προσθήκη αποθετηρίου",
+  "extensionsNotInRepos": "Επεκτάσεις εκτός αποθετηρίων",
+  "noLongerInRepo": "Δεν περιλαμβάνεται πλέον σε κανένα αποθετήριο",
+  "addRepoToBrowse": "Προσθέστε ένα αποθετήριο για περιήγηση σε πρόσθετα",
+  "debugExtensions": "Αποσφαλμάτωση επεκτάσεων",
+  "removeRepoConfirm": "Αφαίρεση του {repoName};",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Αυτό θα αφαιρέσει το αποθετήριο και θα απεγκαταστήσει όλα τα πρόσθετά του.",
+  "addRepository": "Προσθήκη αποθετηρίου",
+  "repoUrlOrShortcode": "URL αποθετηρίου ή σύντομος κωδικός",
+  "assetPlugin": "Πρόσθετο πόρων",
+  "installed": "Εγκαταστάθηκε",
+  "updateTo": "Ενημέρωση σε {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Εγκατάσταση",
+  "error": "Σφάλμα",
+  "ok": "OK",
+  "pluginSettings": "Ρυθμίσεις {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Ταινίες",
+  "series": "Σειρές",
+  "anime": "Anime",
+  "liveStreams": "Ζωντανές ροές",
+  "debug": "Αποσφαλμάτωση",
+  "extensionsUpdated": "{count, plural, =1{1 επέκταση ενημερώθηκε} other{{count} επεκτάσεις ενημερώθηκαν}}",
+  "invalidNavigation": "Μη έγκυρη πλοήγηση. Παρακαλώ επιστρέψτε.",
+  "startOver": "Ξεκινήστε από την αρχή",
+  "goBack": "Επιστροφή",
+  "resolving": "Επίλυση...",
+  "downloaded": "Λήφθηκε",
+  "download": "Λήψη",
+  "debugOnlyFeature": "Αυτή η λειτουργία είναι διαθέσιμη μόνο σε δοκιμαστικές εκδόσεις (debug)",
+  "streamUrl": "URL ροής",
+  "play": "Αναπαραγωγή",
+  "verifyingSourceSize": "Επαλήθευση πηγής και μεγέθους...",
+  "fileSaveLocationNotification": "Το αρχείο θα αποθηκευτεί στον φάκελο λήψεων.",
+  "resumingPlayback": "Συνέχιση αναπαραγωγής",
+  "pausedAt": "Σε παύση στο {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{Αυτόματη συνέχιση σε 1 δευτερόλεπτο} other{Αυτόματη συνέχιση σε {count} δευτερόλεπτα}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Συνέχιση τώρα",
+  "playbackError": "Σφάλμα αναπαραγωγής",
+  "confirmClearHistory": "Είστε σίγουροι ότι θέλετε να διαγράψετε όλο το ιστορικό προβολών;",
+  "seasonWithNumber": "Κύκλος {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Εκκίνηση...",
+  "percentWatched": "{percent}% ολοκληρώθηκε",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Εργαλεία αποσφαλμάτωσης",
+  "playLocalVideo": "Αναπαραγωγή τοπικού αρχείου βίντεο",
+  "playLocalVideoSubtitle": "Αναπαραγωγή οποιουδήποτε βίντεο από τη συσκευή",
+  "streamUrlSubtitle": "Αναπαραγωγή από URL δικτύου",
+  "streamTorrent": "Ροή Torrent",
+  "streamTorrentSubtitle": "Επιλέξτε ένα τοπικό αρχείο torrent για αναπαραγωγή",
+  "loadPluginFromAssets": "Φόρτωση πρόσθετου από πόρους",
+  "enterVideoUrlHint": "Εισαγάγετε URL βίντεο (http, magnet κ.λπ.)",
+  "networkStream": "Ροή δικτύου",
+  "removedFromHistory": "Αφαιρέθηκε από το ιστορικό: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Προσαρμοσμένο",
+  "refreshingLiveStream": "Ανανέωση ζωντανής ροής...",
+  "removeFromHistory": "Αφαίρεση από το ιστορικό",
+  "live": "ΖΩΝΤΑΝΑ",
+  "volume": "Ένταση",
+  "brightness": "Φωτεινότητα",
+  "fit": "Προσαρμογή",
+  "zoom": "Ζουμ",
+  "stretch": "Επέκταση",
+  "titleWithParam": "Τίτλος: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Πηγή: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Μέγεθος: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Σφάλμα: {error}. Χρήση εσωτερικού προγράμματος αναπαραγωγής.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "Ο {playerName} δεν εντοπίστηκε. Εκκίνηση εσωτερικού προγράμματος αναπαραγωγής.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Κύκλος {number} ({count} επεισόδια)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Επιλογή πηγής για {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Δεν υπάρχουν εγκατεστημένα πρόσθετα",
+  "availableSources": "Διαθέσιμες πηγές",
+  "seasons": "Κύκλοι",
+  "episodes": "Επεισόδια",
+  "selectSourceToPlay": "Παρακαλώ επιλέξτε μια πηγή από τις 'Διαθέσιμες πηγές' παραπάνω.",
+  "episodeCountOnly": "{count, plural, =1{1 επεισόδιο} other{{count} επεισόδια}}",
+  "noEpisodesFound": "Δεν βρέθηκαν επεισόδια",
+  "local": "Τοπικό",
+  "remote": "Απομακρυσμένο",
+  "torrent": "Torrent",
+  "unlock": "Ξεκλείδωμα",
+  "lock": "Κλείδωμα",
+  "sources": "Πηγές",
+  "tracks": "Κομμάτια",
+  "content": "Περιεχόμενο",
+  "stats": "Στατιστικά",
+  "resize": "Μέγεθος",
+  "next": "Επόμενο",
+  "pip": "PiP",
+  "rotate": "Περιστροφή",
+  "windowed": "Σε παράθυρο",
+  "fullscreen": "Πλήρης οθόνη",
+  "movieDetails": "Λεπτομέρειες ταινίας",
+  "showDetails": "Προβολή λεπτομερειών",
+  "tagline": "Tagline",
+  "status": "Κατάσταση",
+  "releaseDate": "Ημερομηνία κυκλοφορίας",
+  "firstAirDate": "Ημερομηνία πρώτης προβολής",
+  "originalLanguage": "Πρωτότυπη γλώσσα",
+  "originCountry": "Χώρα προέλευσης",
+  "budgetLabel": "Προϋπολογισμός",
+  "revenueLabel": "Έσοδα",
+  "paused": "Σε παύση",
+  "watched": "Ολοκληρώθηκε",
+  "watching": "Προβάλλεται",
+  "lastWatched": "Τελευταία προβολή",
+  "movie": "Ταινία",
+  "tvShow": "Σειρά",
+  "failedToLoadContent": "Αποτυχία φόρτωσης περιεχομένου",
+  "director": "Σκηνοθέτης",
+  "creator": "Δημιουργός",
+  "showMore": "Περισσότερα",
+  "showLess": "Λιγότερα",
+  "viewAll": "Προβολή όλων",
+  "seasonsCount": "{count, plural, =1{1 κύκλος} other{{count} κύκλοι}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Δεν υπάρχει σύνδεση στο διαδίκτυο",
+  "timeoutError": "Η αίτηση έληξε. Παρακαλώ δοκιμάστε ξανά.",
+  "serverError": "Σφάλμα διακομιστή. Παρακαλώ δοκιμάστε ξανά αργότερα.",
+  "contentNotFoundError": "Το περιεχόμενο δεν βρέθηκε.",
+  "accessDeniedError": "Η πρόσβαση απορρίφθηκε. Ελέγξτε τα διαπιστευτήριά σας.",
+  "serviceUnavailableError": "Ο διακομιστής δεν είναι διαθέσιμος.",
+  "generalError": "Κάποιο πρόβλημα προέκυψε.",
+  "skip": "Παράλειψη",
+  "goLive": "Ζωντανά",
+  "dismiss": "Απόρριψη",
+  "nextUp": "Επόμενο",
+  "sourceAttempt": "Πηγή {index} από {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Δοκιμή",
+  "failed": "Αποτυχία",
+  "selected": "Επιλεγμένο",
+  "playing": "Αναπαραγωγή",
+  "pending": "Σε εκκρεμότητα",
+  "discord": "Discord",
+  "discordSubtitle": "Μπείτε στον διακομιστή μας",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Μπείτε στο κανάλι μας",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Προτίμηση ποιότητας Wi-Fi",
+  "mobileQualityPreference": "Προτίμηση ποιότητας κινητής",
+  "anyNoPreference": "Καμία προτίμηση",
+  "subtitleAccounts": "Λογαριασμοί υποτίτλων",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Δοκιμή σύνδεσης",
+  "connectedSuccessfully": "Επιτυχής σύνδεση",
+  "connectionFailed": "Αποτυχία σύνδεσης",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "Κλειδί API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Διαγνωστικά",
+  "viewLogs": "Προβολή αρχείων καταγραφής",
+  "viewLogsSubtitle": "Προβολή δραστηριότητας και σφαλμάτων εφαρμογής",
+  "goToExtensions": "Μετάβαση στις επεκτάσεις",
+  "noPluginsMessage": "Εγκαταστήστε επεκτάσεις για περιήγηση και ροή περιεχομένου."
+}

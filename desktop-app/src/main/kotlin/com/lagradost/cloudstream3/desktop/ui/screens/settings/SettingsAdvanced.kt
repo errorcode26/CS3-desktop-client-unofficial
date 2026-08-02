@@ -119,8 +119,10 @@ fun SettingsAdvanced() {
                     IconButton(onClick = {
                         val newList = clonedSites.filter { it != site }
                         clonedSites = newList
-                        val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-                        com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                            com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
+                        }
                     }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
@@ -249,19 +251,21 @@ fun SettingsAdvanced() {
                                             val newList = clonedSites + newSite
                                             clonedSites = newList
 
-                                            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-                                            com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
+                                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                                                com.lagradost.common.storage.DesktopDataStore.setKey("USER_PROVIDER_API", mapper.writeValueAsString(newList))
 
-                                            try {
-                                                val clone = provider.javaClass.getDeclaredConstructor().newInstance()
-                                                clone.name = newSite.name
-                                                clone.lang = newSite.lang
-                                                clone.mainUrl = newSite.url.trimEnd('/')
-                                                clone.canBeOverridden = false
-                                                com.lagradost.cloudstream3.APIHolder.allProviders.add(clone)
-                                                com.lagradost.cloudstream3.APIHolder.addPluginMapping(clone)
-                                            } catch (e: Exception) {
-                                                com.lagradost.common.logging.AppLogger.e("Failed to clone provider", e)
+                                                try {
+                                                    val clone = provider.javaClass.getDeclaredConstructor().newInstance()
+                                                    clone.name = newSite.name
+                                                    clone.lang = newSite.lang
+                                                    clone.mainUrl = newSite.url.trimEnd('/')
+                                                    clone.canBeOverridden = false
+                                                    com.lagradost.cloudstream3.APIHolder.allProviders.add(clone)
+                                                    com.lagradost.cloudstream3.APIHolder.addPluginMapping(clone)
+                                                } catch (e: Exception) {
+                                                    com.lagradost.common.logging.AppLogger.e("Failed to clone provider", e)
+                                                }
                                             }
 
                                             showAddCloneDialog = false

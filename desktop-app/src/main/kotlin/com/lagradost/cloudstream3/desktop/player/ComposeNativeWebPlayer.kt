@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.launch
 import java.awt.event.*
 import java.io.File
@@ -66,7 +67,7 @@ fun ComposeNativeWebPlayer(
     failedLinks: Map<Int, String> = emptyMap(),
     backdropUrl: String? = null,
     logoUrl: String? = null,
-    onLinkChange: ((Int) -> Unit)? = null,
+    onLinkChange: ((String) -> Unit)? = null,
     onEpisodeChange: ((String) -> Unit)? = null,
     onNextEpisode: (() -> Unit)? = null,
     onReplayEpisode: (() -> Unit)? = null,
@@ -109,7 +110,7 @@ fun ComposeNativeWebPlayer(
     val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     val activeSubtitleOverrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
 
-    LaunchedEffect(isUiReady, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
         if (isUiReady) {
             val payload = PlayerUiSyncState(
                 plot = plot,
@@ -330,22 +331,25 @@ fun ComposeNativeWebPlayer(
                                     val allResults = mutableListOf<Map<String, Any?>>()
                                     for (provider in com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders) {
                                         val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
-                                        try {
-                                            provider.search(auth, search)?.forEach { sub ->
-                                                allResults.add(
-                                                    mapOf(
-                                                        "idPrefix" to sub.idPrefix,
-                                                        "name" to sub.name,
-                                                        "lang" to sub.lang,
-                                                        "data" to sub.data,
-                                                        "source" to sub.source,
-                                                        "seasonNumber" to sub.seasonNumber,
-                                                        "epNumber" to sub.epNumber,
-                                                    ),
-                                                )
-                                            }
-                                        } catch (e: Exception) {
-                                            com.lagradost.common.logging.AppLogger.e("SubSearch[${provider.name}]: ${e.message}")
+                                        val subList = SafePluginInvoker.invokeOrNull(
+                                            tag = "SubSearch:${provider.name}",
+                                            providerName = provider.name,
+                                            timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                                        ) {
+                                            provider.search(auth, search)
+                                        }
+                                        subList?.forEach { sub ->
+                                            allResults.add(
+                                                mapOf(
+                                                    "idPrefix" to sub.idPrefix,
+                                                    "name" to sub.name,
+                                                    "lang" to sub.lang,
+                                                    "data" to sub.data,
+                                                    "source" to sub.source,
+                                                    "seasonNumber" to sub.seasonNumber,
+                                                    "epNumber" to sub.epNumber,
+                                                ),
+                                            )
                                         }
                                     }
 
@@ -354,7 +358,7 @@ fun ComposeNativeWebPlayer(
                                     )
                                     NativePlayerBridge.postMessage(json)
                                 } catch (e: Exception) {
-                                    com.lagradost.common.logging.AppLogger.e("searchSubtitles: ${e.message}")
+                                    com.lagradost.common.logging.AppLogger.e("Player:Web", "searchSubtitles error: ${e.message}", e)
                                 }
                             }
                         }
@@ -382,7 +386,13 @@ fun ComposeNativeWebPlayer(
                                             source = parsed["source"]?.asText() ?: "",
                                         )
 
-                                        val fileUrl = provider.load(auth, sub)
+                                        val fileUrl = SafePluginInvoker.invokeOrNull(
+                                            tag = "SubLoad:${provider.name}",
+                                            providerName = provider.name,
+                                            timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                                        ) {
+                                            provider.load(auth, sub)
+                                        }
                                         if (fileUrl != null) {
                                             var finalUrl: String = fileUrl
                                             val cleanUrl = fileUrl.substringBefore("?")
@@ -434,7 +444,7 @@ fun ComposeNativeWebPlayer(
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    com.lagradost.common.logging.AppLogger.e("downloadSubtitle: ${e.message}")
+                                    com.lagradost.common.logging.AppLogger.e("Player:Web", "downloadSubtitle error: ${e.message}", e)
                                 }
                             }
                         }
@@ -487,11 +497,8 @@ fun ComposeNativeWebPlayer(
                             }
                         }
                         "changeLink" -> {
-                            val idx = eventValue.toIntOrNull()
-                            if (idx != null) {
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                    onLinkChange?.invoke(idx)
-                                }
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                if (eventValue.isNotEmpty()) onLinkChange?.invoke(eventValue)
                             }
                         }
                         "loadEpisode" -> {

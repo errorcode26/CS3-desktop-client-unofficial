@@ -1,0 +1,589 @@
+{
+  "@@locale": "ko",
+  "appTitle": "SkyStream",
+  "languageName": "한국어",
+  "home": "홈",
+  "search": "검색",
+  "explore": "탐색",
+  "library": "라이브러리",
+  "settings": "설정",
+  "extensions": "확장 프로그램",
+  "updateAvailable": "업데이트 가능",
+  "retry": "재시도",
+  "factoryReset": "공장 초기화",
+  "startupError": "시작 오류",
+  "general": "일반",
+  "appTheme": "앱 테마",
+  "recordWatchHistory": "시청 기록 남기기",
+  "defaultHomeScreen": "기본 홈 화면",
+  "player": "플레이어",
+  "defaultPlayer": "기본 플레이어",
+  "leftGesture": "왼쪽 제스처",
+  "rightGesture": "오른쪽 제스처",
+  "doubleTapToSeek": "더블 탭하여 탐색",
+  "swipeToSeek": "스와이프하여 탐색",
+  "seekDuration": "탐색 시간",
+  "bufferDepth": "버퍼 깊이",
+  "defaultResizeMode": "기본 화면 크기 모드",
+  "hardwareDecoding": "하드웨어 디코딩",
+  "network": "네트워크",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH 제공자",
+  "manageExtensions": "확장 프로그램 관리",
+  "appData": "앱 데이터",
+  "resetDataKeepExtensions": "데이터 초기화 (확장 프로그램 유지)",
+  "developer": "개발자",
+  "developerOptions": "개발자 옵션",
+  "about": "정보",
+  "version": "버전",
+  "enabled": "활성화됨",
+  "disabled": "비활성화됨",
+  "system": "시스템 설정",
+  "dark": "다크 모드",
+  "light": "라이트 모드",
+  "later": "나중에",
+  "updateNow": "지금 업데이트",
+  "save": "저장",
+  "cancel": "취소",
+  "close": "닫기",
+  "delete": "삭제",
+  "viewDetails": "상세 보기",
+  "clearAll": "모두 지우기",
+  "clearAllHistory": "시청 기록 지우기",
+  "all": "전체",
+  "none": "없음",
+  "confirmDownload": "다운로드 확인",
+  "downloadNow": "지금 다운로드",
+  "selectSource": "소스 선택",
+  "downloadUnavailable": "이용 불가",
+  "selectAnotherSource": "다른 소스 선택",
+  "watchHistoryCleared": "시청 기록이 삭제되었습니다",
+  "downloadingUpdate": "업데이트 다운로드 중...",
+  "errorPrefix": "오류: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "업데이트 가능: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "시작하려면 제공자를 선택하세요",
+  "tapExtensionIcon": "모퉁이에 있는 확장 프로그램 아이콘을 탭하세요",
+  "continueWatching": "계속 시청하기",
+  "noInternetConnection": "인터넷 연결 없음",
+  "siteNotReachable": "사이트에 연결할 수 없음",
+  "checkConnectionOrDownloads": "연결 상태를 확인하거나 다운로드 목록을 확인하세요.",
+  "tryVpnOrConnection": "VPN을 시도하거나 인터넷 연결을 확인하세요.",
+  "errorDetails": "오류 상세 정보: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "다운로드로 이동",
+  "selectProvider": "제공자 선택",
+  "searchHint": "영화, 드라마 검색...",
+  "searchFavoriteContent": "좋아하는 콘텐츠를 검색하세요",
+  "pressSearchOrEnter": "검색 키 또는 Enter를 눌러 시작하세요",
+  "noResultsFound": "결과를 찾을 수 없습니다.",
+  "couldNotLoadTrending": "트렌드를 불러올 수 없습니다",
+  "popularMovies": "인기 영화",
+  "popularTVShows": "인기 드라마",
+  "newMovies": "최신 영화",
+  "newTVShows": "최신 드라마",
+  "featuredMovies": "추천 영화",
+  "featuredTVShows": "추천 드라마",
+  "lastVideosTVShows": "최근 업데이트",
+  "downloads": "다운로드",
+  "bookmarks": "즐겨찾기",
+  "noDownloadsYet": "다운로드한 콘텐츠가 없습니다",
+  "episodesCount": "{count}개의 에피소드 • {done}개 완료",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "모든 에피소드 삭제",
+  "confirmDeleteAllEpisodes": "\"{title}\"의 모든 에피소드({count}개)와 파일을 삭제하시겠습니까?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "모두 삭제",
+  "completed": "완료됨",
+  "statusQueued": "대기 중...",
+  "statusDownloading": "다운로드 중...",
+  "statusFinished": "완료",
+  "statusFailed": "실패",
+  "statusCanceled": "취소됨",
+  "statusPaused": "일시 중지됨",
+  "statusWaiting": "대기 중...",
+  "fileNotFoundRemoving": "파일을 찾을 수 없습니다. 기록을 제거합니다.",
+  "fileNotFound": "파일을 찾을 수 없음",
+  "deleteDownload": "다운로드 삭제",
+  "confirmDeleteDownload": "이 다운로드와 파일을 삭제하시겠습니까?",
+  "libraryEmpty": "라이브러리가 비어 있습니다",
+  "language": "언어",
+  "english": "영어",
+  "hindi": "힌디어",
+  "kannada": "칸나다어",
+  "unknown": "알 수 없음",
+  "recommended": "추천",
+  "on": "켜짐",
+  "off": "꺼짐",
+  "installRemoveProviders": "제공자 설치/제거",
+  "resetDataSubtitle": "설정 및 데이터베이스를 초기화합니다 (플러그인 유지)",
+  "factoryResetSubtitle": "모든 데이터, 설정, 확장 프로그램을 삭제합니다",
+  "developerOptionsSubtitle": "디버그 도구 및 로컬 재생",
+  "loading": "로딩 중...",
+  "sec": "초",
+  "min": "분",
+  "internalPlayer": "내부 플레이어 (media_kit)",
+  "builtInPlayer": "내장 플레이어",
+  "customNotSet": "사용자 정의 (설정되지 않음)",
+  "selectGesture": "{side} 제스처 선택",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "왼쪽",
+  "right": "오른쪽",
+  "selectSeekDuration": "탐색 시간 선택",
+  "selectBufferDepth": "버퍼 깊이 선택",
+  "subtitleSettings": "자막 설정",
+  "size": "크기: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "배경",
+  "customDohUrlLabel": "사용자 정의 DoH URL",
+  "enterCustomDohUrl": "자체 DoH URL을 입력하세요",
+  "chooseTheme": "테마 선택",
+  "resetDataDialogTitle": "데이터 초기화?",
+  "resetDataDialogContent": "설정, 즐겨찾기, 시청 기록이 지워집니다. 설치된 확장 프로그램은 유지됩니다.",
+  "factoryResetDialogTitle": "공장 초기화?",
+  "factoryResetDialogContent": "즐겨찾기, 기록, 설정, 모든 확장 프로그램을 포함한 모든 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "selectLanguage": "언어 선택",
+  "synopsis": "시놉시스",
+  "noDescription": "설명이 없습니다.",
+  "videoAlreadyDownloadedPrompt": "이 영상은 이미 다운로드되었습니다. 어떻게 하시겠습니까?",
+  "playNow": "지금 재생하기",
+  "deleteDownloadPrompt": "다운로드 삭제?",
+  "deleteDownloadConfirmation": "이 파일을 삭제하시겠습니까? 되돌릴 수 없습니다.",
+  "no": "아니요",
+  "yesDelete": "네, 삭제합니다",
+  "downloadPaused": "다운로드 일시 중지됨",
+  "downloading": "다운로드 중",
+  "speed": "속도",
+  "remaining": "남음",
+  "resume": "재개",
+  "pause": "일시 중지",
+  "torrentContent": "토렌트 내용",
+  "audioTracks": "오디오 트랙",
+  "noAudioTracks": "오디오 트랙을 찾을 수 없습니다",
+  "subtitles": "자막",
+  "options": "옵션",
+  "noSubtitlesFound": "자막을 찾을 수 없습니다",
+  "playbackSpeed": "재생 속도",
+  "subtitleOptions": "자막 옵션",
+  "hlsSubtitleWarning": "이 플랫폼의 HLS 플레이어에서는 외부 자막 파일을 지원하지 않습니다.",
+  "loadFromDevice": "기기에서 불러오기",
+  "syncDelay": "동기화 / 지연",
+  "styleSettings": "스타일 설정",
+  "searchOnline": "온라인 검색 (자막 검색)",
+  "subtitleSync": "자막 동기화",
+  "subtitleDelayWarning": "현재 플레이어 엔진이 자막 지연 설정을 지원하지 않습니다.",
+  "resetDelay": "지연 초기화",
+  "subtitleStyles": "자막 스타일",
+  "mediaKitStylingWarning": "자막 스타일 설정은 현재 media_kit 플레이어에서만 가능합니다.",
+  "resetToDefault": "기본값으로 복원",
+  "fontSize": "글자 크기",
+  "verticalPosition": "수직 위치",
+  "textColor": "글자 색상",
+  "backgroundColor": "배경 색상",
+  "backgroundOpacity": "배경 불투명도",
+  "subtitleSearch": "자막 검색",
+  "searchSubtitleNameHint": "자막 이름...",
+  "enterSearchSubtitlePrompt": "검색할 자막 이름을 입력하세요.",
+  "noSubtitleResults": "결과가 없습니다. 다른 검색어를 입력해 보세요.",
+  "downloadingApplyingSubtitle": "자막 다운로드 및 적용 중...",
+  "failedToDownloadSubtitle": "자막 다운로드 실패.",
+  "failedToLoadSubtitles": "자막 불러오기 실패. 다시 시도해 주세요.",
+  "noReposFound": "저장소나 플러그인을 찾을 수 없습니다",
+  "downloadAllProviders": "모두 다운로드",
+  "removeRepository": "저장소 제거",
+  "addRepo": "저장소 추가",
+  "extensionsNotInRepos": "저장소 외부의 확장 프로그램",
+  "noLongerInRepo": "더 이상 저장소 목록에 없음",
+  "addRepoToBrowse": "플러그인을 탐색하고 업데이트하려면 저장소를 추가하세요",
+  "debugExtensions": "확장 프로그램 디버그",
+  "removeRepoConfirm": "{repoName} 저장소를 제거하시겠습니까?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "저장소가 제거되고 포함된 모든 플러그인이 삭제됩니다.",
+  "addRepository": "저장소 추가",
+  "repoUrlOrShortcode": "저장소 URL 또는 단축 코드",
+  "assetPlugin": "에셋 플러그인",
+  "installed": "설치됨",
+  "updateTo": "{version} 버전으로 업데이트",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "설치",
+  "error": "오류",
+  "ok": "확인",
+  "pluginSettings": "{pluginName} 설정",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "영화",
+  "series": "드라마/시리즈",
+  "anime": "애니메이션",
+  "liveStreams": "실시간 스트리밍",
+  "debug": "디버그",
+  "extensionsUpdated": "{count, plural, other{{count}개의 확장 프로그램이 업데이트되었습니다}}",
+  "invalidNavigation": "잘못된 경로입니다. 뒤로 돌아가 주세요.",
+  "startOver": "처음부터 다시 시작",
+  "goBack": "뒤로 가기",
+  "resolving": "해석 중...",
+  "downloaded": "다운로드됨",
+  "download": "다운로드",
+  "debugOnlyFeature": "이 기능은 디버그 빌드에서만 사용할 수 있습니다",
+  "streamUrl": "스트림 URL",
+  "play": "재생",
+  "verifyingSourceSize": "소스 및 크기 확인 중...",
+  "fileSaveLocationNotification": "파일은 다운로드 폴더에 저장됩니다.",
+  "resumingPlayback": "이어서 재생 중",
+  "pausedAt": "{time}에서 일시 중지됨",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, other{{count}초 후에 자동으로 재개됩니다}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "지금 재개",
+  "playbackError": "재생 오류",
+  "confirmClearHistory": "모든 시청 기록을 삭제하시겠습니까?",
+  "seasonWithNumber": "시즌 {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "시작 중...",
+  "percentWatched": "{percent}% 시청함",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "자막",
+  "dub": "더빙",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "디버그 도구",
+  "playLocalVideo": "로컬 비디오 재생",
+  "playLocalVideoSubtitle": "기기 내 파일 재생",
+  "streamUrlSubtitle": "URL 입력하여 재생",
+  "streamTorrent": "토렌트 스트리밍",
+  "streamTorrentSubtitle": "토렌트 파일을 선택하여 재생",
+  "loadPluginFromAssets": "에셋에서 플러그인 로드",
+  "enterVideoUrlHint": "비디오 주소 입력 (http, magnet 등)",
+  "networkStream": "네트워크 스트림",
+  "removedFromHistory": "기록에서 \"{title}\" 삭제됨",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "사용자 정의",
+  "refreshingLiveStream": "실시간 스트림 새로고침 중...",
+  "removeFromHistory": "기록에서 삭제",
+  "live": "실시간",
+  "volume": "음량",
+  "brightness": "밝기",
+  "fit": "맞추기",
+  "zoom": "확대",
+  "stretch": "늘리기",
+  "titleWithParam": "제목: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "소스: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "크기: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "오류: {error}. 내부 플레이어를 사용합니다.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName}을(를) 찾을 수 없습니다. 내부 플레이어를 실행합니다.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "시즌 {number} ({count}개의 에피소드)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName}의 소스 선택",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "설치된 플러그인 없음",
+  "availableSources": "이용 가능한 소스",
+  "seasons": "시즌",
+  "episodes": "에피소드",
+  "selectSourceToPlay": "위에 이용 가능한 소스 중에서 시청할 곳을 선택하세요.",
+  "episodeCountOnly": "{count, plural, other{{count}개의 에피소드}}",
+  "noEpisodesFound": "에피소드를 찾을 수 없습니다",
+  "local": "로컬",
+  "remote": "원격",
+  "torrent": "토렌트",
+  "unlock": "잠금 해제",
+  "lock": "잠금",
+  "sources": "소스",
+  "tracks": "트랙",
+  "content": "내용",
+  "stats": "통계",
+  "resize": "크기 조절",
+  "next": "다음",
+  "pip": "PiP 모드",
+  "rotate": "회전",
+  "windowed": "창 모드",
+  "fullscreen": "전체 화면",
+  "movieDetails": "영화 정보",
+  "showDetails": "상세 정보",
+  "tagline": "태그라인",
+  "status": "상태",
+  "releaseDate": "개봉일",
+  "firstAirDate": "첫 방영일",
+  "originalLanguage": "원어",
+  "originCountry": "제작 국가",
+  "budgetLabel": "예산",
+  "revenueLabel": "수익",
+  "paused": "일시 정지",
+  "watched": "시청 완료",
+  "watching": "시청 중",
+  "lastWatched": "마지막 시청",
+  "movie": "영화",
+  "tvShow": "드라마",
+  "failedToLoadContent": "콘텐츠를 불러오지 못했습니다",
+  "director": "감독",
+  "creator": "제작자",
+  "showMore": "더 보기",
+  "showLess": "접기",
+  "viewAll": "전체 보기",
+  "seasonsCount": "{count, plural, other{{count}개의 시즌}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "인터넷 연결 끊김",
+  "timeoutError": "시간이 초과되었습니다. 다시 시도해 주세요.",
+  "serverError": "서버 오류. 나중에 다시 시도해 주세요.",
+  "contentNotFoundError": "찾을 수 없습니다.",
+  "accessDeniedError": "접근 권한이 없습니다.",
+  "serviceUnavailableError": "서버를 이용할 수 없습니다.",
+  "generalError": "문제가 발생했습니다.",
+  "skip": "건너뛰기",
+  "goLive": "실시간 시청",
+  "dismiss": "닫기",
+  "nextUp": "다음 콘텐츠",
+  "sourceAttempt": "{total}개 소스 중 {index}번째 시도",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "시도 중",
+  "failed": "실패",
+  "selected": "선택됨",
+  "playing": "재생 중",
+  "pending": "대기 중",
+  "discord": "Discord",
+  "discordSubtitle": "우리 서버에 참여하세요",
+  "telegram": "Telegram",
+  "telegramSubtitle": "우리 채널에 참여하세요",
+  "developedBy": "{name} 개발",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi 화질 설정",
+  "mobileQualityPreference": "모바일 데이터 화질 설정",
+  "anyNoPreference": "선택 안 함",
+  "subtitleAccounts": "자막 계정",
+  "notLoggedIn": "로그인되지 않음",
+  "loggedInAs": "{username}(으)로 로그인됨",
+  "apiKeyConfigured": "API 키 설정됨",
+  "keyNotSet": "키가 설정되지 않음",
+  "testConnection": "연결 테스트",
+  "connectedSuccessfully": "연결 성공",
+  "connectionFailed": "연결 실패",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "계정이 없으신가요? 여기서 등록하세요",
+  "apiKey": "API 키",
+  "email": "Email",
+  "fetchMyApiKey": "내 API 키 가져오기",
+  "keyVerified": "키 확인됨",
+  "invalidApiKey": "유효하지 않은 API 키",
+  "openSubtitlesAuthSubtitle": "더 높은 제한과 광고 없는 자막을 이용하려면 계정 정보를 입력하세요.",
+  "subDlAuthSubtitle": "SubDL API 키를 직접 입력하거나 아래 계정 정보를 사용하여 가져오세요.",
+  "orFetchViaAccount": "또는 계정을 통해 가져오기",
+  "subSourceAuthSubtitle": "SubSource는 즉시 작동하지만, 더 나은 안정성을 위해 개인 API 키를 추가할 수 있습니다.",
+  "apiKeyOptionalOverride": "API 키 (선택 사항)",
+  "enterKeyToOverrideDefault": "기본값을 무시할 키 입력",
+  "getApiKeyFromProfile": "SubSource 프로필에서 API 키 가져오기",
+  "qualityNotGuaranteed": "화질은 보장되지 않습니다. 소스는 기본 설정에 따라 정렬되지만 재생은 공급자에 따라 달라집니다.",
+  "keepSourcesOriginalOrder": "소스의 원래 순서 유지",
+  "openLink": "링크 열기",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "진단",
+  "viewLogs": "로그 보기",
+  "viewLogsSubtitle": "앱 활동 및 오류 보기",
+  "goToExtensions": "확장 프로그램으로 이동",
+  "noPluginsMessage": "콘텐츠를 탐색하고 스트리밍하려면 확장 프로그램을 설치하세요."
+}

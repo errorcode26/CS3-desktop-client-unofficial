@@ -1,0 +1,589 @@
+{
+  "@@locale": "he",
+  "appTitle": "SkyStream",
+  "languageName": "עברית",
+  "home": "בית",
+  "search": "חיפוש",
+  "explore": "חקירה",
+  "library": "ספרייה",
+  "settings": "הגדרות",
+  "extensions": "הרחבות",
+  "updateAvailable": "עדכון זמין",
+  "retry": "נסה שוב",
+  "factoryReset": "איפוס יצרן",
+  "startupError": "שגיאת הפעלה",
+  "general": "כללי",
+  "appTheme": "ערכת נושא",
+  "recordWatchHistory": "תעד היסטוריית צפייה",
+  "defaultHomeScreen": "מסך הבית המחדל",
+  "player": "נגן",
+  "defaultPlayer": "נגן ברירת מחדל",
+  "leftGesture": "מחווה שמאלית",
+  "rightGesture": "מחווה ימנית",
+  "doubleTapToSeek": "הקשה כפולה לחיפוש",
+  "swipeToSeek": "החלק לחיפוש",
+  "seekDuration": "משך חיפוש",
+  "bufferDepth": "עומק באפר",
+  "defaultResizeMode": "מצב שינוי גודל ברירת מחדל",
+  "hardwareDecoding": "פענוח חומרה",
+  "network": "רשת",
+  "dnsOverHttps": "DNS מעל HTTPS",
+  "dohProvider": "ספק DoH",
+  "manageExtensions": "ניהול הרחבות",
+  "appData": "נתוני אפליקציה",
+  "resetDataKeepExtensions": "איפוס נתונים (שמור הרחבות)",
+  "developer": "מפתח",
+  "developerOptions": "אפשרויות מפתח",
+  "about": "אודות",
+  "version": "גרסה",
+  "enabled": "מופעל",
+  "disabled": "מושבת",
+  "system": "מערכת",
+  "dark": "כהה",
+  "light": "בהיר",
+  "later": "מאוחר יותר",
+  "updateNow": "עדכן עכשיו",
+  "save": "שמור",
+  "cancel": "ביטול",
+  "close": "סגור",
+  "delete": "מחק",
+  "viewDetails": "צפה בפרטים",
+  "clearAll": "נקה הכל",
+  "clearAllHistory": "נקה היסטוריה",
+  "all": "הכל",
+  "none": "ללא",
+  "confirmDownload": "אשר הורדה",
+  "downloadNow": "הורד עכשיו",
+  "selectSource": "בחר מקור",
+  "downloadUnavailable": "לא זמין",
+  "selectAnotherSource": "בחר מקור אחר",
+  "watchHistoryCleared": "היסטוריית צפייה נמחקה",
+  "downloadingUpdate": "מוריד עדכון...",
+  "errorPrefix": "שגיאה: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "עדכון זמין: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "בחר ספק כדי להתחיל",
+  "tapExtensionIcon": "לחץ על סמל ההרחבה בפינה",
+  "continueWatching": "המשך צפייה",
+  "noInternetConnection": "אין חיבור לאינטרנט",
+  "siteNotReachable": "האתר לא זמין",
+  "checkConnectionOrDownloads": "בדוק את החיבור שלך או צפה בהורדות שלך.",
+  "tryVpnOrConnection": "נסה להשתמש ב-VPN או בדוק את האינטרנט שלך.",
+  "errorDetails": "פרטי שגיאה: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "עבור להורדות",
+  "selectProvider": "בחר ספק",
+  "searchHint": "חפש סרטים, סדרות...",
+  "searchFavoriteContent": "חפש את התוכן המועדף עליך",
+  "pressSearchOrEnter": "לחץ על חיפוש או Enter להתחלה",
+  "noResultsFound": "לא נמצאו תוצאות.",
+  "couldNotLoadTrending": "לא ניתן לטעון מגמות",
+  "popularMovies": "סרטים פופולריים",
+  "popularTVShows": "סדרות פופולריות",
+  "newMovies": "סרטים חדשים",
+  "newTVShows": "סדרות חדשות",
+  "featuredMovies": "סרטים מומלצים",
+  "featuredTVShows": "סדרות מומלצות",
+  "lastVideosTVShows": "פרקים אחרונים",
+  "downloads": "הורדות",
+  "bookmarks": "סימניות",
+  "noDownloadsYet": "אין הורדות עדיין",
+  "episodesCount": "{count} פרקים • {done} הושלמו",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "מחק את כל הפרקים",
+  "confirmDeleteAllEpisodes": "האם אתה בטוח שברצונך למחוק את כל {count} הפרקים של \"{title}\" ואת הקבצים שלהם?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "מחק הכל",
+  "completed": "הושלם",
+  "statusQueued": "בתור...",
+  "statusDownloading": "מוריד...",
+  "statusFinished": "הסתיים",
+  "statusFailed": "נכשל",
+  "statusCanceled": "בוטל",
+  "statusPaused": "מושהה",
+  "statusWaiting": "מחכה...",
+  "fileNotFoundRemoving": "הקובץ לא נמצא. מוחק רשומה.",
+  "fileNotFound": "הקובץ לא נמצא",
+  "deleteDownload": "מחק הורדה",
+  "confirmDeleteDownload": "האם אתה בטוח שברצונך למחוק הורדה זו?",
+  "libraryEmpty": "הספרייה שלך ריקה",
+  "language": "שפה",
+  "english": "אנגלית",
+  "hindi": "הינדי",
+  "kannada": "קנאדה",
+  "unknown": "לא ידוע",
+  "recommended": "מומלץ",
+  "on": "פעיל",
+  "off": "כבוי",
+  "installRemoveProviders": "התקן/הסר ספקים",
+  "resetDataSubtitle": "נקה הגדרות ובסיס נתונים, שמור פלאגינים",
+  "factoryResetSubtitle": "מחק את כל הנתונים, ההגדרות וההרחבות",
+  "developerOptionsSubtitle": "כלי ניפוי שגיאות והפעלה מקומית",
+  "loading": "טוען...",
+  "sec": "שנ'",
+  "min": "דק'",
+  "internalPlayer": "נגן פנימי (media_kit)",
+  "builtInPlayer": "נגן מובנה",
+  "customNotSet": "מותאם אישית (לא הוגדר)",
+  "selectGesture": "בחר מחווה ({side})",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "שמאלית",
+  "right": "ימנית",
+  "selectSeekDuration": "בחר משך חיפוש",
+  "selectBufferDepth": "בחר עומק באפר",
+  "subtitleSettings": "הגדרות כתוביות",
+  "size": "גודל: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "רקע",
+  "customDohUrlLabel": "כתובת DoH מותאמת אישית",
+  "enterCustomDohUrl": "הזן כתובת DoH משלך",
+  "chooseTheme": "בחר ערכת נושא",
+  "resetDataDialogTitle": "לאפס נתונים?",
+  "resetDataDialogContent": "זה ינקה הגדרות, מועדפים והיסטוריה. הרחבות מותקנות יישארו.",
+  "factoryResetDialogTitle": "איפוס יצרן?",
+  "factoryResetDialogContent": "זה ימחק הכל. לא ניתן לבטל פעולה זו.",
+  "selectLanguage": "בחר שפה",
+  "synopsis": "תקציר",
+  "noDescription": "אין תיאור זמין.",
+  "videoAlreadyDownloadedPrompt": "הווידאו הזה כבר הורד. מה ברצונך לעשות?",
+  "playNow": "נגן עכשיו",
+  "deleteDownloadPrompt": "למחוק הורדה?",
+  "deleteDownloadConfirmation": "האם אתה בטוח שברצונך למחוק קובץ זה? לא ניתן לבטל.",
+  "no": "לא",
+  "yesDelete": "כן, מחק",
+  "downloadPaused": "הורדה הושהתה",
+  "downloading": "מוריד",
+  "speed": "מהירות",
+  "remaining": "נותר",
+  "resume": "המשך",
+  "pause": "השהה",
+  "torrentContent": "תוכן טורנט",
+  "audioTracks": "רצועות שמע",
+  "noAudioTracks": "לא נמצאו רצועות שמע",
+  "subtitles": "כתוביות",
+  "options": "אפשרויות",
+  "noSubtitlesFound": "לא נמצאו כתוביות",
+  "playbackSpeed": "מהירות הפעלה",
+  "subtitleOptions": "אפשרויות כתוביות",
+  "hlsSubtitleWarning": "כתוביות חיצוניות לא נתמכות ב-HLS בפלטפורמה זו.",
+  "loadFromDevice": "טען מהמכשיר",
+  "syncDelay": "סנכרון / השהיה",
+  "styleSettings": "הגדרות סגנון",
+  "searchOnline": "חפש אונליין",
+  "subtitleSync": "סנכרון כתוביות",
+  "subtitleDelayWarning": "השהיית כתוביות לא נתמכת בנגן הנוכחי.",
+  "resetDelay": "אפס השהיה",
+  "subtitleStyles": "סגנונות כתוביות",
+  "mediaKitStylingWarning": "עיצוב כתוביות זמין כרגע רק ב-media_kit.",
+  "resetToDefault": "חזור לברירת מחדל",
+  "fontSize": "גודל גופן",
+  "verticalPosition": "מיקום אנכי",
+  "textColor": "צבע טקסט",
+  "backgroundColor": "צבע רקע",
+  "backgroundOpacity": "שקיפות רקע",
+  "subtitleSearch": "חיפוש כתוביות",
+  "searchSubtitleNameHint": "שם כתוביות...",
+  "enterSearchSubtitlePrompt": "הזן שם לחיפוש כתוביות.",
+  "noSubtitleResults": "לא נמצאו תוצאות.",
+  "downloadingApplyingSubtitle": "מוריד ומחיל כתוביות...",
+  "failedToDownloadSubtitle": "נכשלה הורדת כתוביות.",
+  "failedToLoadSubtitles": "נכשלה טעינת כתוביות. נסה שוב.",
+  "noReposFound": "לא נמצאו מאגרים או פלאגינים",
+  "downloadAllProviders": "הורד הכל",
+  "removeRepository": "הסר מאגר",
+  "addRepo": "הוסף מאגר",
+  "extensionsNotInRepos": "הרחבות לא מהמאגר",
+  "noLongerInRepo": "לא רשום יותר במאגרים",
+  "addRepoToBrowse": "הוסף מאגר כדי לצפות בפלאגינים",
+  "debugExtensions": "ניפוי שגיאות הרחבות",
+  "removeRepoConfirm": "להסיר את {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "זה יסיר את המאגר ויסיר את כל הפלאגינים שלו.",
+  "addRepository": "הוסף מאגר",
+  "repoUrlOrShortcode": "כתובת מאגר או קוד קצר",
+  "assetPlugin": "פלאגין מקומי",
+  "installed": "מותקן",
+  "updateTo": "עדכן ל-{version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "התקן",
+  "error": "שגיאה",
+  "ok": "אישור",
+  "pluginSettings": "הגדרות {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "סרטים",
+  "series": "סדרות",
+  "anime": "אנימה",
+  "liveStreams": "שידורים חיים",
+  "debug": "ניפוי שגיאות",
+  "extensionsUpdated": "{count, plural, one{הרחבה אחת עודכנה} other{{count} הרחבות עודכנו}}",
+  "invalidNavigation": "ניווט לא תקין.",
+  "startOver": "התחל מחדש",
+  "goBack": "חזור",
+  "resolving": "מפענח קישורים...",
+  "downloaded": "הורד",
+  "download": "הורדה",
+  "debugOnlyFeature": "תכונה זו זמינה רק בגרסאות פיתוח",
+  "streamUrl": "כתובת הזרמה",
+  "play": "נגן",
+  "verifyingSourceSize": "מאמת מקור וגודל...",
+  "fileSaveLocationNotification": "הקובץ יישמר בתיקיית ההורדות שלך.",
+  "resumingPlayback": "מחדש הפעלה",
+  "pausedAt": "הושהה ב-{time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "יחודש אוטומטית בעוד {count} שנ'",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "חדש עכשיו",
+  "playbackError": "שגיאת הפעלה",
+  "confirmClearHistory": "לנקות את כל ההיסטוריה?",
+  "seasonWithNumber": "עונה {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "מפעיל...",
+  "percentWatched": "{percent}% נצפו",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "תרגום",
+  "dub": "דיבוב",
+  "playEpisode": "{label} ע{season} פ{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "כלי ניפוי שגיאות",
+  "playLocalVideo": "וידאו מקומי",
+  "playLocalVideoSubtitle": "נגן קובץ מהמכשיר",
+  "streamUrlSubtitle": "נגן מכתובת URL",
+  "streamTorrent": "הזרם טורנט",
+  "streamTorrentSubtitle": "בחר קובץ טורנט",
+  "loadPluginFromAssets": "טען פלאגין מהנכסים",
+  "enterVideoUrlHint": "הזן כתובת וידאו",
+  "networkStream": "הזרמת רשת",
+  "removedFromHistory": "הוסר מההיסטוריה: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "מותאם אישית",
+  "refreshingLiveStream": "מרענן שידור...",
+  "removeFromHistory": "הסר מההיסטוריה",
+  "live": "חי",
+  "volume": "עוצמת שמע",
+  "brightness": "בהירות",
+  "fit": "התאמה",
+  "zoom": "זום",
+  "stretch": "מתיחה",
+  "titleWithParam": "כותרת: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "מקור: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "גודל: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "שגיאה: {error}. משתמש בנגן פנימי.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} לא נמצא.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "עונה {number} ({count} פרקים)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "מקור עבור {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "אין פלאגינים מותקנים",
+  "availableSources": "מקורות זמינים",
+  "seasons": "עונות",
+  "episodes": "פרקים",
+  "selectSourceToPlay": "בחר מקור כדי להתחיל בצפייה.",
+  "episodeCountOnly": "{count, plural, one{פרק אחד} other{{count} פרקים}}",
+  "noEpisodesFound": "לא נמצאו פרקים",
+  "local": "מקומי",
+  "remote": "מרוחק",
+  "torrent": "טורנט",
+  "unlock": "שחרר נעילה",
+  "lock": "נעל",
+  "sources": "מקורות",
+  "tracks": "רצועות",
+  "content": "תוכן",
+  "stats": "סטטיסטיקה",
+  "resize": "גודל",
+  "next": "הבא",
+  "pip": "תמונה בתוך תמונה",
+  "rotate": "סובב",
+  "windowed": "חלון",
+  "fullscreen": "מסך מלא",
+  "movieDetails": "פרטי סרט",
+  "showDetails": "צפה בפרטים",
+  "tagline": "שורת מחץ",
+  "status": "סטטוס",
+  "releaseDate": "תאריך יציאה",
+  "firstAirDate": "שידור ראשון",
+  "originalLanguage": "שפה מקורית",
+  "originCountry": "מדינת מקור",
+  "budgetLabel": "תקציב",
+  "revenueLabel": "הכנסות",
+  "paused": "מושהה",
+  "watched": "נצפה",
+  "watching": "צופה",
+  "lastWatched": "נצפה לאחרונה",
+  "movie": "סרט",
+  "tvShow": "סדרה",
+  "failedToLoadContent": "נכשלה טעינת תוכן",
+  "director": "במאי",
+  "creator": "יוצר",
+  "showMore": "עוד",
+  "showLess": "פחות",
+  "viewAll": "צפה בהכל",
+  "seasonsCount": "{count, plural, one{עונה אחת} other{{count} עונות}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "אין אינטרנט",
+  "timeoutError": "זמן הבקשה פג.",
+  "serverError": "שגיאת שרת.",
+  "contentNotFoundError": "לא נמצא.",
+  "accessDeniedError": "גישה נדחתה.",
+  "serviceUnavailableError": "השירות לא זמין.",
+  "generalError": "משהו השתבש.",
+  "skip": "דלג",
+  "goLive": "לשידור חי",
+  "dismiss": "סגור",
+  "nextUp": "הבא",
+  "sourceAttempt": "מקור {index} מתוך {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "מנסה",
+  "failed": "נכשל",
+  "selected": "נבחר",
+  "playing": "מנגן",
+  "pending": "ממתין",
+  "discord": "Discord",
+  "discordSubtitle": "הצטרפו לשרת שלנו",
+  "telegram": "Telegram",
+  "telegramSubtitle": "הצטרפו לערוץ שלנו",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "העדפת איכות Wi-Fi",
+  "mobileQualityPreference": "העדפת איכות נתונים ניידים",
+  "anyNoPreference": "ללא העדפה",
+  "subtitleAccounts": "חשבונות כתוביות",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "בדיקת חיבור",
+  "connectedSuccessfully": "מחובר בהצלחה",
+  "connectionFailed": "החיבור נכשל",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "מפתח API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "אבחון",
+  "viewLogs": "הצגת יומנים",
+  "viewLogsSubtitle": "הצגת פעילות האפליקציה ושגיאות",
+  "goToExtensions": "עבור להרחבות",
+  "noPluginsMessage": "התקן הרחבות כדי לעיין ולהזרים תוכן."
+}

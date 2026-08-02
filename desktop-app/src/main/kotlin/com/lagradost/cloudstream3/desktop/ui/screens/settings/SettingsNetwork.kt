@@ -14,6 +14,7 @@ import com.lagradost.cloudstream3.desktop.network.DohProvider
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsNetwork() {
@@ -23,6 +24,8 @@ fun SettingsNetwork() {
     }
 
     var statusMessage by remember { mutableStateOf("") }
+
+    val scope = rememberCoroutineScope()
 
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -54,14 +57,16 @@ fun SettingsNetwork() {
                                 text = { Text(provider.title) },
                                 onClick = {
                                     selectedProvider = index
-                                    DesktopDataStore.setKey(NetworkConfig.PREF_DOH_PROVIDER, index)
-                                    try {
-                                        NetworkConfig.updateGlobalNetworkClients()
-                                        statusMessage = "Network reloaded successfully with ${provider.title}!"
-                                    } catch (e: Exception) {
-                                        statusMessage = "Error updating network: ${e.message}"
-                                    }
                                     expanded = false
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        DesktopDataStore.setKey(NetworkConfig.PREF_DOH_PROVIDER, index)
+                                        try {
+                                            NetworkConfig.updateGlobalNetworkClients()
+                                            statusMessage = "Network reloaded successfully with ${provider.title}!"
+                                        } catch (e: Exception) {
+                                            statusMessage = "Error updating network: ${e.message}"
+                                        }
+                                    }
                                 },
                             )
                         }

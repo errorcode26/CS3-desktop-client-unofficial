@@ -1,0 +1,589 @@
+{
+  "@@locale": "vi",
+  "appTitle": "SkyStream",
+  "languageName": "Tiếng Việt",
+  "home": "Trang chủ",
+  "search": "Tìm kiếm",
+  "explore": "Khám phá",
+  "library": "Thư viện",
+  "settings": "Cài đặt",
+  "extensions": "Tiện ích mở rộng",
+  "updateAvailable": "Có bản cập nhật mới",
+  "retry": "Thử lại",
+  "factoryReset": "Khôi phục cài đặt gốc",
+  "startupError": "Lỗi khởi động",
+  "general": "Chung",
+  "appTheme": "Chủ đề ứng dụng",
+  "recordWatchHistory": "Lưu lịch sử xem",
+  "defaultHomeScreen": "Màn hình chính mặc định",
+  "player": "Trình phát",
+  "defaultPlayer": "Trình phát mặc định",
+  "leftGesture": "Cử chỉ bên trái",
+  "rightGesture": "Cử chỉ bên phải",
+  "doubleTapToSeek": "Chạm hai lần để tua",
+  "swipeToSeek": "Vuốt để tua",
+  "seekDuration": "Thời gian tua",
+  "bufferDepth": "Độ sâu bộ đệm",
+  "defaultResizeMode": "Chế độ thu phóng mặc định",
+  "hardwareDecoding": "Giải mã phần cứng",
+  "network": "Mạng",
+  "dnsOverHttps": "DNS qua HTTPS",
+  "dohProvider": "Nhà cung cấp DoH",
+  "manageExtensions": "Quản lý tiện ích",
+  "appData": "Dữ liệu ứng dụng",
+  "resetDataKeepExtensions": "Xóa dữ liệu (Giữ lại tiện ích)",
+  "developer": "Nhà phát triển",
+  "developerOptions": "Tùy chọn nhà phát triển",
+  "about": "Giới thiệu",
+  "version": "Phiên bản",
+  "enabled": "Đã bật",
+  "disabled": "Đã tắt",
+  "system": "Hệ thống",
+  "dark": "Tối",
+  "light": "Sáng",
+  "later": "Để sau",
+  "updateNow": "Cập nhật ngay",
+  "save": "Lưu",
+  "cancel": "Hủy",
+  "close": "Đóng",
+  "delete": "Xóa",
+  "viewDetails": "Xem chi tiết",
+  "clearAll": "Xóa tất cả",
+  "clearAllHistory": "Xóa lịch sử xem",
+  "all": "Tất cả",
+  "none": "Không có",
+  "confirmDownload": "Xác nhận tải xuống",
+  "downloadNow": "Tải ngay",
+  "selectSource": "Chọn nguồn",
+  "downloadUnavailable": "Không khả dụng",
+  "selectAnotherSource": "Chọn nguồn khác",
+  "watchHistoryCleared": "Đã xóa lịch sử xem",
+  "downloadingUpdate": "Đang tải bản cập nhật...",
+  "errorPrefix": "Lỗi: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Có bản cập nhật: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Chọn một nguồn để bắt đầu xem",
+  "tapExtensionIcon": "Nhấn vào biểu tượng tiện ích ở góc",
+  "continueWatching": "Tiếp tục xem",
+  "noInternetConnection": "Không có kết nối Internet",
+  "siteNotReachable": "Không thể truy cập trang web",
+  "checkConnectionOrDownloads": "Kiểm tra kết nối hoặc xem nội dung đã tải xuống.",
+  "tryVpnOrConnection": "Vui lòng thử sử dụng VPN hoặc kiểm tra kết nối mạng.",
+  "errorDetails": "Chi tiết lỗi: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Đi đến phần tải xuống",
+  "selectProvider": "Chọn nguồn cung cấp",
+  "searchHint": "Tìm phim, chương trình...",
+  "searchFavoriteContent": "Tìm kiếm nội dung yêu thích của bạn",
+  "pressSearchOrEnter": "Nhấn phím Tìm kiếm hoặc Enter để bắt đầu",
+  "noResultsFound": "Không tìm thấy kết quả.",
+  "couldNotLoadTrending": "Không thể tải các mục xu hướng",
+  "popularMovies": "Phim phổ biến",
+  "popularTVShows": "Chương trình TV phổ biến",
+  "newMovies": "Phim mới",
+  "newTVShows": "Chương trình TV mới",
+  "featuredMovies": "Phim nổi bật",
+  "featuredTVShows": "Chương trình TV nổi bật",
+  "lastVideosTVShows": "Chương trình TV mới nhất",
+  "downloads": "Tải xuống",
+  "bookmarks": "Đã lưu",
+  "noDownloadsYet": "Chưa có nội dung tải xuống",
+  "episodesCount": "{count} Tập • Đã xem {done}",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Xóa tất cả các tập",
+  "confirmDeleteAllEpisodes": "Bạn có chắc chắn muốn xóa toàn bộ {count} tập của \"{title}\" và các tệp đính kèm không?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Xóa tất cả",
+  "completed": "Hoàn thành",
+  "statusQueued": "Đang chờ hàng đợi...",
+  "statusDownloading": "Đang tải xuống...",
+  "statusFinished": "Đã xong",
+  "statusFailed": "Thất bại",
+  "statusCanceled": "Đã hủy",
+  "statusPaused": "Đã tạm dừng",
+  "statusWaiting": "Đang chờ...",
+  "fileNotFoundRemoving": "Không tìm thấy tệp. Đang xóa bản ghi.",
+  "fileNotFound": "Không tìm thấy tệp",
+  "deleteDownload": "Xóa tải xuống",
+  "confirmDeleteDownload": "Bạn có chắc muốn xóa tệp tải xuống này?",
+  "libraryEmpty": "Thư viện của bạn đang trống",
+  "language": "Ngôn ngữ",
+  "english": "Tiếng Anh",
+  "hindi": "Tiếng Hindi",
+  "kannada": "Tiếng Kannada",
+  "unknown": "Không xác định",
+  "recommended": "Được đề xuất",
+  "on": "Bật",
+  "off": "Tắt",
+  "installRemoveProviders": "Cài đặt hoặc xóa nguồn cung cấp",
+  "resetDataSubtitle": "Xóa cài đặt & dữ liệu, giữ lại plugin",
+  "factoryResetSubtitle": "Xóa toàn bộ dữ liệu, cài đặt và tiện ích",
+  "developerOptionsSubtitle": "Công cụ gỡ lỗi & phát nội bộ",
+  "loading": "Đang tải...",
+  "sec": "giây",
+  "min": "phút",
+  "internalPlayer": "Trình phát nội bộ (media_kit)",
+  "builtInPlayer": "Trình phát tích hợp",
+  "customNotSet": "Tùy chỉnh (chưa đặt)",
+  "selectGesture": "Chọn cử chỉ bên {side}",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "trái",
+  "right": "phải",
+  "selectSeekDuration": "Chọn thời gian tua",
+  "selectBufferDepth": "Chọn độ sâu bộ đệm",
+  "subtitleSettings": "Cài đặt phụ đề",
+  "size": "Kích thước: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Nền",
+  "customDohUrlLabel": "URL DoH tùy chỉnh",
+  "enterCustomDohUrl": "Nhập URL DoH của riêng bạn",
+  "chooseTheme": "Chọn chủ đề",
+  "resetDataDialogTitle": "Xóa dữ liệu?",
+  "resetDataDialogContent": "Thao tác này sẽ xóa các Cài đặt, Mục yêu thích và Lịch sử. Các Tiện ích đã cài đặt sẽ KHÔNG bị xóa.",
+  "factoryResetDialogTitle": "Khôi phục cài đặt gốc?",
+  "factoryResetDialogContent": "Thao tác này sẽ xóa TẤT CẢ: Mục yêu thích, Lịch sử, Cài đặt và toàn bộ Tiện ích. Thao tác này không thể hoàn tác.",
+  "selectLanguage": "Chọn ngôn ngữ",
+  "synopsis": "Nội dung tóm tắt",
+  "noDescription": "Không có mô tả.",
+  "videoAlreadyDownloadedPrompt": "Video này đã được tải xuống. Bạn muốn làm gì?",
+  "playNow": "Phát ngay",
+  "deleteDownloadPrompt": "Xóa tải xuống?",
+  "deleteDownloadConfirmation": "Bạn có chắc muốn xóa tệp này không? Thao tác này không thể hoàn tác.",
+  "no": "Không",
+  "yesDelete": "Có, xóa ngay",
+  "downloadPaused": "Đã tạm dừng tải xuống",
+  "downloading": "Đang tải xuống",
+  "speed": "Tốc độ",
+  "remaining": "Còn lại",
+  "resume": "Tiếp tục",
+  "pause": "Tạm dừng",
+  "torrentContent": "Nội dung Torrent",
+  "audioTracks": "Kênh âm thanh",
+  "noAudioTracks": "Không tìm thấy kênh âm thanh nào",
+  "subtitles": "Phụ đề",
+  "options": "Tùy chọn",
+  "noSubtitlesFound": "Không tìm thấy phụ đề nào",
+  "playbackSpeed": "Tốc độ phát",
+  "subtitleOptions": "Tùy chọn phụ đề",
+  "hlsSubtitleWarning": "Phụ đề ngoài không được hỗ trợ cho HLS trên nền tảng này.",
+  "loadFromDevice": "Tải từ thiết bị",
+  "syncDelay": "Đồng bộ / Độ trễ",
+  "styleSettings": "Cài đặt kiểu dáng",
+  "searchOnline": "Tìm kiếm trực tuyến (Tìm phụ đề)",
+  "subtitleSync": "Đồng bộ phụ đề",
+  "subtitleDelayWarning": "Độ trễ phụ đề không được hỗ trợ bởi trình phát hiện tại.",
+  "resetDelay": "Đặt lại độ trễ",
+  "subtitleStyles": "Kiểu phụ đề",
+  "mediaKitStylingWarning": "Tùy chỉnh kiểu phụ đề hiện chỉ khả dụng trên trình phát media_kit.",
+  "resetToDefault": "Đặt về mặc định",
+  "fontSize": "Cỡ chữ",
+  "verticalPosition": "Vị trí dọc",
+  "textColor": "Màu chữ",
+  "backgroundColor": "Màu nền",
+  "backgroundOpacity": "Độ mờ của nền",
+  "subtitleSearch": "Tìm kiếm phụ đề",
+  "searchSubtitleNameHint": "Tên phụ đề...",
+  "enterSearchSubtitlePrompt": "Nhập tên để tìm kiếm phụ đề.",
+  "noSubtitleResults": "Không tìm thấy kết quả.",
+  "downloadingApplyingSubtitle": "Đang tải và áp dụng phụ đề...",
+  "failedToDownloadSubtitle": "Không thể tải phụ đề.",
+  "failedToLoadSubtitles": "Không thể tải phụ đề. Vui lòng thử lại.",
+  "noReposFound": "Không tìm thấy kho lưu trữ hoặc plugin nào",
+  "downloadAllProviders": "Tải xuống tất cả",
+  "removeRepository": "Xóa kho lưu trữ",
+  "addRepo": "Thêm kho lưu trữ",
+  "extensionsNotInRepos": "Tiện ích không nằm trong kho",
+  "noLongerInRepo": "Không còn được liệt kê trong kho",
+  "addRepoToBrowse": "Thêm kho lưu trữ để duyệt và cập nhật plugin",
+  "debugExtensions": "Gỡ lỗi tiện ích",
+  "removeRepoConfirm": "Xóa {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Thao tác này sẽ xóa kho lưu trữ và gỡ cài đặt TẤT CẢ các plugin trong đó.",
+  "addRepository": "Thêm kho lưu trữ",
+  "repoUrlOrShortcode": "URL kho lưu trữ hoặc Mã ngắn",
+  "assetPlugin": "Plugin tích hợp",
+  "installed": "Đã cài đặt",
+  "updateTo": "Cập nhật lên {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Cài đặt",
+  "error": "Lỗi",
+  "ok": "Xác nhận",
+  "pluginSettings": "Cài đặt cho {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Phim điện ảnh",
+  "series": "Phim bộ",
+  "anime": "Anime",
+  "liveStreams": "Truyền hình trực tiếp",
+  "debug": "GỠ LỖI",
+  "extensionsUpdated": "{count, plural, other{Đã cập nhật {count} tiện ích mở rộng}}",
+  "invalidNavigation": "Lối điều hướng không hợp lệ.",
+  "startOver": "Bắt đầu lại",
+  "goBack": "Quay lại",
+  "resolving": "Đang giải quyết...",
+  "downloaded": "Đã tải",
+  "download": "Tải xuống",
+  "debugOnlyFeature": "Tính năng này chỉ dành cho bản build gỡ lỗi",
+  "streamUrl": "URL luồng",
+  "play": "Phát",
+  "verifyingSourceSize": "Đang xác minh nguồn & kích thước...",
+  "fileSaveLocationNotification": "Tệp sẽ được lưu vào thư mục Tải xuống.",
+  "resumingPlayback": "Đang tiếp tục phát",
+  "pausedAt": "Tạm dừng tại {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Tự động phát lại sau {count} giây",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Phát ngay",
+  "playbackError": "Lỗi phát nội dung",
+  "confirmClearHistory": "Bạn có chắc muốn xóa toàn bộ lịch sử xem không?",
+  "seasonWithNumber": "Mùa {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Đang khởi động...",
+  "percentWatched": "Đã xem {percent}%",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Phụ đề",
+  "dub": "Lồng tiếng",
+  "playEpisode": "{label} M{season} T{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Công cụ gỡ lỗi",
+  "playLocalVideo": "Phát video cục bộ",
+  "playLocalVideoSubtitle": "Phát bất kỳ video nào từ thiết bị",
+  "streamUrlSubtitle": "Phát từ URL mạng",
+  "streamTorrent": "Phát torrent",
+  "streamTorrentSubtitle": "Chọn tệp torrent cục bộ để phát",
+  "loadPluginFromAssets": "Tải plugin từ tài nguyên",
+  "enterVideoUrlHint": "Nhập URL video (http, magnet, v.v.)",
+  "networkStream": "Luồng mạng",
+  "removedFromHistory": "Đã xóa {title} khỏi lịch sử",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Tùy chỉnh",
+  "refreshingLiveStream": "Đang làm mới luồng...",
+  "removeFromHistory": "Xóa khỏi lịch sử",
+  "live": "TRỰC TIẾP",
+  "volume": "Âm lượng",
+  "brightness": "Độ sáng",
+  "fit": "Vừa vặn",
+  "zoom": "Thu phóng",
+  "stretch": "Kéo giãn",
+  "titleWithParam": "Tiêu đề: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Nguồn: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Dung lượng: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Lỗi: {error}. Đang sử dụng trình phát nội bộ.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "Không tìm thấy {playerName}. Đang khởi động trình phát nội bộ.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Mùa {number} ({count} tập)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Chọn nguồn cho {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Chưa cài đặt plugin nào",
+  "availableSources": "Nguồn khả dụng",
+  "seasons": "Mùa",
+  "episodes": "Tập",
+  "selectSourceToPlay": "Vui lòng chọn một nguồn để phát từ danh sách trên.",
+  "episodeCountOnly": "{count, plural, other{{count} tập}}",
+  "noEpisodesFound": "Không tìm thấy tập nào",
+  "local": "Nội bộ",
+  "remote": "Từ xa",
+  "torrent": "Torrent",
+  "unlock": "Mở khóa",
+  "lock": "Khóa",
+  "sources": "Nguồn",
+  "tracks": "Kênh",
+  "content": "Nội dung",
+  "stats": "Thống kê",
+  "resize": "Thay đổi kích thước",
+  "next": "Tiếp theo",
+  "pip": "PiP",
+  "rotate": "Xoay",
+  "windowed": "Cửa sổ",
+  "fullscreen": "Toàn màn hình",
+  "movieDetails": "Chi tiết phim",
+  "showDetails": "Hiển thị chi tiết",
+  "tagline": "Khẩu hiệu",
+  "status": "Trạng thái",
+  "releaseDate": "Ngày phát hành",
+  "firstAirDate": "Ngày phát sóng đầu tiên",
+  "originalLanguage": "Ngôn ngữ gốc",
+  "originCountry": "Quốc gia gốc",
+  "budgetLabel": "Ngân sách",
+  "revenueLabel": "Doanh thu",
+  "paused": "Đã tạm dừng",
+  "watched": "Đã xem",
+  "watching": "Đang xem",
+  "lastWatched": "Xem lần cuối",
+  "movie": "Phim điện ảnh",
+  "tvShow": "Chương trình TV",
+  "failedToLoadContent": "Tải nội dung thất bại",
+  "director": "Đạo diễn",
+  "creator": "Người sáng tạo",
+  "showMore": "Xem thêm",
+  "showLess": "Thu gọn",
+  "viewAll": "Xem tất cả",
+  "seasonsCount": "{count, plural, other{{count} mùa}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Không có Internet",
+  "timeoutError": "Hết thời gian yêu cầu. Vui lòng thử lại.",
+  "serverError": "Lỗi máy chủ. Vui lòng thử lại sau.",
+  "contentNotFoundError": "Không tìm thấy nội dung.",
+  "accessDeniedError": "Truy cập bị từ chối.",
+  "serviceUnavailableError": "Máy chủ hiện không khả dụng.",
+  "generalError": "Đã xảy ra lỗi.",
+  "skip": "Bỏ qua",
+  "goLive": "Xem trực tiếp",
+  "dismiss": "Bỏ qua",
+  "nextUp": "Tiếp theo",
+  "sourceAttempt": "Nguồn {index} trên {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Đang thử",
+  "failed": "Thất bại",
+  "selected": "Đã chọn",
+  "playing": "Đang phát",
+  "pending": "Đang chờ",
+  "discord": "Discord",
+  "discordSubtitle": "Tham gia máy chủ của chúng tôi",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Tham gia kênh của chúng tôi",
+  "developedBy": "Được phát triển bởi {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Ưu tiên chất lượng Wi-Fi",
+  "mobileQualityPreference": "Ưu tiên chất lượng di động",
+  "anyNoPreference": "Bất kỳ (không ưu tiên)",
+  "subtitleAccounts": "Tài khoản phụ đề",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Kiểm tra kết nối",
+  "connectedSuccessfully": "Kết nối thành công",
+  "connectionFailed": "Kết nối thất bại",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "Mã API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Chẩn đoán",
+  "viewLogs": "Xem nhật ký",
+  "viewLogsSubtitle": "Xem hoạt động và lỗi ứng dụng",
+  "goToExtensions": "Đi tới các tiện ích mở rộng",
+  "noPluginsMessage": "Cài đặt các tiện ích mở rộng để duyệt và phát trực tuyến nội dung."
+}

@@ -1,0 +1,589 @@
+{
+  "@@locale": "lv",
+  "appTitle": "SkyStream",
+  "languageName": "Latviešu",
+  "home": "Sākums",
+  "search": "Meklēt",
+  "explore": "Izpētīt",
+  "library": "Bibliotēka",
+  "settings": "Iestatījumi",
+  "extensions": "Paplašinājumi",
+  "updateAvailable": "Pieejams atjauninājums",
+  "retry": "Mēģināt vēlreiz",
+  "factoryReset": "Rūpnīcas iestatījumi",
+  "startupError": "Startēšanas kļūda",
+  "general": "Vispārīgi",
+  "appTheme": "Lietotnes motīvs",
+  "recordWatchHistory": "Ierakstīt skatīšanās vēsturi",
+  "defaultHomeScreen": "Noklusējuma sākuma ekrāns",
+  "player": "Atskaņotājs",
+  "defaultPlayer": "Noklusējuma atskaņotājs",
+  "leftGesture": "Kreisais žests",
+  "rightGesture": "Labais žests",
+  "doubleTapToSeek": "Dubultskāriens, lai meklētu",
+  "swipeToSeek": "Pārvilkt, lai meklētu",
+  "seekDuration": "Meklēšanas ilgums",
+  "bufferDepth": "Bufera dziļums",
+  "defaultResizeMode": "Noklusējuma izmēru maiņas režīms",
+  "hardwareDecoding": "Aparatūras dekodēšana",
+  "network": "Tīkls",
+  "dnsOverHttps": "DNS caur HTTPS",
+  "dohProvider": "DoH pakalpojumu sniedzējs",
+  "manageExtensions": "Pārvaldīt paplašinājumus",
+  "appData": "Lietotnes dati",
+  "resetDataKeepExtensions": "Atiestatīt datus (saglabāt paplašinājumus)",
+  "developer": "Izstrādātājs",
+  "developerOptions": "Izstrādātāja opcijas",
+  "about": "Par lietotni",
+  "version": "Versija",
+  "enabled": "Iespējots",
+  "disabled": "Atspējots",
+  "system": "Sistēmas",
+  "dark": "Tumšs",
+  "light": "Gaišs",
+  "later": "Vēlāk",
+  "updateNow": "Atjaunināt tagad",
+  "save": "Saglabāt",
+  "cancel": "Atcelt",
+  "close": "Aizvērt",
+  "delete": "Dzēst",
+  "viewDetails": "Skatīt informāciju",
+  "clearAll": "Notīrīt visu",
+  "clearAllHistory": "Notīrīt skatīšanās vēsturi",
+  "all": "Visi",
+  "none": "Neviens",
+  "confirmDownload": "Apstiprināt lejupielādi",
+  "downloadNow": "Lejupielādēt tagad",
+  "selectSource": "Izvēlēties avotu",
+  "downloadUnavailable": "Nav pieejams",
+  "selectAnotherSource": "Izvēlēties citu",
+  "watchHistoryCleared": "Skatīšanās vēsture notīrīta",
+  "downloadingUpdate": "Lejupielādē atjauninājumu...",
+  "errorPrefix": "Kļūda: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Pieejams atjauninājums: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Izvēlieties pakalpojumu sniedzēju, lai sāktu",
+  "tapExtensionIcon": "Pieskarieties paplašinājuma ikonai stūrī",
+  "continueWatching": "Turpināt skatīties",
+  "noInternetConnection": "Nav interneta savienojuma",
+  "siteNotReachable": "Lapa nav sasniedzama",
+  "checkConnectionOrDownloads": "Pārbaudiet savu savienojumu vai skatiet lejupielādes.",
+  "tryVpnOrConnection": "Izmēģiniet VPN vai pārbaudiet interneta savienojumu.",
+  "errorDetails": "Kļūdas informācija: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Doties uz lejupielādēm",
+  "selectProvider": "Izvēlēties pakalpojumu sniedzēju",
+  "searchHint": "Meklēt filmas, seriālus...",
+  "searchFavoriteContent": "Meklējiet savu iecienītāko saturu",
+  "pressSearchOrEnter": "Nospiediet Meklēt vai Enter, lai sāktu",
+  "noResultsFound": "Nekas netika atrasts.",
+  "couldNotLoadTrending": "Neizdevās ielādēt tendences",
+  "popularMovies": "Populāras filmas",
+  "popularTVShows": "Populāri seriāli",
+  "newMovies": "Jaunas filmas",
+  "newTVShows": "Jauni seriāli",
+  "featuredMovies": "Iesaka filmas",
+  "featuredTVShows": "Iesaka seriālus",
+  "lastVideosTVShows": "Pēdējie video",
+  "downloads": "Lejupielādes",
+  "bookmarks": "Grāmatzīmes",
+  "noDownloadsYet": "Vēl nav lejupielāžu",
+  "episodesCount": "{count} sērijas • {done} pabeigtas",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Dzēst visas sērijas",
+  "confirmDeleteAllEpisodes": "Vai tiešām vēlaties dzēst visas {count} sērijas no \"{title}\" un to failus?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Dzēst visu",
+  "completed": "Pabeigts",
+  "statusQueued": "Rindā...",
+  "statusDownloading": "Lejupielādē...",
+  "statusFinished": "Pabeigts",
+  "statusFailed": "Neizdevās",
+  "statusCanceled": "Atcelts",
+  "statusPaused": "Pauzēts",
+  "statusWaiting": "Gaidīšana...",
+  "fileNotFoundRemoving": "Fails netika atrasts. Ieraksts tiek dzēsts.",
+  "fileNotFound": "Fails nav atrasts",
+  "deleteDownload": "Dzēst lejupielādi",
+  "confirmDeleteDownload": "Vai tiešām vēlaties dzēst šo lejupielādi?",
+  "libraryEmpty": "Jūsu bibliotēka ir tukša",
+  "language": "Valoda",
+  "english": "Angļu",
+  "hindi": "Hindi",
+  "kannada": "Kannadu",
+  "unknown": "Nezināms",
+  "recommended": "Ieteicams",
+  "on": "Ieslēgts",
+  "off": "Izslēgts",
+  "installRemoveProviders": "Instalēt vai noņemt pakalpojumu sniedzējus",
+  "resetDataSubtitle": "Notīrīt iestatījumus un DB, saglabāt spraudņus",
+  "factoryResetSubtitle": "Dzēst visus datus, iestatījumus un paplašinājumus",
+  "developerOptionsSubtitle": "Atkļūdošanas rīki un lokālā atskaņošana",
+  "loading": "Ielādē...",
+  "sec": "sek.",
+  "min": "min.",
+  "internalPlayer": "Iekšējais (media_kit)",
+  "builtInPlayer": "Iebūvētais atskaņotājs",
+  "customNotSet": "Pielāgots (nav iestatīts)",
+  "selectGesture": "Izvēlēties {side} žestu",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "kreiso",
+  "right": "labo",
+  "selectSeekDuration": "Izvēlēties meklēšanas ilgumu",
+  "selectBufferDepth": "Izvēlēties bufera dziļumu",
+  "subtitleSettings": "Subtitru iestatījumi",
+  "size": "Izmērs: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Fons",
+  "customDohUrlLabel": "Pielāgota DoH URL",
+  "enterCustomDohUrl": "Ievadiet savu DoH URL",
+  "chooseTheme": "Izvēlēties motīvu",
+  "resetDataDialogTitle": "Atiestatīt datus?",
+  "resetDataDialogContent": "Tas notīrīs Iestatījumus, Izlasi un Vēsturi. Instalētie paplašinājumi NETIKS dzēsti.",
+  "factoryResetDialogTitle": "Rūpnīcas atiestatīšana?",
+  "factoryResetDialogContent": "Tas izdzēsīs VISU. Šo darbību nevar atsaukt.",
+  "selectLanguage": "Izvēlēties valodu",
+  "synopsis": "Sinopsis",
+  "noDescription": "Apraksts nav pieejams.",
+  "videoAlreadyDownloadedPrompt": "Šis video jau ir lejupielādēts. Ko vēlaties darīt?",
+  "playNow": "Atskaņot tūlīt",
+  "deleteDownloadPrompt": "Dzēst lejupielādi?",
+  "deleteDownloadConfirmation": "Vai tiešām vēlaties dzēst šo failu? To nevar atsaukt.",
+  "no": "Nē",
+  "yesDelete": "Jā, dzēst",
+  "downloadPaused": "Lejupielāde pauzēta",
+  "downloading": "Lejupielādē",
+  "speed": "Ātrums",
+  "remaining": "Atlicis",
+  "resume": "Atsākt",
+  "pause": "Pauzēt",
+  "torrentContent": "Torrenta saturs",
+  "audioTracks": "Audio celiņi",
+  "noAudioTracks": "Netika atrasti audio celiņi",
+  "subtitles": "Subtitri",
+  "options": "Opcijas",
+  "noSubtitlesFound": "Netika atrasti subtitri",
+  "playbackSpeed": "Atskaņošanas ātrums",
+  "subtitleOptions": "Subtitru opcijas",
+  "hlsSubtitleWarning": "Ārējie subtitri šajā platformā netiek atbalstīti HLS straumēm.",
+  "loadFromDevice": "Ielādēt no ierīces",
+  "syncDelay": "Sinhronizācija / Kavēšanās",
+  "styleSettings": "Stila iestatījumi",
+  "searchOnline": "Meklēt tiešsaistē (subtitru meklēšana)",
+  "subtitleSync": "Subtitru sinhronizācija",
+  "subtitleDelayWarning": "Subtitru kavēšanās netiek atbalstīta pašreizējā atskaņotājā.",
+  "resetDelay": "Atiestatīt kavēšanos",
+  "subtitleStyles": "Subtitru stili",
+  "mediaKitStylingWarning": "Subtitru stila maiņa pašlaik pieejama tikai media_kit.",
+  "resetToDefault": "Atjaunot noklusējumu",
+  "fontSize": "Fonta izmērs",
+  "verticalPosition": "Vertikālā pozīcija",
+  "textColor": "Teksta krāsa",
+  "backgroundColor": "Fona krāsa",
+  "backgroundOpacity": "Fona caurspīdīgums",
+  "subtitleSearch": "Subtitru meklēšana",
+  "searchSubtitleNameHint": "Subtitru nosaukums...",
+  "enterSearchSubtitlePrompt": "Ievadiet nosaukumu, lai meklētu subtitrus.",
+  "noSubtitleResults": "Rezultātu nav.",
+  "downloadingApplyingSubtitle": "Lejupielādē un lieto subtitrus...",
+  "failedToDownloadSubtitle": "Neizdevās lejupielādēt subtitrus.",
+  "failedToLoadSubtitles": "Neizdevās ielādēt subtitrus. Mēģiniet vēlreiz.",
+  "noReposFound": "Netika atrasti krātuves vai spraudņi",
+  "downloadAllProviders": "Lejupielādēt visu",
+  "removeRepository": "Noņemt krātuvi",
+  "addRepo": "Pievienot krātuvi",
+  "extensionsNotInRepos": "Paplašinājumi ārpus krātuvēm",
+  "noLongerInRepo": "Vairs nav nevienā krātuvē",
+  "addRepoToBrowse": "Pievienojiet krātuvi, lai pārlūkotu spraudņus",
+  "debugExtensions": "Atkļūdot paplašinājumus",
+  "removeRepoConfirm": "Vai noņemt {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Tas noņems krātuvi un atinstalēs visus tās spraudņus.",
+  "addRepository": "Pievienot krātuvi",
+  "repoUrlOrShortcode": "Krātuves URL vai īsais kods",
+  "assetPlugin": "Aktīvu spraudnis",
+  "installed": "Instalēts",
+  "updateTo": "Atjaunināt uz {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Instalēt",
+  "error": "Kļūda",
+  "ok": "Labi",
+  "pluginSettings": "{pluginName} iestatījumi",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmas",
+  "series": "Seriāli",
+  "anime": "Anime",
+  "liveStreams": "Tiešraides",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 paplašinājums atjaunināts} other{{count} paplašinājumi atjaunināti}}",
+  "invalidNavigation": "Nederīga navigācija.",
+  "startOver": "Sākt no jauna",
+  "goBack": "Atpakaļ",
+  "resolving": "Atrisina...",
+  "downloaded": "Lejupielādēts",
+  "download": "Lejupielādēt",
+  "debugOnlyFeature": "Tikai izstrādes versijām",
+  "streamUrl": "Straumēšanas URL",
+  "play": "Atskaņot",
+  "verifyingSourceSize": "Pārbauda avotu un izmēru...",
+  "fileSaveLocationNotification": "Fails tiks saglabāts lejupielāžu mapē.",
+  "resumingPlayback": "Atsāk atskaņošanu",
+  "pausedAt": "Pauzēts {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Automātiski atsāks pēc {count} sek.",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Atsākt tagad",
+  "playbackError": "Atskaņošanas kļūda",
+  "confirmClearHistory": "Notīrīt visu vēsturi?",
+  "seasonWithNumber": "{number}. sezona",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Startēšana...",
+  "percentWatched": "{percent}% noskatīts",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Atkļūdošanas rīki",
+  "playLocalVideo": "Lokāls video",
+  "playLocalVideoSubtitle": "Atskaņot failu no ierīces",
+  "streamUrlSubtitle": "Atskaņot no URL",
+  "streamTorrent": "Straumēt torrentu",
+  "streamTorrentSubtitle": "Izvēlēties torrenta failu",
+  "loadPluginFromAssets": "Ielādēt spraudni no aktīviem",
+  "enterVideoUrlHint": "Video URL",
+  "networkStream": "Tīkla straume",
+  "removedFromHistory": "Noņemts no vēstures: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Pielāgots",
+  "refreshingLiveStream": "Atsvaidzina...",
+  "removeFromHistory": "Noņemt no vēstures",
+  "live": "TIEŠRAIDE",
+  "volume": "Skaļums",
+  "brightness": "Spilgtums",
+  "fit": "Ietilpināt",
+  "zoom": "Tuvināt",
+  "stretch": "Izstiept",
+  "titleWithParam": "Nosaukums: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Avots: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Izmērs: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Kļūda: {error}. Iekšējais atskaņotājs.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} nav atrasts.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "{number}. sezona ({count} sēr.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Avots priekš {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Nav instalētu spraudņu",
+  "availableSources": "Pieejamie avoti",
+  "seasons": "Sezonas",
+  "episodes": "Sērijas",
+  "selectSourceToPlay": "Izvēlieties avotu, lai skatītos.",
+  "episodeCountOnly": "{count, plural, one{1 sērija} other{{count} sērijas}}",
+  "noEpisodesFound": "Sērijas nav atrastas",
+  "local": "Lokāls",
+  "remote": "Attāls",
+  "torrent": "Torrents",
+  "unlock": "Atbloķēt",
+  "lock": "Bloķēt",
+  "sources": "Avoti",
+  "tracks": "Celiņi",
+  "content": "Saturs",
+  "stats": "Statistika",
+  "resize": "Izmērs",
+  "next": "Nākamais",
+  "pip": "PiP",
+  "rotate": "Pagriezt",
+  "windowed": "Logā",
+  "fullscreen": "Pilnekrāna",
+  "movieDetails": "Sīkāka informācija",
+  "showDetails": "Skatīt detaļas",
+  "tagline": "Slogans",
+  "status": "Statuss",
+  "releaseDate": "Izdošanas datums",
+  "firstAirDate": "Pirmā raide",
+  "originalLanguage": "Oriģinālvaloda",
+  "originCountry": "Izcelsmes valsts",
+  "budgetLabel": "Budžets",
+  "revenueLabel": "Ienākumi",
+  "paused": "Pauzēts",
+  "watched": "Noskatīts",
+  "watching": "Skatās",
+  "lastWatched": "Pēdējo reizi",
+  "movie": "Filma",
+  "tvShow": "Seriāls",
+  "failedToLoadContent": "Neizdevās ielādēt",
+  "director": "Režisors",
+  "creator": "Autors",
+  "showMore": "Vairāk",
+  "showLess": "Mazāk",
+  "viewAll": "Skatīt visu",
+  "seasonsCount": "{count, plural, one{1 sezona} other{{count} sezonas}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Nav interneta",
+  "timeoutError": "Laika ierobežojums.",
+  "serverError": "Servera kļūda.",
+  "contentNotFoundError": "Nav atrasts.",
+  "accessDeniedError": "Piekļuve liegta.",
+  "serviceUnavailableError": "Pakalpojums nav pieejams.",
+  "generalError": "Kļūda.",
+  "skip": "Izlaist",
+  "goLive": "Tiešraide",
+  "dismiss": "Aizvērt",
+  "nextUp": "Nākamais",
+  "sourceAttempt": "Mēģinājums {index} no {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Mēģina",
+  "failed": "Neizdevās",
+  "selected": "Izvēlēts",
+  "playing": "Atskaņo",
+  "pending": "Gaidāms",
+  "discord": "Discord",
+  "discordSubtitle": "Pievienojieties mūsu serverim",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Pievienojieties mūsu kanālam",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi kvalitātes preference",
+  "mobileQualityPreference": "Mobilo datu kvalitātes preference",
+  "anyNoPreference": "Jebkura (bez preferences)",
+  "subtitleAccounts": "Subtitru konti",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Pārbaudīt savienojumu",
+  "connectedSuccessfully": "Savienojums veiksmīgs",
+  "connectionFailed": "Savienojums neizdevās",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API atslēga",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostika",
+  "viewLogs": "Skatīt žurnālus",
+  "viewLogsSubtitle": "Skatīt lietotnes darbību un kļūdas",
+  "goToExtensions": "Doties uz paplašinājumiem",
+  "noPluginsMessage": "Instalējiet paplašinājumus, lai pārlūkotu un straumētu saturu."
+}

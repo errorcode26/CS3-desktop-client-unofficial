@@ -1,10 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import java.util.Collections
 import java.util.LinkedHashMap
 
@@ -38,7 +38,11 @@ object DetailsRepository {
         if (targetUrl.contains("themoviedb.org") && !fallbackName.isNullOrBlank()) {
             try {
                 com.lagradost.common.logging.AppLogger.i("[DetailsRepo] TMDB link detected ($targetUrl). Searching active provider (${provider.name}) for: '$fallbackName'...")
-                val searchResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { provider.search(fallbackName, 1)?.items }
+                val searchResults = SafePluginInvoker.invokeOrNull(
+                    tag = "DetailsRepo:Search:${provider.name}",
+                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                ) { provider.search(fallbackName, 1)?.items }
+
                 val bestMatch = searchResults?.find { it.name.equals(fallbackName, ignoreCase = true) } ?: searchResults?.firstOrNull()
                 if (bestMatch != null && bestMatch.url.isNotBlank() && !bestMatch.url.contains("themoviedb.org")) {
                     com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Found exact match on provider (${provider.name}): ${bestMatch.name} -> ${bestMatch.url}")
@@ -48,7 +52,11 @@ object DetailsRepository {
                     for (api in allApis) {
                         if (api.name == provider.name || api.name == "TMDB") continue
                         try {
-                            val altResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { api.search(fallbackName, 1)?.items }
+                            val altResults = SafePluginInvoker.invokeOrNull(
+                                tag = "DetailsRepo:Search:${api.name}",
+                                timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                            ) { api.search(fallbackName, 1)?.items }
+
                             val altMatch = altResults?.find { it.name.equals(fallbackName, ignoreCase = true) } ?: altResults?.firstOrNull()
                             if (altMatch != null && altMatch.url.isNotBlank() && !altMatch.url.contains("themoviedb.org")) {
                                 com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Found exact match on alternate provider (${api.name}): ${altMatch.name} -> ${altMatch.url}")
@@ -56,20 +64,30 @@ object DetailsRepository {
                                 targetUrl = altMatch.url
                                 break
                             }
-                        } catch (e: Exception) {
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
                             // continue searching next provider
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.w("[DetailsRepo] Provider search bridge failed for '$fallbackName': ${e.message}")
             }
         }
 
         repeat(3) { attempt ->
             try {
-                val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { targetProvider.load(targetUrl) }
+                com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Fetching media details for: $targetUrl (attempt ${attempt + 1}/3)")
+                val loaded = SafePluginInvoker.invokeOrNull(
+                    tag = "DetailsRepo:Load:${targetProvider.name}",
+                    timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                ) { targetProvider.load(targetUrl) }
+
                 if (loaded != null) {
+                    com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Loaded details: title='${loaded.name}', type=${loaded.type}")
                     loaded.posterUrl = targetProvider.fixUrlNull(loaded.posterUrl)
                     loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)
                     loaded.logoUrl = targetProvider.fixUrlNull(loaded.logoUrl)
@@ -86,7 +104,7 @@ object DetailsRepository {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e // Always re-throw cancellation immediately
             } catch (e: Throwable) {
-                com.lagradost.common.logging.AppLogger.e("[DetailsRepo] fetchRaw attempt ${attempt + 1}/3 failed for $targetUrl", e)
+                com.lagradost.common.logging.AppLogger.e("Plugin:${targetProvider.name}", "fetchRaw attempt ${attempt + 1}/3 failed for $targetUrl", e)
                 if (attempt < 2) kotlinx.coroutines.delay(500L * (attempt + 1)) // 0.5s then 1s backoff
             }
         }

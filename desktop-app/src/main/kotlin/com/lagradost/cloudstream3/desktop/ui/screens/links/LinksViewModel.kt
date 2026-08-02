@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -57,15 +58,25 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
             )
         }
 
-        scrapeJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
+        scrapeJob = viewModelScope.launch {
+            AppLogger.i("Plugin:${provider.name}", "Scraping streams for URL: $dataUrl")
+            val result = SafePluginInvoker.invoke(
+                tag = "LinksViewModel:${provider.name}",
+                providerName = provider.name,
+                timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
+                // Timeout on scraping is expected — links stream via callback and may already
+                // be in UI. A slow/dead extractor should not trip the circuit breaker.
+                penalizeOnTimeout = false,
+            ) {
                 provider.loadLinks(
                     data = dataUrl,
                     isCasting = false,
-                    subtitleCallback = { sub: SubtitleFile ->
+                    subtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub: SubtitleFile ->
+                        AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${sub.lang}] ${sub.url}")
                         updateState { copy(subtitles = subtitles + sub) }
                     },
-                    callback = { link: ExtractorLink ->
+                    callback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
+                        AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
                         updateState {
                             val newLinks = links + link
                             val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."
@@ -73,20 +84,36 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                         }
                     },
                 )
+            }
+
+            if (result.isSuccess) {
                 val finalLinks = uiState.value.links
                 val finalText = when {
                     finalLinks.isEmpty() -> "No streams found for this title."
                     else -> "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
                 }
+                AppLogger.i("Plugin:${provider.name}", "Scraping complete: ${finalLinks.size} streams, ${uiState.value.subtitles.size} subtitles")
                 updateState { copy(isScraping = false, statusText = finalText) }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                val finalLinks = uiState.value.links
-                val text = "Search stopped (${finalLinks.size} found)."
-                updateState { copy(isScraping = false, statusText = text) }
-            } catch (e: Throwable) {
-                AppLogger.e("Error loading links", e)
-                val text = "Error: ${e.message}"
-                updateState { copy(isScraping = false, statusText = text) }
+            } else {
+                val ex = result.exceptionOrNull()
+                if (ex is kotlinx.coroutines.CancellationException) {
+                    val finalLinks = uiState.value.links
+                    val text = "Search stopped (${finalLinks.size} found)."
+                    AppLogger.i("Plugin:${provider.name}", "Scraping cancelled by user")
+                    updateState { copy(isScraping = false, statusText = text) }
+                } else {
+                    val finalLinks = uiState.value.links
+                    if (finalLinks.isNotEmpty()) {
+                        // Timeout fired after links were already delivered via callback — not an error.
+                        val text = "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                        AppLogger.d("Plugin:${provider.name}", "Scrape timed out but ${finalLinks.size} links already found — suppressing error")
+                        updateState { copy(isScraping = false, statusText = text) }
+                    } else {
+                        AppLogger.e("Plugin:${provider.name}", "Error loading links: ${ex?.message}", ex)
+                        val text = "Error: ${ex?.message ?: "Failed to load streams"}"
+                        updateState { copy(isScraping = false, statusText = text) }
+                    }
+                }
             }
         }
     }

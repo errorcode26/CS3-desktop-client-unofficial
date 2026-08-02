@@ -1,0 +1,20 @@
+display_name: SkyStream
+package_name: skystream
+description: A modern, media streaming client.
+maintainer:
+  name: Akash
+  email: akashdh11@gmail.com
+priority: optional
+section: utils
+depends:
+  - libgtk-3-0
+  - liblzma5
+  - libmpv-dev
+  - libasound2
+installed_size: 0
+icon: ios/Runner/Assets.xcassets/AppIcon.appiconset/AppIcon~ios-marketing.png
+categories:
+  - Video
+  - AudioVideo
+  - Player
+generic_name: Media Player

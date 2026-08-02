@@ -1,0 +1,589 @@
+{
+  "@@locale": "zh_Hant",
+  "appTitle": "SkyStream",
+  "languageName": "繁體中文",
+  "home": "首頁",
+  "search": "搜尋",
+  "explore": "探索",
+  "library": "媒體庫",
+  "settings": "設定",
+  "extensions": "擴充功能",
+  "updateAvailable": "發現更新",
+  "retry": "重試",
+  "factoryReset": "恢復出廠設定",
+  "startupError": "啟動錯誤",
+  "general": "一般",
+  "appTheme": "應用程式主題",
+  "recordWatchHistory": "記錄觀看紀錄",
+  "defaultHomeScreen": "預設啟動畫面",
+  "player": "播放器",
+  "defaultPlayer": "預設播放器",
+  "leftGesture": "左側手勢",
+  "rightGesture": "右側手势",
+  "doubleTapToSeek": "連點快進/快退",
+  "swipeToSeek": "滑動快進/快退",
+  "seekDuration": "快進/快退秒數",
+  "bufferDepth": "緩衝深度",
+  "defaultResizeMode": "預設填充模式",
+  "hardwareDecoding": "硬體解碼",
+  "network": "網路",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH 供應商",
+  "manageExtensions": "管理擴充功能",
+  "appData": "應用程式資料",
+  "resetDataKeepExtensions": "重置資料 (保留擴充功能)",
+  "developer": "開發者",
+  "developerOptions": "開發者選項",
+  "about": "關於",
+  "version": "版本",
+  "enabled": "啟用",
+  "disabled": "停用",
+  "system": "跟隨系統",
+  "dark": "深色",
+  "light": "淺色",
+  "later": "稍後再說",
+  "updateNow": "立即更新",
+  "save": "儲存",
+  "cancel": "取消",
+  "close": "關閉",
+  "delete": "刪除",
+  "viewDetails": "查看詳情",
+  "clearAll": "全部清除",
+  "clearAllHistory": "清除所有觀看紀錄",
+  "all": "全部",
+  "none": "無",
+  "confirmDownload": "確認下載",
+  "downloadNow": "立即下載",
+  "selectSource": "選擇來源",
+  "downloadUnavailable": "目前不可下載",
+  "selectAnotherSource": "選擇其他來源",
+  "watchHistoryCleared": "觀看紀錄已清除",
+  "downloadingUpdate": "正在下載更新...",
+  "errorPrefix": "錯誤: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "可用更新: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "選擇供應商以開始",
+  "tapExtensionIcon": "點擊角落的擴充功能圖示",
+  "continueWatching": "繼續觀看",
+  "noInternetConnection": "無網路連接",
+  "siteNotReachable": "無法存取該站點",
+  "checkConnectionOrDownloads": "請檢查網路連接或查看已下載影片。",
+  "tryVpnOrConnection": "請嘗試使用 VPN 或檢查網路連接。",
+  "errorDetails": "錯誤詳情: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "前往下載",
+  "selectProvider": "選擇供應商",
+  "searchHint": "搜尋電影、影集...",
+  "searchFavoriteContent": "搜尋您喜愛的內容",
+  "pressSearchOrEnter": "按下搜尋鍵或 Enter 開始",
+  "noResultsFound": "找不到結果。",
+  "couldNotLoadTrending": "無法載入熱門趨勢",
+  "popularMovies": "熱門電影",
+  "popularTVShows": "熱門影集",
+  "newMovies": "最新電影",
+  "newTVShows": "最新影集",
+  "featuredMovies": "精選電影",
+  "featuredTVShows": "精選影集",
+  "lastVideosTVShows": "最近更新影集",
+  "downloads": "下載內容",
+  "bookmarks": "我的收藏",
+  "noDownloadsYet": "尚無下載內容",
+  "episodesCount": "{count} 集 • 已看完 {done} 集",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "刪除所有集數",
+  "confirmDeleteAllEpisodes": "確定要刪除「{title}」的所有 {count} 集內容以及檔案嗎？",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "全部刪除",
+  "completed": "完成",
+  "statusQueued": "排隊中...",
+  "statusDownloading": "下載中...",
+  "statusFinished": "已完成",
+  "statusFailed": "失敗",
+  "statusCanceled": "已取消",
+  "statusPaused": "已暫停",
+  "statusWaiting": "等待中...",
+  "fileNotFoundRemoving": "找不到檔案，正在移除紀錄。",
+  "fileNotFound": "找不到檔案",
+  "deleteDownload": "刪除下載",
+  "confirmDeleteDownload": "確定要刪除此下載內容以及檔案嗎？",
+  "libraryEmpty": "您的媒體庫是空的",
+  "language": "語言",
+  "english": "英語",
+  "hindi": "印地語",
+  "kannada": "卡納達語",
+  "unknown": "未知",
+  "recommended": "推薦",
+  "on": "開啟",
+  "off": "停用",
+  "installRemoveProviders": "安裝或移除供應商",
+  "resetDataSubtitle": "重置設定與資料庫，保留外掛程式",
+  "factoryResetSubtitle": "刪除所有資料、設定與擴充功能",
+  "developerOptionsSubtitle": "偵錯工具與區域播放",
+  "loading": "載入中...",
+  "sec": "秒",
+  "min": "分",
+  "internalPlayer": "內建播放器 (media_kit)",
+  "builtInPlayer": "內建播放器",
+  "customNotSet": "自訂 (未設置)",
+  "selectGesture": "選擇 {side} 手勢",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "左側",
+  "right": "右側",
+  "selectSeekDuration": "選擇快進/快退秒數",
+  "selectBufferDepth": "選擇緩衝深度",
+  "subtitleSettings": "字幕設定",
+  "size": "大小: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "背景",
+  "customDohUrlLabel": "自訂 DoH 位址",
+  "enterCustomDohUrl": "輸入您的 DoH URL",
+  "chooseTheme": "選擇主題",
+  "resetDataDialogTitle": "重置資料？",
+  "resetDataDialogContent": "這將清除設定、收藏和歷史紀錄。已安裝的擴充功能不會被移除。",
+  "factoryResetDialogTitle": "恢復出廠設定？",
+  "factoryResetDialogContent": "這將刪除所有內容：收藏、歷史紀錄、設定及所有擴充功能。此操作不可逆。",
+  "selectLanguage": "選擇語言",
+  "synopsis": "劇情簡介",
+  "noDescription": "目前無描述。",
+  "videoAlreadyDownloadedPrompt": "此影片已下載，您想如何操作？",
+  "playNow": "立即播放",
+  "deleteDownloadPrompt": "刪除下載？",
+  "deleteDownloadConfirmation": "確定要刪除此檔案嗎？此操作不可逆。",
+  "no": "否",
+  "yesDelete": "是，刪除",
+  "downloadPaused": "下載已暫停",
+  "downloading": "下載中",
+  "speed": "速度",
+  "remaining": "剩餘時間",
+  "resume": "繼續",
+  "pause": "暫停",
+  "torrentContent": "種子內容",
+  "audioTracks": "音軌",
+  "noAudioTracks": "找不到音軌",
+  "subtitles": "字幕",
+  "options": "選項",
+  "noSubtitlesFound": "找不到字幕",
+  "playbackSpeed": "播放速度",
+  "subtitleOptions": "字幕選項",
+  "hlsSubtitleWarning": "在此平台上的 HLS 播放器不支援外掛字幕。",
+  "loadFromDevice": "從裝置載入",
+  "syncDelay": "同步 / 延遲",
+  "styleSettings": "樣式設定",
+  "searchOnline": "線上搜尋",
+  "subtitleSync": "字幕同步",
+  "subtitleDelayWarning": "目前的播放引擎不支援字幕延遲設定。",
+  "resetDelay": "重置延遲",
+  "subtitleStyles": "字幕樣式",
+  "mediaKitStylingWarning": "字幕樣式設定目前僅支援 media_kit 播放器。",
+  "resetToDefault": "恢復成預設",
+  "fontSize": "字體大小",
+  "verticalPosition": "垂直位置",
+  "textColor": "文字顏色",
+  "backgroundColor": "背景顏色",
+  "backgroundOpacity": "背景不透明度",
+  "subtitleSearch": "搜尋字幕",
+  "searchSubtitleNameHint": "字幕名稱...",
+  "enterSearchSubtitlePrompt": "輸入名稱以搜尋字幕。",
+  "noSubtitleResults": "找不到結果，請嘗試其他關鍵字。",
+  "downloadingApplyingSubtitle": "正在下載並套用字幕...",
+  "failedToDownloadSubtitle": "下載字幕失敗。",
+  "failedToLoadSubtitles": "載入字幕失敗，請重試。",
+  "noReposFound": "找不到存儲庫或外掛程式",
+  "downloadAllProviders": "下載全部",
+  "removeRepository": "移除存儲庫",
+  "addRepo": "新增存儲庫",
+  "extensionsNotInRepos": "不在存儲庫中的擴充功能",
+  "noLongerInRepo": "不再存在於任何存儲庫中",
+  "addRepoToBrowse": "新增存儲庫以瀏覽和更新外掛程式",
+  "debugExtensions": "偵錯擴充功能",
+  "removeRepoConfirm": "移除 {repoName}？",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "這將移除存儲庫並解除安裝其包含的所有外掛程式。",
+  "addRepository": "新增存儲庫",
+  "repoUrlOrShortcode": "存儲庫網址或簡碼",
+  "assetPlugin": "資源外掛程式",
+  "installed": "已完成安裝",
+  "updateTo": "更新至 {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "安裝",
+  "error": "錯誤",
+  "ok": "確定",
+  "pluginSettings": "{pluginName} 設定",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "電影",
+  "series": "影集",
+  "anime": "動漫",
+  "liveStreams": "直播",
+  "debug": "偵錯",
+  "extensionsUpdated": "{count, plural, other{{count} 個擴充功能已更新}}",
+  "invalidNavigation": "導覽無效，請返回。",
+  "startOver": "重新開始",
+  "goBack": "返回",
+  "resolving": "解析中...",
+  "downloaded": "已下載",
+  "download": "下載",
+  "debugOnlyFeature": "此功能僅在偵錯版本中可用",
+  "streamUrl": "串流網址",
+  "play": "播放",
+  "verifyingSourceSize": "正在驗證來源與大小...",
+  "fileSaveLocationNotification": "檔案將儲存至下載資料夾中。",
+  "resumingPlayback": "重新開始播放",
+  "pausedAt": "暫停於 {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, other{{count} 秒後自動重新開始}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "立即開始",
+  "playbackError": "播放錯誤",
+  "confirmClearHistory": "確定要清除所有觀看紀錄嗎？",
+  "seasonWithNumber": "第 {number} 季",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "啟動中...",
+  "percentWatched": "已觀看 {percent}%",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "中字",
+  "dub": "配音",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "偵錯工具",
+  "playLocalVideo": "播放區域影片",
+  "playLocalVideoSubtitle": "播放裝置上的影片",
+  "streamUrlSubtitle": "播放網路網址",
+  "streamTorrent": "播放種子",
+  "streamTorrentSubtitle": "選擇區域種子檔案播放",
+  "loadPluginFromAssets": "從資源載入外掛程式",
+  "enterVideoUrlHint": "輸入影片網址 (http, magnet 等)",
+  "networkStream": "網路串流",
+  "removedFromHistory": "已從歷史紀錄中移除 {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "自訂",
+  "refreshingLiveStream": "重新整理直播...",
+  "removeFromHistory": "從歷史紀錄中移除",
+  "live": "直播",
+  "volume": "音量",
+  "brightness": "亮度",
+  "fit": "適應",
+  "zoom": "縮放",
+  "stretch": "拉伸",
+  "titleWithParam": "標題: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "來源: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "大小: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "錯誤: {error}，正在使用內建播放器。",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "未偵測到 {playerName}，正在啟動內建播放器。",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "第 {number} 季 ({count} 集)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "為 {playerName} 選擇來源",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "未安裝外掛程式",
+  "availableSources": "可用來源",
+  "seasons": "季",
+  "episodes": "集",
+  "selectSourceToPlay": "請選擇上方可用來源播放。",
+  "episodeCountOnly": "{count} 集",
+  "noEpisodesFound": "找不到集數",
+  "local": "區域",
+  "remote": "遠端",
+  "torrent": "種子",
+  "unlock": "解鎖",
+  "lock": "鎖定",
+  "sources": "來源",
+  "tracks": "音軌/字幕軌",
+  "content": "内容",
+  "stats": "數據統計",
+  "resize": "縮放",
+  "next": "下一個",
+  "pip": "子母畫面",
+  "rotate": "旋轉",
+  "windowed": "視窗化",
+  "fullscreen": "全屏",
+  "movieDetails": "電影詳情",
+  "showDetails": "查看詳情",
+  "tagline": "宣傳語",
+  "status": "狀態",
+  "releaseDate": "上映日期",
+  "firstAirDate": "首播日期",
+  "originalLanguage": "原始語言",
+  "originCountry": "出品國家",
+  "budgetLabel": "預算",
+  "revenueLabel": "票房收入",
+  "paused": "暫停中",
+  "watched": "已觀看",
+  "watching": "正在觀看",
+  "lastWatched": "最後觀看",
+  "movie": "電影",
+  "tvShow": "影集",
+  "failedToLoadContent": "載入內容失敗",
+  "director": "導演",
+  "creator": "原創者",
+  "showMore": "展開",
+  "showLess": "收起",
+  "viewAll": "查看全部",
+  "seasonsCount": "{count} 季",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "無網路連接",
+  "timeoutError": "連線逾時，請重試。",
+  "serverError": "伺服器錯誤，請稍後重試。",
+  "contentNotFoundError": "找不到內容。",
+  "accessDeniedError": "存取被拒絕，請檢查憑證。",
+  "serviceUnavailableError": "伺服器不可用，稍後重試。",
+  "generalError": "發生錯誤，請重試。",
+  "skip": "跳過",
+  "goLive": "進入直播",
+  "dismiss": "關閉",
+  "nextUp": "下一集",
+  "sourceAttempt": "播放源 {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "重試中",
+  "failed": "失敗",
+  "selected": "已選擇",
+  "playing": "播放中",
+  "pending": "等待中",
+  "discord": "Discord",
+  "discordSubtitle": "加入我們的伺服器",
+  "telegram": "Telegram",
+  "telegramSubtitle": "加入我們的頻道",
+  "developedBy": "由 {name} 開發",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi 视频质量偏好",
+  "mobileQualityPreference": "移动网络视频质量偏好",
+  "anyNoPreference": "不限（无偏好）",
+  "subtitleAccounts": "字幕账户",
+  "notLoggedIn": "未登录",
+  "loggedInAs": "已登录为 {username}",
+  "apiKeyConfigured": "API 密钥已配置",
+  "keyNotSet": "未设置密钥",
+  "testConnection": "测试连接",
+  "connectedSuccessfully": "连接成功",
+  "connectionFailed": "连接失败",
+  "username": "用户名",
+  "password": "密码",
+  "noAccountRegister": "没有账户？在此注册",
+  "apiKey": "API 密钥",
+  "email": "电子邮箱",
+  "fetchMyApiKey": "获取我的 API 密钥",
+  "keyVerified": "密钥已验证",
+  "invalidApiKey": "无效的 API 密钥",
+  "openSubtitlesAuthSubtitle": "输入您的账户凭据以获得更高限制和无广告字幕。",
+  "subDlAuthSubtitle": "直接输入您的 SubDL API 密钥，或者在下方使用您的账户凭据获取。",
+  "orFetchViaAccount": "或通过账户获取",
+  "subSourceAuthSubtitle": "SubSource 开箱即用，但您可以添加个人官方 API 密钥以提高可靠性。",
+  "apiKeyOptionalOverride": "API 密钥（可选覆盖）",
+  "enterKeyToOverrideDefault": "输入密钥以覆盖默认设置",
+  "getApiKeyFromProfile": "从 SubSource 个人资料获取您的 API 密钥",
+  "qualityNotGuaranteed": "不保证质量。来源按偏好排序，但播放取决于提供商实际提供的内容。",
+  "keepSourcesOriginalOrder": "保持来源原始顺序",
+  "openLink": "打开链接",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "诊断",
+  "viewLogs": "查看日志",
+  "viewLogsSubtitle": "查看应用程序活动和错误",
+  "goToExtensions": "前往擴充功能",
+  "noPluginsMessage": "安裝擴充功能以瀏覽和串流內容。"
+}

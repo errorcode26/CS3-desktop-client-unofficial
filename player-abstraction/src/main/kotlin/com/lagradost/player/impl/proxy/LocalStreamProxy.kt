@@ -40,7 +40,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
         try {
             cancel()
         } catch (ex: Throwable) {
-            com.lagradost.common.logging.AppLogger.w("Failed to cancel OkHttp call: ${ex.message}", ex)
+            com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Failed to cancel OkHttp call: ${ex.message}", ex)
         }
     }
     enqueue(object : Callback {
@@ -55,7 +55,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
                     response.body?.close()
                 }
             } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Error resuming coroutine onResponse: ${e.message}", e)
+                com.lagradost.common.logging.AppLogger.e("Proxy:LocalStream", "Error resuming coroutine onResponse: ${e.message}", e)
                 response.body?.close()
             }
         }
@@ -64,7 +64,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
             try {
                 continuation.resumeWithException(e)
             } catch (ignored: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Error resuming coroutine onFailure: ${ignored.message}", ignored)
+                com.lagradost.common.logging.AppLogger.e("Proxy:LocalStream", "Error resuming coroutine onFailure: ${ignored.message}", ignored)
             }
         }
     })
@@ -144,7 +144,7 @@ object LocalStreamProxy {
         port = kotlinx.coroutines.runBlocking {
             server?.engine?.resolvedConnectors()?.firstOrNull()?.port ?: 0
         }
-        AppLogger.i("LocalStreamProxy started on port $port")
+        AppLogger.i("Proxy:LocalStream", "LocalStreamProxy started on port $port")
     }
 
     fun stop() {
@@ -224,7 +224,7 @@ object LocalStreamProxy {
                 val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
                 rewritten.toByteArray(Charsets.UTF_8)
             } catch (e: Exception) {
-                AppLogger.e("Prefetch failed for $url", e)
+                AppLogger.e("Proxy:LocalStream", "Prefetch failed for $url", e)
                 ByteArray(0)
             }
         }
@@ -241,7 +241,7 @@ object LocalStreamProxy {
                 }
             } catch (e: Exception) {
                 session.masterCache.remove(url)
-                com.lagradost.common.logging.AppLogger.w("Error analyzing prefetch payload for caching: ${e.message}", e)
+                com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Error analyzing prefetch payload for caching: ${e.message}", e)
             }
         }
     }
@@ -269,7 +269,7 @@ object LocalStreamProxy {
                 call.respond(io.ktor.http.HttpStatusCode.NotFound)
             }
         } catch (e: Exception) {
-            com.lagradost.common.logging.AppLogger.e("Image proxy failed", e)
+            com.lagradost.common.logging.AppLogger.e("Proxy:LocalStream", "Image proxy failed", e)
             call.respond(io.ktor.http.HttpStatusCode.InternalServerError)
         }
     }
@@ -285,7 +285,7 @@ object LocalStreamProxy {
             val kid = call.request.queryParameters["kid"]
             val k = call.request.queryParameters["k"]
 
-            com.lagradost.common.logging.AppLogger.i("LocalStreamProxy: action=$action, rep=$rep, hasCk=${clearKey != null}, hasKid=${kid != null}, hasK=${k != null}, encodedUrl=$encodedUrl")
+            com.lagradost.common.logging.AppLogger.i("Proxy:LocalStream", "Action=$action, rep=$rep, hasCk=${clearKey != null}, hasKid=${kid != null}, hasK=${k != null}, encodedUrl=$encodedUrl")
 
             if (sessionId == null || encodedUrl == null) {
                 call.respond(HttpStatusCode.NotFound)
@@ -365,7 +365,7 @@ object LocalStreamProxy {
             if (response != null && !response.isSuccessful && mergedHeaders.containsKey("Range")) {
                 val code = response.code
                 if (code == 403 || code == 400 || code == 416 || code == 405) {
-                    AppLogger.w("Range request failed with HTTP $code, retrying WITHOUT Range header for URL: $url")
+                    AppLogger.w("Proxy:LocalStream", "Range request failed with HTTP $code, retrying WITHOUT Range header for URL: $url")
                     response.body?.close()
                     val retryHeaders = mergedHeaders.toMutableMap()
                     retryHeaders.remove("Range")
@@ -394,13 +394,13 @@ object LocalStreamProxy {
             }
 
             if (response == null) {
-                AppLogger.e("LocalStreamProxy Request Failed after 4 attempts! URL: $url Error: ${lastError?.message}")
+                AppLogger.e("Proxy:LocalStream", "Proxy Request Failed after 4 attempts! URL: $url Error: ${lastError?.message}")
                 call.respond(HttpStatusCode.InternalServerError)
                 return
             }
 
             if (!response.isSuccessful) {
-                AppLogger.e("LocalStreamProxy Request Failed! Code: ${response.code} URL: $url")
+                AppLogger.e("Proxy:LocalStream", "Proxy Request Failed! Code: ${response.code} URL: $url")
                 response.body?.close()
                 call.respond(HttpStatusCode.fromValue(response.code))
                 return
@@ -434,7 +434,7 @@ object LocalStreamProxy {
                             }
                         } catch (e: Exception) {
                             if (e.message != "CLIENT_DISCONNECT" && e !is java.io.EOFException && e !is java.net.SocketException) {
-                                AppLogger.e("Decryption streaming error for $url", e)
+                                AppLogger.e("Proxy:LocalStream", "Decryption streaming error for $url", e)
                             }
                         } finally {
                             withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -446,7 +446,7 @@ object LocalStreamProxy {
                     }
                 } catch (e: Exception) {
                     if (e.message != "CLIENT_DISCONNECT") {
-                        AppLogger.e("Failed to respond to decrypt request", e)
+                        AppLogger.e("Proxy:LocalStream", "Failed to respond to decrypt request", e)
                     }
                 }
                 return
@@ -703,7 +703,7 @@ object LocalStreamProxy {
                                         break
                                     }
 
-                                    AppLogger.w("CDN connection dropped mid-stream at $totalBytesRead/$cl bytes. Resuming transparently...")
+                                    AppLogger.w("Proxy:LocalStream", "CDN connection dropped mid-stream at $totalBytesRead/$cl bytes. Resuming transparently...")
                                     withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         currentResponse?.body?.close()
                                     }
@@ -745,7 +745,7 @@ object LocalStreamProxy {
                                     }
 
                                     if (!retrySuccess) {
-                                        AppLogger.e("Failed to transparently resume CDN stream.")
+                                        AppLogger.e("Proxy:LocalStream", "Failed to transparently resume CDN stream.")
                                         throw e // Abort and let MPV handle the error
                                     }
                                 }
@@ -755,7 +755,7 @@ object LocalStreamProxy {
                                 try {
                                     currentResponse?.body?.close()
                                 } catch (ignored: Exception) {
-                                    com.lagradost.common.logging.AppLogger.w("Failed to close response body: ${ignored.message}", ignored)
+                                    com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Failed to close response body: ${ignored.message}", ignored)
                                 }
                             }
                         }
@@ -766,7 +766,7 @@ object LocalStreamProxy {
                             try {
                                 response.body?.close()
                             } catch (ignored: Exception) {
-                                com.lagradost.common.logging.AppLogger.w("Failed to close response body on early error: ${ignored.message}", ignored)
+                                com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Failed to close response body on early error: ${ignored.message}", ignored)
                             }
                         }
                     }
@@ -774,11 +774,11 @@ object LocalStreamProxy {
                 }
             }
         } catch (e: Exception) {
-            AppLogger.e("LocalStreamProxy error", e)
+            AppLogger.e("Proxy:LocalStream", "LocalStreamProxy error", e)
             try {
                 call.respond(HttpStatusCode.InternalServerError)
             } catch (ex: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Failed to send 500 status to client", ex)
+                com.lagradost.common.logging.AppLogger.e("Proxy:LocalStream", "Failed to send 500 status to client", ex)
             }
         }
     }

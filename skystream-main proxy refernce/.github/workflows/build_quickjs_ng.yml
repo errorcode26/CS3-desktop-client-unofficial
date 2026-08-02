@@ -1,0 +1,51 @@
+# Sync QuickJS-NG C/C++ source code to the central cxx/ folder
+# Because Android, Windows, and Linux compile the engine entirely locally via
+# Flutter's native CMake toolchains, this workflow only acts as a simple source synchronization bot.
+
+name: Sync QuickJS-NG Source
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      quickjs_ng_version:
+        description: 'QuickJS-NG version tag (e.g., v0.9.0)'
+        required: true
+        default: 'v0.9.0'
+
+jobs:
+  sync-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SkyStream
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Clone QuickJS-NG
+        run: |
+          git clone --depth 1 --branch ${{ github.event.inputs.quickjs_ng_version }} \
+            https://github.com/quickjs-ng/quickjs.git /tmp/quickjs-ng
+
+      - name: Deploy sources to unified CXX directory
+        run: |
+          rm -rf packages/flutter_js_ng/cxx/quickjs
+          mkdir -p packages/flutter_js_ng/cxx/quickjs
+          
+          files=(quickjs.c quickjs.h cutils.c cutils.h \
+                 libregexp.c libregexp.h libunicode.c libunicode.h \
+                 libbf.c libbf.h \
+                 quickjs-atom.h quickjs-c-atomics.h quickjs-opcode.h libregexp-opcode.h \
+                 libunicode-table.h list.h)
+                 
+          for f in "${files[@]}"; do
+            [ -f "/tmp/quickjs-ng/$f" ] && cp "/tmp/quickjs-ng/$f" packages/flutter_js_ng/cxx/quickjs/
+          done
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[Auto] Sync unified QuickJS-NG source to ${{ github.event.inputs.quickjs_ng_version }}"
+          file_pattern: "packages/flutter_js_ng/cxx/quickjs/**"

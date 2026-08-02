@@ -1,0 +1,589 @@
+{
+  "@@locale": "nl",
+  "appTitle": "SkyStream",
+  "languageName": "Nederlands",
+  "home": "Home",
+  "search": "Zoeken",
+  "explore": "Ontdekken",
+  "library": "Bibliotheek",
+  "settings": "Instellingen",
+  "extensions": "Extensies",
+  "updateAvailable": "Update beschikbaar",
+  "retry": "Opnieuw proberen",
+  "factoryReset": "Fabrieksinstellingen",
+  "startupError": "Opstartfout",
+  "general": "Algemeen",
+  "appTheme": "App-thema",
+  "recordWatchHistory": "Kijkgeschiedenis bijhouden",
+  "defaultHomeScreen": "Standaard startscherm",
+  "player": "Speler",
+  "defaultPlayer": "Standaard speler",
+  "leftGesture": "Lings gebaar",
+  "rightGesture": "Rechts gebaar",
+  "doubleTapToSeek": "Dubbeltikken om te spoelen",
+  "swipeToSeek": "Vegen om te spoelen",
+  "seekDuration": "Spoelduur",
+  "bufferDepth": "Bufferdiepte",
+  "defaultResizeMode": "Standaard weergavemodus",
+  "hardwareDecoding": "Hardwaredecodering",
+  "network": "Netwerk",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH-provider",
+  "manageExtensions": "Extensies beheren",
+  "appData": "App-gegevens",
+  "resetDataKeepExtensions": "Gegevens resetten (extensies behouden)",
+  "developer": "Ontwikkelaar",
+  "developerOptions": "Ontwikkelaarsopties",
+  "about": "Over",
+  "version": "Versie",
+  "enabled": "Ingeschakeld",
+  "disabled": "Uitgeschakeld",
+  "system": "Systeem",
+  "dark": "Donker",
+  "light": "Licht",
+  "later": "Later",
+  "updateNow": "Nu bijwerken",
+  "save": "Opslaan",
+  "cancel": "Annuleren",
+  "close": "Sluiten",
+  "delete": "Verwijderen",
+  "viewDetails": "Details bekijken",
+  "clearAll": "Alles wissen",
+  "clearAllHistory": "Kijkgeschiedenis wissen",
+  "all": "Alles",
+  "none": "Geen",
+  "confirmDownload": "Download bevestigen",
+  "downloadNow": "Nu downloaden",
+  "selectSource": "Bron selecteren",
+  "downloadUnavailable": "Niet beschikbaar",
+  "selectAnotherSource": "Selecteer andere bron",
+  "watchHistoryCleared": "Kijkgeschiedenis gewist",
+  "downloadingUpdate": "Update downloaden...",
+  "errorPrefix": "Fout: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Update beschikbaar: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Selecteer een provider om te beginnen",
+  "tapExtensionIcon": "Tik op het extensie-icoon in de hoek",
+  "continueWatching": "Verder kijken",
+  "noInternetConnection": "Geen internetverbinding",
+  "siteNotReachable": "Site niet bereikbaar",
+  "checkConnectionOrDownloads": "Controleer je verbinding of bekijk je downloads.",
+  "tryVpnOrConnection": "Probeer een VPN of controleer je internetverbinding.",
+  "errorDetails": "Foutdetails: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Ga naar downloads",
+  "selectProvider": "Provider selecteren",
+  "searchHint": "Zoek films, series...",
+  "searchFavoriteContent": "Zoek je favoriete content",
+  "pressSearchOrEnter": "Druk op de zoektoets of Enter om te beginnen",
+  "noResultsFound": "Geen resultaten gevonden.",
+  "couldNotLoadTrending": "Trending items konden niet worden geladen",
+  "popularMovies": "Populaire films",
+  "popularTVShows": "Populaire tv-series",
+  "newMovies": "Nieuwe films",
+  "newTVShows": "Nieuwe tv-series",
+  "featuredMovies": "Aanbevolen films",
+  "featuredTVShows": "Aanbevolen tv-series",
+  "lastVideosTVShows": "Laatste afleveringen",
+  "downloads": "Downloads",
+  "bookmarks": "Bladwijzers",
+  "noDownloadsYet": "Nog geen downloads",
+  "episodesCount": "{count} afleveringen • {done} voltooid",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Alle afleveringen verwijderen",
+  "confirmDeleteAllEpisodes": "Weet je zeker dat je alle {count} afleveringen van \"{title}\" en hun bestanden wilt verwijderen?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Alles verwijderen",
+  "completed": "Voltooid",
+  "statusQueued": "In wachtrij...",
+  "statusDownloading": "Downloaden...",
+  "statusFinished": "Voltooid",
+  "statusFailed": "Mislukt",
+  "statusCanceled": "Geannuleerd",
+  "statusPaused": "Gepauzeerd",
+  "statusWaiting": "Wachten...",
+  "fileNotFoundRemoving": "Bestand niet gevonden. Record wordt verwijderd.",
+  "fileNotFound": "Bestand niet gevonden",
+  "deleteDownload": "Download verwijderen",
+  "confirmDeleteDownload": "Weet je zeker dat je deze download wilt verwijderen?",
+  "libraryEmpty": "Je bibliotheek is leeg",
+  "language": "Taal",
+  "english": "Engels",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Onbekend",
+  "recommended": "Aanbevolen",
+  "on": "Aan",
+  "off": "Uit",
+  "installRemoveProviders": "Providers installeren/verwijderen",
+  "resetDataSubtitle": "Instellingen en database wissen, plug-ins behouden",
+  "factoryResetSubtitle": "Alle gegevens, instellingen en extensies verwijderen",
+  "developerOptionsSubtitle": "Debug-tools en lokale weergave",
+  "loading": "Laden...",
+  "sec": "sec",
+  "min": "min",
+  "internalPlayer": "Interne speler (media_kit)",
+  "builtInPlayer": "Ingebouwde speler",
+  "customNotSet": "Aangepast (niet ingesteld)",
+  "selectGesture": "Selecteer {side} gebaar",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "links",
+  "right": "rechts",
+  "selectSeekDuration": "Selecteer spoelduur",
+  "selectBufferDepth": "Selecteer bufferdiepte",
+  "subtitleSettings": "Ondertitelinstellingen",
+  "size": "Grootte: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Achtergrond",
+  "customDohUrlLabel": "Aangepaste DoH URL",
+  "enterCustomDohUrl": "Vul je eigen DoH URL in",
+  "chooseTheme": "Thema kiezen",
+  "resetDataDialogTitle": "Gegevens resetten?",
+  "resetDataDialogContent": "Dit wist Instellingen, Favorieten en Geschiedenis. Geïnstalleerde extensies blijven behouden.",
+  "factoryResetDialogTitle": "Fabrieksinstellingen reset?",
+  "factoryResetDialogContent": "Dit wist ALLES. Dit kan niet ongedaan worden gemaakt.",
+  "selectLanguage": "Taal kiezen",
+  "synopsis": "Synopsis",
+  "noDescription": "Geen beschrijving beschikbaar.",
+  "videoAlreadyDownloadedPrompt": "Deze video is al gedownload. Wat wil je doen?",
+  "playNow": "Nu afspelen",
+  "deleteDownloadPrompt": "Download verwijderen?",
+  "deleteDownloadConfirmation": "Weet je zeker dat je dit bestand wilt verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "no": "Nee",
+  "yesDelete": "Ja, verwijderen",
+  "downloadPaused": "Download gepauzeerd",
+  "downloading": "Downloaden",
+  "speed": "Snelheid",
+  "remaining": "Resterend",
+  "resume": "Hervatten",
+  "pause": "Pauzeren",
+  "torrentContent": "Torrent-inhoud",
+  "audioTracks": "Audiosporen",
+  "noAudioTracks": "Geen audiosporen gevonden",
+  "subtitles": "Ondertitels",
+  "options": "Opties",
+  "noSubtitlesFound": "Geen ondertitels gevonden",
+  "playbackSpeed": "Afspeelsnelheid",
+  "subtitleOptions": "Ondertitelopties",
+  "hlsSubtitleWarning": "Externe ondertitels worden niet ondersteund voor HLS op dit platform.",
+  "loadFromDevice": "Laden van apparaat",
+  "syncDelay": "Synchronisatie / Vertraging",
+  "styleSettings": "Stijlinstellingen",
+  "searchOnline": "Online zoeken (ondertitels)",
+  "subtitleSync": "Ondertitelsynchronisatie",
+  "subtitleDelayWarning": "Sinc-vertraging wordt niet ondersteund door de huidige speler.",
+  "resetDelay": "Vertraging resetten",
+  "subtitleStyles": "Ondertitelstijlen",
+  "mediaKitStylingWarning": "Ondertitelstijl is momenteel alleen beschikbaar voor media_kit.",
+  "resetToDefault": "Standaardinstellingen",
+  "fontSize": "Lettergrootte",
+  "verticalPosition": "Verticale positie",
+  "textColor": "Tekstkleur",
+  "backgroundColor": "Achtergrondkleur",
+  "backgroundOpacity": "Achtergronddoorzichtigheid",
+  "subtitleSearch": "Ondertitels zoeken",
+  "searchSubtitleNameHint": "Ondertitelnaam...",
+  "enterSearchSubtitlePrompt": "Voer een naam in om ondertitels te zoeken.",
+  "noSubtitleResults": "Geen resultaten gevonden.",
+  "downloadingApplyingSubtitle": "Ondertitel downloaden en toepassen...",
+  "failedToDownloadSubtitle": "Ondertitel downloaden mislukt.",
+  "failedToLoadSubtitles": "Ondertitels laden mislukt. Probeer het opnieuw.",
+  "noReposFound": "Geen repository's of plug-ins gevonden",
+  "downloadAllProviders": "Alles downloaden",
+  "removeRepository": "Repository verwijderen",
+  "addRepo": "Repo toevoegen",
+  "extensionsNotInRepos": "Extensies niet in repository's",
+  "noLongerInRepo": "Niet langer in een repository",
+  "addRepoToBrowse": "Voeg een repository toe om plug-ins te bekijken",
+  "debugExtensions": "Debug-extensies",
+  "removeRepoConfirm": "{repoName} verwijderen?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Dit verwijdert de repository en de-installeert alle bijbehorende plug-ins.",
+  "addRepository": "Repository toevoegen",
+  "repoUrlOrShortcode": "Repo URL of shortcode",
+  "assetPlugin": "Asset-plug-in",
+  "installed": "Geïnstalleerd",
+  "updateTo": "Bijwerken naar {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Installeren",
+  "error": "Fout",
+  "ok": "OK",
+  "pluginSettings": "{pluginName} instellingen",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Films",
+  "series": "Series",
+  "anime": "Anime",
+  "liveStreams": "Live-streams",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 extensie bijgewerkt} other{{count} extensies bijgewerkt}}",
+  "invalidNavigation": "Ongeldige navigatie.",
+  "startOver": "Opnieuw beginnen",
+  "goBack": "Terug",
+  "resolving": "Oplossen...",
+  "downloaded": "Gedownload",
+  "download": "Downloaden",
+  "debugOnlyFeature": "Alleen voor debug-builds",
+  "streamUrl": "Stream URL",
+  "play": "Afspelen",
+  "verifyingSourceSize": "Bron en grootte verifiëren...",
+  "fileSaveLocationNotification": "Bestand wordt opgeslagen in je downloadmap.",
+  "resumingPlayback": "Hervatten van afspelen",
+  "pausedAt": "Gepauzeerd op {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Automatisch hervatten over {count} sec",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Nu hervatten",
+  "playbackError": "Afspeelfout",
+  "confirmClearHistory": "Kijkgeschiedenis volledig wissen?",
+  "seasonWithNumber": "Seizoen {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Starten...",
+  "percentWatched": "{percent}% bekeken",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Debug-tools",
+  "playLocalVideo": "Lokale video",
+  "playLocalVideoSubtitle": "Speel bestand van apparaat af",
+  "streamUrlSubtitle": "Speel af van URL",
+  "streamTorrent": "Stream torrent",
+  "streamTorrentSubtitle": "Selecteer lokaal torrent-bestand",
+  "loadPluginFromAssets": "Plug-in laden uit assets",
+  "enterVideoUrlHint": "Video URL (http, magnet etc.)",
+  "networkStream": "Netwerkstream",
+  "removedFromHistory": "Verwijderd uit geschiedenis: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Aangepast",
+  "refreshingLiveStream": "Updaten...",
+  "removeFromHistory": "Uit geschiedenis verwijderen",
+  "live": "LIVE",
+  "volume": "Volume",
+  "brightness": "Helderheid",
+  "fit": "Passend",
+  "zoom": "Zoom",
+  "stretch": "Uitrekken",
+  "titleWithParam": "Titel: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Bron: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Grootte: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Fout: {error}. Gebruik interne speler.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} niet gevonden.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Seizoen {number} ({count} afl.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Bron voor {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Geen plug-ins geïnstalleerd",
+  "availableSources": "Beschikbare bronnen",
+  "seasons": "Seizoenen",
+  "episodes": "Afleveringen",
+  "selectSourceToPlay": "Selecteer een bron om te bekijken.",
+  "episodeCountOnly": "{count, plural, one{1 aflevering} other{{count} afleveringen}}",
+  "noEpisodesFound": "Geen afleveringen gevonden",
+  "local": "Lokaal",
+  "remote": "Remote",
+  "torrent": "Torrent",
+  "unlock": "Ontgrendelen",
+  "lock": "Vergrendelen",
+  "sources": "Bronnen",
+  "tracks": "Sporen",
+  "content": "Content",
+  "stats": "Statistieken",
+  "resize": "Formaat",
+  "next": "Volgende",
+  "pip": "PiP",
+  "rotate": "Draaien",
+  "windowed": "Venster",
+  "fullscreen": "Volledig scherm",
+  "movieDetails": "Filmdetails",
+  "showDetails": "Details tonen",
+  "tagline": "Tagline",
+  "status": "Status",
+  "releaseDate": "Releasedatum",
+  "firstAirDate": "Eerste uitzending",
+  "originalLanguage": "Originele taal",
+  "originCountry": "Land van herkomst",
+  "budgetLabel": "Budget",
+  "revenueLabel": "Opbrengst",
+  "paused": "Gepauzeerd",
+  "watched": "Bekeken",
+  "watching": "Aan het kijken",
+  "lastWatched": "Laatst bekeken",
+  "movie": "Film",
+  "tvShow": "TV-serie",
+  "failedToLoadContent": "Laden mislukt",
+  "director": "Regisseur",
+  "creator": "Maker",
+  "showMore": "Meer",
+  "showLess": "Minder",
+  "viewAll": "Alles tonen",
+  "seasonsCount": "{count, plural, one{1 seizoen} other{{count} seizoenen}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Geen internet",
+  "timeoutError": "Time-out.",
+  "serverError": "Serverfout.",
+  "contentNotFoundError": "Niet gevonden.",
+  "accessDeniedError": "Toegang geweigerd.",
+  "serviceUnavailableError": "Service niet beschikbaar.",
+  "generalError": "Fout.",
+  "skip": "Overslaan",
+  "goLive": "Ga live",
+  "dismiss": "Sluiten",
+  "nextUp": "Volgende",
+  "sourceAttempt": "Poging {index} van {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Proberen",
+  "failed": "Mislukt",
+  "selected": "Geselecteerd",
+  "playing": "Speelt af",
+  "pending": "Wachtend",
+  "discord": "Discord",
+  "discordSubtitle": "Word lid van onze server",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Word lid van ons kanaal",
+  "developedBy": "Ontwikkeld door {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Kwaliteitsvoorkeur voor wifi",
+  "mobileQualityPreference": "Kwaliteitsvoorkeur voor mobiel netwerk",
+  "anyNoPreference": "Geen voorkeur",
+  "subtitleAccounts": "Ondertitelaccounts",
+  "notLoggedIn": "Niet ingelogd",
+  "loggedInAs": "Ingelogd als {username}",
+  "apiKeyConfigured": "API-sleutel geconfigureerd",
+  "keyNotSet": "Sleutel niet ingesteld",
+  "testConnection": "Verbinding testen",
+  "connectedSuccessfully": "Verbinding geslaagd",
+  "connectionFailed": "Verbinding mislukt",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Geen account? Registreer hier",
+  "apiKey": "API-sleutel",
+  "email": "Email",
+  "fetchMyApiKey": "Mijn API-sleutel ophalen",
+  "keyVerified": "Sleutel geverifieerd",
+  "invalidApiKey": "Ongeldige API-sleutel",
+  "openSubtitlesAuthSubtitle": "Voer uw inloggegevens in voor hogere limieten en reclamevrije ondertitels.",
+  "subDlAuthSubtitle": "Voer uw SubDL API-sleutel rechtstreeks in, of haal deze op met uw inloggegevens hieronder.",
+  "orFetchViaAccount": "OF OPHALEN VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource werkt direct, maar u kunt een persoonlijke API-sleutel toevoegen voor betere betrouwbaarheid.",
+  "apiKeyOptionalOverride": "API-sleutel (optioneel)",
+  "enterKeyToOverrideDefault": "Sleutel invoeren om standaard te overschrijven",
+  "getApiKeyFromProfile": "Haal uw API-sleutel uit uw SubSource-profiel",
+  "qualityNotGuaranteed": "Kwaliteit is niet gegarandeerd. Bronnen worden gesorteerd op voorkeur, maar weergave hangt af van het aanbod van de provider.",
+  "keepSourcesOriginalOrder": "Bronnen in originele volgorde houden",
+  "openLink": "Link openen",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostiek",
+  "viewLogs": "Logs bekijken",
+  "viewLogsSubtitle": "Bekijk applicatie-activiteit en fouten",
+  "goToExtensions": "Ga naar extensies",
+  "noPluginsMessage": "Installeer extensies om inhoud te browsen en te streamen."
+}

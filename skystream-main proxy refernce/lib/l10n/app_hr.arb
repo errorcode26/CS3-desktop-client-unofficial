@@ -1,0 +1,589 @@
+{
+  "@@locale": "hr",
+  "appTitle": "SkyStream",
+  "languageName": "Hrvatski",
+  "home": "Početna",
+  "search": "Pretraživanje",
+  "explore": "Istraži",
+  "library": "Knjižnica",
+  "settings": "Postavke",
+  "extensions": "Proširenja",
+  "updateAvailable": "Dostupno ažuriranje",
+  "retry": "Pokušaj ponovno",
+  "factoryReset": "Vraćanje na tvorničke postavke",
+  "startupError": "Pogreška pri pokretanju",
+  "general": "Opće",
+  "appTheme": "Tema aplikacije",
+  "recordWatchHistory": "Snimaj povijest gledanja",
+  "defaultHomeScreen": "Zadani početni zaslon",
+  "player": "Reproduktor",
+  "defaultPlayer": "Zadani reproduktor",
+  "leftGesture": "Lijeva gesta",
+  "rightGesture": "Desna gesta",
+  "doubleTapToSeek": "Dvaput dodirnite za traženje",
+  "swipeToSeek": "Povucite za traženje",
+  "seekDuration": "Trajanje traženja",
+  "bufferDepth": "Dubina međuspremnika",
+  "defaultResizeMode": "Zadani način promjene veličine",
+  "hardwareDecoding": "Hardversko dekodiranje",
+  "network": "Mreža",
+  "dnsOverHttps": "DNS preko HTTPS-a",
+  "dohProvider": "DoH pružatelj",
+  "manageExtensions": "Upravljanje proširenjima",
+  "appData": "Podaci aplikacije",
+  "resetDataKeepExtensions": "Resetiraj podatke (zadrži proširenja)",
+  "developer": "Razvijatelj",
+  "developerOptions": "Opcije za razvijatelje",
+  "about": "O aplikaciji",
+  "version": "Verzija",
+  "enabled": "Omogućeno",
+  "disabled": "Onemogućeno",
+  "system": "Sustav",
+  "dark": "Tamno",
+  "light": "Svijetlo",
+  "later": "Kasnije",
+  "updateNow": "Ažuriraj sada",
+  "save": "Spremi",
+  "cancel": "Odustani",
+  "close": "Zatvori",
+  "delete": "Izbriši",
+  "viewDetails": "Vidi detalje",
+  "clearAll": "Očisti sve",
+  "clearAllHistory": "Očisti povijest",
+  "all": "Sve",
+  "none": "Nijedan",
+  "confirmDownload": "Potvrdi preuzimanje",
+  "downloadNow": "Preuzmi sada",
+  "selectSource": "Odaberi izvor",
+  "downloadUnavailable": "Nedostupno",
+  "selectAnotherSource": "Odaberi drugi",
+  "watchHistoryCleared": "Povijest gledanja očišćena",
+  "downloadingUpdate": "Preuzimanje ažuriranja...",
+  "errorPrefix": "Pogreška: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Dostupno ažuriranje: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Odaberite pružatelja za početak",
+  "tapExtensionIcon": "Dodirnite ikonu proširenja u kutu",
+  "continueWatching": "Nastavi gledati",
+  "noInternetConnection": "Nema internetske veze",
+  "siteNotReachable": "Stranica nije dostupna",
+  "checkConnectionOrDownloads": "Provjerite vezu ili pogledajte preuzimanja.",
+  "tryVpnOrConnection": "Pokušajte s VPN-om ili provjerite vezu.",
+  "errorDetails": "Detalji pogreške: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Idi na preuzimanja",
+  "selectProvider": "Odaberi pružatelja",
+  "searchHint": "Traži filmove, serije...",
+  "searchFavoriteContent": "Pretražite omiljeni sadržaj",
+  "pressSearchOrEnter": "Pritisnite Pretraživanje ili Enter",
+  "noResultsFound": "Nema rezultata.",
+  "couldNotLoadTrending": "Neuspjelo učitavanje trendova",
+  "popularMovies": "Popularni filmovi",
+  "popularTVShows": "Popularne serije",
+  "newMovies": "Novi filmovi",
+  "newTVShows": "Nove serije",
+  "featuredMovies": "Izdvojeni filmovi",
+  "featuredTVShows": "Izdvojene serije",
+  "lastVideosTVShows": "Zadnji videozapisi",
+  "downloads": "Preuzimanja",
+  "bookmarks": "Oznake",
+  "noDownloadsYet": "Još nema preuzimanja",
+  "episodesCount": "{count} epizoda • {done} dovršeno",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Izbriši sve epizode",
+  "confirmDeleteAllEpisodes": "Jeste li sigurni da želite izbrisati svih {count} epizoda serije \"{title}\"?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Izbriši sve",
+  "completed": "Dovršeno",
+  "statusQueued": "U redu...",
+  "statusDownloading": "Preuzimanje...",
+  "statusFinished": "Završeno",
+  "statusFailed": "Neuspjelo",
+  "statusCanceled": "Otkazano",
+  "statusPaused": "Pauzirano",
+  "statusWaiting": "Čekanje...",
+  "fileNotFoundRemoving": "Datoteka nije pronađena. Uklanjanje zapisa.",
+  "fileNotFound": "Datoteka nije pronađena",
+  "deleteDownload": "Izbriši preuzimanje",
+  "confirmDeleteDownload": "Jeste li sigurni da želite izbrisati ovo preuzimanje?",
+  "libraryEmpty": "Vaša knjižnica je prazna",
+  "language": "Jezik",
+  "english": "Engleski",
+  "hindi": "Hindski",
+  "kannada": "Kanada",
+  "unknown": "Nepoznato",
+  "recommended": "Preporučeno",
+  "on": "Uključeno",
+  "off": "Isključeno",
+  "installRemoveProviders": "Instaliraj ili ukloni pružatelje",
+  "resetDataSubtitle": "Očisti postavke i bazu, zadrži plagine",
+  "factoryResetSubtitle": "Izbriši sve podatke, postavke i proširenja",
+  "developerOptionsSubtitle": "Alati za otklanjanje pogrešaka",
+  "loading": "Učitavanje...",
+  "sec": "sek",
+  "min": "min",
+  "internalPlayer": "Interni (media_kit)",
+  "builtInPlayer": "Ugrađeni reproduktor",
+  "customNotSet": "Prilagođeno (nije postavljeno)",
+  "selectGesture": "Odaberi {side} gestu",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "Lijevo",
+  "right": "Desno",
+  "selectSeekDuration": "Odaberi trajanje traženja",
+  "selectBufferDepth": "Odaberi dubinu međuspremnika",
+  "subtitleSettings": "Postavke titlova",
+  "size": "Veličina: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Pozadina",
+  "customDohUrlLabel": "Prilagođeni DoH URL",
+  "enterCustomDohUrl": "Unesite svoj DoH URL",
+  "chooseTheme": "Odaberi temu",
+  "resetDataDialogTitle": "Resetiraj podatke?",
+  "resetDataDialogContent": "Ovo će očistiti Postavke, Omiljene i Povijest. Proširenja NEĆE biti izbrisana.",
+  "factoryResetDialogTitle": "Tvornički reset?",
+  "factoryResetDialogContent": "Ovo će izbrisati SVE. Akcija je nepovratna.",
+  "selectLanguage": "Odaberi jezik",
+  "synopsis": "Sinopsis",
+  "noDescription": "Opis nije dostupan.",
+  "videoAlreadyDownloadedPrompt": "Ovaj video je već preuzet. Što želite učiniti?",
+  "playNow": "Gledaj sada",
+  "deleteDownloadPrompt": "Izbrisati preuzimanje?",
+  "deleteDownloadConfirmation": "Jeste li sigurni? Ovo se ne može poništiti.",
+  "no": "Ne",
+  "yesDelete": "Da, izbriši",
+  "downloadPaused": "Preuzimanje pauzirano",
+  "downloading": "Preuzimanje",
+  "speed": "Brzina",
+  "remaining": "Preostalo",
+  "resume": "Nastavi",
+  "pause": "Pauziraj",
+  "torrentContent": "Sadržaj torrenta",
+  "audioTracks": "Audio zapisi",
+  "noAudioTracks": "Nisu pronađeni audio zapisi",
+  "subtitles": "Titlovi",
+  "options": "Opcije",
+  "noSubtitlesFound": "Nisu pronađeni titlovi",
+  "playbackSpeed": "Brzina reprodukcije",
+  "subtitleOptions": "Opcije titlova",
+  "hlsSubtitleWarning": "Vanjski titlovi nisu podržani na ovoj platformi uz HLS.",
+  "loadFromDevice": "Učitaj s uređaja",
+  "syncDelay": "Sinkronizacija / Odgoda",
+  "styleSettings": "Postavke stila",
+  "searchOnline": "Pretraži online",
+  "subtitleSync": "Sinkronizacija titlova",
+  "subtitleDelayWarning": "Odgoda titlova nije podržana u trenutnom reproduktoru.",
+  "resetDelay": "Resetiraj odgodu",
+  "subtitleStyles": "Stilovi titlova",
+  "mediaKitStylingWarning": "Stiliziranje titlova trenutno je dostupno samo za media_kit.",
+  "resetToDefault": "Vrati na zadano",
+  "fontSize": "Veličina fonta",
+  "verticalPosition": "Vertikalna pozicija",
+  "textColor": "Boja tekstu",
+  "backgroundColor": "Boja pozadine",
+  "backgroundOpacity": "Prozirnost pozadine",
+  "subtitleSearch": "Pretraživanje titlova",
+  "searchSubtitleNameHint": "Naziv titlova...",
+  "enterSearchSubtitlePrompt": "Unesite naziv za pretraživanje.",
+  "noSubtitleResults": "Nema rezultata.",
+  "downloadingApplyingSubtitle": "Preuzimanje i primjena...",
+  "failedToDownloadSubtitle": "Neuspjelo preuzimanje titlova.",
+  "failedToLoadSubtitles": "Neuspjelo učitavanje titlova.",
+  "noReposFound": "Nisu pronađena skladišta",
+  "downloadAllProviders": "Preuzmi sve",
+  "removeRepository": "Ukloni skladište",
+  "addRepo": "Dodaj skladište",
+  "extensionsNotInRepos": "Proširenja izvan skladišta",
+  "noLongerInRepo": "Više nije na popisu",
+  "addRepoToBrowse": "Dodajte skladište za pregled",
+  "debugExtensions": "Otklanjanje pogrešaka",
+  "removeRepoConfirm": "Ukloni {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Ovo će deinstalirati SVE njegove plagine.",
+  "addRepository": "Dodaj skladište",
+  "repoUrlOrShortcode": "URL ili kratki kod",
+  "assetPlugin": "Ugrađeni plagin",
+  "installed": "Instalirano",
+  "updateTo": "Ažuriraj na {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Instaliraj",
+  "error": "Pogreška",
+  "ok": "U redu",
+  "pluginSettings": "{pluginName} postavke",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmovi",
+  "series": "Serije",
+  "anime": "Anime",
+  "liveStreams": "Uživo",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 proširenje ažurirano} few{{count} proširenja ažurirana} other{{count} proširenja ažurirano}}",
+  "invalidNavigation": "Neispravna navigacija.",
+  "startOver": "Počni ponovno",
+  "goBack": "Natrag",
+  "resolving": "Rješavanje...",
+  "downloaded": "Preuzeto",
+  "download": "Preuzmi",
+  "debugOnlyFeature": "Samo za razvojne verzije",
+  "streamUrl": "URL streama",
+  "play": "Reproduciraj",
+  "verifyingSourceSize": "Provjera...",
+  "fileSaveLocationNotification": "Datoteka će biti spremljena u mapu Preuzimanja.",
+  "resumingPlayback": "Nastavak reprodukcije",
+  "pausedAt": "Pauzirano na {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Automatski za {count} sek",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Nastavi sada",
+  "playbackError": "Pogreška pri reprodukciji",
+  "confirmClearHistory": "Očistiti cijelu povijest?",
+  "seasonWithNumber": "Sezona {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Pokretanje...",
+  "percentWatched": "{percent}% pogledano",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Alati za otklanjanje pogrešaka",
+  "playLocalVideo": "Lokalni video",
+  "playLocalVideoSubtitle": "Pokreni s uređaja",
+  "streamUrlSubtitle": "Pokreni s URL-a",
+  "streamTorrent": "Streamaj torrent",
+  "streamTorrentSubtitle": "Odaberite torrent datoteku",
+  "loadPluginFromAssets": "Učitaj iz resursa",
+  "enterVideoUrlHint": "URL videozapisa",
+  "networkStream": "Mrežni stream",
+  "removedFromHistory": "Uklonjeno: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Prilagođeno",
+  "refreshingLiveStream": "Osvježavanje...",
+  "removeFromHistory": "Ukloni iz povijesti",
+  "live": "UŽIVO",
+  "volume": "Glasnoća",
+  "brightness": "Svjetlina",
+  "fit": "Prilagodi",
+  "zoom": "Uvećaj",
+  "stretch": "Rastegni",
+  "titleWithParam": "Naslov: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Izvor: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Veličina: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Pogreška: {error}. Interni reproduktor.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} nije pronađen.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Sezona {number} ({count} ep.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Izvor za {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Nema instaliranih plagina",
+  "availableSources": "Dostupni izvori",
+  "seasons": "Sezone",
+  "episodes": "Epizode",
+  "selectSourceToPlay": "Odaberite izvor za gledanje.",
+  "episodeCountOnly": "{count, plural, one{1 epizoda} few{{count} epizode} other{{count} epizoda}}",
+  "noEpisodesFound": "Epizode nisu pronađene",
+  "local": "Lokalno",
+  "remote": "Udaljeno",
+  "torrent": "Torrent",
+  "unlock": "Otključaj",
+  "lock": "Zaključaj",
+  "sources": "Izvori",
+  "tracks": "Zapisi",
+  "content": "Sadržaj",
+  "stats": "Statistika",
+  "resize": "Veličina",
+  "next": "Sljedeće",
+  "pip": "PiP",
+  "rotate": "Rotiraj",
+  "windowed": "Prozor",
+  "fullscreen": "Cijeli zaslon",
+  "movieDetails": "Detalji",
+  "showDetails": "Prikaži detalje",
+  "tagline": "Slogan",
+  "status": "Status",
+  "releaseDate": "Datum izlaska",
+  "firstAirDate": "Prvo emitiranje",
+  "originalLanguage": "Izvorni jezik",
+  "originCountry": "Zemlja podrijetla",
+  "budgetLabel": "Proračun",
+  "revenueLabel": "Prihod",
+  "paused": "Pauzirano",
+  "watched": "Pogledano",
+  "watching": "Gledam",
+  "lastWatched": "Zadnje",
+  "movie": "Film",
+  "tvShow": "Serija",
+  "failedToLoadContent": "Neuspjelo učitavanje",
+  "director": "Redatelj",
+  "creator": "Autor",
+  "showMore": "Više",
+  "showLess": "Manje",
+  "viewAll": "Vidi sve",
+  "seasonsCount": "{count, plural, one{1 sezona} few{{count} sezone} other{{count} sezona}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Nema interneta",
+  "timeoutError": "Vrijeme je isteklo.",
+  "serverError": "Pogreška poslužitelja.",
+  "contentNotFoundError": "Nije pronađeno.",
+  "accessDeniedError": "Pristup odbijen.",
+  "serviceUnavailableError": "Usluga nedostupna.",
+  "generalError": "Greška.",
+  "skip": "Preskoči",
+  "goLive": "Uživo",
+  "dismiss": "Zatvori",
+  "nextUp": "Sljedeće",
+  "sourceAttempt": "Pokušaj {index} od {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Pokušaj",
+  "failed": "Neuspjelo",
+  "selected": "Odabrano",
+  "playing": "Reprodukcija",
+  "pending": "Na čekanju",
+  "discord": "Discord",
+  "discordSubtitle": "Pridružite se našem poslužitelju",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Pridružite se našem kanalu",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Kvaliteta na Wi-Fi mreži",
+  "mobileQualityPreference": "Kvaliteta na mobilnoj mreži",
+  "anyNoPreference": "Bez preferencije",
+  "subtitleAccounts": "Računi za titlove",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Testiraj vezu",
+  "connectedSuccessfully": "Uspješno povezano",
+  "connectionFailed": "Povezivanje neuspješno",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API ključ",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Dijagnostika",
+  "viewLogs": "Vidi zapisnike",
+  "viewLogsSubtitle": "Vidi aktivnost aplikacije i pogreške",
+  "goToExtensions": "Idi na proširenja",
+  "noPluginsMessage": "Instalirajte proširenja za pregledavanje i strujanje sadržaja."
+}

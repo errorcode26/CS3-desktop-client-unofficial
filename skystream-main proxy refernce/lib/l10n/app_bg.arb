@@ -1,0 +1,589 @@
+{
+  "@@locale": "bg",
+  "appTitle": "SkyStream",
+  "languageName": "Български",
+  "home": "Начало",
+  "search": "Търсене",
+  "explore": "Разгледайте",
+  "library": "Библиотека",
+  "settings": "Настройки",
+  "extensions": "Разширения",
+  "updateAvailable": "Налична актуализация",
+  "retry": "Повторение",
+  "factoryReset": "Фабрично нулиране",
+  "startupError": "Грешка при стартиране",
+  "general": "Общи",
+  "appTheme": "Тема на приложението",
+  "recordWatchHistory": "История на гледане",
+  "defaultHomeScreen": "Начален екран по подразбиране",
+  "player": "Плейър",
+  "defaultPlayer": "Плейър по подразбиране",
+  "leftGesture": "Ляв жест",
+  "rightGesture": "Десен жест",
+  "doubleTapToSeek": "Двойно потупване за търсене",
+  "swipeToSeek": "Плъзгане за търсене",
+  "seekDuration": "Продължителност на търсене",
+  "bufferDepth": "Дълбочина на буфера",
+  "defaultResizeMode": "Режим на преоразмеряване",
+  "hardwareDecoding": "Хардуерно декодиране",
+  "network": "Мрежа",
+  "dnsOverHttps": "DNS върху HTTPS",
+  "dohProvider": "DoH доставчик",
+  "manageExtensions": "Управление на разширения",
+  "appData": "Данни на приложението",
+  "resetDataKeepExtensions": "Нулиране на данни (запазване на разширения)",
+  "developer": "Разработчик",
+  "developerOptions": "Опции за разработчици",
+  "about": "Относно",
+  "version": "Версия",
+  "enabled": "Активирано",
+  "disabled": "Деактивирано",
+  "system": "Системна",
+  "dark": "Тъмна",
+  "light": "Светла",
+  "later": "По-късно",
+  "updateNow": "Актуализирай сега",
+  "save": "Запази",
+  "cancel": "Отказ",
+  "close": "Затвори",
+  "delete": "Изтрий",
+  "viewDetails": "Виж детайли",
+  "clearAll": "Изчисти всичко",
+  "clearAllHistory": "Изчисти историята",
+  "all": "Всички",
+  "none": "Нищо",
+  "confirmDownload": "Потвърди изтеглянето",
+  "downloadNow": "Изтегли сега",
+  "selectSource": "Избери източник",
+  "downloadUnavailable": "Недостъпно",
+  "selectAnotherSource": "Избери друг",
+  "watchHistoryCleared": "Историята е изчистена",
+  "downloadingUpdate": "Изтегляне на актуализация...",
+  "errorPrefix": "Грешка: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Налична актуализация: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Изберете доставчик, за да започнете",
+  "tapExtensionIcon": "Докоснете иконата на разширението в ъгъла",
+  "continueWatching": "Продължи гледането",
+  "noInternetConnection": "Няма интернет връзка",
+  "siteNotReachable": "Сайтът е недостъпен",
+  "checkConnectionOrDownloads": "Проверете връзката си или вижте изтеглянията.",
+  "tryVpnOrConnection": "Опитайте с VPN или проверете връзката си.",
+  "errorDetails": "Детайли за грешката: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Към изтеглянията",
+  "selectProvider": "Избери доставчик",
+  "searchHint": "Търсене на филми, сериали...",
+  "searchFavoriteContent": "Търсете любимо съдържание",
+  "pressSearchOrEnter": "Натиснете Търсене или Enter за начало",
+  "noResultsFound": "Няма намерени резултати.",
+  "couldNotLoadTrending": "Трендовете не могат да бъдат заредени",
+  "popularMovies": "Популярни филми",
+  "popularTVShows": "Популярни сериали",
+  "newMovies": "Нови филми",
+  "newTVShows": "Нови сериали",
+  "featuredMovies": "Препоръчани филми",
+  "featuredTVShows": "Препоръчани сериали",
+  "lastVideosTVShows": "Последни епизоди",
+  "downloads": "Изтегляния",
+  "bookmarks": "Отметки",
+  "noDownloadsYet": "Все още няма изтегляния",
+  "episodesCount": "{count} епизода • {done} завършени",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Изтрий всички епизоди",
+  "confirmDeleteAllEpisodes": "Сигурни ли сте, че искате да изтриете всички {count} епизода на \"{title}\"?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Изтрий всичко",
+  "completed": "Завършено",
+  "statusQueued": "В опашка...",
+  "statusDownloading": "Изтегляне...",
+  "statusFinished": "Завършено",
+  "statusFailed": "Неуспешно",
+  "statusCanceled": "Отказано",
+  "statusPaused": "Пауза",
+  "statusWaiting": "Изчакване...",
+  "fileNotFoundRemoving": "Файлът не е намерен. Премахване на записа.",
+  "fileNotFound": "Файлът не е намерен",
+  "deleteDownload": "Изтрий изтеглянето",
+  "confirmDeleteDownload": "Сигурни ли сте, че искате да изтриете това изтегляне?",
+  "libraryEmpty": "Библиотеката е празна",
+  "language": "Език",
+  "english": "Английски",
+  "hindi": "Хинди",
+  "kannada": "Каннада",
+  "unknown": "Неизвестен",
+  "recommended": "Препоръчано",
+  "on": "Вкл",
+  "off": "Изкл",
+  "installRemoveProviders": "Инсталирай/премахни доставчици",
+  "resetDataSubtitle": "Изчисти натройки и БД, запази плъгини",
+  "factoryResetSubtitle": "Изтрий всички данни, настройки и разширения",
+  "developerOptionsSubtitle": "Инструменти за разработка",
+  "loading": "Зареждане...",
+  "sec": "сек",
+  "min": "мин",
+  "internalPlayer": "Вътрешен (media_kit)",
+  "builtInPlayer": "Вграден плейър",
+  "customNotSet": "Персонализиран (не е зададен)",
+  "selectGesture": "Избери жест ({side})",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "ляв",
+  "right": "десен",
+  "selectSeekDuration": "Избери продължителност на търсене",
+  "selectBufferDepth": "Избери дълбочина на буфера",
+  "subtitleSettings": "Настройки на субтитри",
+  "size": "Размер: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Фон",
+  "customDohUrlLabel": "Персонализиран DoH URL",
+  "enterCustomDohUrl": "Въведете ваш DoH URL",
+  "chooseTheme": "Избери тема",
+  "resetDataDialogTitle": "Нулиране на данни?",
+  "resetDataDialogContent": "Това ще изчисти Настройки, Любими и История. Разширенията НЯМА да бъдат изтрити.",
+  "factoryResetDialogTitle": "Фабрично нулиране?",
+  "factoryResetDialogContent": "Това ще изтрие ВСИЧКО. Не може да бъде отменено.",
+  "selectLanguage": "Избери език",
+  "synopsis": "Синопсис",
+  "noDescription": "Няма описание.",
+  "videoAlreadyDownloadedPrompt": "Това видео вече е изтеглено. Какво искате да направите?",
+  "playNow": "Гледай сега",
+  "deleteDownloadPrompt": "Изтрий изтеглянето?",
+  "deleteDownloadConfirmation": "Сигурни ли сте? Действието е необратимо.",
+  "no": "Не",
+  "yesDelete": "Да, изтрий",
+  "downloadPaused": "Изтеглянето е на пауза",
+  "downloading": "Изтегляне",
+  "speed": "Скорост",
+  "remaining": "Оставащо",
+  "resume": "Продължи",
+  "pause": "Пауза",
+  "torrentContent": "Торент съдържание",
+  "audioTracks": "Аудио записи",
+  "noAudioTracks": "Няма аудио записи",
+  "subtitles": "Субтитри",
+  "options": "Опции",
+  "noSubtitlesFound": "Няма субтитри",
+  "playbackSpeed": "Скорост на възпроизвеждане",
+  "subtitleOptions": "Опции за субтитри",
+  "hlsSubtitleWarning": "Външни субтитри не се поддържат за HLS на тази платформа.",
+  "loadFromDevice": "Зареди от устройството",
+  "syncDelay": "Синхронизация / Закъснение",
+  "styleSettings": "Настройки на стила",
+  "searchOnline": "Търсене онлайн",
+  "subtitleSync": "Синхронизация",
+  "subtitleDelayWarning": "Закъснението не се поддържа от текущия плейър.",
+  "resetDelay": "Нулирай закъснението",
+  "subtitleStyles": "Стилове на субтитри",
+  "mediaKitStylingWarning": "Стилизирането е налично само за media_kit.",
+  "resetToDefault": "По подразбиране",
+  "fontSize": "Размер на шрифта",
+  "verticalPosition": "Вертикална позиция",
+  "textColor": "Цвят на текста",
+  "backgroundColor": "Цвят на фона",
+  "backgroundOpacity": "Прозрачност на фона",
+  "subtitleSearch": "Търсене на субтитри",
+  "searchSubtitleNameHint": "Име на субтитри...",
+  "enterSearchSubtitlePrompt": "Въведете име за търсене.",
+  "noSubtitleResults": "Няма резултати.",
+  "downloadingApplyingSubtitle": "Изтегляне и прилагане...",
+  "failedToDownloadSubtitle": "Грешка при изтегляне.",
+  "failedToLoadSubtitles": "Грешка при зареждане.",
+  "noReposFound": "Няма намерени хранилища",
+  "downloadAllProviders": "Изтегли всички",
+  "removeRepository": "Премахни хранилище",
+  "addRepo": "Добави хранилище",
+  "extensionsNotInRepos": "Разширения извън хранилищата",
+  "noLongerInRepo": "Вече не е в списъка",
+  "addRepoToBrowse": "Добавете хранилище за преглед",
+  "debugExtensions": "Дебъг на разширения",
+  "removeRepoConfirm": "Премахване на {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Това ще деинсталира ВСИЧКИ негови плъгини.",
+  "addRepository": "Добави хранилище",
+  "repoUrlOrShortcode": "URL или кратък код",
+  "assetPlugin": "Вграден плъгин",
+  "installed": "Инсталирано",
+  "updateTo": "Актуализирай до {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Инсталирай",
+  "error": "Грешка",
+  "ok": "ОК",
+  "pluginSettings": "Настройки на {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Филми",
+  "series": "Сериали",
+  "anime": "Аниме",
+  "liveStreams": "На живо",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 разширение е актуализирано} other{{count} разширения са актуализирани}}",
+  "invalidNavigation": "Невалидна навигация.",
+  "startOver": "Започни отначало",
+  "goBack": "Назад",
+  "resolving": "Разрешаване...",
+  "downloaded": "Изтеглено",
+  "download": "Изтегли",
+  "debugOnlyFeature": "Само за дебъг",
+  "streamUrl": "URL на стрийм",
+  "play": "Пуснете",
+  "verifyingSourceSize": "Проверка...",
+  "fileSaveLocationNotification": "Ще бъде запазено в Папка Изтегляния.",
+  "resumingPlayback": "Възобновяване",
+  "pausedAt": "Пауза на {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Автоматично след {count} сек",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Възобнови сега",
+  "playbackError": "Грешка при възпроизвеждане",
+  "confirmClearHistory": "Изчистване на цялата история?",
+  "seasonWithNumber": "Сезон {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Стартиране...",
+  "percentWatched": "{percent}% изгледани",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Суб",
+  "dub": "Дуб",
+  "playEpisode": "{label} С{season} Е{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Инструменти за дебъг",
+  "playLocalVideo": "Локално видео",
+  "playLocalVideoSubtitle": "Пуснете файл от устройството",
+  "streamUrlSubtitle": "Пуснете от URL",
+  "streamTorrent": "Торент стрийм",
+  "streamTorrentSubtitle": "Изберете торент файл",
+  "loadPluginFromAssets": "Зареди от активите",
+  "enterVideoUrlHint": "URL (http, magnet и т.н.)",
+  "networkStream": "Мрежов стрийм",
+  "removedFromHistory": "Премахнато: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Персонализирано",
+  "refreshingLiveStream": "Опресняване...",
+  "removeFromHistory": "Премахни от историята",
+  "live": "НА ЖИВО",
+  "volume": "Сила на звука",
+  "brightness": "Яркост",
+  "fit": "Побиране",
+  "zoom": "Увеличение",
+  "stretch": "Разтягане",
+  "titleWithParam": "Заглавие: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Източник: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Размер: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Грешка: {error}. Използване на вътрешен плейър.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} не е открит.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Сезон {number} ({count} еп.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Източник за {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Няма инсталирани плъгини",
+  "availableSources": "Налични източници",
+  "seasons": "Сезони",
+  "episodes": "Епизоди",
+  "selectSourceToPlay": "Изберете източник за възпроизвеждане.",
+  "episodeCountOnly": "{count, plural, one{1 епизод} other{{count} епизода}}",
+  "noEpisodesFound": "Няма открити епизоди",
+  "local": "Локален",
+  "remote": " отдалечен",
+  "torrent": "Торент",
+  "unlock": "Отключване",
+  "lock": "Заключване",
+  "sources": "Източници",
+  "tracks": "Записи",
+  "content": "Съдържание",
+  "stats": "Статистика",
+  "resize": "Размер",
+  "next": "Следващ",
+  "pip": "PiP",
+  "rotate": "Завъртане",
+  "windowed": "Прозорец",
+  "fullscreen": "Цял екран",
+  "movieDetails": "Детайли",
+  "showDetails": "Виж още",
+  "tagline": "Таглайн",
+  "status": "Статус",
+  "releaseDate": "Премиера",
+  "firstAirDate": "Първо излъчване",
+  "originalLanguage": "Оригинален език",
+  "originCountry": "Държава",
+  "budgetLabel": "Бюджет",
+  "revenueLabel": "Приходи",
+  "paused": "Пауза",
+  "watched": "Гледано",
+  "watching": "Гледане",
+  "lastWatched": "Последно",
+  "movie": "Филм",
+  "tvShow": "Сериал",
+  "failedToLoadContent": "Грешка при зареждане",
+  "director": "Режисьор",
+  "creator": "Създател",
+  "showMore": "Още",
+  "showLess": "По-малко",
+  "viewAll": "Всички",
+  "seasonsCount": "{count, plural, one{1 сезон} other{{count} сезона}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Няма интернет",
+  "timeoutError": "Времето изтече.",
+  "serverError": "Грешка в сървъра.",
+  "contentNotFoundError": "Не е намерено.",
+  "accessDeniedError": "Достъпът отказан.",
+  "serviceUnavailableError": "Услугата е недостъпна.",
+  "generalError": "Грешка.",
+  "skip": "Пропусни",
+  "goLive": "На живо",
+  "dismiss": "Затвори",
+  "nextUp": "Следва",
+  "sourceAttempt": "Опит {index} от {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Опитване",
+  "failed": "Неуспешно",
+  "selected": "Избрано",
+  "playing": "Възпроизвеждане",
+  "pending": "Изчакване",
+  "discord": "Discord",
+  "discordSubtitle": "Присъединете се към нашия сървър",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Присъединете се към нашия канал",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Предпочитание за качество при Wi-Fi",
+  "mobileQualityPreference": "Предпочитание за качество при мобилни данни",
+  "anyNoPreference": "Без предпочитание",
+  "subtitleAccounts": "Акаунти за субтитри",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Тестване на връзката",
+  "connectedSuccessfully": "Успешно свързване",
+  "connectionFailed": "Връзката неуспешна",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API ключ",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Диагностика",
+  "viewLogs": "Преглед на логове",
+  "viewLogsSubtitle": "Преглед на активността на приложението и грешки",
+  "goToExtensions": "Отидете на разширения",
+  "noPluginsMessage": "Инсталирайте разширения за преглед и стрийминг на съдържание."
+}

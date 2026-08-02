@@ -1,0 +1,92 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+*.qbc
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android
+**/.cxx/
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/.kotlin
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+key.properties
+
+# iOS/macOS
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/*sync/
+**/ios/**/.xcode.env.local
+**/ios/**/derived_data/
+**/ios/**/flutter_export_environment.sh
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Podfile.lock
+**/ios/Pods/
+**/ios/Runner.xcworkspace/xcshareddata/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+**/macos/**/.xcode.env.local
+**/macos/**/derived_data/
+**/macos/**/flutter_export_environment.sh
+
+# Windows
+**/windows/flutter/ephemeral/
+
+# Linux
+**/linux/flutter/ephemeral/
+
+# Web
+lib/generated_plugin_registrant.dart
+
+# Project Specific
+*.g.dart
+*.sky
+assets/plugins/
+# Torrent Server Binaries (re-downloadable via scripts/download_torrserver.sh)
+packages/flutter_torrent_server/go_src/.gradle/
+/coverage/
+plugins/
+keystore/
+skystream-plugins/
+skystream-tools/
+tree-shaking-test*.js
+
+node_modules/

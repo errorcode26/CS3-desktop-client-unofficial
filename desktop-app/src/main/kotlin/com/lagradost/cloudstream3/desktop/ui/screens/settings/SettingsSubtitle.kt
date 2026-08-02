@@ -8,6 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.launch
 
 fun String?.toColor(): Color {
     if (this == null) return Color.Transparent
@@ -61,6 +64,8 @@ fun SettingsSubtitleEditorScreen() {
     var subBold by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no") }
     var subItalic by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no") }
     var subOverrideEnabled by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false) }
+
+    val scope = rememberCoroutineScope()
 
     val parseSize = subSize.toFloatOrNull() ?: 45f
     val parseBorderSize = subBorderSize.toFloatOrNull() ?: 3f
@@ -143,14 +148,19 @@ fun SettingsSubtitleEditorScreen() {
                     checked = subOverrideEnabled,
                     onCheckedChange = { 
                         subOverrideEnabled = it
-                        DesktopDataStore.setKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, it) 
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            DesktopDataStore.setKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, it)
+                        }
                     },
                 )
             }
 
             SettingsGroupCard(title = "Text") {
                 SubtitleColorPickerRow("Text Color", subColor) {
-                    subColor = it; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_COLOR, it)
+                    subColor = it
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_COLOR, it)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -159,13 +169,21 @@ fun SettingsSubtitleEditorScreen() {
                     label = "Subtitle Font",
                     options = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it },
                     currentValue = subFont.takeIf { !it.isNullOrBlank() } ?: "Inter",
-                    onSelectionChanged = { subFont = it; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_FONT, it) },
+                    onSelectionChanged = {
+                        subFont = it
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            DesktopDataStore.setKey(PlayerConfig.PREF_SUB_FONT, it)
+                        }
+                    },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                 SubtitleSliderRow("Font Size", parseSize, 20f..100f) {
-                    subSize = it.toInt().toString(); DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SIZE, subSize)
+                    subSize = it.toInt().toString()
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SIZE, subSize)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -174,7 +192,12 @@ fun SettingsSubtitleEditorScreen() {
                     label = "Background Style",
                     options = listOf("#00000000" to "Transparent", "#80000000" to "Semi-transparent Black", "#FF000000" to "Solid Black"),
                     currentValue = subBg,
-                    onSelectionChanged = { subBg = it; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BG, it) },
+                    onSelectionChanged = {
+                        subBg = it
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BG, it)
+                        }
+                    },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -190,7 +213,10 @@ fun SettingsSubtitleEditorScreen() {
                             selected = subBold == "yes",
                             onClick = {
                                 val v = if (subBold == "yes") "no" else "yes"
-                                subBold = v; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BOLD, v)
+                                subBold = v
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BOLD, v)
+                                }
                             },
                             label = { Text("Bold") },
                         )
@@ -198,7 +224,10 @@ fun SettingsSubtitleEditorScreen() {
                             selected = subItalic == "yes",
                             onClick = {
                                 val v = if (subItalic == "yes") "no" else "yes"
-                                subItalic = v; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_ITALIC, v)
+                                subItalic = v
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_ITALIC, v)
+                                }
                             },
                             label = { Text("Italic") },
                         )
@@ -208,47 +237,76 @@ fun SettingsSubtitleEditorScreen() {
 
             SettingsGroupCard(title = "Border") {
                 SubtitleColorPickerRow("Border Color", subBorderColor) {
-                    subBorderColor = it; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_COLOR, it)
+                    subBorderColor = it
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_COLOR, it)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                 SubtitleSliderRow("Border Size", parseBorderSize, 0f..10f) {
-                    subBorderSize = it.toInt().toString(); DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_SIZE, subBorderSize)
+                    subBorderSize = it.toInt().toString()
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_SIZE, subBorderSize)
+                    }
                 }
             }
 
             SettingsGroupCard(title = "Shadow") {
                 SubtitleColorPickerRow("Shadow Color", subShadowColor) {
-                    subShadowColor = it; DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_COLOR, it)
+                    subShadowColor = it
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_COLOR, it)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                 SubtitleSliderRow("Shadow Offset", parseShadowOffset, 0f..10f) {
-                    subShadowOffset = it.toInt().toString(); DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET, subShadowOffset)
+                    subShadowOffset = it.toInt().toString()
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET, subShadowOffset)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                 SubtitleSliderRow("Shadow Blur", parseBlur, 0f..10f) {
-                    subBlur = it.toInt().toString(); DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BLUR, subBlur)
+                    subBlur = it.toInt().toString()
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BLUR, subBlur)
+                    }
                 }
             }
             Button(
                 onClick = {
-                    subSize = "45"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SIZE)
-                    subColor = "#FFFFFF"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_COLOR)
-                    subBg = "#00000000"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BG)
-                    subFont = null; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_FONT)
-                    subBorderColor = "#000000"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_COLOR)
-                    subBorderSize = "3"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_SIZE)
-                    subShadowColor = "#00000000"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_COLOR)
-                    subShadowOffset = "0"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET)
-                    subBlur = "0"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BLUR)
-                    subBold = "no"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BOLD)
-                    subItalic = "no"; DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_ITALIC)
-                    subOverrideEnabled = false; DesktopDataStore.removeKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
+                    subSize = "45"
+                    subColor = "#FFFFFF"
+                    subBg = "#00000000"
+                    subFont = null
+                    subBorderColor = "#000000"
+                    subBorderSize = "3"
+                    subShadowColor = "#00000000"
+                    subShadowOffset = "0"
+                    subBlur = "0"
+                    subBold = "no"
+                    subItalic = "no"
+                    subOverrideEnabled = false
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SIZE)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_COLOR)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BG)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_FONT)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_COLOR)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_SIZE)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_COLOR)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BLUR)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BOLD)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_ITALIC)
+                        DesktopDataStore.removeKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
@@ -286,7 +344,7 @@ fun SubtitleColorPickerRow(label: String, selectedHex: String, onColorSelected: 
                     contentAlignment = Alignment.Center,
                 ) {
                     if (hex == "#00000000") {
-                        Text("❌", fontSize = 10.sp)
+                        Icon(Icons.Filled.Close, contentDescription = "None", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else if (isSelected) {
                         Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.5f)))
                     }

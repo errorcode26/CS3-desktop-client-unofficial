@@ -1,0 +1,589 @@
+{
+  "@@locale": "ta",
+  "appTitle": "SkyStream",
+  "languageName": "தமிழ்",
+  "home": "முகப்பு",
+  "search": "தேடல்",
+  "explore": "ஆராய்க",
+  "library": "நூலகம்",
+  "settings": "அமைப்புகள்",
+  "extensions": "நீட்டிப்புகள்",
+  "updateAvailable": "புதிய பதிப்பு உள்ளது",
+  "retry": "மீண்டும் முயற்சி செய்",
+  "factoryReset": "தொழிற்சாலை மீட்டமைப்பு",
+  "startupError": "தொடக்கப் பிழை",
+  "general": "பொது",
+  "appTheme": "பயன்பாட்டு தீம்",
+  "recordWatchHistory": "பார்த்த வரலாற்றைப் பதிவு செய்",
+  "defaultHomeScreen": "இயல்புநிலை முகப்புத் திரை",
+  "player": "வீடியோ பிளேயர்",
+  "defaultPlayer": "இயல்புநிலை பிளேயர்",
+  "leftGesture": "இடது சைகை",
+  "rightGesture": "வலது சைகை",
+  "doubleTapToSeek": "தேடுவதற்கு இருமுறை தட்டவும்",
+  "swipeToSeek": "தேடுவதற்கு ஸ்வைப் செய்யவும்",
+  "seekDuration": "தேடுதல் கால அளவு",
+  "bufferDepth": "பஃபர் ஆழம்",
+  "defaultResizeMode": "இயல்புநிலை மறுஅளவிடுதல் முறை",
+  "hardwareDecoding": "ஹார்டுவேர் டிகோடிங்",
+  "network": "பிணையம்",
+  "dnsOverHttps": "DNS ஓவர் HTTPS",
+  "dohProvider": "DoH வழங்குநர்",
+  "manageExtensions": "நீட்டிப்புகளை நிர்வகி",
+  "appData": "பயன்பாட்டுத் தரவு",
+  "resetDataKeepExtensions": "தரவை மீட்டமை (நீட்டிப்புகளை வைத்திரு)",
+  "developer": "டெவலப்பர்",
+  "developerOptions": "டெவலப்பர் விருப்பங்கள்",
+  "about": "பற்றி",
+  "version": "பதிப்பு",
+  "enabled": "இயக்கப்பட்டது",
+  "disabled": "முடக்கப்பட்டது",
+  "system": "சிஸ்டம்",
+  "dark": "இருண்ட",
+  "light": "ஒளி",
+  "later": "பிறகு",
+  "updateNow": "இப்போது புதுப்பி",
+  "save": "சேமி",
+  "cancel": "ரத்துசெய்",
+  "close": "மூடு",
+  "delete": "நீக்கு",
+  "viewDetails": "விவரங்களைக் காண்க",
+  "clearAll": "அனைத்தையும் அழி",
+  "clearAllHistory": "அனைத்து வரலாற்றையும் அழி",
+  "all": "அனைத்தும்",
+  "none": "எதுவுமில்லை",
+  "confirmDownload": "பதிவிறக்கத்தை உறுதிப்படுத்து",
+  "downloadNow": "இப்போதே பதிவிறக்கு",
+  "selectSource": "மூலத்தைத் தேர்ந்தெடு",
+  "downloadUnavailable": "பதிவிறக்கம் கிடைக்கவில்லை",
+  "selectAnotherSource": "வேறொரு மூலத்தைத் தேர்ந்தெடு",
+  "watchHistoryCleared": "பார்த்த வரலாறு அழிக்கப்பட்டது",
+  "downloadingUpdate": "புதுப்பிப்பு பதிவிறக்கம் செய்யப்படுகிறது...",
+  "errorPrefix": "பிழை: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "புதுப்பிப்பு உள்ளது: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "பார்க்கத் தொடங்க ஒரு வழங்குநரைத் தேர்ந்தெடுக்கவும்",
+  "tapExtensionIcon": "மூலையில் உள்ள நீட்டிப்பு ஐகானைத் தட்டவும்",
+  "continueWatching": "தொடர்ந்து பார்க்கவும்",
+  "noInternetConnection": "இணைய இணைப்பு இல்லை",
+  "siteNotReachable": "தளத்தை அணுக முடியவில்லை",
+  "checkConnectionOrDownloads": "உங்கள் இணைப்பைச் சரிபார்க்கவும் அல்லது உங்கள் பதிவிறக்கங்களைக் காணவும்.",
+  "tryVpnOrConnection": "தயவுசெய்து VPN ஐப் பயன்படுத்தி தளத்தை அணுக முயற்சிக்கவும் அல்லது உங்கள் இணைய இணைப்பைச் சரிபார்க்கவும்.",
+  "errorDetails": "பிழை விவரங்கள்: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "பதிவிறக்கங்களுக்குச் செல்",
+  "selectProvider": "வழங்குநரைத் தேர்ந்தெடு",
+  "searchHint": "படங்கள், தொடர்களைத் தேடுக...",
+  "searchFavoriteContent": "உங்களுக்குப் பிடித்த உள்ளடக்கத்தைத் தேடுங்கள்",
+  "pressSearchOrEnter": "தொடங்க தேடல் விசை அல்லது Enter ஐ அழுத்தவும்",
+  "noResultsFound": "முடிவுகள் எதுவும் இல்லை.",
+  "couldNotLoadTrending": "ட்ரெண்டிங் உருப்படிகளை ஏற்ற முடியவில்லை",
+  "popularMovies": "பிரபலமான திரைப்படங்கள்",
+  "popularTVShows": "பிரபலமான தொலைக்காட்சி நிகழ்ச்சிகள்",
+  "newMovies": "புதிய திரைப்படங்கள்",
+  "newTVShows": "புதிய தொலைக்காட்சி நிகழ்ச்சிகள்",
+  "featuredMovies": "சிறப்புத் திரைப்படங்கள்",
+  "featuredTVShows": "சிறப்புத் தொலைக்காட்சி நிகழ்ச்சிகள்",
+  "lastVideosTVShows": "கடைசி வீடியோக்கள் தொலைக்காட்சி நிகழ்ச்சிகள்",
+  "downloads": "பதிவிறக்கங்கள்",
+  "bookmarks": "புத்தகக்க்குறிகள்",
+  "noDownloadsYet": "பதிவிறக்கங்கள் எதுவும் இல்லை",
+  "episodesCount": "{count} எபிசோடுகள் • {done} முடிந்தது",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "அனைத்து எபிசோடுகளையும் நீக்கு",
+  "confirmDeleteAllEpisodes": "\"{title}\" இன் அனைத்து {count} எபிசோடுகளையும் அவற்றின் கோப்புகளையும் நீக்க விரும்புகிறீர்களா?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "அனைத்தையும் நீக்கு",
+  "completed": "முடிந்தது",
+  "statusQueued": "வரிசையில்...",
+  "statusDownloading": "பதிவிறக்கம் செய்யப்படுகிறது...",
+  "statusFinished": "முடிந்தது",
+  "statusFailed": "தோல்வியடைந்தது",
+  "statusCanceled": "ரத்து செய்யப்பட்டது",
+  "statusPaused": "நிறுத்தப்பட்டது",
+  "statusWaiting": "காத்திருக்கிறது...",
+  "fileNotFoundRemoving": "கோப்பு வட்டில் இல்லை. பதிவு நீக்கப்படுகிறது.",
+  "fileNotFound": "கோப்பு இல்லை",
+  "deleteDownload": "பதிவிறக்கத்தை நீக்கு",
+  "confirmDeleteDownload": "இந்த பதிவிறக்கத்தையும் அதன் கோப்பையும் நீக்க விரும்புகிறீர்களா?",
+  "libraryEmpty": "உங்கள் நூலகம் காலியாக உள்ளது",
+  "language": "மொழி",
+  "english": "ஆங்கிலம்",
+  "hindi": "ஹிந்தி",
+  "kannada": "கன்னடம்",
+  "unknown": "தெரியாதது",
+  "recommended": "பரிந்துரைக்கப்படுகிறது",
+  "on": "ஆன்",
+  "off": "ஆஃப்",
+  "installRemoveProviders": "வழங்குநர்களை நிறுவு அல்லது நீக்கு",
+  "resetDataSubtitle": "அமைப்புகள் மற்றும் தரவுத்தளத்தை அழி, செருகுநிரல்களை வைத்திரு",
+  "factoryResetSubtitle": "அனைத்து தரவு, அமைப்புகள் மற்றும் நீட்டிப்புகளை நீக்கு",
+  "developerOptionsSubtitle": "பிழைத்திருத்த கருவிகள் மற்றும் உள்ளூர் பிளேபேக்",
+  "loading": "ஏற்றப்படுகிறது...",
+  "sec": "வினாடி",
+  "min": "நிமிடம்",
+  "internalPlayer": "உள் பிளேயர் (media_kit)",
+  "builtInPlayer": "உள்ளமைக்கப்பட்ட பிளேயர்",
+  "customNotSet": "தனிப்பயன் (அமைக்கப்படவில்லை)",
+  "selectGesture": "{side} சைகையைத் தேர்ந்தெடு",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "இடது",
+  "right": "வலது",
+  "selectSeekDuration": "தேடுதல் கால அளவைத் தேர்ந்தெடு",
+  "selectBufferDepth": "பஃபர் ஆழத்தைத் தேர்ந்தெடு",
+  "subtitleSettings": "துணைத்தலைப்பு அமைப்புகள்",
+  "size": "அளவு: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "பின்னணி",
+  "customDohUrlLabel": "தனிப்பயன் DoH URL",
+  "enterCustomDohUrl": "உங்கள் சொந்த DoH URL ஐ உள்ளிடவும்",
+  "chooseTheme": "தீமைத் தேர்ந்தெடு",
+  "resetDataDialogTitle": "தரவை மீட்டமைக்கவா?",
+  "resetDataDialogContent": "இது அமைப்புகள், பிடித்தவை மற்றும் வரலாற்றை அழிக்கும். உங்கள் நிறுவப்பட்ட நீட்டிப்புகள் நீக்கப்படாது.",
+  "factoryResetDialogTitle": "தொழிற்சாலை மீட்டமைப்பா?",
+  "factoryResetDialogContent": "இது அனைத்தையும் நீக்கும்: பிடித்தவை, வரலாறு, அமைப்புகள் மற்றும் அனைத்து நீட்டிப்புகள். இதை மாற்ற முடியாது.",
+  "selectLanguage": "மொழியைத் தேர்ந்தெடு",
+  "synopsis": "சுருக்கம்",
+  "noDescription": "விளக்கம் இல்லை.",
+  "videoAlreadyDownloadedPrompt": "இந்த வீடியோ ஏற்கனவே பதிவிறக்கம் செய்யப்பட்டுள்ளது. நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?",
+  "playNow": "இப்போது பிளே செய்",
+  "deleteDownloadPrompt": "பதிவிறக்கத்தை நீக்கவா?",
+  "deleteDownloadConfirmation": "இந்த கோப்பை நீக்க விரும்புகிறீர்களா? இதை மாற்ற முடியாது.",
+  "no": "இல்லை",
+  "yesDelete": "ஆம், நீக்கு",
+  "downloadPaused": "பதிவிறக்கம் நிறுத்தப்பட்டது",
+  "downloading": "பதிவிறக்கம் செய்யப்படுகிறது",
+  "speed": "வேகம்",
+  "remaining": "மீதமுள்ளது",
+  "resume": "தொடரவும்",
+  "pause": "நிறுத்தி வை",
+  "torrentContent": "டொரண்ட் உள்ளடக்கம்",
+  "audioTracks": "ஆடியோ டிராக்குகள்",
+  "noAudioTracks": "ஆடியோ டிராக்குகள் எதுவும் இல்லை",
+  "subtitles": "துணைத்தலைப்புகள்",
+  "options": "விருப்பங்கள்",
+  "noSubtitlesFound": "துணைத்தலைப்பு டிராக்குகள் எதுவும் இல்லை",
+  "playbackSpeed": "பிளேபேக் வேகம்",
+  "subtitleOptions": "துணைத்தலைப்பு விருப்பங்கள்",
+  "hlsSubtitleWarning": "இந்த இயங்குதளத்தில் செயலில் உள்ள HLS பிளேயரில் வெளிப்புற துணைத்தலைப்பு கோப்புகள் ஆதரிக்கப்படவில்லை.",
+  "loadFromDevice": "சாதனத்திலிருந்து ஏற்று",
+  "syncDelay": "ஒத்திசைவு / தாமதம்",
+  "styleSettings": "ஸ்டைல் அமைப்புகள்",
+  "searchOnline": "ஆன்லைனில் தேடு (துணைத்தலைப்பு தேடல்)",
+  "subtitleSync": "துணைத்தலைப்பு ஒத்திசைவு",
+  "subtitleDelayWarning": "செயலில் உள்ள பிளேபேக் இன்ஜின் மூலம் துணைத்தலைப்பு தாமதம் ஆதரிக்கப்படவில்லை.",
+  "resetDelay": "தாமதத்தை மீட்டமை",
+  "subtitleStyles": "துணைத்தலைப்பு ஸ்டைல்கள்",
+  "mediaKitStylingWarning": "துணைத்தலைப்பு ஸ்டைலிங் இப்போது media_kit பிளேயரில் மட்டுமே கிடைக்கிறது.",
+  "resetToDefault": "இயல்புநிலைக்கு மீட்டமை",
+  "fontSize": "எழுத்து அளவு",
+  "verticalPosition": "செங்குத்து நிலை",
+  "textColor": "உரை நிறம்",
+  "backgroundColor": "பின்னணி நிறம்",
+  "backgroundOpacity": "பின்னணி ஒளிபுகாநிலை",
+  "subtitleSearch": "துணைத்தலைப்பு தேடல்",
+  "searchSubtitleNameHint": "துணைத்தலைப்பு பெயரை தேடு...",
+  "enterSearchSubtitlePrompt": "துணைத்தலைப்புகளைக் கண்டறிய ஒரு பெயரை உள்ளிடவும் அல்லது தேடவும்.",
+  "noSubtitleResults": "முடிவுகள் எதுவும் இல்லை. வேறொரு தேடலை முயற்சிக்கவும்.",
+  "downloadingApplyingSubtitle": "துணைத்தலைப்பு பதிவிறக்கம் செய்யப்பட்டு பயன்படுத்தப்படுகிறது...",
+  "failedToDownloadSubtitle": "துணைத்தலைப்பைப் பதிவிறக்க முடியவில்லை.",
+  "failedToLoadSubtitles": "துணைத்தலைப்புகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+  "noReposFound": "ரிப்போசிட்டரிகள் அல்லது செருகுநிரல்கள் எதுவும் இல்லை",
+  "downloadAllProviders": "அனைத்தையும் பதிவிறக்கு",
+  "removeRepository": "ரிப்போசிட்டரியை நீக்கு",
+  "addRepo": "ரிப்போசிட்டரியைச் சேர்",
+  "extensionsNotInRepos": "ரிப்போசிட்டரிகளில் இல்லாத நீட்டிப்புகள்",
+  "noLongerInRepo": "இனி எந்த ரிப்போசிட்டரியிலும் இல்லை",
+  "addRepoToBrowse": "செருகுநிரல்களை உலாவவும் புதுப்பிக்கவும் ஒரு ரிப்போசிட்டரியைச் சேர்க்கவும்",
+  "debugExtensions": "நீட்டிப்புகளைப் பிழைத்திருத்தம் செய்",
+  "removeRepoConfirm": "{repoName}-ஐ நீக்கவா?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "இது ரிப்போசிட்டரியை நீக்கி அதன் அனைத்து செருகுநிரல்களையும் அகற்றும்.",
+  "addRepository": "ரிப்போசிட்டரியைச் சேர்",
+  "repoUrlOrShortcode": "ரிப்போசிட்டரி URL அல்லது ஷார்ட்கோட்",
+  "assetPlugin": "அசெட் செருகுநிரல்",
+  "installed": "நிறுவப்பட்டது",
+  "updateTo": "{version}-க்குப் புதுப்பி",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "நிறுவு",
+  "error": "பிழை",
+  "ok": "சரி",
+  "pluginSettings": "{pluginName} அமைப்புகள்",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "திரைப்படங்கள்",
+  "series": "தொடர்கள்",
+  "anime": "அனிம்",
+  "liveStreams": "நேரடி ஒளிபரப்புகள்",
+  "debug": "பிழைத்திருத்தம்",
+  "extensionsUpdated": "{count, plural, =1{1 நீட்டிப்பு புதுப்பிக்கப்பட்டது} other{{count} நீட்டிப்புகள் புதுப்பிக்கப்பட்டன}}",
+  "invalidNavigation": "தவறான வழிசெலுத்தல். தயவுசெய்து பின்னோக்கிச் செல்லவும்.",
+  "startOver": "மீண்டும் தொடங்கு",
+  "goBack": "பின்னோக்கி",
+  "resolving": "தீர்வு காணப்படுகிறது...",
+  "downloaded": "பதிவிறக்கம் செய்யப்பட்டது",
+  "download": "பதிவிறக்கு",
+  "debugOnlyFeature": "இந்த அம்சம் பிழைத்திருத்த உருவாக்கங்களில் மட்டுமே கிடைக்கும்",
+  "streamUrl": "ஸ்ட்ரீம் URL",
+  "play": "பிளே செய்",
+  "verifyingSourceSize": "மூலம் மற்றும் அளவு சரிபார்க்கப்படுகிறது...",
+  "fileSaveLocationNotification": "கோப்பு உங்கள் பதிவிறக்கங்கள் கோப்புறையில் சேமிக்கப்படும்.",
+  "resumingPlayback": "பிளேபேக் மீண்டும் தொடங்கப்படுகிறது",
+  "pausedAt": "{time}-இல் நிறுத்தப்பட்டது",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 வினாடியில் தானாகவே தொடங்கும்} other{{count} வினாடிகளில் தானாகவே தொடங்கும்}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "இப்போதே தொடங்கு",
+  "playbackError": "பிளேபேக் பிழை",
+  "confirmClearHistory": "உங்கள் பார்த்த வரலாற்றிலிருந்து அனைத்து உருப்படிகளையும் நீக்க விரும்புகிறீர்களா?",
+  "seasonWithNumber": "சீசன் {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "தொடங்குகிறது...",
+  "percentWatched": "{percent}% பார்க்கப்பட்டது",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "துணைத்.",
+  "dub": "டப்பிங்",
+  "playEpisode": "{label} சீசன் {season} எபிசோட் {episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "பிழைத்திருத்த கருவிகள்",
+  "playLocalVideo": "உள்ளூர் வீடியோ கோப்பை பிளே செய்",
+  "playLocalVideoSubtitle": "சாதனத்திலிருந்து எந்த வீடியோவையும் பிளே செய்",
+  "streamUrlSubtitle": "பிணைய URL இலிருந்து பிளே செய்",
+  "streamTorrent": "டொரண்ட் ஸ்ட்ரீம் செய்",
+  "streamTorrentSubtitle": "பிளே செய்ய உள்ளூர் டொரண்ட் கோப்பைத் தேர்ந்தெடுக்கவும்",
+  "loadPluginFromAssets": "அசெட்டிலிருந்து செருகுநிரலை ஏற்று",
+  "enterVideoUrlHint": "வீடியோ URL ஐ உள்ளிடவும் (http, magnet போன்றவை)",
+  "networkStream": "பிணைய ஸ்ட்ரீம்",
+  "removedFromHistory": "வரலாற்றிலிருந்து {title} நீக்கப்பட்டது",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "தனிப்பயன்",
+  "refreshingLiveStream": "நேரடி ஒளிபரப்பு புதுப்பிக்கப்படுகிறது...",
+  "removeFromHistory": "வரலாற்றிலிருந்து நீக்கு",
+  "live": "நேரடி",
+  "volume": "ஒலி அளவு",
+  "brightness": "பிரகாசம்",
+  "fit": "பொருத்து",
+  "zoom": "ஜூம்",
+  "stretch": "நீட்டு",
+  "titleWithParam": "தலைப்பு: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "மூலம்: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "அளவு: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "பிழை: {error}. உள் பிளேயர் பயன்படுத்தப்படுகிறது.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} கண்டறியப்படவில்லை. உள் பிளேயர் தொடங்கப்படுகிறது.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "சீசன் {number} ({count} எபிசோடுகள்)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName}-க்கான மூலத்தைத் தேர்ந்தெடு",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "செருகுநிரல்கள் எதுவும் நிறுவப்படவில்லை",
+  "availableSources": "கிடைக்கும் மூலங்கள்",
+  "seasons": "சீசன்கள்",
+  "episodes": "எபிசோடுகள்",
+  "selectSourceToPlay": "பிளே செய்ய மேலே உள்ள 'கிடைக்கும் மூலங்கள்' இலிருந்து ஒரு மூலத்தைத் தேர்ந்தெடுக்கவும்.",
+  "episodeCountOnly": "{count, plural, =1{1 எபிசோட்} other{{count} எபிசோடுகள்}}",
+  "noEpisodesFound": "எபிசோடுகள் எதுவும் இல்லை",
+  "local": "உள்ளூர்",
+  "remote": "ரிமோட்",
+  "torrent": "டொரண்ட்",
+  "unlock": "திற",
+  "lock": "பூட்டு",
+  "sources": "மூலங்கள்",
+  "tracks": "டிராக்குகள்",
+  "content": "உள்ளடக்கம்",
+  "stats": "புள்ளிவிவரங்கள்",
+  "resize": "மறுஅளவிடு",
+  "next": "அடுத்தது",
+  "pip": "PiP",
+  "rotate": "சுழற்று",
+  "windowed": "சாளரம்",
+  "fullscreen": "முழுத் திரை",
+  "movieDetails": "திரைப்பட விவரங்கள்",
+  "showDetails": "விவரங்களைக் காட்டு",
+  "tagline": "டேக்லைன்",
+  "status": "நிலை",
+  "releaseDate": "வெளியீட்டு தேதி",
+  "firstAirDate": "முதல் ஒளிபரப்பு தேதி",
+  "originalLanguage": "அசல் மொழி",
+  "originCountry": "பிறந்த நாடு",
+  "budgetLabel": "பட்ஜெட்",
+  "revenueLabel": "வருவாய்",
+  "paused": "நிறுத்தப்பட்டது",
+  "watched": "பார்த்தவை",
+  "watching": "பார்க்கப்படுகிறது",
+  "lastWatched": "கடைசியாகப் பார்த்தது",
+  "movie": "திரைப்படம்",
+  "tvShow": "தொலைக்காட்சி நிகழ்ச்சி",
+  "failedToLoadContent": "உள்ளடக்கத்தை ஏற்ற முடியவில்லை",
+  "director": "இயக்குநர்",
+  "creator": "உருவாக்கியவர்",
+  "showMore": "மேலும் காட்டு",
+  "showLess": "குறைவாகக் காட்டு",
+  "viewAll": "அனைத்தையும் காண்க",
+  "seasonsCount": "{count} சீசன்கள்",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "இணைய இணைப்பு இல்லை",
+  "timeoutError": "கோரிக்கை நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.",
+  "serverError": "சர்வர் பிழை. மீண்டும் முயற்சிக்கவும்.",
+  "contentNotFoundError": "உள்ளடக்கம் இல்லை.",
+  "accessDeniedError": "அனுமதி மறுக்கப்பட்டது.",
+  "serviceUnavailableError": "சேவை இல்லை.",
+  "generalError": "ஏதோ தவறு நடந்துவிட்டது.",
+  "skip": "தவிர்",
+  "goLive": "நேரலை",
+  "dismiss": "மூடு",
+  "nextUp": "அடுத்தது",
+  "sourceAttempt": "மூலம் {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "முயற்சிக்கிறது",
+  "failed": "தோல்வி",
+  "selected": "தேர்ந்தெடுக்கப்பட்டது",
+  "playing": "ஒளிர்கிறது",
+  "pending": "நிலுவையில் உள்ளது",
+  "discord": "Discord",
+  "discordSubtitle": "எங்கள் சர்வரில் சேரவும்",
+  "telegram": "Telegram",
+  "telegramSubtitle": "எங்கள் சேனலில் சேரவும்",
+  "developedBy": "{name} ஆல் உருவாக்கப்பட்டது",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi தர விருப்பம்",
+  "mobileQualityPreference": "மொபைல் தர விருப்பம்",
+  "anyNoPreference": "விருப்பம் ஏதுமில்லை",
+  "subtitleAccounts": "துணைத்தலைப்பு கணக்குகள்",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "இணைப்பைச் சோதிக்கவும்",
+  "connectedSuccessfully": "வெற்றிகரமாக இணைக்கப்பட்டது",
+  "connectionFailed": "இணைப்பு தோல்வியடைந்தது",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API விசை",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "கண்டறிதல் (Diagnostics)",
+  "viewLogs": "பதிவுகளைப் பார்க்கவும்",
+  "viewLogsSubtitle": "செயலி செயல்பாடு மற்றும் பிழைகளைப் பார்க்கவும்",
+  "goToExtensions": "நீட்டிப்புகளுக்குச் செல்லவும்",
+  "noPluginsMessage": "உள்ளடக்கத்தை உலாவவும் ஸ்ட்ரீம் செய்யவும் நீட்டிப்புகளை நிறுவவும்."
+}

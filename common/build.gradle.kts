@@ -10,6 +10,13 @@ dependencies {
 
     implementation(libs.sqldelight.sqlite.driver)
     implementation(libs.sqldelight.coroutines.extensions)
+
+    testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 sqldelight {

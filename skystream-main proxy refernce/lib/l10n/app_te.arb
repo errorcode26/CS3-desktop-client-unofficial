@@ -1,0 +1,589 @@
+{
+  "@@locale": "te",
+  "appTitle": "SkyStream",
+  "languageName": "తెలుగు",
+  "home": "హోమ్",
+  "search": "శోధన",
+  "explore": "అన్వేషించండి",
+  "library": "లైబ్రరీ",
+  "settings": "సెట్టింగ్‌లు",
+  "extensions": "ఎక్స్టెన్షన్స్",
+  "updateAvailable": "అప్‌డేట్ అందుబాటులో ఉంది",
+  "retry": "మళ్ళీ ప్రయత్నించండి",
+  "factoryReset": "ఫ్యాక్టరీ రీసెట్",
+  "startupError": "ప్రారంభ లోపం",
+  "general": "సాధారణ",
+  "appTheme": "యాప్ థీమ్",
+  "recordWatchHistory": "చూసిన చరిత్రను రికార్డ్ చేయండి",
+  "defaultHomeScreen": "డిఫాల్ట్ హోమ్ స్క్రీన్",
+  "player": "ప్లేయర్",
+  "defaultPlayer": "డిఫాల్ట్ ప్లేయర్",
+  "leftGesture": "ఎడమ సంజ్ఞ (Gesture)",
+  "rightGesture": "కుడి సంజ్ఞ (Gesture)",
+  "doubleTapToSeek": "సీక్ చేయడానికి రెండుసార్లు నొక్కండి",
+  "swipeToSeek": "సీక్ చేయడానికి స్వైప్ చేయండి",
+  "seekDuration": "సీక్ వ్యవధి",
+  "bufferDepth": "బఫర్ లోతు",
+  "defaultResizeMode": "డిఫాల్ట్ రీసైజ్ మోడ్",
+  "hardwareDecoding": "హార్డ్‌వేర్ డీకోడింగ్",
+  "network": "నెట్‌వర్క్",
+  "dnsOverHttps": "HTTPS ద్వారా DNS",
+  "dohProvider": "DoH ప్రొవైడర్",
+  "manageExtensions": "ఎక్స్టెన్షన్స్‌ని నిర్వహించండి",
+  "appData": "యాప్ డేటా",
+  "resetDataKeepExtensions": "డేటాను రీసెట్ చేయండి (ఎక్స్టెన్షన్స్‌ని ఉంచండి)",
+  "developer": "డెవలపర్",
+  "developerOptions": "డెవలపర్ ఎంపికలు",
+  "about": "గురించి",
+  "version": "వెర్షన్",
+  "enabled": "ప్రారంభించబడింది",
+  "disabled": "నిలిపివేయబడింది",
+  "system": "సిస్టమ్",
+  "dark": "డార్క్",
+  "light": "లైట్",
+  "later": "తర్వాత",
+  "updateNow": "ఇప్పుడే అప్‌డేట్ చేయండి",
+  "save": "సేవ్ చేయండి",
+  "cancel": "రద్దు చేయండి",
+  "close": "మూసివేయండి",
+  "delete": "తొలగించండి",
+  "viewDetails": "వివరాలను చూడండి",
+  "clearAll": "అన్నీ క్లియర్ చేయండి",
+  "clearAllHistory": "మొత్తం చరిత్రను క్లియర్ చేయండి",
+  "all": "అన్నీ",
+  "none": "ఏదీ లేదు",
+  "confirmDownload": "డౌన్‌లోడ్‌ని నిర్ధారించండి",
+  "downloadNow": "ఇప్పుడే డౌన్‌లోడ్ చేయండి",
+  "selectSource": "మూలాన్ని (Source) ఎంచుకోండి",
+  "downloadUnavailable": "డౌన్‌లోడ్ అందుబాటులో లేదు",
+  "selectAnotherSource": "మరొక మూలాన్ని ఎంచుకోండి",
+  "watchHistoryCleared": "చూసిన చరిత్ర క్లియర్ చేయబడింది",
+  "downloadingUpdate": "అప్‌డేట్ డౌన్‌లోడ్ అవుతోంది...",
+  "errorPrefix": "లోపం: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "అప్‌డేట్ అందుబాటులో ఉంది: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "చూడటం ప్రారంభించడానికి ఒక ప్రొవైడర్‌ను ఎంచుకోండి",
+  "tapExtensionIcon": "మూలలో ఉన్న ఎక్స్టెన్షన్ చిహ్నాన్ని నొక్కండి",
+  "continueWatching": "చూడటం కొనసాగించండి",
+  "noInternetConnection": "ఇంటర్నెట్ కనెక్షన్ లేదు",
+  "siteNotReachable": "సైట్ అందుబాటులో లేదు",
+  "checkConnectionOrDownloads": "మీ కనెక్షన్‌ని తనిఖీ చేయండి లేదా మీరు డౌన్‌లోడ్ చేసిన కంటెంట్‌ను చూడండి.",
+  "tryVpnOrConnection": "దయచేసి VPN తో సైట్‌ను యాక్సెస్ చేయడానికి ప్రయత్నించండి లేదా మీ ఇంటర్నెట్ కనెక్షన్‌ని తనిఖీ చేయండి.",
+  "errorDetails": "లోపం వివరాలు: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "డౌన్‌లోడ్స్‌కు వెళ్ళండి",
+  "selectProvider": "ప్రొవైడర్‌ను ఎంచుకోండి",
+  "searchHint": "సినిమాలు, సిరీస్‌ల కోసం వెతకండి...",
+  "searchFavoriteContent": "మీకు ఇష్టమైన కంటెంట్ కోసం వెతకండి",
+  "pressSearchOrEnter": "ప్రారంభించడానికి సెర్చ్ కీ లేదా Enter నొక్కండి",
+  "noResultsFound": "ఫలితాలు ఏమీ లేవు.",
+  "couldNotLoadTrending": "ట్రెండింగ్ ఐటెమ్స్‌ను లోడ్ చేయలేకపోయాము",
+  "popularMovies": "ప్రజాదరణ పొందిన సినిమాలు",
+  "popularTVShows": "ప్రజాదరణ పొందిన టీవీ షోలు",
+  "newMovies": "కొత్త సినిమాలు",
+  "newTVShows": "కొత్త టీవీ షోలు",
+  "featuredMovies": "ఫీచర్ చేయబడిన సినిమాలు",
+  "featuredTVShows": "ఫీచర్ చేయబడిన టీవీ షోలు",
+  "lastVideosTVShows": "చివరి వీడియోల టీవీ షోలు",
+  "downloads": "డౌన్‌లోడ్స్",
+  "bookmarks": "బుక్‌మార్క్‌లు",
+  "noDownloadsYet": "ఇంకా డౌన్‌లోడ్స్ ఏమీ లేవు",
+  "episodesCount": "{count} ఎపిసోడ్‌లు • {done} పూర్తయ్యాయి",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "అన్ని ఎపిసోడ్‌లను తొలగించండి",
+  "confirmDeleteAllEpisodes": "మీరు ఖచ్చితంగా \"{title}\" యొక్క అన్ని {count} ఎపిసోడ్‌లను మరియు వాటి ఫైళ్లను తొలగించాలనుకుంటున్నారా?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "అన్నీ తొలగించండి",
+  "completed": "పూర్తయింది",
+  "statusQueued": "క్యూలో ఉంది...",
+  "statusDownloading": "డౌన్‌లోడ్ అవుతోంది...",
+  "statusFinished": "ముగిసింది",
+  "statusFailed": "విఫలమైంది",
+  "statusCanceled": "రద్దు చేయబడింది",
+  "statusPaused": "పాజ్ చేయబడింది",
+  "statusWaiting": "వేచి ఉంది...",
+  "fileNotFoundRemoving": "డిస్క్‌లో ఫైల్ కనుగొనబడలేదు. రికార్డును తొలగిస్తున్నాము.",
+  "fileNotFound": "ఫైల్ కనుగొనబడలేదు",
+  "deleteDownload": "డౌన్‌లోడ్‌ను తొలగించండి",
+  "confirmDeleteDownload": "మీరు ఖచ్చితంగా ఈ డౌన్‌లోడ్‌ను మరియు దాని ఫైల్‌ను తొలగించాలనుకుంటున్నారా?",
+  "libraryEmpty": "మీ లైబ్రరీ ఖాళీగా ఉంది",
+  "language": "భాష",
+  "english": "ఆంగ్లం (English)",
+  "hindi": "హిందీ (Hindi)",
+  "kannada": "కన్నడ (Kannada)",
+  "unknown": "తెలియదు",
+  "recommended": "సిఫార్సు చేయబడింది",
+  "on": "ఆన్",
+  "off": "ఆఫ్",
+  "installRemoveProviders": "ప్రొవైడర్లను ఇన్‌స్టాల్ చేయండి లేదా తొలగించండి",
+  "resetDataSubtitle": "సెట్టింగ్‌లు & డేటాబేస్ క్లియర్ చేయండి, ప్లగిన్లను ఉంచండి",
+  "factoryResetSubtitle": "మొత్తం డేటా, సెట్టింగ్‌లు మరియు ఎక్స్టెన్షన్స్‌ని తొలగించండి",
+  "developerOptionsSubtitle": "డీబగ్ టూల్స్ & లోకల్ ప్లే",
+  "loading": "లోడ్ అవుతోంది...",
+  "sec": "సెకను",
+  "min": "నిమిషం",
+  "internalPlayer": "అంతర్గత ప్లేయర్ (media_kit)",
+  "builtInPlayer": "బిల్ట్-ఇన్ ప్లేయర్",
+  "customNotSet": "కస్టమ్ (సెట్ చేయబడలేదు)",
+  "selectGesture": "{side} గెస్చర్‌ని ఎంచుకోండి",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "ఎడమ",
+  "right": "కుడి",
+  "selectSeekDuration": "సీక్ వ్యవధిని ఎంచుకోండి",
+  "selectBufferDepth": "బఫర్ లోతును ఎంచుకోండి",
+  "subtitleSettings": "సబ్‌టైటిల్ సెట్టింగ్‌లు",
+  "size": "పరిమాణం: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "నేపథ్యం (Background)",
+  "customDohUrlLabel": "కస్టమ్ DoH URL",
+  "enterCustomDohUrl": "మీ స్వంత DoH URLని నమోదు చేయండి",
+  "chooseTheme": "థీమ్‌ను ఎంచుకోండి",
+  "resetDataDialogTitle": "డేటాను రీసెట్ చేయాలా?",
+  "resetDataDialogContent": "దీనివల్ల సెట్టింగ్‌లు, ఫేవరెట్‌లు మరియు చరిత్ర క్లియర్ అవుతాయి. మీ ఇన్‌స్టాల్ చేసిన ఎక్స్టెన్షన్స్ తొలగించబడవు.",
+  "factoryResetDialogTitle": "ఫ్యాక్టరీ రీసెట్ చేయాలా?",
+  "factoryResetDialogContent": "దీనివల్ల అన్నీ తొలగించబడతాయి: ఫేవరెట్‌లు, చరిత్ర, సెట్టింగ్‌లు మరియు అన్ని ఎక్స్టెన్షన్స్. ఇది తిరిగి పొందలేరు.",
+  "selectLanguage": "భాషను ఎంచుకోండి",
+  "synopsis": "సారాంశం",
+  "noDescription": "వివరణ అందుబాటులో లేదు.",
+  "videoAlreadyDownloadedPrompt": "ఈ వీడియో ఇప్పటికే డౌన్‌లోడ్ చేయబడింది. మీరు ఏం చేయాలనుకుంటున్నారు?",
+  "playNow": "ఇప్పుడే ప్లే చేయండి",
+  "deleteDownloadPrompt": "డౌన్‌లోడ్‌ను తొలగించాలా?",
+  "deleteDownloadConfirmation": "మీరు ఖచ్చితంగా ఈ ఫైల్‌ను తొలగించాలనుకుంటున్నారా? ఇది తిరిగి పొందలేరు.",
+  "no": "వద్దు",
+  "yesDelete": "అవును, తొలగించు",
+  "downloadPaused": "డౌన్‌లోడ్ పాజ్ చేయబడింది",
+  "downloading": "డౌన్‌లోడ్ అవుతోంది",
+  "speed": "వేగం",
+  "remaining": "మిగిలి ఉంది",
+  "resume": "తిరిగి ప్రారంభించండి",
+  "pause": "పాజ్",
+  "torrentContent": "టొరెంట్ కంటెంట్",
+  "audioTracks": "ఆడియో ట్రాక్స్",
+  "noAudioTracks": "ఆడియో ట్రాక్స్ ఏమీ కనుగొనబడలేదు",
+  "subtitles": "సబ్‌టైటిల్స్",
+  "options": "ఎంపికలు",
+  "noSubtitlesFound": "సబ్‌టైటిల్ ట్రాక్స్ ఏమీ కనుగొనబడలేదు",
+  "playbackSpeed": "ప్లేబ్యాక్ వేగం",
+  "subtitleOptions": "సబ్‌టైటిల్ ఎంపికలు",
+  "hlsSubtitleWarning": "ఈ ప్లాట్‌ఫారమ్‌లో యాక్టివ్ HLS ప్లేయర్‌లో ఎక్స్టర్నల్ సబ్‌టైటిల్ ఫైల్‌లు సపోర్ట్ చేయబడవు.",
+  "loadFromDevice": "పరికరం నుండి లోడ్ చేయండి",
+  "syncDelay": "సింక్ / ఆలస్యం",
+  "styleSettings": "శైలి (Style) సెట్టింగ్‌లు",
+  "searchOnline": "ఆన్‌లైన్‌లో వెతకండి (సబ్‌టైటిల్ సెర్చ్)",
+  "subtitleSync": "సబ్‌టైటిల్ సింక్",
+  "subtitleDelayWarning": "యాక్టివ్ ప్లేబ్యాక్ ఇంజిన్ ద్వారా సబ్‌టైటిల్ ఆలస్యం సపోర్ట్ చేయబడదు.",
+  "resetDelay": "ఆలస్యాన్ని రీసెట్ చేయండి",
+  "subtitleStyles": "సబ్‌టైటిల్ స్టైల్స్",
+  "mediaKitStylingWarning": "సబ్‌టైటిల్ స్టైలింగ్ ప్రస్తుతం media_kit ప్లేయర్‌లో మాత్రమే అందుబాటులో ఉంది.",
+  "resetToDefault": "డిఫాల్ట్‌కు రీసెట్ చేయండి",
+  "fontSize": "ఫాంట్ పరిమాణం",
+  "verticalPosition": "నిలువు స్థానం",
+  "textColor": "టెక్స్ట్ రంగు",
+  "backgroundColor": "నేపథ్య రంగు",
+  "backgroundOpacity": "నేపథ్య అస్పష్టత",
+  "subtitleSearch": "సబ్‌టైటిల్ సెర్చ్",
+  "searchSubtitleNameHint": "సబ్‌టైటిల్ పేరు కోసం వెతకండి...",
+  "enterSearchSubtitlePrompt": "సబ్‌టైటిల్స్ కనుగొనడానికి ఒక పేరును ఇవ్వండి లేదా సెర్చ్ చేయండి.",
+  "noSubtitleResults": "ఫలితాలు లేవు. మరొకటి ప్రయత్నించండి.",
+  "downloadingApplyingSubtitle": "సబ్‌టైటిల్‌ను డౌన్‌లోడ్ చేసి అప్లై చేస్తున్నాము...",
+  "failedToDownloadSubtitle": "సబ్‌టైటిల్‌ను డౌన్‌లోడ్ చేయడం విఫలమైంది.",
+  "failedToLoadSubtitles": "సబ్‌టైటిల్స్ లోడ్ చేయడం విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+  "noReposFound": "రిపోజిటరీలు లేదా ప్లగిన్లు ఏమీ కనుగొనబడలేదు",
+  "downloadAllProviders": "అన్నీ డౌన్‌లోడ్ చేయండి",
+  "removeRepository": "రిపోజిటరీని తొలగించండి",
+  "addRepo": "రిపో (Repo) జోడించండి",
+  "extensionsNotInRepos": "రిపోజిటరీలలో లేని ఎక్స్టెన్షన్స్",
+  "noLongerInRepo": "ఇకపై ఏ రిపోజిటరీలోనూ జాబితా చేయబడలేదు",
+  "addRepoToBrowse": "ప్లగిన్లను బ్రౌజ్ చేయడానికి మరియు అప్‌డేట్ చేయడానికి ఒక రిపోజిటరీని జోడించండి",
+  "debugExtensions": "డీబగ్ ఎక్స్టెన్షన్స్",
+  "removeRepoConfirm": "{repoName}ని తొలగించాలా?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "ఇది రిపోజిటరీని తొలగిస్తుంది మరియు దానిలోని అన్ని ప్లగిన్లను అన్‌ఇన్‌స్టాల్ చేస్తుంది.",
+  "addRepository": "రిపోజిటరీని జోడించండి",
+  "repoUrlOrShortcode": "రిపోజిటరీ URL లేదా షార్ట్‌కోడ్",
+  "assetPlugin": "అసెట్ ప్లగిన్",
+  "installed": "ఇన్‌స్టాల్ చేయబడింది",
+  "updateTo": "{version}కి అప్‌డేట్ చేయండి",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "ఇన్‌స్టాల్ చేయండి",
+  "error": "లోపం",
+  "ok": "సరే",
+  "pluginSettings": "{pluginName} సెట్టింగ్‌లు",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "సినిమాలు",
+  "series": "సిరీస్‌లు",
+  "anime": "యానిమే",
+  "liveStreams": "లైవ్ స్ట్రీమ్స్",
+  "debug": "డీబగ్",
+  "extensionsUpdated": "{count, plural, =1{1 ఎక్స్టెన్షన్ అప్‌డేట్ చేయబడింది} other{{count} ఎక్స్టెన్షన్స్ అప్‌డేట్ చేయబడ్డాయి}}",
+  "invalidNavigation": "చెల్లని నావిగేషన్. దయచేసి వెనక్కి వెళ్ళండి.",
+  "startOver": "మళ్ళీ ప్రారంభించండి",
+  "goBack": "వెనక్కి",
+  "resolving": "పరిష్కరిస్తున్నాము...",
+  "downloaded": "డౌన్‌లోడ్ చేయబడింది",
+  "download": "డౌన్‌లోడ్",
+  "debugOnlyFeature": "ఈ ఫీచర్ కేవలం డీబగ్ బిల్డ్స్‌లో మాత్రమే అందుబాటులో ఉంటుంది",
+  "streamUrl": "స్ట్రీమ్ URL",
+  "play": "ప్లే చేయండి",
+  "verifyingSourceSize": "మూలం & పరిమాణాన్ని ధృవీకరిస్తున్నాము...",
+  "fileSaveLocationNotification": "ఫైల్ మీ డౌన్‌లోడ్స్ ఫోల్డర్‌లో సేవ్ చేయబడుతుంది.",
+  "resumingPlayback": "ప్లేబ్యాక్ తిరిగి ప్రారంభమవుతోంది",
+  "pausedAt": "{time} వద్ద పాజ్ చేయబడింది",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 సెకనులో ఆటోమేటిక్‌గా ప్రారంభమవుతుంది} other{{count} సెకన్లలో ఆటోమేటిక్‌గా ప్రారంభమవుతుంది}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "ఇప్పుడే ప్రారంభించు",
+  "playbackError": "ప్లేబ్యాక్ లోపం",
+  "confirmClearHistory": "మీరు ఖచ్చితంగా మీ చూసిన చరిత్ర నుండి అన్ని ఐటెమ్స్‌ను తొలగించాలనుకుంటున్నారా?",
+  "seasonWithNumber": "సీజన్ {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "ప్రారంభమవుతోంది...",
+  "percentWatched": "{percent}% చూశారు",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "డీబగ్ టూల్స్",
+  "playLocalVideo": "లోకల్ వీడియో ఫైల్‌ను ప్లే చేయండి",
+  "playLocalVideoSubtitle": "పరికరం నుండి ఏదైనా వీడియోను ప్లే చేయండి",
+  "streamUrlSubtitle": "నెట్‌వర్క్ URL నుండి ప్లే చేయండి",
+  "streamTorrent": "టొరెంట్‌ను స్ట్రీమ్ చేయండి",
+  "streamTorrentSubtitle": "ప్లే చేయడానికి లోకల్ టొరెంట్ ఫైల్‌ను ఎంచుకోండి",
+  "loadPluginFromAssets": "అసెట్స్ నుండి ప్లగిన్‌ని లోడ్ చేయండి",
+  "enterVideoUrlHint": "వీడియో URL నమోదు చేయండి (http, magnet, మొదలైనవి)",
+  "networkStream": "నెట్‌వర్క్ స్ట్రీమ్",
+  "removedFromHistory": "చరిత్ర నుండి {title} తొలగించబడింది",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "కస్టమ్",
+  "refreshingLiveStream": "లైవ్ స్ట్రీమ్‌ను రీఫ్రెష్ చేస్తున్నాము...",
+  "removeFromHistory": "చరిత్ర నుండి తొలగించండి",
+  "live": "లైవ్",
+  "volume": "వాల్యూమ్",
+  "brightness": "ప్రకాశం (Brightness)",
+  "fit": "ఫిట్ (Fit)",
+  "zoom": "జూమ్ (Zoom)",
+  "stretch": "స్ట్రెచ్ (Stretch)",
+  "titleWithParam": "శీర్షిక: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "మూలం: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "పరిమాణం: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "లోపం: {error}. అంతర్గత ప్లేయర్‌ను ఉపయోగిస్తున్నాము.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} కనుగొనబడలేదు. అంతర్గత ప్లేయర్‌ను ప్రారంభిస్తున్నాము.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "సీజన్ {number} ({count} ఎపిసోడ్‌లు)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} కోసం మూలాన్ని ఎంచుకోండి",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "ప్లగిన్లు ఏమీ ఇన్‌స్టాల్ చేయబడలేదు",
+  "availableSources": "అందుబాటులో ఉన్న మూలాలు",
+  "seasons": "సీజన్లు",
+  "episodes": "ఎపిసోడ్‌లు",
+  "selectSourceToPlay": "ప్లే చేయడానికి పైన ఉన్న 'అందుబాటులో ఉన్న మూలాలు' నుండి ఒక మూలాన్ని ఎంచుకోండి.",
+  "episodeCountOnly": "{count, plural, =1{1 ఎపిసోడ్} other{{count} ఎపిసోడ్‌లు}}",
+  "noEpisodesFound": "ఎపిసోడ్‌లు ఏమీ కనుగొనబడలేదు",
+  "local": "లోకల్",
+  "remote": "రిమోట్",
+  "torrent": "టొరెంట్",
+  "unlock": "అన్‌లాక్",
+  "lock": "లాక్",
+  "sources": "మూలాలు",
+  "tracks": "ట్రాక్స్",
+  "content": "కంటెంట్",
+  "stats": "గణాంకాలు",
+  "resize": "రీసైజ్",
+  "next": "తరువాత",
+  "pip": "PiP",
+  "rotate": "రొటేట్",
+  "windowed": "విండోడ్",
+  "fullscreen": "పూర్తి స్క్రీన్",
+  "movieDetails": "సినిమా వివరాలు",
+  "showDetails": "వివరాలను చూపించు",
+  "tagline": "ట్యాగ్‌లైన్",
+  "status": "స్థితి",
+  "releaseDate": "విడుదల తేదీ",
+  "firstAirDate": "మొదటి ప్రసార తేదీ",
+  "originalLanguage": "అసలు భాష",
+  "originCountry": "మూల దేశం",
+  "budgetLabel": "బడ్జెట్",
+  "revenueLabel": "ఆదాయం",
+  "paused": "పాజ్ చేయబడింది",
+  "watched": "చూసినవి",
+  "watching": "చూస్తున్నారు",
+  "lastWatched": "చివరగా చూసినవి",
+  "movie": "సినిమా",
+  "tvShow": "టీవీ షో",
+  "failedToLoadContent": "కంటెంట్‌ను లోడ్ చేయడంలో విఫలమైంది",
+  "director": "దర్శకుడు",
+  "creator": "సృష్టికర్త",
+  "showMore": "మరింత చూపించు",
+  "showLess": "తక్కువ చూపించు",
+  "viewAll": "అన్నీ చూడండి",
+  "seasonsCount": "{count} సీజన్లు",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "ఇంటర్నెట్ కనెక్షన్ లేదు",
+  "timeoutError": "అభ్యర్థన గడువు ముగిసింది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+  "serverError": "సర్వర్ లోపం. దయచేసి కాసేపు ఆగి ప్రయత్నించండి.",
+  "contentNotFoundError": "కంటెంట్ కనుగొనబడలేదు.",
+  "accessDeniedError": "యాక్సెస్ నిరాకరించబడింది.",
+  "serviceUnavailableError": "సర్వర్ అందుబాటులో లేదు.",
+  "generalError": "ఏదో లోపం జరిగింది.",
+  "skip": "దాటవేయి",
+  "goLive": "లైవ్ వెళ్ళండి",
+  "dismiss": "తిరస్కరించు",
+  "nextUp": "తరువాత వచ్చేది",
+  "sourceAttempt": "{total}లో {index}వ మూలం",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "ప్రయత్నిస్తున్నాము",
+  "failed": "విఫలమైంది",
+  "selected": "ఎంచుకోబడింది",
+  "playing": "ప్లే అవుతోంది",
+  "pending": "పెండింగ్‌లో ఉంది",
+  "discord": "Discord",
+  "discordSubtitle": "మా సర్వర్‌లో చేరండి",
+  "telegram": "Telegram",
+  "telegramSubtitle": "మా ఛానెల్‌లో చేరండి",
+  "developedBy": "{name} అభివృద్ధి చేశారు",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi నాణ్యత ప్రాధాన్యత",
+  "mobileQualityPreference": "మొబైల్ నాణ్యత ప్రాధాన్యత",
+  "anyNoPreference": "ఎటువంటి ప్రాధాನ್ಯత లేదు",
+  "subtitleAccounts": "సబ్‌టైటిల్ ఖాతాలు",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "కనెక్షన్‌ని పరీక్షించండి",
+  "connectedSuccessfully": "విజయవంతంగా కనెక్ట్ అయింది",
+  "connectionFailed": "కనెక్షన్ విఫలమైంది",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API కీ",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "డయాగ్నోస్టిక్స్",
+  "viewLogs": "లాగ్‌లను చూడండి",
+  "viewLogsSubtitle": "అప్లి케షన్ కార్యకలాపాలు మరియు లోపాలను చూడండి",
+  "goToExtensions": "పొడిగింపులకు వెళ్ళండి",
+  "noPluginsMessage": "కంటెంట్‌ను బ్రౌజ్ చేయడానికి మరియు స్ట్రీమ్ చేయడానికి పొడిగింపులను ఇన్‌స్టాల్ చేయండి."
+}

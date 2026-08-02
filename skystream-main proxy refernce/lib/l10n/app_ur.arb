@@ -1,0 +1,589 @@
+{
+  "@@locale": "ur",
+  "appTitle": "SkyStream",
+  "languageName": "اردو",
+  "home": "ہوم",
+  "search": "تلاش",
+  "explore": "دریافت کریں",
+  "library": "لائبریری",
+  "settings": "ترتیبات",
+  "extensions": "ایکٹینشنز",
+  "updateAvailable": "اپ ڈیٹ دستیاب ہے",
+  "retry": "دوبارہ کوشش کریں",
+  "factoryReset": "فیکٹری ری سیٹ",
+  "startupError": "اسٹارٹ اپ کی خرابی",
+  "general": "عمومی",
+  "appTheme": "ایپ تھیم",
+  "recordWatchHistory": "دیکھنے کی تاریخ ریکارڈ کریں",
+  "defaultHomeScreen": "ڈیفالٹ ہوم اسکرین",
+  "player": "پلیئر",
+  "defaultPlayer": "ڈیفالٹ پلیئر",
+  "leftGesture": "بایاں اشارہ",
+  "rightGesture": "دایاں اشارہ",
+  "doubleTapToSeek": "تلاش کرنے کے لئے دو بار تھپتھپائیں",
+  "swipeToSeek": "تلاش کرنے کے لئے سوائپ کریں",
+  "seekDuration": "تلاش کا دورانیہ",
+  "bufferDepth": "بفر گہرائی",
+  "defaultResizeMode": "ڈیفالٹ ری سائز موڈ",
+  "hardwareDecoding": "ہارڈ ویئر ڈی کوڈنگ",
+  "network": "نیٹ ورک",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH فراہم کنندہ",
+  "manageExtensions": "ایکٹینشنز کا انتظام کریں",
+  "appData": "ایپ ڈیٹا",
+  "resetDataKeepExtensions": "ڈیٹا ری سیٹ کریں (ایکٹینشنز رکھیں)",
+  "developer": "ڈویلپر",
+  "developerOptions": "ڈیولپر کے اختیارات",
+  "about": "ایپ کے بارے میں",
+  "version": "ورژن",
+  "enabled": "فعال",
+  "disabled": "غیر فعال",
+  "system": "سسٹم",
+  "dark": "ڈارک",
+  "light": "لائٹ",
+  "later": "بعد میں",
+  "updateNow": "ابھی اپ ڈیٹ کریں",
+  "save": "محفوظ کریں",
+  "cancel": "منسوخ کریں",
+  "close": "بند کریں",
+  "delete": "ختم کریں",
+  "viewDetails": "تفصیلات دیکھیں",
+  "clearAll": "سب صاف کریں",
+  "clearAllHistory": "تمام تاریخ صاف کریں",
+  "all": "سب",
+  "none": "کوئی نہیں",
+  "confirmDownload": "ڈاؤن لوڈ کی تصدیق کریں",
+  "downloadNow": "ابھی ڈاؤن لوڈ کریں",
+  "selectSource": "ذریعہ منتخب کریں",
+  "downloadUnavailable": "ڈاؤن لوڈ دستیاب نہیں ہے",
+  "selectAnotherSource": "دوسرا ذریعہ منتخب کریں",
+  "watchHistoryCleared": "دیکھنے کی تاریخ صاف کر دی گئی",
+  "downloadingUpdate": "اپ ڈیٹ ڈاؤن لوڈ ہو رہا ہے...",
+  "errorPrefix": "خرابی: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "اپ ڈیٹ دستیاب ہے: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "دیکھنا شروع کرنے کے لئے ایک فراہم کنندہ منتخب کریں",
+  "tapExtensionIcon": "کونے میں ایکٹینشن آئیکن پر تھپتھپائیں",
+  "continueWatching": "دیکھنا جاری رکھیں",
+  "noInternetConnection": "انٹرنیٹ کنکشن نہیں ہے",
+  "siteNotReachable": "سائٹ تک رسائی ممکن نہیں ہے",
+  "checkConnectionOrDownloads": "اپنے کنکشن کی جانچ کریں یا اپنا ڈاؤن لوڈ کردہ مواد دیکھیں۔",
+  "tryVpnOrConnection": "براہ کرم VPN کے ساتھ سائٹ تک رسائی کی کوشش کریں یا اپنا انٹرنیٹ کنکشن چیک کریں۔",
+  "errorDetails": "خرابی کی تفصیلات: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "ڈاؤن لوڈز پر جائیں",
+  "selectProvider": "فراہم کنندہ منتخب کریں",
+  "searchHint": "فلمیں، سیریز تلاش کریں...",
+  "searchFavoriteContent": "اپنا پسندیدہ مواد تلاش کریں",
+  "pressSearchOrEnter": "شروع کرنے کے لئے تلاش کی کلید یا انٹر دبائیں",
+  "noResultsFound": "کوئی نتیجہ نہیں ملا۔",
+  "couldNotLoadTrending": "ٹرینڈنگ آئٹمز لوڈ نہیں ہوسکے",
+  "popularMovies": "مشہور فلمیں",
+  "popularTVShows": "مشہور ٹی وی شوز",
+  "newMovies": "نئی فلمیں",
+  "newTVShows": "نئے ٹی وی شوز",
+  "featuredMovies": "نمایاں فلمیں",
+  "featuredTVShows": "نمایاں ٹی وی شوز",
+  "lastVideosTVShows": "آخری ویڈیوز ٹی وی شوز",
+  "downloads": "ڈاؤن لوڈز",
+  "bookmarks": "بک مارکس",
+  "noDownloadsYet": "ابھی تک کوئی ڈاؤن لوڈ نہیں ہے",
+  "episodesCount": "{count} قسطیں • {done} مکمل",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "تمام قسطیں ختم کریں",
+  "confirmDeleteAllEpisodes": "کیا آپ واقعی \"{title}\" کی تمام {count} قسطیں اور ان کی فائلیں ختم کرنا چاہتے ہیں؟",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "سب ختم کریں",
+  "completed": "مکمل ہو گیا",
+  "statusQueued": "قطار میں ہے...",
+  "statusDownloading": "ڈاؤن لوڈ ہو رہا ہے...",
+  "statusFinished": "ختم ہو گیا",
+  "statusFailed": "ناکام رہا",
+  "statusCanceled": "منسوخ کر دیا گیا",
+  "statusPaused": "روک دیا گیا",
+  "statusWaiting": "انتظار ہو رہا ہے...",
+  "fileNotFoundRemoving": "ڈسک پر فائل نہیں ملی۔ ریکارڈ ہٹایا جا رہا ہے۔",
+  "fileNotFound": "فائل نہیں ملی",
+  "deleteDownload": "ڈاؤن لوڈ ختم کریں",
+  "confirmDeleteDownload": "کیا آپ واقعی اس ڈاؤن لوڈ اور اس کی فائل کو ختم کرنا چاہتے ہیں؟",
+  "libraryEmpty": "آپ کی لائبریری خالی ہے",
+  "language": "زبان",
+  "english": "انگریزی",
+  "hindi": "ہندی",
+  "kannada": "کنڑ",
+  "unknown": "نامعلوم",
+  "recommended": "تجویز کردہ",
+  "on": "آن",
+  "off": "آف",
+  "installRemoveProviders": "فراہم کنندگان کو انسٹال یا ہٹائیں",
+  "resetDataSubtitle": "ترتیبات اور ڈیٹا بیس صاف کریں، پلگ ان رکھیں",
+  "factoryResetSubtitle": "تمام ڈیٹا، ترتیبات، اور ایکٹینشنز ختم کریں",
+  "developerOptionsSubtitle": "ڈی بگ ٹولز اور لوکل پلے",
+  "loading": "لوڈ ہو رہا ہے...",
+  "sec": "سیکنڈ",
+  "min": "منٹ",
+  "internalPlayer": "اندرونی (media_kit)",
+  "builtInPlayer": "بلٹ ان پلیئر",
+  "customNotSet": "کسٹم (سیٹ نہیں ہے)",
+  "selectGesture": "{side} اشارہ منتخب کریں",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "بایاں",
+  "right": "دایاں",
+  "selectSeekDuration": "تلاش کا دورانیہ منتخب کریں",
+  "selectBufferDepth": "بفر گہرائی منتخب کریں",
+  "subtitleSettings": "سب ٹائٹل ترتیبات",
+  "size": "سائز: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "پس منظر",
+  "customDohUrlLabel": "کسٹم DoH URL",
+  "enterCustomDohUrl": "اپنا DoH URL درج کریں",
+  "chooseTheme": "تھیم منتخب کریں",
+  "resetDataDialogTitle": "ڈیٹا ری سیٹ کریں؟",
+  "resetDataDialogContent": "اس سے ترتیبات، فیورٹ، اور تاریخ صاف ہو جائے گی۔ آپ کی انسٹال کردہ ایکٹینشنز ختم نہیں ہوں گی۔",
+  "factoryResetDialogTitle": "فیکٹری ری سیٹ؟",
+  "factoryResetDialogContent": "اس سے سب کچھ ختم ہو جائے گا: فیورٹ، تاریخ، ترتیبات، اور تمام ایکٹینشنز۔ اسے واپس نہیں لایا جا سکتا۔",
+  "selectLanguage": "زبان منتخب کریں",
+  "synopsis": "خلاصہ",
+  "noDescription": "کوئی تفصیل دستیاب نہیں ہے۔",
+  "videoAlreadyDownloadedPrompt": "یہ ویڈیو پہلے ہی ڈاؤن لوڈ ہو چکی ہے۔ آپ کیا کرنا چاہیں گے؟",
+  "playNow": "ابھی چلائیں",
+  "deleteDownloadPrompt": "ڈاؤن لوڈ ختم کریں؟",
+  "deleteDownloadConfirmation": "کیا آپ واقعی اس فائل کو ختم کرنا چاہتے ہیں؟ اسے واپس نہیں لایا جا سکتا۔",
+  "no": "نہیں",
+  "yesDelete": "جی ہاں، ختم کریں",
+  "downloadPaused": "ڈاؤن لوڈ روک دیا گیا",
+  "downloading": "ڈاؤن لوڈ ہو رہا ہے",
+  "speed": "رفتار",
+  "remaining": "باقی",
+  "resume": "دوبارہ شروع کریں",
+  "pause": "روکیں",
+  "torrentContent": "ٹورینٹ مواد",
+  "audioTracks": "آڈیو ٹریکس",
+  "noAudioTracks": "کوئی آڈیو ٹریک نہیں ملا",
+  "subtitles": "سب ٹائٹلز",
+  "options": "اختیارات",
+  "noSubtitlesFound": "کوئی سب ٹائٹل ٹریک نہیں ملا",
+  "playbackSpeed": "پلے بیک کی رفتار",
+  "subtitleOptions": "سب ٹائٹل کے اختیارات",
+  "hlsSubtitleWarning": "اس پلیٹ فارم پر ایکٹو HLS پلیئر پر بیرونی سب ٹائٹل فائلیں سپورٹ نہیں کی جاتی ہیں۔",
+  "loadFromDevice": "ڈیوائس سے لوڈ کریں",
+  "syncDelay": "سنک / تاخیر",
+  "styleSettings": "اسٹائل ترتیبات",
+  "searchOnline": "آن لائن تلاش کریں (سب ٹائٹل تلاش)",
+  "subtitleSync": "سب ٹائٹل سنک",
+  "subtitleDelayWarning": "سب ٹائٹل کی تاخیر موجودہ پلے بیک انجن کے ذریعے سپورٹ نہیں کی جاتی ہے۔",
+  "resetDelay": "تاخیر ری سیٹ کریں",
+  "subtitleStyles": "سب ٹائٹل اسٹائلز",
+  "mediaKitStylingWarning": "سب ٹائٹل اسٹائلنگ اس وقت صرف media_kit پلیئر پر دستیاب ہے۔",
+  "resetToDefault": "ڈیفالٹ پر ری سیٹ کریں",
+  "fontSize": "فونٹ سائز",
+  "verticalPosition": "عمودی پوزیشن",
+  "textColor": "ٹیکسٹ کا رنگ",
+  "backgroundColor": "پس منظر کا رنگ",
+  "backgroundOpacity": "پس منظر کی دھندلاہٹ",
+  "subtitleSearch": "سب ٹائٹل تلاش",
+  "searchSubtitleNameHint": "سب ٹائٹل کا نام تلاش کریں...",
+  "enterSearchSubtitlePrompt": "سب ٹائٹلز تلاش کرنے کے لئے نام درج کریں یا تلاش کریں۔",
+  "noSubtitleResults": "کوئی نتیجہ نہیں ملا۔ دوسری کوئری آزمائیں۔",
+  "downloadingApplyingSubtitle": "سب ٹائٹل ڈاؤن لوڈ اور اپلائی کیا جا رہا ہے...",
+  "failedToDownloadSubtitle": "سب ٹائٹل ڈاؤن لوڈ کرنے میں ناکام رہا۔",
+  "failedToLoadSubtitles": "سب ٹائٹلز لوڈ کرنے میں ناکام رہا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "noReposFound": "کوئی ریپوزٹریز یا پلگ ان نہیں ملے",
+  "downloadAllProviders": "سب ڈاؤن لوڈ کریں",
+  "removeRepository": "ریپوزٹری ہٹائیں",
+  "addRepo": "ریپو شامل کریں",
+  "extensionsNotInRepos": "ریپوزٹریز میں نہیں ایکٹینشنز",
+  "noLongerInRepo": "اب کسی بھی ریپوزٹری میں درج نہیں ہے",
+  "addRepoToBrowse": "پلگ انز براؤز کرنے اور اپ ڈیٹ کرنے کے لئے ایک ریپوزٹری شامل کریں",
+  "debugExtensions": "ڈی بگ ایکٹینشنز",
+  "removeRepoConfirm": "{repoName} ہٹائیں؟",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "اس سے ریپوزٹری ہٹ جائے گی اور اس کے تمام پلگ انز ان انسٹال ہو جائیں گے۔",
+  "addRepository": "ریپوزٹری شامل کریں",
+  "repoUrlOrShortcode": "ریپوزٹری URL یا شارٹ کوڈ",
+  "assetPlugin": "ایسٹ پلگ ان",
+  "installed": "انسٹال شدہ",
+  "updateTo": "{version} پر اپ ڈیٹ کریں",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "انسٹال کریں",
+  "error": "خرابی",
+  "ok": "ٹھیک ہے",
+  "pluginSettings": "{pluginName} ترتیبات",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "فلمیں",
+  "series": "سیریز",
+  "anime": "اینیمی",
+  "liveStreams": "لائیو اسٹریمز",
+  "debug": "ڈی بگ",
+  "extensionsUpdated": "{count, plural, =1{1 ایکٹینشن اپ ڈیٹ ہو گئی} other{{count} ایکٹینشنز اپ ڈیٹ ہوگئیں}}",
+  "invalidNavigation": "غلط نیویگیشن۔ براہ کرم پیچھے جائیں۔",
+  "startOver": "دوبارہ شروع کریں",
+  "goBack": "پیچھے جائیں",
+  "resolving": "حل کیا جا رہا ہے...",
+  "downloaded": "ڈاؤن لوڈ ہو گیا",
+  "download": "ڈاؤن لوڈ",
+  "debugOnlyFeature": "یہ فیچر صرف ڈی بگ بلڈز میں دستیاب ہے",
+  "streamUrl": "اسٹریم URL",
+  "play": "چلائیں",
+  "verifyingSourceSize": "ذریعہ اور سائز کی تصدیق کی جا رہی ہے...",
+  "fileSaveLocationNotification": "فائل آپ کے ڈاؤن لوڈز فولڈر میں محفوظ ہو جائے گی۔",
+  "resumingPlayback": "پلے بیک دوبارہ شروع ہو رہا ہے",
+  "pausedAt": "{time} پر روکا گیا",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 سیکنڈ میں خود بخود دوبارہ شروع ہو جائے گا} other{{count} سیکنڈ میں خود بخود دوبارہ شروع ہو جائے گا}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "ابھی دوبارہ شروع کریں",
+  "playbackError": "پلے بیک کی خرابی",
+  "confirmClearHistory": "کیا آپ واقعی اپنی دیکھنے کی تاریخ سے تمام آئٹمز ہٹانا چاہتے ہیں؟",
+  "seasonWithNumber": "سیزن {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "شروع ہو رہا ہے...",
+  "percentWatched": "{percent}% دیکھا گیا",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "سب",
+  "dub": "ڈب",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "ڈی بگ ٹولز",
+  "playLocalVideo": "مقامی ویڈیو فائل چلائیں",
+  "playLocalVideoSubtitle": "ڈیوائس سے کوئی بھی ویڈیو چلائیں",
+  "streamUrlSubtitle": "نیٹ ورک URL سے چلائیں",
+  "streamTorrent": "ٹورینٹ اسٹریم کریں",
+  "streamTorrentSubtitle": "چلانے کے لئے مقامی ٹورینٹ فائل منتخب کریں",
+  "loadPluginFromAssets": "ایسٹس سے پلگ ان لوڈ کریں",
+  "enterVideoUrlHint": "ویڈیو URL درج کریں (http, magnet وغیرہ)",
+  "networkStream": "نیٹ ورک اسٹریم",
+  "removedFromHistory": "تاریخ سے {title} ہٹا دیا گیا",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "کسٹم",
+  "refreshingLiveStream": "لائیو اسٹریم کو تازہ کیا جا رہا ہے...",
+  "removeFromHistory": "تاریخ سے ہٹائیں",
+  "live": "لائیو",
+  "volume": "والیم",
+  "brightness": "رائٹنس",
+  "fit": "فٹ",
+  "zoom": "زوم",
+  "stretch": "اسٹریچ",
+  "titleWithParam": "عنوان: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "ذریعہ: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "سائز: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "خرابی: {error}۔ اندرونی پلیئر استعمال کیا جا رہا ہے۔",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} کا پتہ نہیں چلا۔ اندرونی پلیئر شروع ہو رہا ہے۔",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "سیزن {number} ({count} قسطیں)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName} کے لئے ذریعہ منتخب کریں",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "کوئی پلگ ان انسٹال نہیں ہے",
+  "availableSources": "دستیاب ذرائع",
+  "seasons": "سیزن",
+  "episodes": "قسطیں",
+  "selectSourceToPlay": "برائے مہربانی چلانے کے لئے اوپر 'دستیاب ذرائع' سے ایک ذریعہ منتخب کریں۔",
+  "episodeCountOnly": "{count, plural, =1{1 قسط} other{{count} قسطیں}}",
+  "noEpisodesFound": "کوئی قسط نہیں ملی",
+  "local": "مقامی",
+  "remote": "ریموٹ",
+  "torrent": "ٹورینٹ",
+  "unlock": "انلاک",
+  "lock": "لاک",
+  "sources": "ذرائع",
+  "tracks": "ٹریکس",
+  "content": "مواد",
+  "stats": "اعداد و شمار",
+  "resize": "ری سائز",
+  "next": "اگلا",
+  "pip": "PiP",
+  "rotate": "روٹیٹ",
+  "windowed": "ونڈوڈ",
+  "fullscreen": "فل اسکرین",
+  "movieDetails": "فلم کی تفصیلات",
+  "showDetails": "تفصیلات دکھائیں",
+  "tagline": "ٹیگ لائن",
+  "status": "اسٹیٹس",
+  "releaseDate": "تاریخ اجرا",
+  "firstAirDate": "پہلی نشریات کی تاریخ",
+  "originalLanguage": "اصل زبان",
+  "originCountry": "اصل ملک",
+  "budgetLabel": "بجٹ",
+  "revenueLabel": "آمدنی",
+  "paused": "روکا ہوا ہے",
+  "watched": "دیکھا گیا",
+  "watching": "دیکھ رہے ہیں",
+  "lastWatched": "آخری بار دیکھا گیا",
+  "movie": "فلم",
+  "tvShow": "ٹی وی شو",
+  "failedToLoadContent": "مواد لوڈ کرنے میں ناکام رہا",
+  "director": "ڈائریکٹر",
+  "creator": "تخلیق کار",
+  "showMore": "مزید دکھائیں",
+  "showLess": "کم دکھائیں",
+  "viewAll": "سب دیکھیں",
+  "seasonsCount": "{count, plural, =1{1 سیزن} other{{count} سیزن}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "انٹرنیٹ کنکشن نہیں ہے",
+  "timeoutError": "درخواست کا وقت ختم ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "serverError": "سرور کی خرابی۔ براہ کرم بعد میں دوبارہ کوشش کریں۔",
+  "contentNotFoundError": "مواد نہیں ملا۔",
+  "accessDeniedError": "رسائی سے انکار کردیا گیا۔ اپنے اسناد چیک کریں۔",
+  "serviceUnavailableError": "سرور دستیاب نہیں ہے۔ دوبارہ کوشش کریں۔",
+  "generalError": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "skip": "اسکپ",
+  "goLive": "لائیو جائیں",
+  "dismiss": "خارج کریں",
+  "nextUp": "اگلا",
+  "sourceAttempt": "{total} میں سے ذریعہ {index}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "کوشش جاری ہے",
+  "failed": "ناکام رہا",
+  "selected": "منتخب شدہ",
+  "playing": "چل رہا ہے",
+  "pending": "زیر التواء",
+  "discord": "Discord",
+  "discordSubtitle": "ہمارے سرور میں شامل ہوں",
+  "telegram": "Telegram",
+  "telegramSubtitle": "ہمارے چینل میں شامل ہوں",
+  "developedBy": "{name} نے تیار کیا",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "وائی فائی معیار کی ترجیح",
+  "mobileQualityPreference": "موبائل ڈیٹا معیار کی ترجیح",
+  "anyNoPreference": "کوئی بھی (کوئی ترجیح نہیں)",
+  "subtitleAccounts": "سب ٹائٹل اکاؤنٹس",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "کنکشن ٹیسٹ کریں",
+  "connectedSuccessfully": "کامیابی سے منسلک ہو گیا",
+  "connectionFailed": "کنکشن ناکام رہا",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API کلید",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "تشخیص",
+  "viewLogs": "لاگز دیکھیں",
+  "viewLogsSubtitle": "ایپلیکیشن کی سرگرمی اور غلطیاں دیکھیں",
+  "goToExtensions": "ایکسٹینشنز پر جائیں",
+  "noPluginsMessage": "مواد کو براؤز اور اسٹریم کرنے کے لیے ایکسٹینشنز انسٹال کریں۔"
+}

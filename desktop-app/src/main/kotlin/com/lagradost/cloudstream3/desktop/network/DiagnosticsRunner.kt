@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.utils.ExtractorApi
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -161,13 +162,17 @@ object DiagnosticsRunner {
 
             for (api in metaApis) {
                 val result = runTest("Provider: ${api.name}") {
-                    val searchResults = withTimeoutOrNull(TIMEOUT_MS) {
-                        try {
-                            api.search("test")
-                        } catch (e: Throwable) {
-                            null
-                        }
+                    val searchResult = SafePluginInvoker.invoke(
+                        tag = "Diagnostics:${api.name}",
+                        providerName = api.name,
+                        timeoutMs = TIMEOUT_MS,
+                    ) {
+                        api.search("test")
                     }
+                    if (searchResult.isFailure) {
+                        throw (searchResult.exceptionOrNull() ?: Exception("Provider test failed"))
+                    }
+                    val searchResults = searchResult.getOrNull()
                     val count = searchResults?.size ?: 0
                     if (searchResults == null) throw Exception("Returned null / timed out")
                     if (count == 0) throw Exception("Search returned 0 results")

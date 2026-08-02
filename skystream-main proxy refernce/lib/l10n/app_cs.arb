@@ -1,0 +1,589 @@
+{
+  "@@locale": "cs",
+  "appTitle": "SkyStream",
+  "languageName": "Čeština",
+  "home": "Domů",
+  "search": "Hledat",
+  "explore": "Prozkoumat",
+  "library": "Knihovna",
+  "settings": "Nastavení",
+  "extensions": "Rozšíření",
+  "updateAvailable": "Dostupná aktualizace",
+  "retry": "Zkusit znovu",
+  "factoryReset": "Tovární nastavení",
+  "startupError": "Chyba při spuštění",
+  "general": "Obecné",
+  "appTheme": "Motiv aplikace",
+  "recordWatchHistory": "Zaznamenávat historii sledování",
+  "defaultHomeScreen": "Výchozí domovská obrazovka",
+  "player": "Přehrávač",
+  "defaultPlayer": "Výchozí přehrávač",
+  "leftGesture": "Levé gesto",
+  "rightGesture": "Pravé gesto",
+  "doubleTapToSeek": "Poklepáním posunout",
+  "swipeToSeek": "Přejetím posunout",
+  "seekDuration": "Délka posunu",
+  "bufferDepth": "Hloubka vyrovnávací paměti",
+  "defaultResizeMode": "Výchozí režim velikosti",
+  "hardwareDecoding": "Hardwarové dekódování",
+  "network": "Síť",
+  "dnsOverHttps": "DNS přes HTTPS",
+  "dohProvider": "Poskytovatel DoH",
+  "manageExtensions": "Spravovat rozšíření",
+  "appData": "Data aplikace",
+  "resetDataKeepExtensions": "Resetovat data (ponechat rozšíření)",
+  "developer": "Vývojář",
+  "developerOptions": "Možnosti pro vývojáře",
+  "about": "O aplikaci",
+  "version": "Verze",
+  "enabled": "Povoleno",
+  "disabled": "Zakázáno",
+  "system": "Systém",
+  "dark": "Tmavý",
+  "light": "Světlý",
+  "later": "Později",
+  "updateNow": "Aktualizovat nyní",
+  "save": "Uložit",
+  "cancel": "Zrušit",
+  "close": "Zavřít",
+  "delete": "Smazat",
+  "viewDetails": "Zobrazit podrobnosti",
+  "clearAll": "Vymazat vše",
+  "clearAllHistory": "Vymazat historii",
+  "all": "Vše",
+  "none": "Nic",
+  "confirmDownload": "Potvrdit stahování",
+  "downloadNow": "Stáhnout nyní",
+  "selectSource": "Vybrat zdroj",
+  "downloadUnavailable": "Nedostupné",
+  "selectAnotherSource": "Vybrat jiný zdroj",
+  "watchHistoryCleared": "Historie sledování byla vymazána",
+  "downloadingUpdate": "Stahování aktualizace...",
+  "errorPrefix": "Chyba: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Dostupná aktualizace: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Vyberte poskytovatele a začněte",
+  "tapExtensionIcon": "Klepněte na ikonu rozšíření v rohu",
+  "continueWatching": "Pokračovat ve sledování",
+  "noInternetConnection": "Žádné připojení k internetu",
+  "siteNotReachable": "Stránka není dostupná",
+  "checkConnectionOrDownloads": "Zkontrolujte připojení nebo své stažené soubory.",
+  "tryVpnOrConnection": "Zkuste VPN nebo zkontrolujte připojení.",
+  "errorDetails": "Podrobnosti o chybě: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Přejít ke stahování",
+  "selectProvider": "Vybrat poskytovatele",
+  "searchHint": "Hledat filmy, seriály...",
+  "searchFavoriteContent": "Hledejte svůj oblíbený obsah",
+  "pressSearchOrEnter": "Začněte stisknutím klávesy Hledat nebo Enter",
+  "noResultsFound": "Nebyly nalezeny žádné výsledky.",
+  "couldNotLoadTrending": "Nepodařilo se načíst trendy",
+  "popularMovies": "Populární filmy",
+  "popularTVShows": "Populární seriály",
+  "newMovies": "Nové filmy",
+  "newTVShows": "Nové seriály",
+  "featuredMovies": "Doporučené filmy",
+  "featuredTVShows": "Doporučené seriály",
+  "lastVideosTVShows": "Poslední videa",
+  "downloads": "Stahování",
+  "bookmarks": "Záložky",
+  "noDownloadsYet": "Zatím žádná stažení",
+  "episodesCount": "{count} epizod • {done} dokončeno",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Smazat všechny epizody",
+  "confirmDeleteAllEpisodes": "Opravdu chcete smazat všech {count} epizod balíčku \"{title}\" a jejich soubory?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Smazat vše",
+  "completed": "Dokončeno",
+  "statusQueued": "Ve frontě...",
+  "statusDownloading": "Stahování...",
+  "statusFinished": "Dokončeno",
+  "statusFailed": "Selhalo",
+  "statusCanceled": "Zrušeno",
+  "statusPaused": "Pozastaveno",
+  "statusWaiting": "Čekání...",
+  "fileNotFoundRemoving": "Soubor nebyl nalezen. Odstranění záznamu.",
+  "fileNotFound": "Soubor nebyl nalezen",
+  "deleteDownload": "Smazat stažení",
+  "confirmDeleteDownload": "Opravdu chcete smazat toto stažení?",
+  "libraryEmpty": "Vaše knihovna je prázdná",
+  "language": "Jazyk",
+  "english": "Angličtina",
+  "hindi": "Hindština",
+  "kannada": "Kannadština",
+  "unknown": "Neznámý",
+  "recommended": "Doporučeno",
+  "on": "Zap",
+  "off": "Vyp",
+  "installRemoveProviders": "Instalovat/odebrat poskytovatele",
+  "resetDataSubtitle": "Vymazat nastavení a DB, ponechat pluginy",
+  "factoryResetSubtitle": "Smazat všechna data, nastavení a rozšíření",
+  "developerOptionsSubtitle": "Nástroje pro ladění a lokální přehrávání",
+  "loading": "Načítání...",
+  "sec": "s",
+  "min": "min",
+  "internalPlayer": "Interní (media_kit)",
+  "builtInPlayer": "Vestavěný přehrávač",
+  "customNotSet": "Vlastní (nenastaveno)",
+  "selectGesture": "Vybrat {side} gesto",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "levé",
+  "right": "pravé",
+  "selectSeekDuration": "Vybrat délku posunu",
+  "selectBufferDepth": "Vybrat hloubku vyrovnávací paměti",
+  "subtitleSettings": "Nastavení titulků",
+  "size": "Velikost: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Pozadí",
+  "customDohUrlLabel": "Vlastní DoH URL",
+  "enterCustomDohUrl": "Zadejte vlastní DoH URL",
+  "chooseTheme": "Vybrat motiv",
+  "resetDataDialogTitle": "Resetovat data?",
+  "resetDataDialogContent": "Toto vymaže Nastavení, Oblíbené a Historii. Nainstalovaná rozšíření zůstanou.",
+  "factoryResetDialogTitle": "Tovární nastavení?",
+  "factoryResetDialogContent": "Toto smaže VŠE. Tuto akci nelze vrátit zpět.",
+  "selectLanguage": "Vybrat jazyk",
+  "synopsis": "Synopse",
+  "noDescription": "Popis není k dispozici.",
+  "videoAlreadyDownloadedPrompt": "Toto video je již staženo. Co chcete udělat?",
+  "playNow": "Přehrát nyní",
+  "deleteDownloadPrompt": "Smazat stažení?",
+  "deleteDownloadConfirmation": "Opravdu chcete odstranit tento soubor? Akci nelze vrátit zpět.",
+  "no": "Ne",
+  "yesDelete": "Ano, smazat",
+  "downloadPaused": "Stahování pozastaveno",
+  "downloading": "Stahování",
+  "speed": "Rychlost",
+  "remaining": "Zbývá",
+  "resume": "Obnovit",
+  "pause": "Pozastavit",
+  "torrentContent": "Obsah torrentu",
+  "audioTracks": "Zvukové stopy",
+  "noAudioTracks": "Nenalezeny žádné zvukové stopy",
+  "subtitles": "Titulky",
+  "options": "Možnosti",
+  "noSubtitlesFound": "Nenalezeny žádné titulky",
+  "playbackSpeed": "Rychlost přehrávání",
+  "subtitleOptions": "Možnosti titulků",
+  "hlsSubtitleWarning": "Externí titulky nejsou na této platformě s HLS podporovány.",
+  "loadFromDevice": "Načíst ze zařízení",
+  "syncDelay": "Synchronizace / Zpoždění",
+  "styleSettings": "Nastavení stylu",
+  "searchOnline": "Hledat online",
+  "subtitleSync": "Synchronizace titulků",
+  "subtitleDelayWarning": "Zpoždění titulků není aktuálním přehrávačem podporováno.",
+  "resetDelay": "Resetovat zpoždění",
+  "subtitleStyles": "Styly titulků",
+  "mediaKitStylingWarning": "Stylování titulků je zatím dostupné pouze pro media_kit.",
+  "resetToDefault": "Obnovit výchozí",
+  "fontSize": "Velikost písma",
+  "verticalPosition": "Vertikální poloha",
+  "textColor": "Barva textu",
+  "backgroundColor": "Barva pozadí",
+  "backgroundOpacity": "Průhlednost pozadí",
+  "subtitleSearch": "Hledání titulků",
+  "searchSubtitleNameHint": "Název titulků...",
+  "enterSearchSubtitlePrompt": "Zadejte název pro vyhledání titulků.",
+  "noSubtitleResults": "Žádné výsledky.",
+  "downloadingApplyingSubtitle": "Stahování a aplikace titulků...",
+  "failedToDownloadSubtitle": "Nepodařilo se stáhnout titulky.",
+  "failedToLoadSubtitles": "Nepodařilo se načíst titulky. Zkuste to znovu.",
+  "noReposFound": "Nebyla nalezena žádná úložiště",
+  "downloadAllProviders": "Stáhnout vše",
+  "removeRepository": "Odstranit úložiště",
+  "addRepo": "Přidat úložiště",
+  "extensionsNotInRepos": "Rozšíření mimo úložiště",
+  "noLongerInRepo": "Již není v seznamu úložišť",
+  "addRepoToBrowse": "Přidejte úložiště pro procházení pluginů",
+  "debugExtensions": "Ladit rozšíření",
+  "removeRepoConfirm": "Odstranit {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Toto odinstaluje VŠECHNY jeho pluginy.",
+  "addRepository": "Přidat úložiště",
+  "repoUrlOrShortcode": "URL úložiště nebo kód",
+  "assetPlugin": "Plugin z aktiv",
+  "installed": "Nainstalováno",
+  "updateTo": "Aktualizovat na {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Instalovat",
+  "error": "Chyba",
+  "ok": "OK",
+  "pluginSettings": "Nastavení {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmy",
+  "series": "Seriály",
+  "anime": "Anime",
+  "liveStreams": "Živé přenosy",
+  "debug": "LADĚNÍ",
+  "extensionsUpdated": "{count, plural, one{Aktualizováno 1 rozšíření} few{Aktualizována {count} rozšíření} other{Aktualizováno {count} rozšíření}}",
+  "invalidNavigation": "Neplatná navigace.",
+  "startOver": "Začít znovu",
+  "goBack": "Zpět",
+  "resolving": "Získávání odkazů...",
+  "downloaded": "Staženo",
+  "download": "Stáhnout",
+  "debugOnlyFeature": "Pouze pro vývojové verze",
+  "streamUrl": "URL streamu",
+  "play": "Přehrát",
+  "verifyingSourceSize": "Ověřování...",
+  "fileSaveLocationNotification": "Soubor bude uložen do složky Stažené soubory.",
+  "resumingPlayback": "Obnovování přehrávání",
+  "pausedAt": "Pozastaveno v {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Automaticky za {count} s",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Obnovit nyní",
+  "playbackError": "Chyba přehrávání",
+  "confirmClearHistory": "Vymazat celou historii?",
+  "seasonWithNumber": "{number}. řada",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Spouštění...",
+  "percentWatched": "{percent}% zhlédnuto",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Nástroje pro ladění",
+  "playLocalVideo": "Místní video",
+  "playLocalVideoSubtitle": "Přehrát soubor ze zařízení",
+  "streamUrlSubtitle": "Přehrát z URL",
+  "streamTorrent": "Streamovat torrent",
+  "streamTorrentSubtitle": "Vyberte soubor torrentu",
+  "loadPluginFromAssets": "Načíst plugin z aktiv",
+  "enterVideoUrlHint": "URL videa",
+  "networkStream": "Síťový stream",
+  "removedFromHistory": "Odstraněno z historie: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Vlastní",
+  "refreshingLiveStream": "Obnovování...",
+  "removeFromHistory": "Odstranit z historie",
+  "live": "ŽIVĚ",
+  "volume": "Hlasitost",
+  "brightness": "Jas",
+  "fit": "Přizpůsobit",
+  "zoom": "Přiblížit",
+  "stretch": "Roztáhnout",
+  "titleWithParam": "Název: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Zdroj: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Velikost: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Chyba: {error}. Použit interní přehrávač.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} nebyl nalezen.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "{number}. řada ({count} ep.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Zdroj pro {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Nejsou nainstalovány žádné pluginy",
+  "availableSources": "Dostupné zdroje",
+  "seasons": "Řady",
+  "episodes": "Epizody",
+  "selectSourceToPlay": "Vyberte zdroj k přehrání.",
+  "episodeCountOnly": "{count, plural, one{1 epizoda} few{{count} epizody} other{{count} epizod}}",
+  "noEpisodesFound": "Nenalezeny žádné epizody",
+  "local": "Místní",
+  "remote": "Vzdálený",
+  "torrent": "Torrent",
+  "unlock": "Odemknout",
+  "lock": "Zamknout",
+  "sources": "Zdroje",
+  "tracks": "Stopy",
+  "content": "Obsah",
+  "stats": "Statistiky",
+  "resize": "Velikost",
+  "next": "Další",
+  "pip": "Obraz v obraze",
+  "rotate": "Otočit",
+  "windowed": "V okně",
+  "fullscreen": "Celá obrazovka",
+  "movieDetails": "Podrobnosti",
+  "showDetails": "Zobrazit detaily",
+  "tagline": "Slogan",
+  "status": "Stav",
+  "releaseDate": "Datum vydání",
+  "firstAirDate": "První vysílání",
+  "originalLanguage": "Původní jazyk",
+  "originCountry": "Země původu",
+  "budgetLabel": "Rozpočet",
+  "revenueLabel": "Tržby",
+  "paused": "Pozastaveno",
+  "watched": "Zhlédnuto",
+  "watching": "Sleduji",
+  "lastWatched": "Naposledy",
+  "movie": "Film",
+  "tvShow": "Seriál",
+  "failedToLoadContent": "Chyba při načítání",
+  "director": "Režisér",
+  "creator": "Tvůrce",
+  "showMore": "Více",
+  "showLess": "Méně",
+  "viewAll": "Vše",
+  "seasonsCount": "{count, plural, one{1 řada} few{{count} řady} other{{count} řad}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Žádný internet",
+  "timeoutError": "Čas vypršel.",
+  "serverError": "Chyba serveru.",
+  "contentNotFoundError": "Nenalezeno.",
+  "accessDeniedError": "Přístup odepřen.",
+  "serviceUnavailableError": "Služba není dostupná.",
+  "generalError": "Chyba.",
+  "skip": "Přeskočit",
+  "goLive": "Živě",
+  "dismiss": "Zavřít",
+  "nextUp": "Další",
+  "sourceAttempt": "Pokus {index} z {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Zkoušení",
+  "failed": "Selhalo",
+  "selected": "Vybráno",
+  "playing": "Přehrává se",
+  "pending": "Čeká",
+  "discord": "Discord",
+  "discordSubtitle": "Připojte se k našemu serveru",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Připojte se k našemu kanálu",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Preference kvality Wi-Fi",
+  "mobileQualityPreference": "Preference kvality mobilních dat",
+  "anyNoPreference": "Žádná preference",
+  "subtitleAccounts": "Účty titulků",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Testovat připojení",
+  "connectedSuccessfully": "Připojeno úspěšně",
+  "connectionFailed": "Připojení selhalo",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API klíč",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostika",
+  "viewLogs": "Zobrazit logy",
+  "viewLogsSubtitle": "Zobrazit aktivitu aplikace a chyby",
+  "goToExtensions": "Přejít na rozšíření",
+  "noPluginsMessage": "Nainstalujte rozšíření pro procházení a streamování obsahu."
+}

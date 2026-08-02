@@ -4,7 +4,6 @@ package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.common.logging.AppLogger
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 
@@ -18,6 +17,7 @@ interface MpvLibrary : Library {
     fun mpv_command_string(ctx: Pointer, args: String): Int
     fun mpv_observe_property(ctx: Pointer, reply_userdata: Long, name: String, format: Int): Int
     fun mpv_wait_event(ctx: Pointer, timeout: Double): Pointer?
+    fun mpv_request_log_messages(ctx: Pointer, min_level: String): Int
     fun mpv_free(data: Pointer)
     fun mpv_terminate_destroy(handle: Pointer)
 
@@ -25,11 +25,8 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("event_id", "error", "reply_userdata", "data")
     open class MpvEvent(p: Pointer? = null) : Structure(p) {
         @JvmField var event_id: Int = 0
-
         @JvmField var error: Int = 0
-
         @JvmField var reply_userdata: Long = 0
-
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -39,9 +36,7 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("name", "format", "data")
     open class MpvEventProperty(p: Pointer? = null) : Structure(p) {
         @JvmField var name: String? = null
-
         @JvmField var format: Int = 0
-
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -51,14 +46,21 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("reason", "error", "playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries")
     open class MpvEventEndFile(p: Pointer? = null) : Structure(p) {
         @JvmField var reason: Int = 0
-
         @JvmField var error: Int = 0
-
         @JvmField var playlist_entry_id: Long = 0
-
         @JvmField var playlist_insert_id: Long = 0
-
         @JvmField var playlist_insert_num_entries: Int = 0
+        init {
+            p?.let { read() }
+        }
+    }
+
+    @Structure.FieldOrder("prefix", "level", "text", "log_level")
+    open class MpvEventLogMessage(p: Pointer? = null) : Structure(p) {
+        @JvmField var prefix: String? = null
+        @JvmField var level: String? = null
+        @JvmField var text: String? = null
+        @JvmField var log_level: Int = 0
         init {
             p?.let { read() }
         }
@@ -81,7 +83,7 @@ interface MpvLibrary : Library {
                 val str = getPropertyString(ctx, name) ?: return fallback
                 str.replace(",", ".").toDoubleOrNull() ?: fallback
             } catch (t: Throwable) {
-                com.lagradost.common.logging.AppLogger.e("DEBUG_MPV: getPropertyDouble failed for $name: ${t.stackTraceToString()}")
+                AppLogger.e("DEBUG_MPV: getPropertyDouble failed for $name: ${t.stackTraceToString()}")
                 fallback
             }
         }
@@ -92,12 +94,12 @@ interface MpvLibrary : Library {
             for (target in targets) {
                 try {
                     loaded = com.sun.jna.Native.load(target, MpvLibrary::class.java) as MpvLibrary
-                    com.lagradost.common.logging.AppLogger.i("Successfully loaded native mpv library: $target")
+                    AppLogger.i("Player:MPV", "Successfully loaded native mpv library: $target")
                     break
                 } catch (e: UnsatisfiedLinkError) {
-                    com.lagradost.common.logging.AppLogger.e("Failed to load native mpv library $target: ${e.message}")
+                    AppLogger.e("Player:MPV", "Failed to load native mpv library $target: ${e.message}")
                 } catch (e: IllegalArgumentException) {
-                    com.lagradost.common.logging.AppLogger.e("Illegal arg for native mpv library $target: ${e.message}")
+                    AppLogger.e("Player:MPV", "Illegal arg for native mpv library $target: ${e.message}")
                 }
             }
             loaded ?: throw RuntimeException("Failed to load native MPV library. Please ensure mpv is installed and in your system PATH.")

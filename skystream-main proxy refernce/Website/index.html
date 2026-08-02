@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- ── Charset & Viewport ── -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- ── Primary Meta ── -->
+  <title>SkyStream: Free Open Source Media Streaming App</title>
+  <meta name="description" content="SkyStream is a free, open-source media streaming app for Android, Android TV, iOS, tvOS, Windows, macOS, and Linux. Powered by a JavaScript extension engine. No ads, no subscriptions, no content included. Install extensions to unlock any source." />
+  <meta name="keywords" content="skystream, open source streaming app, cloudstream alternative, media player, android streaming, ios streaming, free streaming app, javascript extensions, flutter media player" />
+  <meta name="author" content="akashdh11" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <link rel="canonical" href="https://skystream.app/" />
+
+  <!-- ── Open Graph / Facebook ── -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="SkyStream" />
+  <meta property="og:url" content="https://skystream.app/" />
+  <meta property="og:title" content="SkyStream: Free Open Source Media Streaming App" />
+  <meta property="og:description" content="A free, cross-platform media streaming client for Android, Android TV, iOS, tvOS, Windows, macOS, and Linux. Powered by a custom JavaScript extension engine. No ads, no subscriptions." />
+  <meta property="og:image" content="https://skystream.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="SkyStream: Free Open Source Media Streaming" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- ── Twitter / X Card ── -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@skystream_app" />
+  <meta name="twitter:title" content="SkyStream: Free Open Source Media Streaming App" />
+  <meta name="twitter:description" content="Free, cross-platform media streaming for Android, Android TV, iOS, tvOS, Windows, macOS & Linux. JavaScript extension engine. No ads, no subscriptions." />
+  <meta name="twitter:image" content="https://skystream.app/og-image.png" />
+  <meta name="twitter:image:alt" content="SkyStream app screenshot" />
+
+  <!-- ── Favicons & App Icons ── -->
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+  <meta name="theme-color" content="#070b10" />
+  <meta name="msapplication-TileColor" content="#070b10" />
+
+  <!-- ── Structured Data (JSON-LD) ── -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SkyStream",
+    "description": "A free, open-source, cross-platform media streaming client powered by a custom JavaScript extension engine. Available for Android, Android TV, iOS, tvOS, Windows, macOS, and Linux.",
+    "url": "https://skystream.app/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Android, Android TV, iOS, tvOS, Windows, macOS, Linux",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "softwareVersion": "2.2.1",
+    "license": "https://github.com/akashdh11/skystream/blob/main/LICENSE",
+    "downloadUrl": "https://github.com/akashdh11/skystream/releases/latest",
+    "codeRepository": "https://github.com/akashdh11/skystream",
+    "author": {
+      "@type": "Person",
+      "name": "akashdh11",
+      "url": "https://github.com/akashdh11"
+    },
+    "image": "https://skystream.app/og-image.png"
+  }
+  </script>
+
+  <!-- ── Performance: Font Preconnect ── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- ── Fonts ── -->
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- ── Styles ── -->
+</head>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ══════════ TOP NAV ══════════ -->
+<nav class="nav-outer" aria-label="Primary navigation">
+  <div class="nav-pill">
+    <a href="#" class="nav-logo" aria-label="SkyStream home">
+      <img src="logo.png" alt="SkyStream logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+      <div class="fallback" style="display:none;">S</div>
+      SkyStream
+    </a>
+    <div class="nav-sep" aria-hidden="true"></div>
+    <a href="#" class="nav-link active" data-nav="home">Home</a>
+    <a href="#features" class="nav-link hide-sm" data-nav="features">Features</a>
+    <a href="#install" class="nav-link" data-nav="install">Install</a>
+    <a href="#community" class="nav-link hide-sm" data-nav="community">Community</a>
+    <a href="https://github.com/akashdh11/skystream" target="_blank" rel="noopener" class="nav-gh" id="gh-stars-link" aria-label="GitHub repository">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.49.5.092.683-.217.683-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.153-1.11-1.46-1.11-1.46-.907-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.748-1.025 2.748-1.025.546 1.376.202 2.393.1 2.646.641.698 1.029 1.591 1.029 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.137 20.164 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+      <span class="gh-label" id="gh-star-count">GitHub</span>
+    </a>
+    <!-- Hamburger: mobile only -->
+    <button class="nav-hamburger" id="hamburger-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mob-drawer">
+      <div class="hbg" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </button>
+  </div>
+</nav>
+
+<!-- ══════════ MOBILE DRAWER ══════════ -->
+<div class="mob-drawer" id="mob-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu">
+  <div class="mob-backdrop" id="mob-backdrop"></div>
+  <div class="mob-sheet">
+    <nav class="mob-nav-links" aria-label="Mobile navigation links">
+      <a href="#" class="mob-nav-link" data-mob-nav="home" onclick="closeDrawer()">
+        Home
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+      </a>
+      <a href="#features" class="mob-nav-link" data-mob-nav="features" onclick="closeDrawer()">
+        Features
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      </a>
+      <a href="#install" class="mob-nav-link" data-mob-nav="install" onclick="closeDrawer()">
+        Install
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+      <a href="#community" class="mob-nav-link" data-mob-nav="community" onclick="closeDrawer()">
+        Community
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      </a>
+    </nav>
+    <div class="mob-actions">
+      <a href="https://github.com/akashdh11/skystream" target="_blank" rel="noopener" class="mob-gh-btn" onclick="closeDrawer()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.49.5.092.683-.217.683-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.153-1.11-1.46-1.11-1.46-.907-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.748-1.025 2.748-1.025.546 1.376.202 2.393.1 2.646.641.698 1.029 1.591 1.029 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.137 20.164 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        <span id="mob-star-count">GitHub</span>
+      </a>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener" class="mob-dl-btn" onclick="closeDrawer()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero-section" aria-label="Hero">
+  <div class="hero-visual" aria-hidden="true">
+    <img src="hero.png" alt="" />
+  </div>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <h1 class="hero-h1">
+        Stream anything.<br><span class="hl">Own&nbsp;everything.</span>
+      </h1>
+      <p class="hero-p">
+        SkyStream is a modern, cross-platform media client inspired by CloudStream, rebuilt from scratch with Flutter. Runs on Android, Android TV, iOS, tvOS, Windows, macOS, and Linux. Install JavaScript extensions to unlock any source. No ads. No subscriptions. No strings.
+      </p>
+      <div class="hero-warning" role="note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>This app ships with <strong>zero video sources</strong> by default. You install extensions via Settings&nbsp;›&nbsp;Extensions to add your own.</span>
+      </div>
+      <div class="hero-ctas">
+        <a href="#install" class="btn btn-solid btn-lg" aria-label="Install on Android">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Android
+        </a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[0].click()">Android TV</a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[1].click()">iOS</a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[2].click()">tvOS</a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[3].click()">Windows</a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[4].click()">macOS</a>
+        <a href="#install" class="btn btn-ghost btn-lg" onclick="document.querySelectorAll('.tab-btn')[5].click()">Linux</a>
+      </div>
+      <div class="hero-links">
+        <a href="https://github.com/akashdh11/skystream/blob/main/docs/CONTRIBUTING.md">Contributor Guide</a>
+        <a href="https://github.com/akashdh11/skystream/blob/main/docs/PLUGIN_DEVELOPMENT_GUIDE.md">Extension Docs</a>
+        <a href="https://github.com/akashdh11/skystream/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ STATS BAR ══════════ -->
+<div class="wrap">
+  <div class="stats-bar reveal" role="list" aria-label="SkyStream at a glance">
+    <div class="stat" role="listitem">
+      <div class="stat-label">Total Downloads</div>
+      <div class="stat-value" id="gh-dl-count">10k+</div>
+      <div class="stat-sub">across all platforms</div>
+    </div>
+    <div class="stat" role="listitem">
+      <div class="stat-label">Extensions</div>
+      <div class="stat-value">50+</div>
+      <div class="stat-sub">community plugins</div>
+    </div>
+    <div class="stat" role="listitem">
+      <div class="stat-label">Platforms</div>
+      <div class="stat-value">7</div>
+      <div class="stat-sub">Android · Android TV · iOS · tvOS · Win · Mac · Linux</div>
+    </div>
+    <div class="stat" role="listitem">
+      <div class="stat-label">Price</div>
+      <div class="stat-value">Free</div>
+      <div class="stat-sub">no subscriptions · no ads · forever</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ FEATURES ══════════ -->
+<div class="wrap">
+  <section class="section reveal" id="features" aria-labelledby="features-heading">
+    <div class="sec-eyebrow">What's inside</div>
+    <h2 class="sec-h" id="features-heading">Built for people who care about media.</h2>
+    <div class="features-wrap" role="list">
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <h3>Extension System</h3>
+        </div>
+        <div class="feat-right">
+          <p>Install custom <code>.sky</code> or <code>.js</code> JavaScript plugins from any repository URL. Add via <strong>Settings › Extensions › Add Repository</strong>. Supports shortcodes for quick install. The same engine runs on every platform, no per-platform rebuilds.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Direct Playback</h3>
+        </div>
+        <div class="feat-right">
+          <p>Zero-copy instant playback for local <code>MP4</code> and <code>MKV</code> files straight from your device storage. Paste any <strong>magnet link or torrent file</strong> and it begins streaming immediately, no separate torrent client required.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <h3>Network Streams</h3>
+        </div>
+        <div class="feat-right">
+          <p>Paste any arbitrary video URL like <code>M3U8</code>, <code>MP4</code>, <code>HLS</code> directly in Settings and start watching. No extension needed for URLs you already have. Great for IPTV, personal media servers, and direct links.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>Smart History</h3>
+        </div>
+        <div class="feat-right">
+          <p>A unified "Continue Watching" list tracks progress across local files, streams, and extension content with <strong>robust timestamp tracking</strong>. Resume exactly where you left off, across sessions and app restarts.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3>90Hz / 120Hz Performance</h3>
+        </div>
+        <div class="feat-right">
+          <p>Optimised frame scheduling and render pipeline for <strong>ProMotion displays</strong>. The UI stays responsive at full refresh rate even during active network streams and playback. No jank, no compromise.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </div>
+          <h3>Subtitles &amp; Languages</h3>
+        </div>
+        <div class="feat-right">
+          <p>External <code>SRT</code> and <code>VTT</code> file support. Online subtitle search via <strong>OpenSubtitles</strong>, SubDL, and SubSource. Manual sync controls. UI fully translated into 40+ languages including Hindi, Spanish, French, German, Arabic, and more, all community-driven.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <h3>Material 3 UI</h3>
+        </div>
+        <div class="feat-right">
+          <p>Material You with dynamic colour extraction from wallpapers on supported Android versions. Responsive layouts adapt automatically between phones, tablets, Android TV, and large-screen desktop. Light and dark themes included.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- ══════════ PLATFORMS ══════════ -->
+<div class="wrap">
+  <section class="section reveal" aria-labelledby="platforms-heading">
+    <div class="sec-eyebrow">Available on</div>
+    <h2 class="sec-h" id="platforms-heading">One codebase. Every platform.</h2>
+    <table class="support-table reveal" aria-label="Platform support matrix">
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>Support</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Android</td>
+          <td><span class="status-full">Full support</span></td>
+          <td>arm64-v8a recommended for modern phones · armeabi-v7a for TV</td>
+        </tr>
+        <tr>
+          <td>Android TV</td>
+          <td><span class="status-full">Full support</span></td>
+          <td>Same APK as Android. Built with seamless responsiveness for both mobile and TV. <a href="#install" style="color:var(--accent);text-decoration:none;" onclick="document.querySelectorAll('.tab-btn')[0].click()">See Android install guide.</a></td>
+        </tr>
+        <tr>
+          <td>iOS</td>
+          <td><span class="status-partial">Sideloading required</span></td>
+          <td>Not on App Store · Use Impactor or Sideloadly (both free)</td>
+        </tr>
+        <tr>
+          <td>tvOS</td>
+          <td><span class="status-partial">Sideloading required</span></td>
+          <td>Apple TV big-screen experience · Same sideloading process as iOS</td>
+        </tr>
+        <tr>
+          <td>Windows</td>
+          <td><span class="status-full">Full support</span></td>
+          <td>Download <code>skystream-windows.zip</code> and extract</td>
+        </tr>
+        <tr>
+          <td>macOS</td>
+          <td><span class="status-full">Full support</span></td>
+          <td>Right-click › Open to bypass Gatekeeper on first launch</td>
+        </tr>
+        <tr>
+          <td>Linux</td>
+          <td><span class="status-full">Full support</span></td>
+          <td>Requires <code>libmpv</code>. Install via <code>apt install libmpv1</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<!-- ══════════ INSTALLATION ══════════ -->
+<div class="wrap">
+  <section class="section reveal" id="install" aria-labelledby="install-heading">
+    <div class="sec-eyebrow">Getting started</div>
+    <h2 class="sec-h" id="install-heading">Up and running in minutes.</h2>
+    <p class="sec-sub">Pick your platform below. Android TV users: use the Android tab. No account required, no subscription, no telemetry.</p>
+
+    <div class="tabs-row" role="tablist" aria-label="Platform install tabs">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-android" onclick="switchTab(this,'android')">Android</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-ios" onclick="switchTab(this,'ios')">iOS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-tvos" onclick="switchTab(this,'tvos')">tvOS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-windows" onclick="switchTab(this,'windows')">Windows</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-macos" onclick="switchTab(this,'macos')">macOS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-linux" onclick="switchTab(this,'linux')">Linux</button>
+    </div>
+
+    <!-- Android -->
+    <div id="tab-android" class="tab-panel active install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Download the APK</h4>
+            <p>From the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a>, download <code>skystream-android-arm64-v8a-v2.2.1.apk</code> for modern phones, or <code>armeabi-v7a</code> for Android TV.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Allow unknown sources</h4>
+            <p>Open the downloaded file. If prompted, enable <strong>Install from Unknown Sources</strong> in your browser or file manager settings, then tap Install.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Add extensions</h4>
+            <p>Launch SkyStream, go to <strong>Settings › Extensions › Add Repository</strong> and enter a repository URL or shortcode. Extensions use <code>.sky</code> or <code>.js</code> format.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download for Android →</a>
+    </div>
+
+    <!-- iOS -->
+    <div id="tab-ios" class="tab-panel install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Download the IPA</h4>
+            <p>Get <code>skystream-ios-unsigned-v2.2.1.ipa</code> from the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a>. SkyStream is not on the App Store. Sideloading is required.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Install a sideloading tool</h4>
+            <p>Use <a href="https://impactor.khcrysalis.dev/" target="_blank" rel="noopener">Impactor</a> (free &amp; open source) or <a href="https://sideloadly.io/" target="_blank" rel="noopener">Sideloadly</a>. Windows users also need iTunes installed. Connect your iPhone/iPad via USB, drag the IPA in, enter your Apple ID, and click Start.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Trust the developer profile</h4>
+            <p>On your device: <strong>Settings › General › VPN &amp; Device Management</strong> › tap your email › <strong>Trust</strong>. Enable Wi-Fi sync to auto-refresh the sideloaded app in the background.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download IPA →</a>
+    </div>
+
+    <!-- tvOS -->
+    <div id="tab-tvos" class="tab-panel install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Download the tvOS IPA</h4>
+            <p>Get <code>skystream-tvos-unsigned-v2.2.1.ipa</code> from the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a>. SkyStream is now available on Apple TV for a seamless big-screen experience. Sideloading is required as it is not on the App Store.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Sideload with Sideloadly</h4>
+            <p>Install <a href="https://sideloadly.io/" target="_blank" rel="noopener">Sideloadly</a> on your Mac or Windows PC. Connect your Apple TV via USB-C, select your device in Sideloadly, drag in the IPA, enter your Apple ID, and click Start.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Trust the developer profile</h4>
+            <p>On your Apple TV: <strong>Settings › Users and Accounts › [your account] › Trust</strong>. SkyStream will now launch. Use the Siri Remote to navigate and add extensions via <strong>Settings › Extensions › Add Repository</strong>.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download for tvOS →</a>
+    </div>
+
+    <!-- Windows -->
+    <div id="tab-windows" class="tab-panel install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Download the Windows archive</h4>
+            <p>Grab <code>skystream-windows.zip</code> from the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Extract and run</h4>
+            <p>Unzip the archive and run <code>skystream.exe</code>. If Windows SmartScreen warns you, click <strong>More Info → Run Anyway</strong>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Add extensions</h4>
+            <p>Open SkyStream and go to <strong>Settings › Extensions › Add Repository</strong> to get started.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download for Windows →</a>
+    </div>
+
+    <!-- macOS -->
+    <div id="tab-macos" class="tab-panel install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Download the macOS archive</h4>
+            <p>Grab <code>skystream-macos.zip</code> from the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Extract and open</h4>
+            <p>Unzip and drag <code>skystream.app</code> to your Applications folder. On first launch, <strong>right-click → Open</strong> to bypass the "Unidentified Developer" warning.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Add extensions</h4>
+            <p>Open SkyStream and go to <strong>Settings › Extensions › Add Repository</strong> to get started.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download for macOS →</a>
+    </div>
+
+    <!-- Linux -->
+    <div id="tab-linux" class="tab-panel install-card" role="tabpanel">
+      <div class="step-list">
+        <div class="step">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h4>Install libmpv</h4>
+            <p>The player requires <code>libmpv</code>. Install it first: <code>sudo apt install libmpv1</code> (Debian/Ubuntu) or the equivalent for your distro.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h4>Download the Linux archive</h4>
+            <p>Grab <code>skystream-linux.tar.gz</code> from the <a href="https://github.com/akashdh11/skystream/releases/latest" target="_blank" rel="noopener">Releases page</a> and extract it.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h4>Run the binary</h4>
+            <p>Make it executable and launch: <code>chmod +x ./skystream && ./skystream</code>. Then add extensions via <strong>Settings › Extensions › Add Repository</strong>.</p>
+          </div>
+        </div>
+      </div>
+      <a href="https://github.com/akashdh11/skystream/releases/latest" class="btn btn-solid btn-md" target="_blank" rel="noopener">Download for Linux →</a>
+    </div>
+
+  </section>
+</div>
+
+<!-- ══════════ CONTRIBUTORS ══════════ -->
+<div class="wrap">
+  <section class="section reveal" id="contributors" aria-labelledby="contrib-heading">
+    <div class="sec-eyebrow">Contributors</div>
+    <h2 class="sec-h" id="contrib-heading">Built by the community.</h2>
+    <p class="sec-sub">SkyStream is an open-source project shaped by developers from around the world. Every line of code, every translated string, and every bug report matters.</p>
+
+    <!-- Lead developer -->
+    <div class="contrib-hero">
+      <img
+        src="https://github.com/akashdh11.png"
+        alt="akashdh11 GitHub avatar"
+        class="contrib-avatar-lg"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+      />
+      <div class="contrib-avatar-lg-placeholder" style="display:none;" aria-hidden="true">A</div>
+      <div class="contrib-main-info">
+        <div class="badge">Lead Developer</div>
+        <h3>akashdh11</h3>
+        <div class="handle">@akashdh11</div>
+        <p>Creator and lead maintainer of SkyStream. Built the cross-platform Flutter architecture, custom JavaScript extension engine, and Material 3 design system from the ground up.</p>
+        <div class="contrib-links">
+          <a href="https://github.com/akashdh11/skystream" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.49.5.092.683-.217.683-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.153-1.11-1.46-1.11-1.46-.907-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.748-1.025 2.748-1.025.546 1.376.202 2.393.1 2.646.641.698 1.029 1.591 1.029 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.137 20.164 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+            GitHub Profile
+          </a>
+          <a href="https://github.com/akashdh11/skystream/commits?author=akashdh11" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">View Commits</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contributor grid -->
+    <div class="contrib-grid" aria-label="Other contributors">
+      <a href="https://github.com/f0rtron" target="_blank" rel="noopener" class="contrib-item">
+        <img src="https://github.com/f0rtron.png" alt="f0rtron GitHub avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+        <div class="contrib-ph" style="display:none;">F</div>
+        <div class="c-name">f0rtron</div>
+        <div class="c-role">contributor</div>
+      </a>
+      <a href="https://github.com/NivinCNC" target="_blank" rel="noopener" class="contrib-item">
+        <img src="https://github.com/NivinCNC.png" alt="NivinCNC GitHub avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+        <div class="contrib-ph" style="display:none;">N</div>
+        <div class="c-name">NivinCNC</div>
+        <div class="c-role">contributor</div>
+      </a>
+    </div>
+
+    <p style="margin-top:20px;font-size:.83rem;color:var(--text-3);">
+      Want your name here? <a href="https://github.com/akashdh11/skystream/blob/main/docs/CONTRIBUTING.md" style="color:var(--accent);text-decoration:none;">Read the contributor guide →</a>
+    </p>
+  </section>
+</div>
+
+<!-- ══════════ COMMUNITY ══════════ -->
+<div class="wrap">
+  <section class="section reveal" id="community" aria-labelledby="community-heading">
+    <div class="sec-eyebrow">Community</div>
+    <h2 class="sec-h" id="community-heading">Find your people.</h2>
+    <p class="sec-sub">Get help, share extensions, follow releases, and connect with other SkyStream users and developers.</p>
+    <div class="community-grid">
+      <div class="comm-card">
+        <div class="comm-logo tg" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#29b6f6"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.04 9.61c-.15.67-.546.833-1.107.518l-3-2.21-1.448 1.394c-.16.16-.294.294-.603.294l.215-3.053 5.56-5.023c.242-.215-.053-.334-.373-.12l-6.871 4.326-2.962-.924c-.644-.2-.657-.644.135-.953l11.559-4.457c.537-.194 1.006.13.935.598z"/></svg>
+        </div>
+        <h3>Telegram Channel</h3>
+        <p>Official announcements, extension repository drops, and quick community support. The fastest way to stay up to date with SkyStream news.</p>
+        <a href="https://t.me/+Ez5Vsv2pUUFjZmNl" target="_blank" rel="noopener" class="btn-tg" aria-label="Join SkyStream Telegram channel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.04 9.61c-.15.67-.546.833-1.107.518l-3-2.21-1.448 1.394c-.16.16-.294.294-.603.294l.215-3.053 5.56-5.023c.242-.215-.053-.334-.373-.12l-6.871 4.326-2.962-.924c-.644-.2-.657-.644.135-.953l11.559-4.457c.537-.194 1.006.13.935.598z"/></svg>
+          Join Telegram
+        </a>
+      </div>
+      <div class="comm-card">
+        <div class="comm-logo dc" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#7289da"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+        </div>
+        <h3>Discord Server</h3>
+        <p>Live chat, plugin development help, bug reports, feature requests, and community showcases. The best place for real-time conversation with the team.</p>
+        <a href="https://discord.gg/73XGA8Mxn9" target="_blank" rel="noopener" class="btn-dc" aria-label="Join SkyStream Discord server">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+          Join Discord
+        </a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════ CONTRIBUTE CTA ══════════ -->
+<div class="wrap">
+  <div class="cta-block reveal" role="complementary" aria-label="Contribute to SkyStream">
+    <div>
+      <h2>Build SkyStream with us.</h2>
+      <p>Contributions of all kinds are welcome: squash a bug, ship a feature, write a translation, or build an extension plugin for the community.</p>
+      <div class="ways">
+        <span class="way-tag">Bug fixes</span>
+        <span class="way-tag">New features</span>
+        <span class="way-tag">Translations</span>
+        <span class="way-tag">Extension plugins</span>
+        <span class="way-tag">Documentation</span>
+      </div>
+    </div>
+    <div class="cta-btns">
+      <a href="https://github.com/akashdh11/skystream" target="_blank" rel="noopener" class="btn-blk" aria-label="Star SkyStream on GitHub">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.49.5.092.683-.217.683-.482 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.153-1.11-1.46-1.11-1.46-.907-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.748-1.025 2.748-1.025.546 1.376.202 2.393.1 2.646.641.698 1.029 1.591 1.029 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.137 20.164 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        Star on GitHub
+      </a>
+      <a href="https://github.com/akashdh11/skystream/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener" class="btn-blk-o">Contribution Guide</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ COMING SOON ══════════ -->
+<div class="wrap">
+  <section class="section reveal" aria-labelledby="roadmap-heading">
+    <div class="sec-eyebrow">Roadmap</div>
+    <h2 class="sec-h" id="roadmap-heading">Coming soon.</h2>
+    <p class="sec-sub">Features actively being worked on for the next release.</p>
+    <div class="features-wrap" role="list">
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+          </div>
+          <h3>Trakt &amp; Simkl Sync</h3>
+        </div>
+        <div class="feat-right">
+          <p>Connect your <strong>Trakt</strong> or <strong>Simkl</strong> account to sync your watch history, ratings, and watchlists across devices and services. Your progress in SkyStream will automatically reflect on your profile. No manual logging required.</p>
+        </div>
+      </div>
+
+      <div class="feat-row" role="listitem">
+        <div class="feat-left">
+          <div class="feat-icon-box" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          </div>
+          <h3>Full D-Pad / Leanback (Android TV)</h3>
+        </div>
+        <div class="feat-right">
+          <p>Complete D-Pad navigation and a dedicated <strong>leanback UI</strong> optimised for the 10-foot Android TV experience. Every screen, menu, and player control will be fully navigable with just a remote. No touch required.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- ══════════ FAQ ══════════ -->
+<div class="wrap">
+  <section class="section reveal" aria-labelledby="faq-heading">
+    <div class="sec-eyebrow">FAQ</div>
+    <h2 class="sec-h" id="faq-heading">Common questions.</h2>
+    <div class="faq-list" role="list">
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          Does SkyStream come with any content?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">No. SkyStream ships with zero video sources by default. You install extensions (JavaScript plugins) through <strong>Settings › Extensions › Add Repository</strong> to add sources of your own choice.</div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          How do I install extensions?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">Go to <strong>Settings › Extensions › Add Repository</strong> and enter a repository URL or shortcode. SkyStream supports <code>.sky</code> and <code>.js</code> extension files. Extensions are user-installed JavaScript plugins that handle all content discovery and scraping.</div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          Where is the media stored?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">SkyStream is a streaming client only. It does not host, store, or distribute any media content. Everything is streamed directly from the third-party sources provided by extensions you install.</div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          Is SkyStream a clone of CloudStream?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">No. SkyStream is an independent application built entirely from scratch in Flutter. While it draws architectural inspiration from CloudStream and supports similar extension formats, it uses a custom cross-platform JavaScript engine, making it a simplified, modern re-imagining, not a fork or direct clone.</div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          Why does iOS require sideloading?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">SkyStream is not on the Apple App Store. You can install it for free using tools like <a href="https://impactor.khcrysalis.dev/" target="_blank" rel="noopener" style="color:var(--accent);">Impactor</a> (open source) or <a href="https://sideloadly.io/" target="_blank" rel="noopener" style="color:var(--accent);">Sideloadly</a>. Follow the iOS installation tab above for a step-by-step guide.</div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-q" onclick="toggleFaq(this.parentElement)" aria-expanded="false">
+          How do I build an extension / plugin?
+          <div class="faq-icon" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+        </button>
+        <div class="faq-a" role="region">Extensions are JavaScript files. The full specification and API reference is in the <a href="https://github.com/akashdh11/skystream/blob/main/docs/PLUGIN_DEVELOPMENT_GUIDE.md" target="_blank" rel="noopener" style="color:var(--accent);">Plugin Development Guide</a>. Please do not build extensions that provide access to copyrighted material without authorisation. SkyStream does not condone copyright infringement.</div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div class="wrap">
+    <div class="footer-inner">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <a href="#" class="footer-brand" aria-label="SkyStream home">
+          <img src="logo.png" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+          <div class="fb" style="display:none;" aria-hidden="true">S</div>
+          SkyStream
+        </a>
+        <div class="footer-copy">© 2025–2026 · Independent open-source project</div>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/akashdh11/skystream">GitHub</a>
+        <a href="https://discord.gg/73XGA8Mxn9" target="_blank" rel="noopener">Discord</a>
+        <a href="https://t.me/+Ez5Vsv2pUUFjZmNl" target="_blank" rel="noopener">Telegram</a>
+        <a href="https://github.com/akashdh11/skystream/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/akashdh11/skystream/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+        <a href="https://github.com/akashdh11/skystream/blob/main/docs/PLUGIN_DEVELOPMENT_GUIDE.md" target="_blank" rel="noopener">Plugins</a>
+        <span class="footer-mit">MIT</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>

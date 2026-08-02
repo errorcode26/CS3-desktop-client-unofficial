@@ -1,0 +1,589 @@
+{
+  "@@locale": "ml",
+  "appTitle": "SkyStream",
+  "languageName": "മലയാളം",
+  "home": "ഹോം",
+  "search": "തിരയുക",
+  "explore": "പര്യവേക്ഷണം ചെയ്യുക",
+  "library": "ലൈബ്രറി",
+  "settings": "ക്രമീകരണങ്ങൾ",
+  "extensions": "എക്സ്റ്റൻഷനുകൾ",
+  "updateAvailable": "അപ്‌ഡേറ്റ് ലഭ്യമാണ്",
+  "retry": "വീണ്ടും ശ്രമിക്കുക",
+  "factoryReset": "ഫാക്ടറി റീസെറ്റ്",
+  "startupError": "സ്റ്റാർട്ടപ്പ് പിശക്",
+  "general": "പൊതുവായവ",
+  "appTheme": "ആപ്പ് തീം",
+  "recordWatchHistory": "വാച്ച് ഹിസ്റ്ററി റെക്കോർഡ് ചെയ്യുക",
+  "defaultHomeScreen": "ഡിഫോൾട്ട് ഹോം സ്ക്രീൻ",
+  "player": "പ്ലെയർ",
+  "defaultPlayer": "ഡിഫോൾട്ട് പ്ലെയർ",
+  "leftGesture": "ഇടത് ആംഗ്യം (Gesture)",
+  "rightGesture": "വലത് ആംഗ്യം (Gesture)",
+  "doubleTapToSeek": "സീക്ക് ചെയ്യാൻ രണ്ടുതവണ ടാപ്പ് ചെയ്യുക",
+  "swipeToSeek": "സീക്ക് ചെയ്യാൻ സ്വൈപ്പ് ചെയ്യുക",
+  "seekDuration": "സീക്ക് ദൈർഘ്യം",
+  "bufferDepth": "ബഫർ ഡെപ്ത്",
+  "defaultResizeMode": "ഡിഫോൾട്ട് റീസൈസ് മോഡ്",
+  "hardwareDecoding": "ഹാർഡ്‌വെയർ ഡീകോഡിംഗ്",
+  "network": "നെറ്റ്‌വർക്ക്",
+  "dnsOverHttps": "DNS ഓവർ HTTPS",
+  "dohProvider": "DoH فراهم کننده",
+  "manageExtensions": "എക്സ്റ്റൻഷനുകൾ നിയന്ത്രിക്കുക",
+  "appData": "ആപ്പ് ഡാറ്റ",
+  "resetDataKeepExtensions": "ഡാറ്റ റീസെറ്റ് ചെയ്യുക (എക്സ്റ്റൻഷനുകൾ നിലനിർത്തുക)",
+  "developer": "ഡെവലപ്പർ",
+  "developerOptions": "ഡെവലപ്പർ ഓപ്ഷനുകൾ",
+  "about": "വിവരം",
+  "version": "പതിപ്പ്",
+  "enabled": "പ്രവർത്തനക്ഷമമാക്കി",
+  "disabled": "പ്രവർത്തനരഹിതമാക്കി",
+  "system": "സിസ്റ്റം",
+  "dark": "ഇരുണ്ടത്",
+  "light": "വെളിച്ചമുള്ളത്",
+  "later": "പിന്നീട്",
+  "updateNow": "ഇപ്പോൾ അപ്‌ഡേറ്റ് ചെയ്യുക",
+  "save": "സേവ് ചെയ്യുക",
+  "cancel": "റദ്ദാക്കുക",
+  "close": "അടയ്ക്കുക",
+  "delete": "ഇല്ലാതാക്കുക",
+  "viewDetails": "വിശദാംശങ്ങൾ കാണുക",
+  "clearAll": "എല്ലാം മായ്ക്കുക",
+  "clearAllHistory": "എല്ലാ ഹിസ്റ്ററിയും മായ്ക്കുക",
+  "all": "എല്ലാം",
+  "none": "ഒന്നുമില്ല",
+  "confirmDownload": "ഡൗൺലോഡ് സ്ഥിരീകരിക്കുക",
+  "downloadNow": "ഇപ്പോൾ ഡൗൺലോഡ് ചെയ്യുക",
+  "selectSource": "ഉറവിടം (Source) തിരഞ്ഞെടുക്കുക",
+  "downloadUnavailable": "ഡൗൺലോഡ് ലഭ്യമല്ല",
+  "selectAnotherSource": "മറ്റൊരു ഉറവിടം തിരഞ്ഞെടുക്കുക",
+  "watchHistoryCleared": "വാച്ച് ഹിസ്റ്ററി മായ്ച്ചു",
+  "downloadingUpdate": "അപ്‌ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുന്നു...",
+  "errorPrefix": "പിശക്: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "അപ്‌ഡേറ്റ് ലഭ്യമാണ്: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "കാണാൻ തുടങ്ങുന്നതിനായി ഒരു ദാതാവിനെ തിരഞ്ഞെടുക്കുക",
+  "tapExtensionIcon": "കോണിലുള്ള എക്സ്റ്റൻഷൻ ഐക്കണിൽ ടാപ്പ് ചെയ്യുക",
+  "continueWatching": "കാണുന്നത് തുടരുക",
+  "noInternetConnection": "ഇന്റർനെറ്റ് കണക്ഷൻ ഇല്ല",
+  "siteNotReachable": "സൈറ്റിലേക്ക് പ്രവേശിക്കാനാവില്ല",
+  "checkConnectionOrDownloads": "നിങ്ങളുടെ കണക്ഷൻ പരിശോധിക്കുക അല്ലെങ്കിൽ ഡൗൺലോഡ് ചെയ്ത ഉള്ളടക്കം കാണുക.",
+  "tryVpnOrConnection": "വിപിഎൻ ഉപയോഗിച്ച് സൈറ്റ് ആക്സസ് ചെയ്യാൻ ശ്രമിക്കുകയോ ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുകയോ ചെയ്യുക.",
+  "errorDetails": "പിശക് വിവരങ്ങൾ: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "ഡൗൺലോഡുകളിലേക്ക് പോവുക",
+  "selectProvider": "ദാതാവിനെ തിരഞ്ഞെടുക്കുക",
+  "searchHint": "സിനിമകൾ, സീരീസുകൾ തിരയുക...",
+  "searchFavoriteContent": "നിങ്ങളുടെ പ്രിയപ്പെട്ട ഉള്ളടക്കം തിരയുക",
+  "pressSearchOrEnter": "തുടങ്ങാൻ സെർച്ച് കീ അല്ലെങ്കിൽ എൻ്റർ അമർത്തുക",
+  "noResultsFound": "ഫലങ്ങളൊന്നും കണ്ടെത്തിയില്ല.",
+  "couldNotLoadTrending": "ട്രെൻഡിംഗ് ഐറ്റങ്ങൾ ലോഡ് ചെയ്യാനായില്ല",
+  "popularMovies": "ജനപ്രിയ സിനിമകൾ",
+  "popularTVShows": "ജനപ്രിയ ടിവി ഷോകൾ",
+  "newMovies": "പുതിയ സിനിമകൾ",
+  "newTVShows": "പുതിയ ടിവി ഷോകൾ",
+  "featuredMovies": "ഫീച്ചർ ചെയ്ത സിനിമകൾ",
+  "featuredTVShows": "ഫീച്ചർ ചെയ്ത ടിവി ഷോകൾ",
+  "lastVideosTVShows": "അവസാന വീഡിയോകൾ ടിവി ഷോകൾ",
+  "downloads": "ഡൗൺലോഡുകൾ",
+  "bookmarks": "ബുക്ക്മാർക്കുകൾ",
+  "noDownloadsYet": "ഡൗൺലോഡുകളൊന്നുമില്ല",
+  "episodesCount": "{count} എപ്പിസോഡുകൾ • {done} പൂർത്തിയായി",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "എല്ലാ എപ്പിസോഡുകളും ഇല്ലാതാക്കുക",
+  "confirmDeleteAllEpisodes": "\"{title}\"-ൻ്റെ എല്ലാ {count} എപ്പിസോഡുകളും അവയുടെ ഫയലുകളും ഇല്ലാതാക്കാൻ നിങ്ങൾക്ക് ഉറപ്പാണോ?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "എല്ലാം ഇല്ലാതാക്കുക",
+  "completed": "പൂർത്തിയായി",
+  "statusQueued": "ക്യൂവിൽ...",
+  "statusDownloading": "ഡൗൺലോഡ് ചെയ്യുന്നു...",
+  "statusFinished": "തീർന്നു",
+  "statusFailed": "പരാജയപ്പെട്ടു",
+  "statusCanceled": "റദ്ദാക്കി",
+  "statusPaused": "താൽക്കാലികമായി നിർത്തി",
+  "statusWaiting": "കാത്തിരിക്കുന്നു...",
+  "fileNotFoundRemoving": "ഫയൽ ഡിസ്കിൽ കണ്ടെത്തിയില്ല. റെക്കോർഡ് നീക്കം ചെയ്യുന്നു.",
+  "fileNotFound": "ഫയൽ കണ്ടെത്തിയില്ല",
+  "deleteDownload": "ഡൗൺലോഡ് ഇല്ലാതാക്കുക",
+  "confirmDeleteDownload": "ഈ ഡൗൺലോഡും അതിൻ്റെ ഫയലും ഇല്ലാതാക്കാൻ നിങ്ങൾക്ക് ഉറപ്പാണോ?",
+  "libraryEmpty": "നിങ്ങളുടെ ലൈബ്രറി ശൂന്യമാണ്",
+  "language": "ഭാഷ",
+  "english": "ഇംഗ്ലീഷ്",
+  "hindi": "ഹിന്ദി",
+  "kannada": "കന്നഡ",
+  "unknown": "അജ്ഞതം",
+  "recommended": "ശുപാർശ ചെയ്യുന്നത്",
+  "on": "ഓൺ",
+  "off": "ഓഫ്",
+  "installRemoveProviders": "ദാതാക്കളെ ഇൻസ്റ്റാൾ ചെയ്യുക അല്ലെങ്കിൽ നീക്കം ചെയ്യുക",
+  "resetDataSubtitle": "ക്രമീകരണങ്ങളും ഡാറ്റാബേസും മായ്ക്കുക, പ്ലഗിനുകൾ നിലനിർത്തുക",
+  "factoryResetSubtitle": "എല്ലാ ഡാറ്റയും ക്രമീകരണങ്ങളും എക്സ്റ്റൻഷനുകളും ഇല്ലാതാക്കുക",
+  "developerOptionsSubtitle": "ഡീബഗ് ടൂളുകളും ലോക്കൽ പ്ലേയും",
+  "loading": "ലോഡ് ചെയ്യുന്നു...",
+  "sec": "സെക്കൻഡ്",
+  "min": "മിനിറ്റ്",
+  "internalPlayer": "ആന്തരിക പ്ലെയർ (media_kit)",
+  "builtInPlayer": "ബിൽറ്റ്-ഇൻ പ്ലെയർ",
+  "customNotSet": "കസ്റ്റം (സെറ്റ് ചെയ്തിട്ടില്ല)",
+  "selectGesture": "{side} ആംഗ്യം തിരഞ്ഞെടുക്കുക",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "ഇടത്",
+  "right": "വലത്",
+  "selectSeekDuration": "സീക്ക് ദൈർഘ്യം തിരഞ്ഞെടുക്കുക",
+  "selectBufferDepth": "ബഫർ ഡെപ്ത് തിരഞ്ഞെടുക്കുക",
+  "subtitleSettings": "സബ്ടൈറ്റിൽ ക്രമീകരണങ്ങൾ",
+  "size": "വലുപ്പം: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "പശ്ചാത്തലം",
+  "customDohUrlLabel": "കസ്റ്റം DoH URL",
+  "enterCustomDohUrl": "സ്വന്തം DoH URL നൽകുക",
+  "chooseTheme": "തീം തിരഞ്ഞെടുക്കുക",
+  "resetDataDialogTitle": "ഡാറ്റ റീസെറ്റ് ചെയ്യണോ?",
+  "resetDataDialogContent": "ഇത് ക്രമീകരണങ്ങൾ, പ്രിയങ്കരങ്ങൾ, ഹിസ്റ്ററി എന്നിവ മായ്ക്കും. ഇൻസ്റ്റാൾ ചെയ്ത എക്സ്റ്റൻഷനുകൾ ഇല്ലാതാക്കില്ല.",
+  "factoryResetDialogTitle": "ഫാക്ടറി റീസെറ്റ് ചെയ്യണോ?",
+  "factoryResetDialogContent": "ഇത് എല്ലാം ഇല്ലാതാക്കും: പ്രിയങ്കരങ്ങൾ, ഹിസ്റ്ററി, ക്രമീകരണങ്ങൾ, എല്ലാ എക്സ്റ്റൻഷനുകളും. ഇത് മാറ്റാനാവില്ല.",
+  "selectLanguage": "ഭാഷ തിരഞ്ഞെടുക്കുക",
+  "synopsis": "സംഗ്രഹം",
+  "noDescription": "വിവരണം ലഭ്യമല്ല.",
+  "videoAlreadyDownloadedPrompt": "ഈ വീഡിയോ ഇതിനകം ഡൗൺലോഡ് ചെയ്തിട്ടുണ്ട്. നിങ്ങൾക്ക് എന്തുചെയ്യണം?",
+  "playNow": "ഇപ്പോൾ പ്ലേ ചെയ്യുക",
+  "deleteDownloadPrompt": "ഡൗൺലോഡ് ഇല്ലാതാക്കണോ?",
+  "deleteDownloadConfirmation": "ഈ ഫയൽ ഇല്ലാതാക്കാൻ നിങ്ങൾക്ക് ഉറപ്പാണോ? ഇത് മാറ്റാനാവില്ല.",
+  "no": "വേണ്ട",
+  "yesDelete": "അതെ, ഇല്ലാതാക്കുക",
+  "downloadPaused": "ഡൗൺലോഡ് താൽക്കാലികമായി നിർത്തി",
+  "downloading": "ഡൗൺലോഡ് ചെയ്യുന്നു",
+  "speed": "വേഗത",
+  "remaining": "ബാക്കി",
+  "resume": "തുടരുക",
+  "pause": "താൽക്കാലികമായി നിർത്തുക",
+  "torrentContent": "ടോറന്റ് ഉള്ളടക്കം",
+  "audioTracks": "ഓഡിയോ ട്രാക്കുകൾ",
+  "noAudioTracks": "ഓഡിയോ ട്രാക്കുകളൊന്നും കണ്ടെത്തിയില്ല",
+  "subtitles": "സബ്ടൈറ്റിലുകൾ",
+  "options": "ഓപ്ഷനുകൾ",
+  "noSubtitlesFound": "സബ്ടൈറ്റിൽ ട്രാക്കുകളൊന്നും കണ്ടെത്തിയില്ല",
+  "playbackSpeed": "പ്ലേബാക്ക് വേഗത",
+  "subtitleOptions": "സബ്ടൈറ്റിൽ ഓപ്ഷനുകൾ",
+  "hlsSubtitleWarning": "ഈ പ്ലാറ്റ്‌ഫോമിലെ സജീവ എച്ച്എൽഎസ് പ്ലെയറിൽ എക്സ്റ്റേണൽ സബ്ടൈറ്റിൽ ഫയലുകൾ പിന്തുണയ്ക്കുന്നില്ല.",
+  "loadFromDevice": "ഉപകരണത്തിൽ നിന്ന് ലോഡ് ചെയ്യുക",
+  "syncDelay": "സമന്വയം / കാലതാമസം",
+  "styleSettings": "സ്റ്റൈൽ ക്രമീകരണങ്ങൾ",
+  "searchOnline": "ഓൺലൈനിൽ തിരയുക (സബ്ടൈറ്റിൽ സെർച്ച്)",
+  "subtitleSync": "സബ്ടൈറ്റിൽ സമന്വയം",
+  "subtitleDelayWarning": "സജീവ പ്ലേബാക്ക് എഞ്ചിൻ സബ്ടൈറ്റിൽ കാലതാമസം പിന്തുണയ്ക്കുന്നില്ല.",
+  "resetDelay": "കാലതാമസം റീസെറ്റ് ചെയ്യുക",
+  "subtitleStyles": "സബ്ടൈറ്റിൽ ശൈലികൾ",
+  "mediaKitStylingWarning": "സബ്ടൈറ്റിൽ സ്റ്റൈലിംഗ് ഇപ്പോൾ media_kit പ്ലെയറിൽ മാത്രമേ ലഭ്യമാകൂ.",
+  "resetToDefault": "ഡിഫോൾട്ടിലേക്ക് മാറ്റുക",
+  "fontSize": "ഫോണ്ട് സൈസ്",
+  "verticalPosition": "ലംബ സ്ഥാനങ്ങൾ",
+  "textColor": "ടെക്സ്റ്റ് നിറം",
+  "backgroundColor": "പശ്ചാത്തല നിറം",
+  "backgroundOpacity": "പശ്ചാത്തല അതാര്യത",
+  "subtitleSearch": "സബ്ടൈറ്റിൽ സെർച്ച്",
+  "searchSubtitleNameHint": "സബ്ടൈറ്റിൽ പേര് തിരയുക...",
+  "enterSearchSubtitlePrompt": "സബ്ടൈറ്റിലുകൾ കണ്ടെത്താൻ ഒരു പേര് നൽകുകയോ തിരയുകയോ ചെയ്യുക.",
+  "noSubtitleResults": "ഫലങ്ങളൊന്നും കണ്ടെത്തിയില്ല. മറ്റൊരു തിരയൽ പരീക്ഷിക്കുക.",
+  "downloadingApplyingSubtitle": "സബ്ടൈറ്റിൽ ഡൗൺലോഡ് ചെയ്ത് പ്രയോഗിക്കുന്നു...",
+  "failedToDownloadSubtitle": "സബ്ടൈറ്റിൽ ഡൗൺലോഡ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു.",
+  "failedToLoadSubtitles": "സബ്ടൈറ്റിലുകൾ ലോഡ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു. വീണ്ടും ശ്രമിക്കുക.",
+  "noReposFound": "റിപ്പോസിറ്ററികളോ പ്ലഗിനുകളോ കണ്ടെത്തിയില്ല",
+  "downloadAllProviders": "എല്ലാം ഡൗൺലോഡ് ചെയ്യുക",
+  "removeRepository": "റിപ്പോസിറ്ററി നീക്കം ചെയ്യുക",
+  "addRepo": "റിപ്പോ ചേർക്കുക",
+  "extensionsNotInRepos": "റിപ്പോസിറ്ററികളിൽ ഇല്ലാത്ത എക്സ്റ്റൻഷനുകൾ",
+  "noLongerInRepo": "ഇനി റിപ്പോസിറ്ററികളിലൊന്നിലും പട്ടികപ്പെടുത്തിയിട്ടില്ല",
+  "addRepoToBrowse": "പ്ലഗിനുകൾ ബ്രൗസ് ചെയ്യാനും അപ്‌ഡേറ്റ് ചെയ്യാനും ഒരു റിപ്പോസിറ്ററി ചേർക്കുക",
+  "debugExtensions": "ഡീബഗ് എക്സ്റ്റൻഷനുകൾ",
+  "removeRepoConfirm": "{repoName} നീക്കം ചെയ്യണോ?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "ഇത് റിപ്പോസിറ്ററി നീക്കം ചെയ്യുകയും അതിന്റെ എല്ലാ പ്ലഗിനുകളും അൺഇൻസ്റ്റാൾ ചെയ്യുകയും ചെയ്യും.",
+  "addRepository": "റിപ്പോസിറ്ററി ചേർക്കുക",
+  "repoUrlOrShortcode": "റിപ്പോസിറ്ററി URL അല്ലെങ്കിൽ ഷോർട്ട്കോഡ്",
+  "assetPlugin": "അസറ്റ് പ്ലഗിൻ",
+  "installed": "ഇൻസ്റ്റാൾ ചെയ്തു",
+  "updateTo": "{version}-ലേക്ക് അപ്‌ഡേറ്റ് ചെയ്യുക",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "ഇൻസ്റ്റാൾ ചെയ്യുക",
+  "error": "പിശക്",
+  "ok": "ശരി",
+  "pluginSettings": "{pluginName} ക്രമീകരണങ്ങൾ",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "സിനിമകൾ",
+  "series": "സീരീസുകൾ",
+  "anime": "ആനിമേഷൻ",
+  "liveStreams": "തത്സമയ സ്ട്രീമുകൾ",
+  "debug": "ഡീബഗ്",
+  "extensionsUpdated": "{count, plural, =1{1 എക്സ്റ്റൻഷൻ അപ്‌ഡേറ്റ് ചെയ്തു} other{{count} എക്സ്റ്റൻഷനുകൾ അപ്‌ഡേറ്റ് ചെയ്തു}}",
+  "invalidNavigation": "അസാധുവായ നാവിഗേഷൻ. ദയവായി തിരികെ പോവുക.",
+  "startOver": "വീണ്ടും തുടങ്ങുക",
+  "goBack": "തിരികെ",
+  "resolving": "പരിഹരിക്കുന്നു...",
+  "downloaded": "ഡൗൺലോഡ് ചെയ്തു",
+  "download": "ഡൗൺലോഡ്",
+  "debugOnlyFeature": "ഈ ഫീച്ചർ ഡീബഗ് ബിൽഡുകളിൽ മാത്രമേ ലഭ്യമാകൂ",
+  "streamUrl": "സ്ട്രീം URL",
+  "play": "പ്ലേ ചെയ്യുക",
+  "verifyingSourceSize": "ഉറവിടവും വലുപ്പവും പരിശോധിക്കുന്നു...",
+  "fileSaveLocationNotification": "ഫയൽ നിങ്ങളുടെ ഡൗൺലോഡ്സ് ഫോൾഡറിൽ സംരക്ഷിക്കപ്പെടും.",
+  "resumingPlayback": "പ്ലേബാക്ക് പുനരാരംഭിക്കുന്നു",
+  "pausedAt": "{time}-ൽ താൽക്കാലികമായി നിർത്തി",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, =1{1 സെക്കൻഡിനുള്ളിൽ സ്വയമേവ പുനരാരംഭിക്കും} other{{count} സെക്കൻഡിനുള്ളിൽ സ്വയമേവ പുനരാരംഭിക്കും}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "ഇപ്പോൾ പുനരാരംഭിക്കുക",
+  "playbackError": "പ്ലേബാക്ക് പിശക്",
+  "confirmClearHistory": "നിങ്ങളുടെ വാച്ച് ഹിസ്റ്ററിയിൽ നിന്ന് എല്ലാ ഇനങ്ങളും നീക്കം ചെയ്യണമെന്ന് ഉറപ്പാണോ?",
+  "seasonWithNumber": "സീസൺ {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "തുടങ്ങുന്നു...",
+  "percentWatched": "{percent}% കണ്ടു",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "സബ്",
+  "dub": "ഡബ്",
+  "playEpisode": "{label} സീസൺ {season} എപ്പിസോഡ് {episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "ഡീബഗ് ടൂളുകൾ",
+  "playLocalVideo": "ലോക്കൽ വീഡിയോ ഫയൽ പ്ലേ ചെയ്യുക",
+  "playLocalVideoSubtitle": "ഉപകരണത്തിൽ നിന്ന് ഏതൊരു വീഡിയോയും പ്ലേ ചെയ്യുക",
+  "streamUrlSubtitle": "നെറ്റ്‌വർക്ക് URL-ൽ നിന്ന് പ്ലേ ചെയ്യുക",
+  "streamTorrent": "ടോറന്റ് സ്ട്രീം ചെയ്യുക",
+  "streamTorrentSubtitle": "പ്ലേ ചെയ്യാൻ ലോക്കൽ ടോറന്റ് ഫയൽ തിരഞ്ഞെടുക്കുക",
+  "loadPluginFromAssets": "അസറ്റുകളിൽ നിന്ന് പ്ലഗിൻ ലോഡ് ചെയ്യുക",
+  "enterVideoUrlHint": "വീഡിയോ URL നൽകുക (http, magnet മുതലായവ)",
+  "networkStream": "നെറ്റ്‌വർക്ക് സ്ട്രീം",
+  "removedFromHistory": "ഹിസ്റ്ററിയിൽ നിന്ന് {title} നീക്കം ചെയ്തു",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "കസ്റ്റം",
+  "refreshingLiveStream": "തത്സമയ സ്ട്രീം പുതുക്കുന്നു...",
+  "removeFromHistory": "ഹിസ്റ്ററിയിൽ നിന്ന് നീക്കം ചെയ്യുക",
+  "live": "തത്സമയം",
+  "volume": "ശബ്ദം",
+  "brightness": "പ്രകാശം",
+  "fit": "ഫിറ്റ്",
+  "zoom": "സൂം",
+  "stretch": "വലിച്ചുനീട്ടുക",
+  "titleWithParam": "തലക്കെട്ട്: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "ഉറവിടം: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "വലുപ്പം: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "പിശക്: {error}. ആന്തരിക പ്ലെയർ ഉപയോഗിക്കുന്നു.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} കണ്ടെത്തിയില്ല. ആന്തരിക പ്ലെയർ തുടങ്ങുന്നു.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "സീസൺ {number} ({count} എപ്പിസോഡുകൾ)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "{playerName}-നായി ഉറവിടം തിരഞ്ഞെടുക്കുക",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "പ്ലഗിനുകളൊന്നും ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല",
+  "availableSources": "ലഭ്യമായ ഉറവിടങ്ങൾ",
+  "seasons": "സീസണുകൾ",
+  "episodes": "എപ്പിസോഡുകൾ",
+  "selectSourceToPlay": "പ്ലേ ചെയ്യാൻ മുകളിലുള്ള 'ലഭ്യമായ ഉറവിടങ്ങളിൽ' നിന്ന് ഒരു ഉറവിടം തിരഞ്ഞെടുക്കുക.",
+  "episodeCountOnly": "{count, plural, =1{1 എപ്പിസോഡ്} other{{count} എപ്പിസോഡുകൾ}}",
+  "noEpisodesFound": "എപ്പിസോഡുകളൊന്നും കണ്ടെത്തിയില്ല",
+  "local": "ലോക്കൽ",
+  "remote": "റിമോട്ട്",
+  "torrent": "ടോറന്റ്",
+  "unlock": "അൺലോക്ക്",
+  "lock": "ലോക്ക്",
+  "sources": "ഉറവിടങ്ങൾ",
+  "tracks": "ട്രാക്കുകൾ",
+  "content": "ഉള്ളടക്കം",
+  "stats": "സ്ഥിതിവിവരക്കണക്കുകൾ",
+  "resize": "റീസൈസ്",
+  "next": "അടുത്തത്",
+  "pip": "പി.ഐ.പി (PiP)",
+  "rotate": "തിരിക്കുക",
+  "windowed": "വിൻഡോ മോഡ്",
+  "fullscreen": "ഫുൾ സ്ക്രീൻ",
+  "movieDetails": "സിനിമ വിവരങ്ങൾ",
+  "showDetails": "വിരങ്ങൾ കാണിക്കുക",
+  "tagline": "ടാഗ്‌ലൈൻ",
+  "status": "നില",
+  "releaseDate": "റിലീസ് തീയതി",
+  "firstAirDate": "ആദ്യ സംപ്രേക്ഷണ തീയതി",
+  "originalLanguage": "യഥാർത്ഥ ഭാഷ",
+  "originCountry": "ഉറവിട രാജ്യം",
+  "budgetLabel": "ബജറ്റ്",
+  "revenueLabel": "വരുമാനം",
+  "paused": "നിർത്തലാക്കി",
+  "watched": "കണ്ടുതീർന്നവ",
+  "watching": "കണ്ടുകൊണ്ടിരിക്കുന്നത്",
+  "lastWatched": "അവസാനം കണ്ടത്",
+  "movie": "സിനിമ",
+  "tvShow": "ടിവി ഷോ",
+  "failedToLoadContent": "ഉള്ളടക്കം ലോഡ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു",
+  "director": "സംവിധായകൻ",
+  "creator": "സ്രഷ്ടാവ്",
+  "showMore": "കൂടുതൽ കാണിക്കുക",
+  "showLess": "കുറച്ചു കാണിക്കുക",
+  "viewAll": "എല്ലാം കാണുക",
+  "seasonsCount": "{count} സീസണുകൾ",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "ഇന്റർനെറ്റ് കണക്ഷൻ ഇല്ല",
+  "timeoutError": "സമയം അതിക്രമിച്ചു. വീണ്ടും ശ്രമിക്കുക.",
+  "serverError": "സർവർ പിശക്. പിന്നീട് ശ്രമിക്കുക.",
+  "contentNotFoundError": "ഉള്ളടക്കം കണ്ടെത്തിയില്ല.",
+  "accessDeniedError": "പ്രവേശനം അനുവദനീയമല്ല.",
+  "serviceUnavailableError": "സർവീസ് ലഭ്യമല്ല.",
+  "generalError": "എന്തോ പിശക് സംഭവിച്ചു.",
+  "skip": "ഒഴിവാക്കുക",
+  "goLive": "ലൈവ്",
+  "dismiss": "തള്ളിക്കളയുക",
+  "nextUp": "അടുത്തത്",
+  "sourceAttempt": "ഉറവിടം {index} / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "ശ്രമിക്കുന്നു",
+  "failed": "പരാജയം",
+  "selected": "തിരഞ്ഞെടുത്തു",
+  "playing": "പ്ലേ ചെയ്യുന്നു",
+  "pending": "പെൻഡിംഗ്",
+  "discord": "Discord",
+  "discordSubtitle": "ഞങ്ങളുടെ സെർവറിൽ ചേരുക",
+  "telegram": "Telegram",
+  "telegramSubtitle": "ഞങ്ങളുടെ ചാനലിൽ ചേരുക",
+  "developedBy": "{name} വികസിപ്പിച്ചത്",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "വൈ-ഫൈ ഗുണനിലവാര മുൻഗണന",
+  "mobileQualityPreference": "മൊബൈൽ ഗുണനിലവാര മുൻഗണന",
+  "anyNoPreference": "മുൻഗണനയില്ല",
+  "subtitleAccounts": "സബ്‌ടൈറ്റിൽ അക്കൗണ്ടുകൾ",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "കണക്ഷൻ പരിശോധിക്കുക",
+  "connectedSuccessfully": "വിജയകരമായി ബന്ധിപ്പിച്ചു",
+  "connectionFailed": "കണക്ഷൻ പരാജയപ്പെട്ടു",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API കീ",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "ഡയഗ്നോസ്റ്റിക്സ്",
+  "viewLogs": "ലോഗുകൾ കാണുക",
+  "viewLogsSubtitle": "ആപ്ലിക്കേഷൻ പ്രവർത്തനങ്ങളും പിശകുകളും കാണുക",
+  "goToExtensions": "എക്സ്റ്റൻഷനുകളിലേക്ക് പോകുക",
+  "noPluginsMessage": "ഉള്ളടക്കം ബ്രൗസ് ചെയ്യുന്നതിനും സ്ട്രീം ചെയ്യുന്നതിനും എക്സ്റ്റൻഷനുകൾ ഇൻസ്റ്റാൾ ചെയ്യുക."
+}

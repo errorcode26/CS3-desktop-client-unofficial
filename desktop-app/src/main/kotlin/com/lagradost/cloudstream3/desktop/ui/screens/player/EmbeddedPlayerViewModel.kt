@@ -8,6 +8,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEff
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -325,11 +326,20 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             null
         }
 
-        try {
+        val result = SafePluginInvoker.invoke(
+            tag = "EmbeddedPlayerViewModel:${provider.name}",
+            providerName = provider.name,
+            timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
+            // Timeout on scraping is expected — links stream via callback and may already
+            // be in UI. A slow/dead extractor should not trip the circuit breaker.
+            penalizeOnTimeout = false,
+        ) {
+            com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId")
             provider.loadLinks(
                 data = targetEpisodeId,
                 isCasting = false,
-                subtitleCallback = { sub ->
+                subtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub ->
+                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${sub.lang}] ${sub.url}")
                     updateState {
                         val newSubs = nextEpisodeSubtitles + sub
                         if (!hasStartedPlaying.get()) {
@@ -345,7 +355,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         }
                     }
                 },
-                callback = { link ->
+                callback = SafePluginInvoker.wrapCallback("LinkCallback") { link ->
+                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
                     updateState {
                         if (!isScrapingLinks) {
                             return@updateState this
@@ -395,7 +406,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     }
                 },
             )
+        }
 
+        if (result.isSuccess) {
             updateState {
                 val prefQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
                 val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
@@ -416,17 +429,35 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     )
                 }
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            com.lagradost.common.logging.AppLogger.e("Failed to load links", e)
-            updateState {
-                copy(
-                    isScrapingLinks = false,
-                    targetEpisodeData = null,
-                    isLoadingNextEpisode = false,
-                    nextEpisodeError = "Failed to load links: ${e.message}",
-                )
+        } else {
+            val ex = result.exceptionOrNull()
+            if (ex is kotlinx.coroutines.CancellationException) {
+                throw ex
+            }
+            // If links were already delivered via callback and playback has started,
+            // the timeout fired after we already got what we needed — not an error.
+            if (hasStartedPlaying.get()) {
+                com.lagradost.common.logging.AppLogger.d("Plugin:${provider.name}", "Scrape timed out but playback already started — suppressing error")
+                updateState {
+                    val prefQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+                    val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                    val newLaunchData = launchData?.copy(links = sortedLinks)
+                    copy(
+                        isScrapingLinks = false,
+                        nextEpisodeLinks = sortedLinks,
+                        launchData = newLaunchData,
+                    )
+                }
+            } else {
+                com.lagradost.common.logging.AppLogger.e("Plugin:${provider.name}", "Failed to load links: ${ex?.message}", ex)
+                updateState {
+                    copy(
+                        isScrapingLinks = false,
+                        targetEpisodeData = null,
+                        isLoadingNextEpisode = false,
+                        nextEpisodeError = "Failed to load links: ${ex?.message ?: "Unknown error"}",
+                    )
+                }
             }
         }
     }

@@ -39,10 +39,14 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
     private fun applyCompatPatches(bytes: ByteArray): ByteArray {
         return try {
             val reader = ClassReader(bytes)
-            val writer = ClassWriter(0)
-            reader.accept(CompatPatchVisitor(writer, parent), 0)
+            val writer = SafeComputeClassWriter(
+                reader = null,
+                flags = ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS,
+                classLoader = parent,
+            )
+            reader.accept(CompatPatchVisitor(writer, parent), ClassReader.SKIP_FRAMES)
             writer.toByteArray()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             bytes
         }
     }
@@ -131,7 +135,7 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
                 } else {
                     mangledName // Let it fail naturally if we can't find anything
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 mangledName
             }
         }

@@ -119,6 +119,7 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
         // Redirect TMDB requests. Treat "api.themoviedb.org" itself as the blocked origin
         // and always fall back to "api.tmdb.org" unless the user set a custom mirror.
         val host = request.url.host
+        val startNs = System.nanoTime()
         if (host == "api.themoviedb.org" || host == "api.tmdb.org") {
             val saved = DesktopDataStore.getKey<String>(NetworkConfig.PREF_TMDB_API_MIRROR)
             val mirror = saved
@@ -127,26 +128,29 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
             val newUrl = request.url.newBuilder().host(mirror).build()
             request = request.newBuilder().url(newUrl).build()
 
-            AppLogger.d("-> [HTTP/1.1 Fallback] ${request.method} ${request.url}")
+            AppLogger.d("Network:HTTP", "-> [HTTP/1.1 TMDB] ${request.method} ${request.url}")
             return try {
                 // Execute using the dedicated HTTP/1.1 client instead of the chain
                 val response = http11Client.newCall(request).execute()
-                AppLogger.d("<- [HTTP/1.1 Fallback] ${response.code} ${request.url}")
+                val tookMs = (System.nanoTime() - startNs) / 1_000_000
+                AppLogger.d("Network:HTTP", "<- [HTTP/1.1 TMDB] ${response.code} ${request.url} (${tookMs}ms)")
                 response
             } catch (e: Exception) {
-                AppLogger.d("<- ERROR [HTTP/1.1 Fallback] ${request.url} : ${e.message}")
+                val tookMs = (System.nanoTime() - startNs) / 1_000_000
+                AppLogger.e("Network:HTTP", "<- ERROR [HTTP/1.1 TMDB] ${request.url} (${tookMs}ms): ${e.message}")
                 throw e
             }
         }
 
-        AppLogger.d("-> ${request.method} ${request.url}")
-        request.headers.forEach { (name, value) -> AppLogger.d("   H: $name: $value") }
+        AppLogger.d("Network:HTTP", "-> ${request.method} ${request.url}")
         return try {
             val response = chain.proceed(request)
-            AppLogger.d("<- ${response.code} ${request.url}")
+            val tookMs = (System.nanoTime() - startNs) / 1_000_000
+            AppLogger.d("Network:HTTP", "<- ${response.code} ${request.url} (${tookMs}ms)")
             response
         } catch (e: Exception) {
-            AppLogger.d("<- ERROR ${request.url} : ${e.message}")
+            val tookMs = (System.nanoTime() - startNs) / 1_000_000
+            AppLogger.e("Network:HTTP", "<- ERROR ${request.url} (${tookMs}ms): ${e.message}")
             throw e
         }
     }

@@ -1,0 +1,589 @@
+{
+  "@@locale": "hu",
+  "appTitle": "SkyStream",
+  "languageName": "Magyar",
+  "home": "Kezdőlap",
+  "search": "Keresés",
+  "explore": "Felfedezés",
+  "library": "Könyvtár",
+  "settings": "Beállítások",
+  "extensions": "Bővítmények",
+  "updateAvailable": "Frissítés elérhető",
+  "retry": "Újra",
+  "factoryReset": "Gyári adatok visszaállítása",
+  "startupError": "Indítási hiba",
+  "general": "Általános",
+  "appTheme": "Alkalmazás témája",
+  "recordWatchHistory": "Megtekintési előzmények rögzítése",
+  "defaultHomeScreen": "Alapértelmezett kezdőképernyő",
+  "player": "Lejátszó",
+  "defaultPlayer": "Alapértelmezett lejátszó",
+  "leftGesture": "Bal oldali gesztus",
+  "rightGesture": "Jobb oldali gesztus",
+  "doubleTapToSeek": "Dupla koppintás a kereséshez",
+  "swipeToSeek": "Csúsztatás a kereséshez",
+  "seekDuration": "Keresési időtartam",
+  "bufferDepth": "Puffer mélysége",
+  "defaultResizeMode": "Alapértelmezett méretezési mód",
+  "hardwareDecoding": "Hardveres dekódolás",
+  "network": "Hálózat",
+  "dnsOverHttps": "DNS over HTTPS",
+  "dohProvider": "DoH szolgáltató",
+  "manageExtensions": "Bővítmények kezelése",
+  "appData": "Alkalmazás adatai",
+  "resetDataKeepExtensions": "Adatok törlése (bővítmények megtartása)",
+  "developer": "Fejlesztő",
+  "developerOptions": "Fejlesztői beállítások",
+  "about": "Névjegy",
+  "version": "Verzió",
+  "enabled": "Engedélyezve",
+  "disabled": "Letiltva",
+  "system": "Rendszer",
+  "dark": "Sötét",
+  "light": "Világos",
+  "later": "Később",
+  "updateNow": "Frissítés most",
+  "save": "Mentés",
+  "cancel": "Mégse",
+  "close": "Bezárás",
+  "delete": "Törlés",
+  "viewDetails": "Részletek megtekintése",
+  "clearAll": "Összes törlése",
+  "clearAllHistory": "Előzmények törlése",
+  "all": "Mind",
+  "none": "Nincs",
+  "confirmDownload": "Letöltés megerősítése",
+  "downloadNow": "Letöltés most",
+  "selectSource": "Forrás kiválasztása",
+  "downloadUnavailable": "Nem elérhető",
+  "selectAnotherSource": "Válasszon másikat",
+  "watchHistoryCleared": "Megtekintési előzmények törölve",
+  "downloadingUpdate": "Frissítés letöltése...",
+  "errorPrefix": "Hiba: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Frissítés elérhető: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Válasszon szolgáltatót az indításhoz",
+  "tapExtensionIcon": "Koppintson a bővítmény ikonra a sarokban",
+  "continueWatching": "Folytatás",
+  "noInternetConnection": "Nincs internetkapcsolat",
+  "siteNotReachable": "Az oldal nem érhető el",
+  "checkConnectionOrDownloads": "Ellenőrizze a kapcsolatot vagy nézze meg a letöltéseket.",
+  "tryVpnOrConnection": "Próbálkozzon VPN-nel vagy ellenőrizze az internetet.",
+  "errorDetails": "Hiba részletei: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Ugrás a letöltésekhez",
+  "selectProvider": "Szolgáltató kiválasztása",
+  "searchHint": "Filmek, sorozatok keresése...",
+  "searchFavoriteContent": "Keressen a kedvenc tartalmai között",
+  "pressSearchOrEnter": "A kezdéshez nyomja meg a keresést vagy az Entert",
+  "noResultsFound": "Nincs találat.",
+  "couldNotLoadTrending": "Nem sikerült betölteni a trendeket",
+  "popularMovies": "Népszerű filmek",
+  "popularTVShows": "Népszerű sorozatok",
+  "newMovies": "Új filmek",
+  "newTVShows": "Új sorozatok",
+  "featuredMovies": "Kiemelt filmek",
+  "featuredTVShows": "Kiemelt sorozatok",
+  "lastVideosTVShows": "Legutóbbi sorozatok",
+  "downloads": "Letöltések",
+  "bookmarks": "Könyvjelzők",
+  "noDownloadsYet": "Még nincsenek letöltések",
+  "episodesCount": "{count} epizód • {done} befejezve",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Összes epizód törlése",
+  "confirmDeleteAllEpisodes": "Biztosan törölni szeretné a(z) \"{title}\" összes ({count} db) epizódját és fájlját?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Összes törlése",
+  "completed": "Befejezve",
+  "statusQueued": "Sorban áll...",
+  "statusDownloading": "Letöltés...",
+  "statusFinished": "Kész",
+  "statusFailed": "Sikertelen",
+  "statusCanceled": "Megszakítva",
+  "statusPaused": "Szüneteltetve",
+  "statusWaiting": "Várakozás...",
+  "fileNotFoundRemoving": "A fájl nem található. Bejegyzés törlése.",
+  "fileNotFound": "A fájl nem található",
+  "deleteDownload": "Letöltés törlése",
+  "confirmDeleteDownload": "Biztosan törölni szeretné ezt a letöltést?",
+  "libraryEmpty": "A könyvtára üres",
+  "language": "Nyelv",
+  "english": "Angol",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Ismeretlen",
+  "recommended": "Ajánlott",
+  "on": "Be",
+  "off": "Ki",
+  "installRemoveProviders": "Szolgáltatók telepítése/törlése",
+  "resetDataSubtitle": "Beállítások és adatbázis törlése, bővítmények megtartása",
+  "factoryResetSubtitle": "Összes adat, beállítás és bővítmény törlése",
+  "developerOptionsSubtitle": "Hibakereső eszközök és helyi lejátszás",
+  "loading": "Betöltés...",
+  "sec": "mp",
+  "min": "perc",
+  "internalPlayer": "Belső lejátszó (media_kit)",
+  "builtInPlayer": "Beépített lejátszó",
+  "customNotSet": "Egyéni (nincs beállítva)",
+  "selectGesture": "{side} gesztus kiválasztása",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "bal oldali",
+  "right": "jobb oldali",
+  "selectSeekDuration": "Keresési időtartam kiválasztása",
+  "selectBufferDepth": "Puffer mélységének kiválasztása",
+  "subtitleSettings": "Felirat beállításai",
+  "size": "Méret: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Háttér",
+  "customDohUrlLabel": "Egyéni DoH URL",
+  "enterCustomDohUrl": "Adja meg saját DoH URL-címét",
+  "chooseTheme": "Téma választása",
+  "resetDataDialogTitle": "Adatok törlése?",
+  "resetDataDialogContent": "Ez törli a beállításokat, a kedvenceket és az előzményeket. A telepített bővítmények megmaradnak.",
+  "factoryResetDialogTitle": "Gyári adatok visszaállítása?",
+  "factoryResetDialogContent": "Ez MINDENT töröl. Ezt a műveletet nem lehet visszavonni.",
+  "selectLanguage": "Nyelv választása",
+  "synopsis": "Szinopszis",
+  "noDescription": "Nincs leírás.",
+  "videoAlreadyDownloadedPrompt": "Ezt a videót már letöltötte. Mit szeretne tenni?",
+  "playNow": "Lejátszás most",
+  "deleteDownloadPrompt": "Letöltés törlése?",
+  "deleteDownloadConfirmation": "Biztosan törölni szeretné ezt a fájlt? Ezt nem lehet visszavonni.",
+  "no": "Nem",
+  "yesDelete": "Igen, törlés",
+  "downloadPaused": "Letöltés szüneteltetve",
+  "downloading": "Letöltés",
+  "speed": "Sebesség",
+  "remaining": "Hátralévő",
+  "resume": "Folytatás",
+  "pause": "Szünet",
+  "torrentContent": "Torrent tartalma",
+  "audioTracks": "Hangsávok",
+  "noAudioTracks": "Nem találhatók hangsávok",
+  "subtitles": "Feliratok",
+  "options": "Beállítások",
+  "noSubtitlesFound": "Nem találhatók feliratok",
+  "playbackSpeed": "Lejátszási sebesség",
+  "subtitleOptions": "Felirat beállításai",
+  "hlsSubtitleWarning": "Külső feliratok nem támogatottak HLS-nél ezen a platformon.",
+  "loadFromDevice": "Betöltés az eszközről",
+  "syncDelay": "Szinkron / Késleltetés",
+  "styleSettings": "Stílus beállításai",
+  "searchOnline": "Keresés online",
+  "subtitleSync": "Felirat szinkronizálása",
+  "subtitleDelayWarning": "A felirat késleltetése nem támogatott a jelenlegi lejátszóban.",
+  "resetDelay": "Késleltetés alaphelyzetbe állítása",
+  "subtitleStyles": "Felirat stílusok",
+  "mediaKitStylingWarning": "A feliratok stílusának megváltoztatása jelenleg csak media_kit esetén érhető el.",
+  "resetToDefault": "Alaphelyzet",
+  "fontSize": "Betűméret",
+  "verticalPosition": "Függőleges pozíció",
+  "textColor": "Szövegszín",
+  "backgroundColor": "Háttérszín",
+  "backgroundOpacity": "Háttér átlátszósága",
+  "subtitleSearch": "Felirat keresése",
+  "searchSubtitleNameHint": "Felirat neve...",
+  "enterSearchSubtitlePrompt": "Adja meg a nevet a felirat kereséséhez.",
+  "noSubtitleResults": "Nincs találat.",
+  "downloadingApplyingSubtitle": "Felirat letöltése és alkalmazása...",
+  "failedToDownloadSubtitle": "Sikertelen felirat letöltés.",
+  "failedToLoadSubtitles": "Sikertelen felirat betöltés. Próbálja újra.",
+  "noReposFound": "Nem találhatók tárolók vagy bővítmények",
+  "downloadAllProviders": "Összes letöltése",
+  "removeRepository": "Tároló eltávolítása",
+  "addRepo": "Tároló hozzáadása",
+  "extensionsNotInRepos": "Nem tárolóban lévő bővítmények",
+  "noLongerInRepo": "Már nem szerepel egyik tárolóban sem",
+  "addRepoToBrowse": "Adjon hozzá egy tárolót a bővítmények böngészéséhez",
+  "debugExtensions": "Bővítmények hibakeresése",
+  "removeRepoConfirm": "Eltávolítja a(z) {repoName} tárolót?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Ez eltávolítja a tárolót és MINDEN bővítményét törli.",
+  "addRepository": "Tároló hozzáadása",
+  "repoUrlOrShortcode": "Tároló URL vagy rövid kód",
+  "assetPlugin": "Helyi bővítmény",
+  "installed": "Telepítve",
+  "updateTo": "Frissítés erre: {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Telepítés",
+  "error": "Hiba",
+  "ok": "OK",
+  "pluginSettings": "{pluginName} beállításai",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filmek",
+  "series": "Sorozatok",
+  "anime": "Anime",
+  "liveStreams": "Élő adások",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 bővítmény frissítve} other{{count} bővítmény frissítve}}",
+  "invalidNavigation": "Érvénytelen navigáció.",
+  "startOver": "Újrakezdés",
+  "goBack": "Vissza",
+  "resolving": "Feloldás...",
+  "downloaded": "Letöltve",
+  "download": "Letöltés",
+  "debugOnlyFeature": "Csak hibakeresési módhoz",
+  "streamUrl": "Stream URL",
+  "play": "Lejátszás",
+  "verifyingSourceSize": "Ellenőrzés...",
+  "fileSaveLocationNotification": "A fájlt a letöltési mappába mentjük.",
+  "resumingPlayback": "Lejátszás folytatása",
+  "pausedAt": "Szüneteltetve: {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Automatikus folytatás {count} mp múlva",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Folytatás most",
+  "playbackError": "Lejátszási hiba",
+  "confirmClearHistory": "Minden előzményt töröl?",
+  "seasonWithNumber": "{number}. évad",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Indítás...",
+  "percentWatched": "{percent}% megnézve",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Hibakereső eszközök",
+  "playLocalVideo": "Helyi videó",
+  "playLocalVideoSubtitle": "Fájl lejátszása az eszközről",
+  "streamUrlSubtitle": "Lejátszás URL-ről",
+  "streamTorrent": "Torrent lejátszása",
+  "streamTorrentSubtitle": "Válasszon torrent fájlt",
+  "loadPluginFromAssets": "Bővítmény betöltése",
+  "enterVideoUrlHint": "Videó URL címe",
+  "networkStream": "Hálózati stream",
+  "removedFromHistory": "Törölve az előzményekből: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Egyéni",
+  "refreshingLiveStream": "Frissítés...",
+  "removeFromHistory": "Törlés az előzményekből",
+  "live": "ÉLŐ",
+  "volume": "Hangerő",
+  "brightness": "Fényerő",
+  "fit": "Illeszkedés",
+  "zoom": "Nagyítás",
+  "stretch": "Nyújtás",
+  "titleWithParam": "Cím: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Forrás: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Méret: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Hiba: {error}. Belső lejátszó használata.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} nem található.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "{number}. évad ({count} ep.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Forrás kiválasztása ehhez: {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Nincsenek telepített bővítmények",
+  "availableSources": "Elérhető források",
+  "seasons": "Évadok",
+  "episodes": "Epizódok",
+  "selectSourceToPlay": "Válasszon forrást a lejátszáshoz.",
+  "episodeCountOnly": "{count, plural, one{1 epizód} other{{count} epizód}}",
+  "noEpisodesFound": "Nem találhatók epizódok",
+  "local": "Helyi",
+  "remote": "Távoli",
+  "torrent": "Torrent",
+  "unlock": "Feloldás",
+  "lock": "Zárolás",
+  "sources": "Források",
+  "tracks": "Számok",
+  "content": "Tartalom",
+  "stats": "Statisztika",
+  "resize": "Méretezés",
+  "next": "Következő",
+  "pip": "Kép a képben",
+  "rotate": "Forgatás",
+  "windowed": "Ablakos",
+  "fullscreen": "Teljes képernyő",
+  "movieDetails": "Részletek",
+  "showDetails": "Részletek mutatása",
+  "tagline": "Slogan",
+  "status": "Állapot",
+  "releaseDate": "Megjelenés",
+  "firstAirDate": "Első adás",
+  "originalLanguage": "Eredeti nyelv",
+  "originCountry": "Származási ország",
+  "budgetLabel": "Költségvetés",
+  "revenueLabel": "Bevétel",
+  "paused": "Szüneteltetve",
+  "watched": "Megnézve",
+  "watching": "Nézés",
+  "lastWatched": "Utoljára",
+  "movie": "Film",
+  "tvShow": "Sorozat",
+  "failedToLoadContent": "Sikertelen betöltés",
+  "director": "Rendező",
+  "creator": "Alkotó",
+  "showMore": "Több",
+  "showLess": "Kevesebb",
+  "viewAll": "Összes mutatása",
+  "seasonsCount": "{count, plural, one{1 évad} other{{count} évad}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Nincs internet",
+  "timeoutError": "Időtúllépés.",
+  "serverError": "Szerverhiba.",
+  "contentNotFoundError": "Nem található.",
+  "accessDeniedError": "Hozzáférés megtagadva.",
+  "serviceUnavailableError": "Szolgáltatás nem elérhető.",
+  "generalError": "Hiba történt.",
+  "skip": "Kihagyás",
+  "goLive": "Élő adás",
+  "dismiss": "Bezárás",
+  "nextUp": "Következő",
+  "sourceAttempt": "{index}. forrás / {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Próbálkozás",
+  "failed": "Sikertelen",
+  "selected": "Kiválasztva",
+  "playing": "Lejátszás",
+  "pending": "Várakozás",
+  "discord": "Discord",
+  "discordSubtitle": "Csatlakozz a szerverünkhöz",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Csatlakozz a csatornánkhoz",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Wi-Fi minőségi preferencia",
+  "mobileQualityPreference": "Mobilhálózati minőségi preferencia",
+  "anyNoPreference": "Nincs preferencia",
+  "subtitleAccounts": "Felirat fiókok",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Kapcsolat tesztelése",
+  "connectedSuccessfully": "Sikeres csatlakozás",
+  "connectionFailed": "Sikertelen csatlakozás",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "API kulcs",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnosztika",
+  "viewLogs": "Naplók megtekintése",
+  "viewLogsSubtitle": "Alkalmazásaktivitás és hibák megtekintése",
+  "goToExtensions": "Ugrás a bővítményekhez",
+  "noPluginsMessage": "Telepítsen bővítményeket a tartalom böngészéséhez och streameléséhez."
+}

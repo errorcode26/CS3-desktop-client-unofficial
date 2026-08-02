@@ -1,0 +1,589 @@
+{
+  "@@locale": "ro",
+  "appTitle": "SkyStream",
+  "languageName": "Română",
+  "home": "Acasă",
+  "search": "Căutare",
+  "explore": "Explorează",
+  "library": "Bibliotecă",
+  "settings": "Setări",
+  "extensions": "Extensii",
+  "updateAvailable": "Actualizare disponibilă",
+  "retry": "Reîncearcă",
+  "factoryReset": "Resetare completă",
+  "startupError": "Eroare de pornire",
+  "general": "General",
+  "appTheme": "Tema aplicației",
+  "recordWatchHistory": "Înregistrează istoricul vizionărilor",
+  "defaultHomeScreen": "Ecran principal implicit",
+  "player": "Player",
+  "defaultPlayer": "Player implicit",
+  "leftGesture": "Gest stânga",
+  "rightGesture": "Gest dreapta",
+  "doubleTapToSeek": "Atingere dublă pentru derulare",
+  "swipeToSeek": "Glisare pentru derulare",
+  "seekDuration": "Durata derulării",
+  "bufferDepth": "Adâncimea bufferului",
+  "defaultResizeMode": "Mod de redimensionare implicit",
+  "hardwareDecoding": "Decodare hardware",
+  "network": "Rețea",
+  "dnsOverHttps": "DNS prin HTTPS",
+  "dohProvider": "Furnizor DoH",
+  "manageExtensions": "Gestionare extensii",
+  "appData": "Date aplicație",
+  "resetDataKeepExtensions": "Resetare date (păstrează extensiile)",
+  "developer": "Dezvoltator",
+  "developerOptions": "Opțiuni dezvoltator",
+  "about": "Despre",
+  "version": "Versiune",
+  "enabled": "Activat",
+  "disabled": "Dezactivat",
+  "system": "Sistem",
+  "dark": "Întunecat",
+  "light": "Luminos",
+  "later": "Mai târziu",
+  "updateNow": "Actualizează acum",
+  "save": "Salvează",
+  "cancel": "Anulează",
+  "close": "Închide",
+  "delete": "Șterge",
+  "viewDetails": "Vezi detalii",
+  "clearAll": "Șterge tot",
+  "clearAllHistory": "Șterge tot istoricul",
+  "all": "Toate",
+  "none": "Niciunul",
+  "confirmDownload": "Confirmă descărcarea",
+  "downloadNow": "Descarcă acum",
+  "selectSource": "Selectează sursa",
+  "downloadUnavailable": "Indisponibil",
+  "selectAnotherSource": "Selectează alta",
+  "watchHistoryCleared": "Istoricul vizionărilor a fost șters",
+  "downloadingUpdate": "Se descarcă actualizarea...",
+  "errorPrefix": "Eroare: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Actualizare disponibilă: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Selectează un furnizor pentru a începe",
+  "tapExtensionIcon": "Atinge pictograma extensiei din colț",
+  "continueWatching": "Continuă vizionarea",
+  "noInternetConnection": "Fără conexiune la internet",
+  "siteNotReachable": "Site-ul nu poate fi accesat",
+  "checkConnectionOrDownloads": "Verifică conexiunea sau vizualizează conținutul descărcat.",
+  "tryVpnOrConnection": "Încearcă să accesezi folosind un VPN sau verifică conexiunea.",
+  "errorDetails": "Detalii eroare: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Mergi la descărcări",
+  "selectProvider": "Selectează furnizorul",
+  "searchHint": "Caută filme, seriale...",
+  "searchFavoriteContent": "Caută conținutul preferat",
+  "pressSearchOrEnter": "Apasă tasta Căutare sau Enter pentru a începe",
+  "noResultsFound": "Nu s-au găsit rezultate.",
+  "couldNotLoadTrending": "Nu s-au putut încărca tendințele",
+  "popularMovies": "Filme populare",
+  "popularTVShows": "Seriale populare",
+  "newMovies": "Filme noi",
+  "newTVShows": "Seriale noi",
+  "featuredMovies": "Filme recomandate",
+  "featuredTVShows": "Seriale recomandate",
+  "lastVideosTVShows": "Ultimele videoclipuri",
+  "downloads": "Descărcări",
+  "bookmarks": "Favorite",
+  "noDownloadsYet": "Nicio descărcare încă",
+  "episodesCount": "{count} Episoade • {done} Finalizate",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Șterge toate episoadele",
+  "confirmDeleteAllEpisodes": "Sigur dorești să ștergi toate cele {count} episoade din „{title}” și fișierele lor?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Șterge tot",
+  "completed": "Finalizat",
+  "statusQueued": "În coadă...",
+  "statusDownloading": "Se descarcă...",
+  "statusFinished": "Finalizat",
+  "statusFailed": "Eșuat",
+  "statusCanceled": "Anulat",
+  "statusPaused": "Pauzat",
+  "statusWaiting": "În așteptare...",
+  "fileNotFoundRemoving": "Fișierul nu a fost găsit. Se șterge înregistrarea.",
+  "fileNotFound": "Fișierul nu a fost găsit",
+  "deleteDownload": "Șterge descărcarea",
+  "confirmDeleteDownload": "Sigur dorești să ștergi această descărcare?",
+  "libraryEmpty": "Biblioteca ta este goală",
+  "language": "Limbă",
+  "english": "Engleză",
+  "hindi": "Hindi",
+  "kannada": "Kannada",
+  "unknown": "Necunoscut",
+  "recommended": "Recomandat",
+  "on": "Pornit",
+  "off": "Oprit",
+  "installRemoveProviders": "Instalează sau elimină furnizori",
+  "resetDataSubtitle": "Șterge setările și baza de date, păstrează plugin-urile",
+  "factoryResetSubtitle": "Șterge toate datele, setările și extensiile",
+  "developerOptionsSubtitle": "Instrumente de depanare și redare locală",
+  "loading": "Se încarcă...",
+  "sec": "sec",
+  "min": "min",
+  "internalPlayer": "Intern (media_kit)",
+  "builtInPlayer": "Player încorporat",
+  "customNotSet": "Personalizat (nesetat)",
+  "selectGesture": "Selectează gest {side}",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "Stânga",
+  "right": "Dreapta",
+  "selectSeekDuration": "Selectează durata derulării",
+  "selectBufferDepth": "Selectează adâncimea bufferului",
+  "subtitleSettings": "Setări subtitrări",
+  "size": "Dimensiune: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Fundal",
+  "customDohUrlLabel": "URL DoH personalizat",
+  "enterCustomDohUrl": "Introdu propria URL DoH",
+  "chooseTheme": "Alege tema",
+  "resetDataDialogTitle": "Resetezi datele?",
+  "resetDataDialogContent": "Această acțiune va șterge Setările, Favoritele și Istoricul. Extensiile instalate NU vor fi șterse.",
+  "factoryResetDialogTitle": "Resetare completă?",
+  "factoryResetDialogContent": "Această acțiune va șterge TOTUL. Acțiunea este ireversibilă.",
+  "selectLanguage": "Selectează limba",
+  "synopsis": "Sinopsis",
+  "noDescription": "Nicio descriere disponibilă.",
+  "videoAlreadyDownloadedPrompt": "Acest videoclip este deja descărcat. Ce dorești să faci?",
+  "playNow": "Redă acum",
+  "deleteDownloadPrompt": "Ștergi descărcarea?",
+  "deleteDownloadConfirmation": "Sigur dorești să ștergi acest fișier? Acțiunea este ireversibilă.",
+  "no": "Nu",
+  "yesDelete": "Da, șterge",
+  "downloadPaused": "Descărcare pauzată",
+  "downloading": "Se descarcă",
+  "speed": "Viteză",
+  "remaining": "Rămas",
+  "resume": "Reluare",
+  "pause": "Pauză",
+  "torrentContent": "Conținut torrent",
+  "audioTracks": "Piste audio",
+  "noAudioTracks": "Nicio pistă audio găsită",
+  "subtitles": "Subtitrări",
+  "options": "Opțiuni",
+  "noSubtitlesFound": "Nicio subtitrare găsită",
+  "playbackSpeed": "Viteză de redare",
+  "subtitleOptions": "Opțiuni subtitrare",
+  "hlsSubtitleWarning": "Subtitrările externe nu sunt suportate pentru HLS pe această platformă.",
+  "loadFromDevice": "Încarcă de pe dispozitiv",
+  "syncDelay": "Sincronizare / Întârziere",
+  "styleSettings": "Setări stil",
+  "searchOnline": "Caută online (căutare subtitrări)",
+  "subtitleSync": "Sincronizare subtitrare",
+  "subtitleDelayWarning": "Întârzierea subtitrării nu este suportată de motorul de redare actual.",
+  "resetDelay": "Resetează întârzierea",
+  "subtitleStyles": "Stiluri subtitrare",
+  "mediaKitStylingWarning": "Stilizarea subtitrărilor este disponibilă momentan doar pentru player-ul media_kit.",
+  "resetToDefault": "Resetează la implicit",
+  "fontSize": "Dimensiune font",
+  "verticalPosition": "Poziție verticală",
+  "textColor": "Culoare text",
+  "backgroundColor": "Culoare fundal",
+  "backgroundOpacity": "Opacitate fundal",
+  "subtitleSearch": "Căutare subtitrare",
+  "searchSubtitleNameHint": "Nume subtitrare...",
+  "enterSearchSubtitlePrompt": "Introdu un nume pentru a căuta subtitrări.",
+  "noSubtitleResults": "Niciun rezultat găsit.",
+  "downloadingApplyingSubtitle": "Se descarcă și se aplică subtitrarea...",
+  "failedToDownloadSubtitle": "Descărcarea subtitrării a eșuat.",
+  "failedToLoadSubtitles": "Încărcarea subtitrărilor a eșuat. Încearcă din nou.",
+  "noReposFound": "Nu s-au găsit depozite sau plugin-uri",
+  "downloadAllProviders": "Descarcă tot",
+  "removeRepository": "Elimină depozitul",
+  "addRepo": "Adaugă depozit",
+  "extensionsNotInRepos": "Extensii care nu sunt în depozite",
+  "noLongerInRepo": "Nu mai apare în niciun depozit",
+  "addRepoToBrowse": "Adaugă un depozit pentru a explora plugin-uri",
+  "debugExtensions": "Depanare extensii",
+  "removeRepoConfirm": "Elimini {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Această acțiune va elimina depozitul și va dezinstala TOATE plugin-urile sale.",
+  "addRepository": "Adăugare depozit",
+  "repoUrlOrShortcode": "URL depozit sau cod scurt",
+  "assetPlugin": "Plugin activ",
+  "installed": "Instalat",
+  "updateTo": "Actualizează la {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Instalează",
+  "error": "Eroare",
+  "ok": "OK",
+  "pluginSettings": "Setări {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Filme",
+  "series": "Seriale",
+  "anime": "Anime",
+  "liveStreams": "Fluxuri live",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 extensie actualizată} few{{count} extensii actualizate} other{{count} de extensii actualizate}}",
+  "invalidNavigation": "Navigare invalidă.",
+  "startOver": "Reîncepe",
+  "goBack": "Înapoi",
+  "resolving": "Se rezolvă...",
+  "downloaded": "Descărcat",
+  "download": "Descarcă",
+  "debugOnlyFeature": "Această funcție este disponibilă doar în versiunile de depanare",
+  "streamUrl": "URL flux",
+  "play": "Redă",
+  "verifyingSourceSize": "Se verifică sursa și dimensiunea...",
+  "fileSaveLocationNotification": "Fișierul va fi salvat în folderul Descărcări.",
+  "resumingPlayback": "Se reia redarea",
+  "pausedAt": "Pauzat la {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "Se reia automat în {count} secunde",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Reluare acum",
+  "playbackError": "Eroare de redare",
+  "confirmClearHistory": "Sigur dorești să ștergi tot istoricul?",
+  "seasonWithNumber": "Sezonul {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Se pornește...",
+  "percentWatched": "{percent}% vizionat",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Sub",
+  "dub": "Dub",
+  "playEpisode": "{label} S{season} E{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Instrumente depanare",
+  "playLocalVideo": "Video local",
+  "playLocalVideoSubtitle": "Redă fișier de pe dispozitiv",
+  "streamUrlSubtitle": "Redă de la URL rețea",
+  "streamTorrent": "Stream torrent",
+  "streamTorrentSubtitle": "Selectează un fișier torrent",
+  "loadPluginFromAssets": "Încarcă plugin din resurse",
+  "enterVideoUrlHint": "Introdu URL-ul videoclipului",
+  "networkStream": "Flux rețea",
+  "removedFromHistory": "Eliminat din istoric: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Personalizat",
+  "refreshingLiveStream": "Se reîmprospătează fluxul...",
+  "removeFromHistory": "Elimină din istoric",
+  "live": "LIVE",
+  "volume": "Volum",
+  "brightness": "Luminozitate",
+  "fit": "Potrivire",
+  "zoom": "Zoom",
+  "stretch": "Întinde",
+  "titleWithParam": "Titlu: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Sursă: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Dimensiune: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Eroare: {error}. Se folosește player-ul intern.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} nu a fost detectat.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Sezonul {number} ({count} ep.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Sursă pentru {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Niciun plugin instalat",
+  "availableSources": "Surse disponibile",
+  "seasons": "Sezoane",
+  "episodes": "Episoade",
+  "selectSourceToPlay": "Selectează o sursă pentru a reda.",
+  "episodeCountOnly": "{count, plural, one{1 episod} few{{count} episoade} other{{count} de episoade}}",
+  "noEpisodesFound": "Nu s-au găsit episoade",
+  "local": "Local",
+  "remote": "La distanță",
+  "torrent": "Torrent",
+  "unlock": "Deblochează",
+  "lock": "Blochează",
+  "sources": "Surse",
+  "tracks": "Piste",
+  "content": "Conținut",
+  "stats": "Statistici",
+  "resize": "Dimensiune",
+  "next": "Următorul",
+  "pip": "PiP",
+  "rotate": "Rotește",
+  "windowed": "Fereastră",
+  "fullscreen": "Ecran complet",
+  "movieDetails": "Detalii",
+  "showDetails": "Vezi detalii",
+  "tagline": "Slogan",
+  "status": "Stare",
+  "releaseDate": "Data lansării",
+  "firstAirDate": "Prima difuzare",
+  "originalLanguage": "Limbă originală",
+  "originCountry": "Țară de origine",
+  "budgetLabel": "Buget",
+  "revenueLabel": "Venituri",
+  "paused": "Pauzat",
+  "watched": "Vizionat",
+  "watching": "Vizionare",
+  "lastWatched": "Ultima vizionare",
+  "movie": "Film",
+  "tvShow": "Serial",
+  "failedToLoadContent": "Încărcare eșuată",
+  "director": "Regizor",
+  "creator": "Creator",
+  "showMore": "Mai mult",
+  "showLess": "Mai puțin",
+  "viewAll": "Vezi tot",
+  "seasonsCount": "{count, plural, one{1 sezon} few{{count} sezoane} other{{count} de sezoane}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Fără internet",
+  "timeoutError": "Timpul a expirat.",
+  "serverError": "Eroare server.",
+  "contentNotFoundError": "Negăsit.",
+  "accessDeniedError": "Acces refuzat.",
+  "serviceUnavailableError": "Serviciu indisponibil.",
+  "generalError": "Eroare.",
+  "skip": "Sari",
+  "goLive": "Direct",
+  "dismiss": "Închide",
+  "nextUp": "Urmează",
+  "sourceAttempt": "Sursa {index} din {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Se încearcă",
+  "failed": "Eșuat",
+  "selected": "Selectat",
+  "playing": "Redare",
+  "pending": "În așteptare",
+  "discord": "Discord",
+  "discordSubtitle": "Alăturați-vă serverului nostru",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Alăturați-vă canalului nostru",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Preferință calitate Wi-Fi",
+  "mobileQualityPreference": "Preferință calitate mobilă",
+  "anyNoPreference": "Fără preferință",
+  "subtitleAccounts": "Conturi de subtitrări",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Testează conexiunea",
+  "connectedSuccessfully": "Conectat cu succes",
+  "connectionFailed": "Conexiune eșuată",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "Cheie API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Diagnostic",
+  "viewLogs": "Vezi jurnalele",
+  "viewLogsSubtitle": "Vezi activitatea și erorile aplicației",
+  "goToExtensions": "Mergi la extensii",
+  "noPluginsMessage": "Instalează extensii pentru a răsfoi și a transmite conținut."
+}

@@ -1,0 +1,589 @@
+{
+  "@@locale": "be",
+  "appTitle": "SkyStream",
+  "languageName": "Беларуская",
+  "home": "Галоўная",
+  "search": "Пошук",
+  "explore": "Даследаваць",
+  "library": "Бібліятэка",
+  "settings": "Налады",
+  "extensions": "Пашырэнні",
+  "updateAvailable": "Даступна абнаўленне",
+  "retry": "Паўтарыць",
+  "factoryReset": "Скід да заводскіх налад",
+  "startupError": "Памылка запуску",
+  "general": "Агульныя",
+  "appTheme": "Тэма праграмы",
+  "recordWatchHistory": "Запісваць гісторыю праглядаў",
+  "defaultHomeScreen": "Галоўны экран па змаўчанні",
+  "player": "Плэер",
+  "defaultPlayer": "Плэер па змаўчанні",
+  "leftGesture": "Левы жэст",
+  "rightGesture": "Правы жэст",
+  "doubleTapToSeek": "Двайная заклаца для перамоткі",
+  "swipeToSeek": "Жэст для перамоткі",
+  "seekDuration": "Працягласць перамоткі",
+  "bufferDepth": "Глыбіня буфера",
+  "defaultResizeMode": "Рэжым маштабавання па змаўчанні",
+  "hardwareDecoding": "Апаратнае дэкадаванне",
+  "network": "Сетка",
+  "dnsOverHttps": "DNS праз HTTPS",
+  "dohProvider": "Провайдэр DoH",
+  "manageExtensions": "Кіраванне пашырэннямі",
+  "appData": "Даныя праграмы",
+  "resetDataKeepExtensions": "Скінуць даныя (захаваць пашырэнні)",
+  "developer": "Распрацоўшчык",
+  "developerOptions": "Опцыі распрацоўшчыка",
+  "about": "Пра праграму",
+  "version": "Версія",
+  "enabled": "Уключана",
+  "disabled": "Выключана",
+  "system": "Сістэмная",
+  "dark": "Цёмная",
+  "light": "Светлая",
+  "later": "Пазней",
+  "updateNow": "Абнавіць зараз",
+  "save": "Захаваць",
+  "cancel": "Адмена",
+  "close": "Закрыць",
+  "delete": "Выдаліць",
+  "viewDetails": "Падрабязнасці",
+  "clearAll": "Ачысціць усё",
+  "clearAllHistory": "Ачысціць усю гісторыю",
+  "all": "Усе",
+  "none": "Няма",
+  "confirmDownload": "Пацвердзіць загрузку",
+  "downloadNow": "Загрузіць зараз",
+  "selectSource": "Выбраць крыніцу",
+  "downloadUnavailable": "Загрузка недаступная",
+  "selectAnotherSource": "Выбраць іншую крыніцу",
+  "watchHistoryCleared": "Гісторыя праглядаў ачышчана",
+  "downloadingUpdate": "Загрузка абнаўлення...",
+  "errorPrefix": "Памылка: {message}",
+  "@errorPrefix": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableTag": "Даступна абнаўленне: {tag}",
+  "@updateAvailableTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "selectProviderToStart": "Выберыце правайдэра, каб пачаць",
+  "tapExtensionIcon": "Націсніце на значок пашырэння ў куце",
+  "continueWatching": "Працягнуць прагляд",
+  "noInternetConnection": "Няма падключэння да інтэрнэту",
+  "siteNotReachable": "Сайт недаступны",
+  "checkConnectionOrDownloads": "Праверце падключэнне або паглядзіце загрузкі.",
+  "tryVpnOrConnection": "Паспрабуйце VPN або праверце інтэрнэт.",
+  "errorDetails": "Дэталі памылкі: {error}",
+  "@errorDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "goToDownloads": "Перайсці да загрузак",
+  "selectProvider": "Выбраць правайдэра",
+  "searchHint": "Пошук фільмаў, серыялаў...",
+  "searchFavoriteContent": "Шукайце любімы кантэнт",
+  "pressSearchOrEnter": "Націсніце Пошук або Enter, каб пачаць",
+  "noResultsFound": "Вынікаў не знойдзено.",
+  "couldNotLoadTrending": "Не ўдалося загрузіць папулярнае",
+  "popularMovies": "Папулярныя фільмы",
+  "popularTVShows": "Папулярныя серыялы",
+  "newMovies": "Новыя фільмы",
+  "newTVShows": "Новыя серыялы",
+  "featuredMovies": "Рэкамендаваныя фільмы",
+  "featuredTVShows": "Рэкамендаваныя серыялы",
+  "lastVideosTVShows": "Апошнія серыялы",
+  "downloads": "Загрузкі",
+  "bookmarks": "Закладкі",
+  "noDownloadsYet": "Загрузак пакуль няма",
+  "episodesCount": "Эпізодаў: {count} • Скончана: {done}",
+  "@episodesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllEpisodes": "Выдаліць усе эпізоды",
+  "confirmDeleteAllEpisodes": "Вы сапраўды хочаце выдаліць усе {count} эпізоды \"{title}\" і іх файлы?",
+  "@confirmDeleteAllEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAll": "Выдаліць усё",
+  "completed": "Скончана",
+  "statusQueued": "У чарзе...",
+  "statusDownloading": "Загрузка...",
+  "statusFinished": "Завершана",
+  "statusFailed": "Памылка",
+  "statusCanceled": "Адменена",
+  "statusPaused": "Прыпынена",
+  "statusWaiting": "Чаканне...",
+  "fileNotFoundRemoving": "Файл не знойдзены. Выдаленне запісу.",
+  "fileNotFound": "Файл не знойдзены",
+  "deleteDownload": "Выдаліць загрузку",
+  "confirmDeleteDownload": "Вы сапраўды хочаце выдаліць гэтую загрузку і яе файл?",
+  "libraryEmpty": "Бібліятэка пустая",
+  "language": "Мова",
+  "english": "Англійская",
+  "hindi": "Хіндзі",
+  "kannada": "Канада",
+  "unknown": "Невядома",
+  "recommended": "Рэкамендавана",
+  "on": "Укл",
+  "off": "Выкл",
+  "installRemoveProviders": "Усталяваць/выдаліць правайдэраў",
+  "resetDataSubtitle": "Ачысціць налады і БД, захаваць плагіны",
+  "factoryResetSubtitle": "Выдаліць усе даныя, налады і пашырэнні",
+  "developerOptionsSubtitle": "Інструменты адладкі і лакальны прагляд",
+  "loading": "Загрузка...",
+  "sec": "с",
+  "min": "мін",
+  "internalPlayer": "Унутраны (media_kit)",
+  "builtInPlayer": "Убудаваны плэер",
+  "customNotSet": "Іншае (не вызначана)",
+  "selectGesture": "Выбраць жэст ({side})",
+  "@selectGesture": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "left": "левы",
+  "right": "правы",
+  "selectSeekDuration": "Выбраць працягласць перамоткі",
+  "selectBufferDepth": "Выбраць глыбіню буфера",
+  "subtitleSettings": "Налады субтытраў",
+  "size": "Памер: {size}",
+  "@size": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "background": "Фон",
+  "customDohUrlLabel": "Уласны DoH URL",
+  "enterCustomDohUrl": "Увядзіце свой DoH URL",
+  "chooseTheme": "Выбраць тэму",
+  "resetDataDialogTitle": "Скінуць даныя?",
+  "resetDataDialogContent": "Гэта выдаліць Налады, Выбранае і Гісторыю. Усталяваныя пашырэнні ЗАСТАНУЦЦА.",
+  "factoryResetDialogTitle": "Скід да заводскіх налад?",
+  "factoryResetDialogContent": "Гэта выдаліць УСЁ: Выбранае, Гісторыю, Налады і ЎСЕ пашырэнні. Нельга адмяніць.",
+  "selectLanguage": "Выбраць мову",
+  "synopsis": "Сінопсіс",
+  "noDescription": "Апісанне адсутнічае.",
+  "videoAlreadyDownloadedPrompt": "Відэа ўжо загружана. Што вы хочаце зрабіць?",
+  "playNow": "Глядзець зараз",
+  "deleteDownloadPrompt": "Выдаліць загрузку?",
+  "deleteDownloadConfirmation": "Вы сапраўды хочаце выдаліць гэты файл? Нельга адмяніць.",
+  "no": "Не",
+  "yesDelete": "Так, выдаліць",
+  "downloadPaused": "Загрузка прыпынена",
+  "downloading": "Загрузка",
+  "speed": "Скорасць",
+  "remaining": "Засталося",
+  "resume": "Працягнуць",
+  "pause": "Паўза",
+  "torrentContent": "Змест торэнта",
+  "audioTracks": "Аўдыядарожкі",
+  "noAudioTracks": "Аўдыядарожкі не знойдзены",
+  "subtitles": "Субтытры",
+  "options": "Опцыі",
+  "noSubtitlesFound": "Субтытры не знойдзены",
+  "playbackSpeed": "Скорасць прайгравання",
+  "subtitleOptions": "Опцыі субтытраў",
+  "hlsSubtitleWarning": "Знешнія субтытры не падтрымліваюцца актыўным HLS-плэерам на гэтай платформе.",
+  "loadFromDevice": "Загрузіць з прылады",
+  "syncDelay": "Сінхранізацыя / затрымка",
+  "styleSettings": "Налады стылю",
+  "searchOnline": "Шукаць онлайн",
+  "subtitleSync": "Сінхранізацыя субтытраў",
+  "subtitleDelayWarning": "Затрымка субтытраў не падтрымліваюцца актыўным рухавіком плэера.",
+  "resetDelay": "Скінуць затрымку",
+  "subtitleStyles": "Стылі субтытраў",
+  "mediaKitStylingWarning": "Стылізацыя субтытраў пакуль даступная толькі ў media_kit.",
+  "resetToDefault": "Па змаўчанні",
+  "fontSize": "Памер шрыфта",
+  "verticalPosition": "Вертыкальнае становішча",
+  "textColor": "Колер тэксту",
+  "backgroundColor": "Колер фону",
+  "backgroundOpacity": "Празрыстасць фону",
+  "subtitleSearch": "Пошук субтытраў",
+  "searchSubtitleNameHint": "Назва субтытраў...",
+  "enterSearchSubtitlePrompt": "Увядзіце назву для пошуку субтытраў.",
+  "noSubtitleResults": "Вынікаў не знойдзено.",
+  "downloadingApplyingSubtitle": "Загрузка і прымяненне субтытраў...",
+  "failedToDownloadSubtitle": "Не ўдалося загрузіць субтытры.",
+  "failedToLoadSubtitles": "Не ўдалося загрузіць субтытры. Паспрабуйце зноў.",
+  "noReposFound": "Рэпазіторыі або плагіны не знойдзены",
+  "downloadAllProviders": "Спампаваць усё",
+  "removeRepository": "Выдаліць рэпазіторый",
+  "addRepo": "Дадаць рэпазіторый",
+  "extensionsNotInRepos": "Пашырэнні не з рэпазіторыяў",
+  "noLongerInRepo": "Больш не значыцца ў рэпазіторыях",
+  "addRepoToBrowse": "Дадайце рэпазіторый, каб бачыць плагіны",
+  "debugExtensions": "Адладка пашырэнняў",
+  "removeRepoConfirm": "Выдаліць {repoName}?",
+  "@removeRepoConfirm": {
+    "placeholders": {
+      "repoName": {
+        "type": "String"
+      }
+    }
+  },
+  "removeRepoWarning": "Гэта выдаліць рэпазіторый і ЎСЕ яго плагіны.",
+  "addRepository": "Дадаць рэпазіторый",
+  "repoUrlOrShortcode": "URL рэпазіторыя або шорткод",
+  "assetPlugin": "Убудаваны плагін",
+  "installed": "Усталявана",
+  "updateTo": "Абнавіць да {version}",
+  "@updateTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "install": "Усталяваць",
+  "error": "Памылка",
+  "ok": "OK",
+  "pluginSettings": "Налады {pluginName}",
+  "@pluginSettings": {
+    "placeholders": {
+      "pluginName": {
+        "type": "String"
+      }
+    }
+  },
+  "movies": "Фільмы",
+  "series": "Серыялы",
+  "anime": "Анімэ",
+  "liveStreams": "Жывыя эфіры",
+  "debug": "DEBUG",
+  "extensionsUpdated": "{count, plural, one{1 пашырэнне абноўлена} few{{count} пашырэнні абноўлена} many{{count} пашырэнняў абноўлена} other{{count} пашырэння абноўлена}}",
+  "invalidNavigation": "Памылка навігацыі. Вярніцеся назад.",
+  "startOver": "Пачаць спачатку",
+  "goBack": "Назад",
+  "resolving": "Пошук спасылак...",
+  "downloaded": "Загружана",
+  "download": "Спампаваць",
+  "debugOnlyFeature": "Гэтая функцыя даступная толькі ў рэжыме адладкі",
+  "streamUrl": "URL патоку",
+  "play": "Глядзець",
+  "verifyingSourceSize": "Праверка крыніцы і памеру...",
+  "fileSaveLocationNotification": "Файл будзе захаваны ў папку загрузак.",
+  "resumingPlayback": "Аднаўленне прайгравання",
+  "pausedAt": "Прыпынена на {time}",
+  "@pausedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumesAutomatically": "{count, plural, one{Аўтаматычны старт праз 1 секунду} few{Аўтаматычны старт праз {count} секунды} many{Аўтаматычны старт праз {count} секунд} other{Аўтаматычны старт праз {count} секунды}}",
+  "@resumesAutomatically": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeNow": "Глядзець зараз",
+  "playbackError": "Памылка прайгравання",
+  "confirmClearHistory": "Вы сапраўды хочаце ачысціць усю гісторыю?",
+  "seasonWithNumber": "Сезон {number}",
+  "@seasonWithNumber": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      }
+    }
+  },
+  "starting": "Запуск...",
+  "percentWatched": "Прагледжана: {percent}%",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sub": "Суб",
+  "dub": "Дуб",
+  "playEpisode": "{label} С{season} Э{episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "season": {
+        "type": "Object"
+      },
+      "episode": {
+        "type": "Object"
+      }
+    }
+  },
+  "debugTools": "Інструменты адладкі",
+  "playLocalVideo": "Лакальнае відэа",
+  "playLocalVideoSubtitle": "Глядзець відэа з прылады",
+  "streamUrlSubtitle": "Глядзець па URL",
+  "streamTorrent": "Сторыміць торэнт",
+  "streamTorrentSubtitle": "Выберыце торэнт-файл",
+  "loadPluginFromAssets": "Загрузіць плагін з рэсурсаў",
+  "enterVideoUrlHint": "URL відэа (http, magnet і г.д.)",
+  "networkStream": "Сеткавы паток",
+  "removedFromHistory": "Выдалена з гісторыі: {title}",
+  "@removedFromHistory": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "custom": "Уласнае",
+  "refreshingLiveStream": "Абнаўленне эфіру...",
+  "removeFromHistory": "Выдаліць з гісторыі",
+  "live": "ЖЫВЫ ЭФІР",
+  "volume": "Гучнасць",
+  "brightness": "Яркасць",
+  "fit": "Запоўніць",
+  "zoom": "Зум",
+  "stretch": "Расцягнуць",
+  "titleWithParam": "Назва: {title}",
+  "@titleWithParam": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceWithParam": "Крыніца: {source}",
+  "@sourceWithParam": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeWithParam": "Памер: {size}",
+  "@sizeWithParam": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "usingInternalPlayerError": "Памылка: {error}. Выкарыстоўваецца ўнутраны плэер.",
+  "@usingInternalPlayerError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playerNotDetected": "{playerName} не знойдзены. Запуск унутранага плэера.",
+  "@playerNotDetected": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "seasonWithEpisodes": "Сезон {number} ({count} эп.)",
+  "@seasonWithEpisodes": {
+    "placeholders": {
+      "number": {
+        "type": "Object"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudflare": "Cloudflare",
+  "google": "Google",
+  "adguard": "AdGuard",
+  "dnsWatch": "DNS.Watch",
+  "quad9": "Quad9",
+  "dnsSb": "DNS.SB",
+  "canadianShield": "Canadian Shield",
+  "tmdb": "TMDB",
+  "selectSourceForPlayer": "Выбраць крыніцу для {playerName}",
+  "@selectSourceForPlayer": {
+    "placeholders": {
+      "playerName": {
+        "type": "String"
+      }
+    }
+  },
+  "noPluginsInstalled": "Няма ўсталяваных плагінаў",
+  "availableSources": "Даступныя крыніцы",
+  "seasons": "Сезоны",
+  "episodes": "Эпізоды",
+  "selectSourceToPlay": "Выберыце крыніцу вышэй, каб пачаць прагляд.",
+  "episodeCountOnly": "{count, plural, one{1 эпізод} few{{count} эпізоды} many{{count} эпізодаў} other{{count} эпізода}}",
+  "noEpisodesFound": "Эпізоды не знойдзены",
+  "local": "Лакальная",
+  "remote": "Аддаленая",
+  "torrent": "Торэнт",
+  "unlock": "Разблакіраваць",
+  "lock": "Заблакіраваць",
+  "sources": "Крыніцы",
+  "tracks": "Дарожкі",
+  "content": "Кантэнт",
+  "stats": "Статыстыка",
+  "resize": "Памер",
+  "next": "Наступны",
+  "pip": "PiP",
+  "rotate": "Павярнуць",
+  "windowed": "У акне",
+  "fullscreen": "На ўвесь экран",
+  "movieDetails": "Дэталі фільма",
+  "showDetails": "Паказаць дэталі",
+  "tagline": "Тэглайн",
+  "status": "Статус",
+  "releaseDate": "Дата выхаду",
+  "firstAirDate": "Першы эфір",
+  "originalLanguage": "Арыгінальная мова",
+  "originCountry": "Краіна паходжання",
+  "budgetLabel": "Бюджэт",
+  "revenueLabel": "Зборы",
+  "paused": "Прыпынена",
+  "watched": "Прагледжана",
+  "watching": "Гляджу",
+  "lastWatched": "Апошні прагляд",
+  "movie": "Фільм",
+  "tvShow": "Серыял",
+  "failedToLoadContent": "Не ўдалося загрузіць кантэнт",
+  "director": "Рэжысёр",
+  "creator": "Стваральнік",
+  "showMore": "Больш",
+  "showLess": "Менш",
+  "viewAll": "Усе",
+  "seasonsCount": "{count, plural, one{1 сезон} few{{count} сезоны} many{{count} сезонаў} other{{count} сезона}}",
+  "@seasonsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noInternetError": "Няма інтэрнэту",
+  "timeoutError": "Час чакання выйшаў.",
+  "serverError": "Памылка сервера.",
+  "contentNotFoundError": "Кантэнт не знойдзены.",
+  "accessDeniedError": "Доступ забаронены.",
+  "serviceUnavailableError": "Сервіс недаступны.",
+  "generalError": "Нешта пайшло не так.",
+  "skip": "Прапусціць",
+  "goLive": "У эфір",
+  "dismiss": "Закрыць",
+  "nextUp": "Далей",
+  "sourceAttempt": "Крыніца {index} з {total}",
+  "@sourceAttempt": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "trying": "Спроба",
+  "failed": "Памылка",
+  "selected": "Выбрана",
+  "playing": "Прайграванне",
+  "pending": "Чакае",
+  "discord": "Discord",
+  "discordSubtitle": "Далучайцеся да нашага сервера",
+  "telegram": "Telegram",
+  "telegramSubtitle": "Далучайцеся да нашага канала",
+  "developedBy": "Developed by {name}",
+  "@developedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisodeOnly": "{label} E{episode}",
+  "@playEpisodeOnly": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "wifiQualityPreference": "Перавага якасці Wi-Fi",
+  "mobileQualityPreference": "Перавага якасці мабільнай сувязі",
+  "anyNoPreference": "Любая (без пераваг)",
+  "subtitleAccounts": "Уліковыя запісы субцітраў",
+  "notLoggedIn": "Not logged in",
+  "loggedInAs": "Logged in as {username}",
+  "apiKeyConfigured": "API Key configured",
+  "keyNotSet": "Key not set",
+  "testConnection": "Праверыць злучэнне",
+  "connectedSuccessfully": "Злучэнне паспяхова ўстаноўлена",
+  "connectionFailed": "Злучэнне не атрымалася",
+  "username": "Username",
+  "password": "Password",
+  "noAccountRegister": "Don't have an account? Register here",
+  "apiKey": "Ключ API",
+  "email": "Email",
+  "fetchMyApiKey": "Fetch My API Key",
+  "keyVerified": "Key Verified",
+  "invalidApiKey": "Invalid API Key",
+  "openSubtitlesAuthSubtitle": "Enter your account credentials for higher limits and ad-free subtitles.",
+  "subDlAuthSubtitle": "Enter your SubDL API Key directly, or fetch it using your account credentials below.",
+  "orFetchViaAccount": "OR FETCH VIA ACCOUNT",
+  "subSourceAuthSubtitle": "SubSource works out-of-the-box, but you can add a personal official API key to override the default for better reliability.",
+  "apiKeyOptionalOverride": "API Key (Optional Override)",
+  "enterKeyToOverrideDefault": "Enter key to override default",
+  "getApiKeyFromProfile": "Get your API Key from SubSource Profile",
+  "qualityNotGuaranteed": "Quality is not guaranteed. Sources are sorted by preference, but playback depends on what the provider actually offers.",
+  "keepSourcesOriginalOrder": "Keep sources in original order",
+  "openLink": "Open link",
+  "@loggedInAs": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "openSubtitles": "OpenSubtitles",
+  "subDl": "SubDL",
+  "subSource": "SubSource",
+  "diagnostics": "Дыягностыка",
+  "viewLogs": "Прагляд логаў",
+  "viewLogsSubtitle": "Праглядзець актыўнасць праграмы і памылкі",
+  "goToExtensions": "Перайсці да пашырэнняў",
+  "noPluginsMessage": "Усталюйце пашырэнні для прагляду і трансляцыі кантэнту."
+}
