@@ -118,10 +118,15 @@ fun main(args: Array<String> = emptyArray()) {
                         initPlugins()
                         com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize()
                         com.lagradost.cloudstream3.APIHolder.initAll()
+                    }.join()
+                    
+                    isAppReady = true
+
+                    // Run updates in the background so they don't block the UI if the network is down or slow
+                    launch(Dispatchers.IO) {
                         launchAutoUpdater()
                         AppUpdater.checkForUpdates()
-                    }.join()
-                    isAppReady = true
+                    }
                 }
 
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {

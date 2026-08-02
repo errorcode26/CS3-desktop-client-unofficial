@@ -299,7 +299,7 @@ fun DetailsContent(
     val hazeState = remember { HazeState() }
 
     val latestHistory = remember(data.url, uiState?.watchHistory) {
-        uiState?.watchHistory?.values?.maxByOrNull { it.position }
+        uiState?.watchHistory?.values?.maxByOrNull { it.updateTime }
     }
 
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
