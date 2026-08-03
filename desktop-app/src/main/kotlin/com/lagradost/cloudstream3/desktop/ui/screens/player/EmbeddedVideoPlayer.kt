@@ -130,12 +130,11 @@ fun EmbeddedVideoPlayer(
     DisposableEffect(Unit) {
         onDispose {
             if (lastDurationSec > 0 && lastPositionSec > 0) {
-                // Screenshot handling
-                val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${actualLaunchData.history.parentId}.jpg"
+                val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${lastSavedHistory.parentId}.jpg"
                 File(screenshotPath).parentFile.mkdirs()
                 playerState.takeScreenshot(screenshotPath)
 
-                val updatedHistory = actualLaunchData.history.copy(
+                val updatedHistory = lastSavedHistory.copy(
                     position = lastPositionSec,
                     duration = lastDurationSec,
                     screenshotUrl = "file:///$screenshotPath",

@@ -71,22 +71,30 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     val nextEp = uiState.value.nextEpisodeData
                     if (nextEp != null) {
                         com.lagradost.common.storage.DesktopDataStore.setLastWatched(history)
-                        val nextEpHistory = com.lagradost.common.storage.WatchHistory(
+                        // Only create a "queued" placeholder for the next episode if it has never
+                        // been touched — avoids wiping real progress if user already started it.
+                        val existingNext = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
                             parentId = history.parentId,
-                            showName = history.showName,
-                            showUrl = history.showUrl,
-                            apiName = history.apiName,
-                            posterUrl = history.posterUrl,
-                            episodeThumbnailUrl = nextEp.posterUrl,
-                            screenshotUrl = null,
-                            episode = nextEp.episode,
-                            season = nextEp.season,
                             episodeId = nextEp.data,
-                            position = 0,
-                            duration = 0,
-                            updateTime = System.currentTimeMillis() + 1000,
                         )
-                        com.lagradost.common.storage.DesktopDataStore.setLastWatched(nextEpHistory)
+                        if (existingNext == null) {
+                            val nextEpHistory = com.lagradost.common.storage.WatchHistory(
+                                parentId = history.parentId,
+                                showName = history.showName,
+                                showUrl = history.showUrl,
+                                apiName = history.apiName,
+                                posterUrl = history.posterUrl,
+                                episodeThumbnailUrl = nextEp.posterUrl,
+                                screenshotUrl = null,
+                                episode = nextEp.episode,
+                                season = nextEp.season,
+                                episodeId = nextEp.data,
+                                position = 0,
+                                duration = 0,
+                                updateTime = System.currentTimeMillis() + 1000,
+                            )
+                            com.lagradost.common.storage.DesktopDataStore.setLastWatched(nextEpHistory)
+                        }
                         return@launch
                     }
                 }

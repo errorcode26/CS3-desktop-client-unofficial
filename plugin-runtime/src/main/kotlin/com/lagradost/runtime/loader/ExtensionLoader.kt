@@ -122,12 +122,25 @@ object ExtensionLoader {
                     }
 
                     try {
+                        AppLogger.i("[PluginLoader] Starting Dex2Jar translation...")
                         Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
+                        AppLogger.i("[PluginLoader] Dex2Jar translation finished.")
                     } catch (e: Exception) {
-                        Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
+                        AppLogger.e("[PluginLoader] Dex2jarCmd().doMain failed. Trying fallback...", e)
+                        try {
+                            Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
+                            AppLogger.i("[PluginLoader] Dex2Jar fallback translation finished.")
+                        } catch (e2: Exception) {
+                            AppLogger.e("[PluginLoader] Dex2Jar fallback completely failed!", e2)
+                            throw e2
+                        }
                     }
 
-                    PluginBytecodeTransformer.transform(convertedJar)
+                    if (!convertedJar.exists()) {
+                        AppLogger.e("[PluginLoader] Dex2Jar finished but no JAR was produced at ${convertedJar.absolutePath}")
+                    } else {
+                        PluginBytecodeTransformer.transform(convertedJar)
+                    }
                     dexFile.delete()
                 } else {
                     AppLogger.i("[PluginLoader] Using cached JVM JAR: ${convertedJar.name}")
@@ -465,7 +478,7 @@ object ExtensionLoader {
                         loaded++
                         AppLogger.i("Rescan: loaded ${jar.name}")
                     } catch (e: Throwable) {
-                        AppLogger.i("Rescan: failed ${jar.name}: ${e.message}")
+                        AppLogger.e("Rescan: failed ${jar.name}", e)
                     }
                 }
             }

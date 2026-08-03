@@ -268,9 +268,27 @@ object DesktopDataStore {
     }
 
     fun getLastWatched(parentId: String): WatchHistory? {
-        return getAllWatchHistory()
-            .filter { it.parentId == parentId }
-            .maxByOrNull { it.updateTime }
+        return DatabaseFactory.database.cloudstreamDBQueries
+            .selectWatchHistoryByParent(parentId)
+            .executeAsList()
+            .firstOrNull()
+            ?.let {
+                WatchHistory(
+                    parentId = it.parentId,
+                    showName = it.showName,
+                    showUrl = it.showUrl,
+                    apiName = it.apiName,
+                    posterUrl = it.posterUrl,
+                    episodeThumbnailUrl = it.episodeThumbnailUrl,
+                    screenshotUrl = it.screenshotUrl,
+                    episode = it.episode?.toInt(),
+                    season = it.season?.toInt(),
+                    episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                    position = it.position,
+                    duration = it.duration,
+                    updateTime = it.updateTime,
+                )
+            }
     }
 
     fun getLatestWatchHistoryForShow(showUrl: String): WatchHistory? {
@@ -284,7 +302,26 @@ object DesktopDataStore {
         episodeId: String?,
     ): WatchHistory? {
         val searchId = episodeId ?: ""
-        return getAllWatchHistory().find { it.parentId == parentId && it.episodeId == searchId }
+        return DatabaseFactory.database.cloudstreamDBQueries
+            .selectWatchHistoryByEpisode(parentId, searchId)
+            .executeAsOneOrNull()
+            ?.let {
+                WatchHistory(
+                    parentId = it.parentId,
+                    showName = it.showName,
+                    showUrl = it.showUrl,
+                    apiName = it.apiName,
+                    posterUrl = it.posterUrl,
+                    episodeThumbnailUrl = it.episodeThumbnailUrl,
+                    screenshotUrl = it.screenshotUrl,
+                    episode = it.episode?.toInt(),
+                    season = it.season?.toInt(),
+                    episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                    position = it.position,
+                    duration = it.duration,
+                    updateTime = it.updateTime,
+                )
+            }
     }
 
     private const val UNREAD_UPDATES_KEY = "unread_plugin_updates"

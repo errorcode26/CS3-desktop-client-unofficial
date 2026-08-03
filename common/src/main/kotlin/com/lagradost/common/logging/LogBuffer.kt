@@ -64,9 +64,11 @@ object LogBuffer {
         subsystem: LogSubsystem = LogSubsystem.ALL,
         pluginFilter: String? = null,
         query: String? = null,
+        exceptionsOnly: Boolean = false,
     ): List<LogEntry> {
         val cleanQuery = query?.trim()?.lowercase()
         return snapshot.filter { entry ->
+            if (exceptionsOnly && entry.throwable == null && entry.level != LogLevel.ERROR) return@filter false
             if (!entry.level.isAtLeast(minLevel)) return@filter false
             if (subsystem != LogSubsystem.ALL && entry.subsystem != subsystem) return@filter false
             if (!pluginFilter.isNullOrBlank() && entry.pluginName != pluginFilter) return@filter false

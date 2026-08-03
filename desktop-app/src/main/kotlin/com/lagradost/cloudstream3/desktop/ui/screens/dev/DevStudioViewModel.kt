@@ -55,6 +55,7 @@ class DevStudioViewModel : BaseMviViewModel<DevStudioUiState, DevStudioUiEvent, 
                 subsystem = state.selectedSubsystem,
                 pluginFilter = state.selectedPlugin,
                 query = state.searchQuery,
+                exceptionsOnly = state.exceptionsOnly,
             )
 
             updateState {
@@ -87,6 +88,10 @@ class DevStudioViewModel : BaseMviViewModel<DevStudioUiState, DevStudioUiEvent, 
             }
             is DevStudioUiEvent.UpdateSearchQuery -> {
                 updateState { copy(searchQuery = event.query) }
+                refreshLogs()
+            }
+            is DevStudioUiEvent.ToggleExceptionsOnly -> {
+                updateState { copy(exceptionsOnly = !exceptionsOnly) }
                 refreshLogs()
             }
             is DevStudioUiEvent.TogglePause -> {

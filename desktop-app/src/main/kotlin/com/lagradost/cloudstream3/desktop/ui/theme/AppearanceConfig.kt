@@ -61,6 +61,16 @@ object AppearanceConfig {
     private const val PREF_CLOCK_MODE = "pref_clock_mode"
     private const val PREF_CLOCK_TIME_FORMAT = "pref_clock_time_format"
     private const val PREF_CLOCK_DATE_FORMAT = "pref_clock_date_format"
+    private const val PREF_BG_IMAGE_PATH = "pref_bg_image_path"
+    private const val PREF_BG_IMAGE_BLUR = "pref_bg_image_blur"
+    private const val PREF_BG_IMAGE_BRIGHTNESS = "pref_bg_image_brightness"
+    private const val PREF_BG_IMAGE_OPACITY = "pref_bg_image_opacity"
+    private const val PREF_BG_IMAGE_SATURATION = "pref_bg_image_saturation"
+    private const val PREF_BG_IMAGE_VIGNETTE = "pref_bg_image_vignette"
+    private const val PREF_BG_IMAGE_VIGNETTE_INTENSITY = "pref_bg_image_vignette_intensity"
+    private const val PREF_BG_IMAGE_TINT_ENABLED = "pref_bg_image_tint_enabled"
+    private const val PREF_BG_IMAGE_TINT_COLOR = "pref_bg_image_tint_color"
+    private const val PREF_BG_IMAGE_TINT_ALPHA = "pref_bg_image_tint_alpha"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -98,6 +108,18 @@ object AppearanceConfig {
     val clockMode = MutableStateFlow(ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE)))
     val clockTimeFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_TIME_FORMAT) ?: "HH:mm")
     val clockDateFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_DATE_FORMAT) ?: "EEE, dd MMM")
+
+    // Background image wallpaper
+    val backgroundImagePath = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_PATH) ?: "")
+    val backgroundImageBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BLUR) ?: 20f)
+    val backgroundImageBrightness = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BRIGHTNESS) ?: 0.35f)
+    val backgroundImageOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_OPACITY) ?: 1.0f)
+    val backgroundImageSaturation = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_SATURATION) ?: 1.0f)
+    val backgroundImageVignetteEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_VIGNETTE) ?: false)
+    val backgroundImageVignetteIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_VIGNETTE_INTENSITY) ?: 0.7f)
+    val backgroundImageTintEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_TINT_ENABLED) ?: false)
+    val backgroundImageTintColor = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_TINT_COLOR) ?: "#7C6BFF")
+    val backgroundImageTintAlpha = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_TINT_ALPHA) ?: 0.3f)
 
     private val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
     val customPresets = MutableStateFlow(
@@ -294,6 +316,61 @@ object AppearanceConfig {
     fun setClockDateFormat(format: String) {
         clockDateFormat.value = format
         DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
+    }
+
+    fun setBackgroundImagePath(path: String) {
+        backgroundImagePath.value = path
+        DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, path)
+    }
+
+    fun setBackgroundImageBlur(blur: Float) {
+        backgroundImageBlur.value = blur
+        DesktopDataStore.setKey(PREF_BG_IMAGE_BLUR, blur)
+    }
+
+    fun setBackgroundImageBrightness(brightness: Float) {
+        backgroundImageBrightness.value = brightness
+        DesktopDataStore.setKey(PREF_BG_IMAGE_BRIGHTNESS, brightness)
+    }
+
+    fun clearBackgroundImage() {
+        backgroundImagePath.value = ""
+        DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, "")
+    }
+
+    fun setBackgroundImageOpacity(opacity: Float) {
+        backgroundImageOpacity.value = opacity
+        DesktopDataStore.setKey(PREF_BG_IMAGE_OPACITY, opacity)
+    }
+
+    fun setBackgroundImageSaturation(saturation: Float) {
+        backgroundImageSaturation.value = saturation
+        DesktopDataStore.setKey(PREF_BG_IMAGE_SATURATION, saturation)
+    }
+
+    fun setBackgroundImageVignetteEnabled(enabled: Boolean) {
+        backgroundImageVignetteEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE, enabled)
+    }
+
+    fun setBackgroundImageVignetteIntensity(intensity: Float) {
+        backgroundImageVignetteIntensity.value = intensity
+        DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE_INTENSITY, intensity)
+    }
+
+    fun setBackgroundImageTintEnabled(enabled: Boolean) {
+        backgroundImageTintEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ENABLED, enabled)
+    }
+
+    fun setBackgroundImageTintColor(hex: String) {
+        backgroundImageTintColor.value = hex
+        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_COLOR, hex)
+    }
+
+    fun setBackgroundImageTintAlpha(alpha: Float) {
+        backgroundImageTintAlpha.value = alpha
+        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ALPHA, alpha)
     }
 
     fun saveCustomPreset(preset: ThemePreset) {

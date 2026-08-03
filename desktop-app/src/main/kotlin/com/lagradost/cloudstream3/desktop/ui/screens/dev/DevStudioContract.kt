@@ -20,6 +20,7 @@ data class DevStudioUiState(
     val selectedPlugin: String? = null,
     val availablePlugins: List<String> = emptyList(),
     val pluginHealth: Map<String, PluginHealthStats> = emptyMap(),
+    val exceptionsOnly: Boolean = false,
     val searchQuery: String = "",
     val isPaused: Boolean = false,
     val selectedEntry: LogEntry? = null,
@@ -31,6 +32,7 @@ sealed interface DevStudioUiEvent : UiEvent {
     data class SelectSubsystem(val subsystem: LogSubsystem) : DevStudioUiEvent
     data class SelectPlugin(val pluginName: String?) : DevStudioUiEvent
     data class UpdateSearchQuery(val query: String) : DevStudioUiEvent
+    data object ToggleExceptionsOnly : DevStudioUiEvent
     data object TogglePause : DevStudioUiEvent
     data class SelectEntry(val entry: LogEntry?) : DevStudioUiEvent
     data object ClearLogs : DevStudioUiEvent

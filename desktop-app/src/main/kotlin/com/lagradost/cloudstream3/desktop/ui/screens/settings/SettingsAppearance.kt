@@ -65,6 +65,17 @@ fun SettingsAppearance(
     val clockMode by AppearanceConfig.clockMode.collectAsState()
     val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
+    val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
+    val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
+    val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
+    val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
+    val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
+    val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
+    val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
+    val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
+    val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
+    val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+    val scope = rememberCoroutineScope()
 
 
     var showSavePresetDialog by remember { mutableStateOf(false) }
@@ -555,6 +566,164 @@ fun SettingsAppearance(
                 checked = showPosterLanguage,
                 onCheckedChange = { AppearanceConfig.setShowPosterLanguage(it) },
             )
+        }
+
+        SettingsGroupCard("Background Wallpaper") {
+            // Filename preview
+            val fileName = if (bgImagePath.isNotEmpty()) java.io.File(bgImagePath).name else "No image selected"
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Wallpaper Image",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = fileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Wallpaper", java.awt.FileDialog.LOAD)
+                                    dialog.file = "*.jpg;*.jpeg;*.png;*.webp;*.bmp"
+                                    dialog.isVisible = true
+                                    if (dialog.directory != null && dialog.file != null) {
+                                        val path = java.io.File(dialog.directory, dialog.file).absolutePath
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            AppearanceConfig.setBackgroundImagePath(path)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    com.lagradost.common.logging.AppLogger.e("Wallpaper picker error", e)
+                                }
+                            }
+                        },
+                    ) {
+                        Text("Choose Image")
+                    }
+                    if (bgImagePath.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    AppearanceConfig.clearBackgroundImage()
+                                }
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                        ) {
+                            Text("Remove")
+                        }
+                    }
+                }
+            }
+
+            if (bgImagePath.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsSliderItem(
+                    label = "Blur Radius",
+                    subtitle = "How blurred the background image is (0 = sharp, 50 = heavy blur)",
+                    value = bgImageBlur,
+                    valueRange = 0f..50f,
+                    steps = 49,
+                    onValueChange = { AppearanceConfig.setBackgroundImageBlur(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsSliderItem(
+                    label = "Brightness",
+                    subtitle = "How bright the wallpaper shows through (0% = black, 100% = full image)",
+                    value = bgImageBrightness,
+                    valueRange = 0f..1f,
+                    steps = 99,
+                    onValueChange = { AppearanceConfig.setBackgroundImageBrightness(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsSliderItem(
+                    label = "Opacity",
+                    subtitle = "Overall image transparency — blends wallpaper against your theme background color",
+                    value = bgImageOpacity,
+                    valueRange = 0f..1f,
+                    steps = 99,
+                    onValueChange = { AppearanceConfig.setBackgroundImageOpacity(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsSliderItem(
+                    label = "Saturation",
+                    subtitle = "Color intensity of the image (0% = full grayscale, 100% = original colors)",
+                    value = bgImageSaturation,
+                    valueRange = 0f..1f,
+                    steps = 99,
+                    onValueChange = { AppearanceConfig.setBackgroundImageSaturation(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Vignette",
+                    subtitle = "Dark fade from the edges inward for a cinematic look",
+                    checked = bgImageVignetteEnabled,
+                    onCheckedChange = { AppearanceConfig.setBackgroundImageVignetteEnabled(it) },
+                )
+
+                if (bgImageVignetteEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsSliderItem(
+                        label = "Vignette Intensity",
+                        subtitle = "How dark and strong the edge vignette is",
+                        value = bgImageVignetteIntensity,
+                        valueRange = 0f..1f,
+                        steps = 99,
+                        onValueChange = { AppearanceConfig.setBackgroundImageVignetteIntensity(it) },
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Color Tint",
+                    subtitle = "Overlay a custom color on top of the wallpaper (great for matching your accent)",
+                    checked = bgImageTintEnabled,
+                    onCheckedChange = { AppearanceConfig.setBackgroundImageTintEnabled(it) },
+                )
+
+                if (bgImageTintEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    CustomColorPickerUI(
+                        colorHex = bgImageTintColor,
+                        onColorChanged = { AppearanceConfig.setBackgroundImageTintColor(it) },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsSliderItem(
+                        label = "Tint Strength",
+                        subtitle = "How strongly the tint color is applied over the image",
+                        value = bgImageTintAlpha,
+                        valueRange = 0f..0.95f,
+                        steps = 93,
+                        onValueChange = { AppearanceConfig.setBackgroundImageTintAlpha(it) },
+                    )
+                }
+            }
         }
 
         SettingsGroupCard("Clock & Date") {

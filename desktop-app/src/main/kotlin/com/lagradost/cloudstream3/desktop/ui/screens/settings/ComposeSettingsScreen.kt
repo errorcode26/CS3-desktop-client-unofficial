@@ -29,10 +29,15 @@ enum class SettingsSubScreen(val title: String) {
     POSTER_EDITOR("Poster Layout"),
 }
 
+object SettingsSession {
+    var selectedTab by mutableStateOf(SettingsTab.ACCOUNTS)
+    var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
+}
+
 @Composable
 fun ComposeSettingsScreen(navController: NavController) {
-    var selectedTab by remember { mutableStateOf(SettingsTab.PLAYER) }
-    var activeSubScreen by remember { mutableStateOf<SettingsSubScreen?>(null) }
+    var selectedTab by SettingsSession::selectedTab
+    var activeSubScreen by SettingsSession::activeSubScreen
 
     Row(
         modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 32.dp),

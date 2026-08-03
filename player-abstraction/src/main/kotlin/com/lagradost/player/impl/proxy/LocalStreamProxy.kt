@@ -650,8 +650,9 @@ object LocalStreamProxy {
                                             val readBytes = try {
                                                 streamSource.read(buffer)
                                             } catch (e: java.net.SocketException) {
-                                                // Normal: MPV seeks forcefully drop the connection
-                                                break
+                                                // CDN closed connection unexpectedly (e.g. timeout or reset).
+                                                // We must throw CDN_ERROR to trigger the transparent proxy retry below.
+                                                throw Exception("CDN_ERROR", e)
                                             } catch (e: Exception) {
                                                 throw Exception("CDN_ERROR", e)
                                             }

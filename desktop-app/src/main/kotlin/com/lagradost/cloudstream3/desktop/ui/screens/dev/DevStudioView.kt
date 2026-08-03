@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +41,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 // Dark Studio Palette
 private val DevBgDark = Color(0xFF0F1117)
@@ -228,9 +234,9 @@ private fun DevStudioTopBar(
                     Text(if (state.isPaused) "Resume" else "Pause", fontSize = 11.sp, color = Color.White)
                 }
 
-                // Copy AI Snapshot
+                // Copy Bug Report
                 Button(
-                    onClick = { onEvent(DevStudioUiEvent.CopyAiSnapshot()) },
+                    onClick = { onEvent(DevStudioUiEvent.CopyAiSnapshot(null)) },
                     colors = ButtonDefaults.buttonColors(containerColor = DevAccentCyan.copy(alpha = 0.2f)),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(6.dp),
@@ -238,7 +244,7 @@ private fun DevStudioTopBar(
                 ) {
                     Icon(Icons.Default.ContentCopy, contentDescription = null, tint = DevAccentCyan, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Copy AI Snapshot", fontSize = 11.sp, color = DevAccentCyan, fontWeight = FontWeight.SemiBold)
+                    Text("Copy Bug Report", fontSize = 11.sp, color = DevAccentCyan, fontWeight = FontWeight.SemiBold)
                 }
 
                 // Export Logs
@@ -308,28 +314,61 @@ private fun DevStudioToolbar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                // Search Input
-                OutlinedTextField(
+                // Custom Search Input
+                BasicTextField(
                     value = state.searchQuery,
                     onValueChange = { onEvent(DevStudioUiEvent.UpdateSearchQuery(it)) },
-                    placeholder = { Text("Filter logs, tags, regex, threads...", fontSize = 12.sp, color = Color.Gray) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp)) },
-                    trailingIcon = {
-                        if (state.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onEvent(DevStudioUiEvent.UpdateSearchQuery("")) }) {
-                                Icon(Icons.Default.Clear, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(DevAccentCyan),
+                    decorationBox = { innerTextField ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .background(DevBgDark, RoundedCornerShape(6.dp))
+                                .border(1.dp, DevBorderDark, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                if (state.searchQuery.isEmpty()) {
+                                    Text(
+                                        "Filter logs, tags, regex, threads...",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                innerTextField()
+                            }
+                            if (state.searchQuery.isNotEmpty()) {
+                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable { onEvent(DevStudioUiEvent.UpdateSearchQuery("")) }
+                                )
                             }
                         }
                     },
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.White, fontFamily = FontFamily.Monospace),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = DevAccentCyan,
-                        unfocusedBorderColor = DevBorderDark,
-                        focusedContainerColor = DevBgDark,
-                        unfocusedContainerColor = DevBgDark,
-                    ),
-                    modifier = Modifier.weight(1f).height(44.dp),
+                    modifier = Modifier.weight(1f)
                 )
 
                 // Subsystem Dropdown
@@ -357,6 +396,23 @@ private fun DevStudioToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Level:", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                Surface(
+                    color = if (state.exceptionsOnly) DevLevelError else DevBgDark,
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = if (state.exceptionsOnly) 1f else 0.5f)),
+                    modifier = Modifier.clickable { onEvent(DevStudioUiEvent.ToggleExceptionsOnly) }
+                ) {
+                    Text(
+                        "🔥 CRASHES ONLY",
+                        color = if (state.exceptionsOnly) Color.White else DevLevelError,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp))
 
                 LevelFilterChip(
                     label = "ALL",
@@ -646,10 +702,22 @@ private fun DevStudioLogRow(
             .fillMaxWidth()
             .background(rowBg)
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .then(
+                if (entry.level == LogLevel.ERROR && !isSelected) Modifier.border(width = 0.dp, color = Color.Transparent) // We'll just use the background, but add a spacer
+                else Modifier
+            )
+            .padding(end = 12.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Red Accent Left Border for Errors
+        if (entry.level == LogLevel.ERROR) {
+            Spacer(modifier = Modifier.width(4.dp).height(18.dp).background(DevLevelError))
+            Spacer(modifier = Modifier.width(4.dp))
+        } else {
+            Spacer(modifier = Modifier.width(12.dp))
+        }
+
         // Timestamp
         Text(
             text = entry.formattedTime,
@@ -721,19 +789,27 @@ private fun DevStudioLogRow(
             modifier = Modifier.weight(1f),
         )
 
-        // Exception Indicator
+        // Exception Indicator / Stacktrace Action
         if (entry.throwable != null) {
             Surface(
                 color = DevLevelError.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(3.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = 0.5f))
             ) {
-                Text(
-                    text = "STACKTRACE",
-                    color = DevLevelError,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.BugReport, contentDescription = null, tint = DevLevelError, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "VIEW STACKTRACE",
+                        color = DevLevelError,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
             }
         }
     }
@@ -842,8 +918,21 @@ private fun DevStudioInspector(
         Spacer(Modifier.height(10.dp))
 
         // Full Message
-        Text("Message:", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text("Message (Payload):", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
+        
+        val mapper = remember { jacksonObjectMapper() }
+        val jsonNode = remember(entry.message) {
+            try {
+                val trimmed = entry.message.trim()
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    mapper.readTree(trimmed)
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         SelectionContainer {
             Surface(
                 color = DevBgDark,
@@ -851,13 +940,19 @@ private fun DevStudioInspector(
                 border = androidx.compose.foundation.BorderStroke(1.dp, DevBorderDark),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = entry.message,
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(10.dp),
-                )
+                if (jsonNode != null) {
+                    Box(modifier = Modifier.padding(10.dp)) {
+                        JsonNodeViewer(jsonNode)
+                    }
+                } else {
+                    Text(
+                        text = entry.message,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(10.dp),
+                    )
+                }
             }
         }
 
@@ -873,13 +968,8 @@ private fun DevStudioInspector(
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = 0.4f)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        text = entry.stackTraceString ?: entry.throwable.toString(),
-                        color = Color(0xFFFF8888),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(10.dp),
-                    )
+                    val traceString = entry.stackTraceString ?: entry.throwable.toString()
+                    StackTraceViewer(traceString)
                 }
             }
         }
@@ -895,7 +985,7 @@ private fun DevStudioInspector(
         ) {
             Icon(Icons.Default.ContentCopy, contentDescription = null, tint = DevBgDark, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Copy AI Snapshot for this Error", color = DevBgDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("Copy Bug Report Snapshot", color = DevBgDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -980,6 +1070,137 @@ private fun PluginHealthChip(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
+    val padding = depth * 12
+    when {
+        node.isObject -> {
+            var expanded by remember { mutableStateOf(depth < 2) }
+            val fieldNames = node.fieldNames().asSequence().toList()
+            Column(modifier = Modifier.padding(start = padding.dp)) {
+                Row(
+                    modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text("{...} ${fieldNames.size} keys", color = DevLevelVerbose, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+                if (expanded) {
+                    fieldNames.forEach { key ->
+                        val child = node.get(key)
+                        if (child.isObject || child.isArray) {
+                            Text(
+                                "\"$key\":",
+                                color = DevAccentCyan,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(start = (padding + 12).dp)
+                            )
+                            JsonNodeViewer(child, depth + 1)
+                        } else {
+                            Row(modifier = Modifier.padding(start = (padding + 12).dp)) {
+                                Text("\"$key\": ", color = DevAccentCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                val valueColor = when {
+                                    child.isTextual -> Color(0xFFF1FA8C) // Yellow
+                                    child.isNumber -> Color(0xFFFFB86C) // Orange
+                                    child.isBoolean -> Color(0xFF8BE9FD) // Cyan
+                                    child.isNull -> Color(0xFFFF5555) // Red
+                                    else -> Color.White
+                                }
+                                Text(
+                                    child.asText(),
+                                    color = valueColor,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        node.isArray -> {
+            var expanded by remember { mutableStateOf(depth < 2) }
+            Column(modifier = Modifier.padding(start = padding.dp)) {
+                Row(
+                    modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text("[...] ${node.size()} items", color = DevLevelVerbose, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+                if (expanded) {
+                    node.forEachIndexed { index, child ->
+                        if (child.isObject || child.isArray) {
+                            Text(
+                                "[$index]:",
+                                color = Color.Gray,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(start = (padding + 12).dp)
+                            )
+                            JsonNodeViewer(child, depth + 1)
+                        } else {
+                            Row(modifier = Modifier.padding(start = (padding + 12).dp)) {
+                                Text("[$index]: ", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                val valueColor = when {
+                                    child.isTextual -> Color(0xFFF1FA8C)
+                                    child.isNumber -> Color(0xFFFFB86C)
+                                    child.isBoolean -> Color(0xFF8BE9FD)
+                                    child.isNull -> Color(0xFFFF5555)
+                                    else -> Color.White
+                                }
+                                Text(
+                                    child.asText(),
+                                    color = valueColor,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else -> {
+            Text(node.asText(), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(start = padding.dp))
+        }
+    }
+}
+
+@Composable
+private fun StackTraceViewer(stackTrace: String) {
+    val lines = stackTrace.lines()
+    Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+        lines.forEach { line ->
+            val isCore = line.contains("com.lagradost")
+            val color = when {
+                isCore -> DevLevelError
+                line.contains("android.") || line.contains("java.") -> Color.Gray
+                line.contains("kotlin.") -> Color.Gray
+                else -> Color(0xFFFF8888)
+            }
+            Text(
+                text = line.trim(),
+                color = color,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = if (isCore) FontWeight.Bold else FontWeight.Normal
+            )
         }
     }
 }
