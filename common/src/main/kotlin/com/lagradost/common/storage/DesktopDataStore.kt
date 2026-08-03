@@ -292,9 +292,26 @@ object DesktopDataStore {
     }
 
     fun getLatestWatchHistoryForShow(showUrl: String): WatchHistory? {
-        return getAllWatchHistory()
-            .filter { it.showUrl == showUrl }
-            .maxByOrNull { it.updateTime }
+        return DatabaseFactory.database.cloudstreamDBQueries
+            .selectLatestWatchHistoryForShow(showUrl)
+            .executeAsOneOrNull()
+            ?.let {
+                WatchHistory(
+                    parentId = it.parentId,
+                    showName = it.showName,
+                    showUrl = it.showUrl,
+                    apiName = it.apiName,
+                    posterUrl = it.posterUrl,
+                    episodeThumbnailUrl = it.episodeThumbnailUrl,
+                    screenshotUrl = it.screenshotUrl,
+                    episode = it.episode?.toInt(),
+                    season = it.season?.toInt(),
+                    episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                    position = it.position,
+                    duration = it.duration,
+                    updateTime = it.updateTime,
+                )
+            }
     }
 
     fun getEpisodeWatched(

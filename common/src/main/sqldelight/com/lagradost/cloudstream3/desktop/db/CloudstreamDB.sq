@@ -76,6 +76,9 @@ SELECT * FROM WatchHistory WHERE parentId = ? ORDER BY updateTime DESC;
 selectWatchHistoryByEpisode:
 SELECT * FROM WatchHistory WHERE parentId = ? AND episodeId = ? LIMIT 1;
 
+selectLatestWatchHistoryForShow:
+SELECT * FROM WatchHistory WHERE showUrl = ? ORDER BY updateTime DESC LIMIT 1;
+
 
 CREATE TABLE IF NOT EXISTS PluginUpdates (
     pluginName TEXT NOT NULL PRIMARY KEY,

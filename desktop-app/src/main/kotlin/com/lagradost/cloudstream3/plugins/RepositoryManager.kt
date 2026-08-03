@@ -25,7 +25,7 @@ object RepositoryManager {
 
     suspend fun parseRepository(url: String): Repository? {
         AppLogger.i("RepositoryManager Stub: parseRepository called for $url")
-        val repo = DesktopRepositoryManager.fetchRepository(url) ?: return null
+        val repo = com.lagradost.cloudstream3.desktop.repo.PluginNetworkClient.fetchRepository(url) ?: return null
         return Repository(
             iconUrl = repo.iconUrl,
             name = repo.name,

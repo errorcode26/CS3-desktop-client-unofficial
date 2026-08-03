@@ -122,7 +122,7 @@ fun EmbeddedVideoPlayer(
         // Surface the error but do not auto-close — current playback may still be active
         // and the user can manually select a different source.
         if (nextEpisodeError != null) {
-            onError(nextEpisodeError!!)
+            onError(nextEpisodeError.displayMessage)
         }
     }
 
@@ -425,32 +425,7 @@ fun EmbeddedVideoPlayer(
             } // end if (!error && !finished)
 
             if (isFinished) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.8f)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "Video Ended",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "All episodes watched.",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = {
-                        onClose()
-                    }) {
-                        Text("Close Player")
-                    }
-                }
+                com.lagradost.cloudstream3.desktop.ui.screens.player.components.VideoEndedOverlay(onClose = onClose)
             }
         } // end BoxWithConstraints
     } // end Column

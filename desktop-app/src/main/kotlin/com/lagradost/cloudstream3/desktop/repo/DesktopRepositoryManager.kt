@@ -1,12 +1,8 @@
 package com.lagradost.cloudstream3.desktop.repo
 
 import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData
 import com.lagradost.common.logging.AppLogger
-import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -18,34 +14,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 
 object DesktopRepositoryManager {
-    private val client by lazy {
-        com.lagradost.cloudstream3.app.baseClient.newBuilder()
-            .followRedirects(false)
-            .build()
-    }
-
-    private val redirectClient by lazy {
-        com.lagradost.cloudstream3.app.baseClient.newBuilder()
-            .followRedirects(true)
-            .build()
-    }
-
-    private val mapper = ObjectMapper().registerModule(kotlinModule())
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-
     private val reposFile by lazy { File(getExtensionsDir(), "repos.json") }
     private val repoCacheFile by lazy { File(getExtensionsDir(), "repo_cache.json") }
     private val pluginsCacheFile by lazy { File(getExtensionsDir(), "plugins_cache.json") }
+    
     private val repoCache = java.util.concurrent.ConcurrentHashMap<String, Repository>()
     private val pluginsCache = java.util.concurrent.ConcurrentHashMap<String, List<SitePlugin>>()
 
@@ -57,18 +33,18 @@ object DesktopRepositoryManager {
 
     private val _syncGeneration = MutableStateFlow(0)
     val syncGeneration: StateFlow<Int> = _syncGeneration.asStateFlow()
+    
     fun incrementSyncGeneration() {
         _syncGeneration.update { it + 1 }
     }
 
     private val fetchMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
     private val autoUpdateMutex = Mutex()
+    private val syncMutex = Mutex()
 
     private val _failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     fun isIconFailed(url: String): Boolean = _failedIconUrls.contains(url)
-    fun markIconFailed(url: String) {
-        _failedIconUrls.add(url)
-    }
+    fun markIconFailed(url: String) { _failedIconUrls.add(url) }
 
     data class SyncReport(
         val reposRefreshed: Int,
@@ -89,14 +65,14 @@ object DesktopRepositoryManager {
     private fun loadCachesFromDisk() {
         try {
             if (repoCacheFile.exists()) {
-                val data: Map<String, Repository> = mapper.readValue(
+                val data: Map<String, Repository> = PluginNetworkClient.mapper.readValue(
                     repoCacheFile,
                     object : TypeReference<Map<String, Repository>>() {},
                 )
                 repoCache.putAll(data)
             }
             if (pluginsCacheFile.exists()) {
-                val data: Map<String, List<SitePlugin>> = mapper.readValue(
+                val data: Map<String, List<SitePlugin>> = PluginNetworkClient.mapper.readValue(
                     pluginsCacheFile,
                     object : TypeReference<Map<String, List<SitePlugin>>>() {},
                 )
@@ -110,8 +86,8 @@ object DesktopRepositoryManager {
     private fun saveCachesToDisk() {
         try {
             repoCacheFile.parentFile?.mkdirs()
-            mapper.writeValue(repoCacheFile, HashMap(repoCache))
-            mapper.writeValue(pluginsCacheFile, HashMap(pluginsCache))
+            PluginNetworkClient.mapper.writeValue(repoCacheFile, HashMap(repoCache))
+            PluginNetworkClient.mapper.writeValue(pluginsCacheFile, HashMap(pluginsCache))
         } catch (e: Exception) {
             AppLogger.e("Failed to save repository caches to disk", e)
         }
@@ -137,17 +113,15 @@ object DesktopRepositoryManager {
     private fun readRepositoriesFromDisk(): List<RepositoryData> {
         if (!reposFile.exists()) return emptyList()
         return try {
-            val root = mapper.readTree(reposFile.readText())
+            val root = PluginNetworkClient.mapper.readTree(reposFile.readText())
             if (!root.isArray) return emptyList()
             if (root.size() > 0 && root[0].isTextual) {
-                val urls = mapper.readValue(root.toString(), object : TypeReference<List<String>>() {})
-                val migrated = urls.map { url ->
-                    RepositoryData(name = url, url = url)
-                }
+                val urls = PluginNetworkClient.mapper.readValue(root.toString(), object : TypeReference<List<String>>() {})
+                val migrated = urls.map { url -> RepositoryData(name = url, url = url) }
                 writeRepositoriesToDisk(migrated)
                 migrated
             } else {
-                mapper.readValue(root.toString(), object : TypeReference<List<RepositoryData>>() {})
+                PluginNetworkClient.mapper.readValue(root.toString(), object : TypeReference<List<RepositoryData>>() {})
                     .map { normalizeRepositoryData(it) }
             }
         } catch (e: Exception) {
@@ -158,7 +132,7 @@ object DesktopRepositoryManager {
 
     private fun writeRepositoriesToDisk(repos: List<RepositoryData>) {
         reposFile.parentFile?.mkdirs()
-        mapper.writeValue(reposFile, repos)
+        PluginNetworkClient.mapper.writeValue(reposFile, repos)
         _savedRepositories.value = repos
     }
 
@@ -199,66 +173,35 @@ object DesktopRepositoryManager {
         }
         saveCachesToDisk()
 
-        // Also physically delete the repo directory and its contents so it doesn't get
-        // picked up by the blind walkTopDown() loader on next startup.
         val nameToUse = repo?.name ?: repoToRemove?.name
         if (!nameToUse.isNullOrBlank()) {
-            val repoDir = File(getExtensionsDir(), nameToUse.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
-            if (repoDir.exists()) {
-                // Must explicitly unload all plugins from this repo first to release Windows file locks
-                val jars = repoDir.listFiles { f -> f.isFile && (f.extension == "jar" || f.extension == "cs3") }
-                jars?.forEach { jar ->
-                    com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
-                }
-
-                // GC and finalize to release locks (same as individual plugin uninstall)
-                @Suppress("ExplicitGarbageCollectionCall")
-                System.gc()
-                Thread.sleep(150)
-                @Suppress("deprecation")
-                System.runFinalization()
-
-                val deleted = repoDir.deleteRecursively()
-                AppLogger.i("Deleted physical repository directory '${repoDir.name}': ok=$deleted")
-            }
+            PluginFileUtils.deleteRepositoryDirectory(nameToUse)
         }
     }
 
-    /**
-     * Fetches repo.json from [inputUrl], normalizes the URL, and persists name + icon.
-     * If the payload is a JSON array (MegaRepo), it extracts and adds all child repositories.
-     * Returns a list of added repositories, or null if loading failed.
-     */
     suspend fun addRepositoryFromInput(inputUrl: String): List<Repository>? = withContext(Dispatchers.IO) {
         val trimmed = inputUrl.trim()
         if (trimmed.isEmpty()) return@withContext null
-        val resolvedUrl = parseRepoUrl(trimmed) ?: trimmed
+        val resolvedUrl = PluginNetworkClient.parseRepoUrl(trimmed) ?: trimmed
 
         // Check if the URL resolves to a Mega Repo (JSON array)
-        val request = Request.Builder().url(resolvedUrl).build()
+        val request = okhttp3.Request.Builder().url(resolvedUrl).build()
         var body: String? = null
         try {
-            redirectClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    body = response.body.string()
-                }
+            PluginNetworkClient.redirectClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) body = response.body.string()
             }
         } catch (e: Exception) {
             AppLogger.i("Failed to fetch $resolvedUrl: ${e.message}")
         }
 
         if (body != null && body!!.trimStart().startsWith("[")) {
-            // It's a MegaRepo! Parse the JSON array.
             try {
-                val nodes = mapper.readTree(body!!)
+                val nodes = PluginNetworkClient.mapper.readTree(body!!)
                 val urls = nodes.mapNotNull { it.get("url")?.asText() }
-
                 val addedRepos = mutableListOf<Repository>()
                 for (url in urls) {
-                    val repo = addSingleRepository(url)
-                    if (repo != null) {
-                        addedRepos.add(repo)
-                    }
+                    addSingleRepository(url)?.let { addedRepos.add(it) }
                 }
                 return@withContext addedRepos.takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
@@ -266,41 +209,30 @@ object DesktopRepositoryManager {
             }
         }
 
-        // Normal single repo flow
         val repo = addSingleRepository(resolvedUrl)
         return@withContext if (repo != null) listOf(repo) else null
     }
 
     private suspend fun addSingleRepository(url: String): Repository? {
-        val resolvedUrl = parseRepoUrl(url) ?: url
-        val manifest = fetchRepository(resolvedUrl) ?: return null
+        val resolvedUrl = PluginNetworkClient.parseRepoUrl(url) ?: url
+        val manifest = PluginNetworkClient.fetchRepository(resolvedUrl) ?: return null
 
-        // Cache the repository immediately
         repoCache[resolvedUrl] = manifest
+        saveRepository(RepositoryData(iconUrl = manifest.iconUrl, name = manifest.name, url = resolvedUrl))
 
-        saveRepository(
-            RepositoryData(
-                iconUrl = manifest.iconUrl,
-                name = manifest.name,
-                url = resolvedUrl,
-            ),
-        )
-
-        // Pre-fetch and cache all plugins for this repository so they are instantly available
         manifest.pluginLists.forEach { listUrl ->
             try {
                 getCachedPlugins(listUrl)
             } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Failed to pre-fetch plugins for $listUrl", e)
+                AppLogger.e("Failed to pre-fetch plugins for $listUrl", e)
             }
         }
-
         return manifest
     }
 
     suspend fun getCachedRepository(url: String): Repository? {
         if (repoCache.containsKey(url)) return repoCache[url]
-        val repo = fetchRepository(url)
+        val repo = PluginNetworkClient.fetchRepository(url)
         if (repo != null) {
             repoCache[url] = repo
             saveCachesToDisk()
@@ -313,7 +245,7 @@ object DesktopRepositoryManager {
         val mutex = fetchMutexes.computeIfAbsent(listUrl) { Mutex() }
         val plugins = mutex.withLock {
             pluginsCache[listUrl]?.let { return@withLock it }
-            val fetched = fetchPlugins(listUrl).filter { it.status != 0 }
+            val fetched = PluginNetworkClient.fetchPlugins(listUrl)
             pluginsCache[listUrl] = fetched
             saveCachesToDisk()
             fetched
@@ -337,7 +269,7 @@ object DesktopRepositoryManager {
             java.util.zip.ZipFile(jarFile).use { zip ->
                 val manifestEntry = zip.getEntry("manifest.json") ?: return null
                 zip.getInputStream(manifestEntry).use { input ->
-                    return mapper.readValue(input, object : TypeReference<Map<String, Any>>() {})
+                    return PluginNetworkClient.mapper.readValue(input, object : TypeReference<Map<String, Any>>() {})
                 }
             }
         } catch (e: Exception) {
@@ -345,169 +277,10 @@ object DesktopRepositoryManager {
         }
     }
 
-    suspend fun parseRepoUrl(url: String): String? = withContext(Dispatchers.IO) {
-        val fixedUrl = url.trim()
-        if (fixedUrl.matches(Regex("^[a-zA-Z0-9!_-]+$"))) {
-            val request = Request.Builder().url("https://cutt.ly/$fixedUrl").build()
-            client.newCall(request).execute().use { response ->
-                val loc = response.header("Location")
-                if (loc != null && !loc.startsWith("https://cutt.ly/404")) {
-                    return@withContext loc
-                }
-            }
-            return@withContext null
-        }
-        if (fixedUrl.contains(Regex("^(cloudstreamrepo://)|(https://cs\\.repo/\\??)"))) {
-            return@withContext fixedUrl.replace(Regex("^(cloudstreamrepo://)|(https://cs\\.repo/\\??)"), "")
-                .let { if (!it.startsWith("http")) "https://$it" else it }
-        }
-        if (!fixedUrl.matches(Regex("^https?://.*"))) {
-            return@withContext null
-        }
-        return@withContext fixedUrl
-    }
+    fun getExtensionsDir(): File = PluginFileUtils.getExtensionsDir()
 
-    suspend fun fetchRepository(url: String): Repository? = withContext(Dispatchers.IO) {
-        val finalUrl = parseRepoUrl(url) ?: url.trim().takeIf { it.startsWith("http") } ?: return@withContext null
-        val request = Request.Builder().url(finalUrl).build()
-        try {
-            redirectClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val body = response.body.string()
-                if (body.trimStart().startsWith("<")) {
-                    AppLogger.i("Failed to load repository from $url: Received HTML instead of JSON. The site may be protected by Cloudflare.")
-                    return@withContext null
-                }
-                return@withContext mapper.readValue(body, Repository::class.java)
-            }
-        } catch (e: Exception) {
-            AppLogger.i("Failed to fetch repository $url: ${e.message}")
-            return@withContext null
-        }
-    }
-
-    suspend fun fetchPlugins(pluginListUrl: String): List<SitePlugin> = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder().url(pluginListUrl).build()
-            redirectClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext emptyList()
-                val body = response.body.string()
-                if (body.trimStart().startsWith("<")) {
-                    AppLogger.i("Failed to load plugins from $pluginListUrl: Received HTML instead of JSON. The site may be protected by Cloudflare.")
-                    return@withContext emptyList()
-                }
-
-                return@withContext mapper.readValue(body, object : TypeReference<List<SitePlugin>>() {})
-                    .filter { it.status != 0 }
-            }
-        } catch (e: Exception) {
-            AppLogger.i("Failed to fetch or parse plugins from $pluginListUrl: ${e.message}")
-            emptyList()
-        }
-    }
-
-    fun getExtensionsDir(): File = PlatformPaths.extensionsDir
-
-    fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { fis ->
-            val buffer = ByteArray(8192)
-            var read = fis.read(buffer)
-            while (read != -1) {
-                digest.update(buffer, 0, read)
-                read = fis.read(buffer)
-            }
-        }
-        return "sha256-" + digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
-    suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? = withContext(Dispatchers.IO) {
-        val repoDir = File(getExtensionsDir(), repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
-        if (!repoDir.exists()) repoDir.mkdirs()
-
-        val destFile = File(repoDir, "${plugin.internalName}.jar")
-        val tempFile = File.createTempFile(destFile.name, ".tmp", getExtensionsDir())
-
-        try {
-            val request = Request.Builder().url(plugin.url).build()
-            redirectClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw Exception("Failed to download plugin")
-                val body = response.body
-                FileOutputStream(tempFile).use { out ->
-                    body.byteStream().copyTo(out)
-                }
-            }
-
-            if (plugin.fileHash != null) {
-                val downloadHash = sha256(tempFile)
-                if (plugin.fileHash != downloadHash) {
-                    throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
-                }
-            }
-
-            try {
-                Files.move(
-                    tempFile.toPath(),
-                    destFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(
-                    tempFile.toPath(),
-                    destFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                )
-            }
-
-            // [PERFORMANCE] If a pre-compiled JVM jar is provided, download it alongside the .cs3 file.
-            // ExtensionLoader will detect this -jvm.jar file and completely skip the slow dex2jar conversion step!
-            if (!plugin.jarUrl.isNullOrBlank() && !plugin.jarHash.isNullOrBlank()) {
-                val jvmDestFile = File(repoDir, "${plugin.internalName}-jvm.jar")
-                val jvmTempFile = File.createTempFile(jvmDestFile.name, ".tmp", getExtensionsDir())
-                try {
-                    val jvmRequest = Request.Builder().url(plugin.jarUrl).build()
-                    redirectClient.newCall(jvmRequest).execute().use { response ->
-                        if (response.isSuccessful) {
-                            FileOutputStream(jvmTempFile).use { out ->
-                                response.body.byteStream().copyTo(out)
-                            }
-
-                            val downloadHash = sha256(jvmTempFile)
-                            if (plugin.jarHash != downloadHash) {
-                                throw IllegalStateException("JVM Extension hash mismatch when validating '${jvmDestFile.name}'! Expected: '${plugin.jarHash}', got: '$downloadHash'.")
-                            }
-
-                            try {
-                                Files.move(
-                                    jvmTempFile.toPath(),
-                                    jvmDestFile.toPath(),
-                                    StandardCopyOption.REPLACE_EXISTING,
-                                    StandardCopyOption.ATOMIC_MOVE,
-                                )
-                            } catch (_: AtomicMoveNotSupportedException) {
-                                Files.move(
-                                    jvmTempFile.toPath(),
-                                    jvmDestFile.toPath(),
-                                    StandardCopyOption.REPLACE_EXISTING,
-                                )
-                            }
-                            com.lagradost.common.logging.AppLogger.i("Successfully pre-seeded JVM bytecode for ${plugin.internalName}!")
-                        }
-                    }
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.i("Failed to download pre-compiled JVM jar for ${plugin.internalName}: ${e.message}")
-                } finally {
-                    jvmTempFile.delete()
-                }
-            }
-
-            return@withContext destFile
-        } catch (e: Exception) {
-            com.lagradost.common.logging.AppLogger.e("Failed to download or unzip plugin ${plugin.url}", e)
-            return@withContext null
-        }
-    }
+    suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? = 
+        PluginFileUtils.downloadPlugin(repoName, plugin)
 
     fun clearCaches() {
         repoCache.clear()
@@ -554,7 +327,6 @@ object DesktopRepositoryManager {
         }
         if (updatedCount > 0) {
             AppLogger.i("Auto-updated $updatedCount plugins successfully.")
-            // Trigger a UI refresh if active
             _syncGeneration.update { it + 1 }
         }
     }
@@ -578,19 +350,17 @@ object DesktopRepositoryManager {
     }
 
     suspend fun refreshAllRepositoryMetadata(): Int = withContext(Dispatchers.IO) {
-        // Fetch all manifests in parallel but collect results without writing to disk yet
         val updates = java.util.concurrent.ConcurrentHashMap<String, Pair<String?, String>>()
         coroutineScope {
             getSavedRepositories().map { saved ->
                 async {
-                    val manifest = fetchRepository(saved.url) ?: return@async
+                    val manifest = PluginNetworkClient.fetchRepository(saved.url) ?: return@async
                     repoCache[saved.url] = manifest
                     updates[saved.url] = Pair(manifest.iconUrl, manifest.name)
                     AppLogger.i("Refreshed repo metadata: ${manifest.name}")
                 }
             }.awaitAll()
         }
-        // Single synchronized batch-write instead of 26 concurrent read-modify-write cycles
         if (updates.isNotEmpty()) {
             synchronized(this@DesktopRepositoryManager) {
                 val current = readRepositoriesFromDisk().toMutableList()
@@ -618,13 +388,12 @@ object DesktopRepositoryManager {
         coroutineScope {
             getSavedRepositories().map { saved ->
                 async {
-                    val repo = fetchRepository(saved.url) ?: return@async
+                    val repo = PluginNetworkClient.fetchRepository(saved.url) ?: return@async
                     repoCache[saved.url] = repo
                     repo.pluginLists.map { listUrl ->
                         async {
-                            val plugins = fetchPlugins(listUrl)
+                            val plugins = PluginNetworkClient.fetchPlugins(listUrl)
                             pluginsCache[listUrl] = plugins
-                            AppLogger.i("Fetched ${plugins.size} plugins from $listUrl")
                             plugins.forEach { plugin ->
                                 val icon = plugin.iconUrl
                                 if (!icon.isNullOrEmpty()) {
@@ -644,15 +413,13 @@ object DesktopRepositoryManager {
     }
 
     private val lastAutoUpdateTime = AtomicLong(0L)
-    private val autoUpdateCooldown = 15 * 60 * 1000L // 15 minutes
+    private val autoUpdateCooldown = 15 * 60 * 1000L
 
     suspend fun autoUpdatePlugins(): List<com.lagradost.common.storage.PluginUpdateRecord> = withContext(Dispatchers.IO) {
         autoUpdateMutex.withLock {
             val now = System.currentTimeMillis()
             val last = lastAutoUpdateTime.get()
-            if (now - last < autoUpdateCooldown) {
-                return@withContext emptyList()
-            }
+            if (now - last < autoUpdateCooldown) return@withContext emptyList()
             lastAutoUpdateTime.set(now)
 
             val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()
@@ -661,18 +428,12 @@ object DesktopRepositoryManager {
 
             savedRepos.forEach { saved ->
                 try {
-                    val repo = fetchRepository(saved.url) ?: return@forEach
-
+                    val repo = PluginNetworkClient.fetchRepository(saved.url) ?: return@forEach
                     val remotePlugins = coroutineScope {
-                        repo.pluginLists.map { listUrl ->
-                            async {
-                                getCachedPlugins(listUrl)
-                            }
-                        }.awaitAll().flatten()
+                        repo.pluginLists.map { listUrl -> async { getCachedPlugins(listUrl) } }.awaitAll().flatten()
                     }.distinctBy { it.internalName }
 
-                    val repoDirName = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                    val repoDir = File(extensionsDir, repoDirName)
+                    val repoDir = File(extensionsDir, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
                     if (!repoDir.exists()) repoDir.mkdirs()
 
                     remotePlugins.forEach { remotePlugin ->
@@ -682,8 +443,6 @@ object DesktopRepositoryManager {
                             val localVersion = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
 
                             if (remotePlugin.version > localVersion) {
-                                AppLogger.i("Auto-Updater: Updating ${remotePlugin.name} from v$localVersion to v${remotePlugin.version}")
-
                                 val iconUrl = remotePlugin.iconUrl ?: _remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
                                 updatedList.add(
                                     com.lagradost.common.storage.PluginUpdateRecord(
@@ -692,23 +451,17 @@ object DesktopRepositoryManager {
                                         iconUrl = iconUrl,
                                     ),
                                 )
-
                                 com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
-
                                 localJar.delete()
                                 File(repoDir, "${remotePlugin.internalName}-jvm.jar").delete()
                                 File(repoDir, "${remotePlugin.internalName}.dex").delete()
 
                                 val newJar = downloadPlugin(repo.name, remotePlugin)
-
                                 if (newJar != null && newJar.exists()) {
                                     try {
                                         com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
-                                        AppLogger.i("Auto-Updater: Successfully hot-reloaded ${remotePlugin.name}")
                                     } catch (e: Exception) {
                                         if (e is kotlinx.coroutines.CancellationException) throw e
-                                        AppLogger.i("Auto-Updater: Failed to hot-reload ${remotePlugin.name}")
-                                        AppLogger.e("Auto-Updater", e)
                                     }
                                 }
                             }
@@ -716,8 +469,6 @@ object DesktopRepositoryManager {
                     }
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
-                    AppLogger.i("Auto-Updater: Error checking repository ${saved.url}")
-                    AppLogger.e("Auto-Updater", e)
                 }
             }
             if (updatedList.isNotEmpty()) {
@@ -739,12 +490,8 @@ object DesktopRepositoryManager {
         return list.distinctBy { it.second.internalName }
     }
 
-    private val syncMutex = Mutex()
-
     suspend fun syncAll(): SyncReport = withContext(Dispatchers.IO) {
         syncMutex.withLock {
-            AppLogger.i("=== Desktop sync started ===")
-
             val reposRefreshed = refreshAllRepositoryMetadata()
             val catalogPlugins = rebuildRemotePluginCatalog()
             val pluginsUpdated = autoUpdatePlugins()
@@ -753,7 +500,6 @@ object DesktopRepositoryManager {
 
             _syncGeneration.update { it + 1 }
             saveCachesToDisk()
-            AppLogger.i("=== Desktop sync finished ===")
 
             SyncReport(
                 reposRefreshed = reposRefreshed,

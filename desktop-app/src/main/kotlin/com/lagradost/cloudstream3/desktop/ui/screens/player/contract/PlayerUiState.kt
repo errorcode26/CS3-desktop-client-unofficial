@@ -9,7 +9,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 data class PlayerUiState(
     val launchData: VideoLaunchData? = null,
     val isLoadingNextEpisode: Boolean = false,
-    val nextEpisodeError: String? = null,
+    val nextEpisodeError: PlayerError? = null,
     val nextEpisodeLinks: List<ExtractorLink> = emptyList(),
     val nextEpisodeSubtitles: List<SubtitleFile> = emptyList(),
     val isScrapingLinks: Boolean = false,

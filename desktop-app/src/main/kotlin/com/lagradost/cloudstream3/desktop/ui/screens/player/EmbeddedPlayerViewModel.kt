@@ -4,13 +4,24 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerError
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
+import com.lagradost.cloudstream3.desktop.player.PlayerConfig
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.common.storage.WatchHistory
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -23,7 +34,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            val autoPlay = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+            val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
             updateState { copy(autoPlayEnabled = autoPlay) }
         }
     }
@@ -50,18 +61,18 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun selectShader(shaderName: String) {
-        com.lagradost.common.storage.DesktopDataStore.setKey(
-            com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
+        DesktopDataStore.setKey(
+            PlayerConfig.PREF_ACTIVE_SHADER,
             shaderName,
         )
         // Note: The shader will be applied on the NEXT player initialization.
         // Hot-swapping requires MPV property commands, which can be added via PlayerUiEffect if needed.
     }
 
-    private fun savePosition(history: com.lagradost.common.storage.WatchHistory) {
+    private fun savePosition(history: WatchHistory) {
         saveJob?.cancel()
         saveJob = viewModelScope.launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(2000)
+            delay(2000)
             val currentDurSec = history.duration
             val currentPosSec = history.position
             val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
@@ -70,15 +81,15 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 if (hasNext) {
                     val nextEp = uiState.value.nextEpisodeData
                     if (nextEp != null) {
-                        com.lagradost.common.storage.DesktopDataStore.setLastWatched(history)
+                        DesktopDataStore.setLastWatched(history)
                         // Only create a "queued" placeholder for the next episode if it has never
                         // been touched — avoids wiping real progress if user already started it.
-                        val existingNext = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
+                        val existingNext = DesktopDataStore.getEpisodeWatched(
                             parentId = history.parentId,
                             episodeId = nextEp.data,
                         )
                         if (existingNext == null) {
-                            val nextEpHistory = com.lagradost.common.storage.WatchHistory(
+                            val nextEpHistory = WatchHistory(
                                 parentId = history.parentId,
                                 showName = history.showName,
                                 showUrl = history.showUrl,
@@ -93,13 +104,13 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 duration = 0,
                                 updateTime = System.currentTimeMillis() + 1000,
                             )
-                            com.lagradost.common.storage.DesktopDataStore.setLastWatched(nextEpHistory)
+                            DesktopDataStore.setLastWatched(nextEpHistory)
                         }
                         return@launch
                     }
                 }
             }
-            com.lagradost.common.storage.DesktopDataStore.setLastWatched(history)
+            DesktopDataStore.setLastWatched(history)
         }
     }
 
@@ -194,7 +205,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val currentLinks = uiState.value.nextEpisodeLinks
         if (currentLinks.isEmpty()) return
 
-        val pastHistory = com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
+        val pastHistory = DesktopDataStore.getEpisodeWatched(
             parentId = currentData.history.parentId,
             episodeId = epData.data,
         )
@@ -275,21 +286,21 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    private fun sortLinks(links: List<com.lagradost.cloudstream3.utils.ExtractorLink>, preferredQuality: String): List<com.lagradost.cloudstream3.utils.ExtractorLink> {
+    private fun sortLinks(links: List<ExtractorLink>, preferredQuality: String): List<ExtractorLink> {
         if (preferredQuality == "Auto" || preferredQuality == "Auto / Highest" || preferredQuality == "Highest Available") {
             return links.sortedByDescending { it.quality }
         }
 
         val targetQuality = when (preferredQuality) {
-            "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
-            "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
-            "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
-            "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
-            else -> com.lagradost.cloudstream3.utils.Qualities.Unknown.value
+            "2160p (4K)" -> Qualities.P2160.value
+            "1080p" -> Qualities.P1080.value
+            "720p" -> Qualities.P720.value
+            "480p", "480p / SD" -> Qualities.P480.value
+            else -> Qualities.Unknown.value
         }
 
         return links.sortedWith(
-            compareByDescending<com.lagradost.cloudstream3.utils.ExtractorLink> {
+            compareByDescending<ExtractorLink> {
                 it.quality == targetQuality
             }.thenByDescending {
                 it.quality
@@ -298,7 +309,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private suspend fun scrapeAndPlay(
-        provider: com.lagradost.cloudstream3.MainAPI,
+        provider: MainAPI,
         targetEpisodeId: String,
         baseLaunchData: VideoLaunchData,
         targetEpisodeData: Episode? = null,
@@ -308,7 +319,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         // Fetch DB data outside of the callbacks and StateFlow CAS loops!
         val current = uiState.value.launchData ?: baseLaunchData
         val pastHistory = if (targetEpisodeData != null) {
-            com.lagradost.common.storage.DesktopDataStore.getEpisodeWatched(
+            DesktopDataStore.getEpisodeWatched(
                 parentId = current.history.parentId,
                 episodeId = targetEpisodeData.data,
             )
@@ -342,12 +353,12 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             // be in UI. A slow/dead extractor should not trip the circuit breaker.
             penalizeOnTimeout = false,
         ) {
-            com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId")
+            AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId")
             provider.loadLinks(
                 data = targetEpisodeId,
                 isCasting = false,
                 subtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub ->
-                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${sub.lang}] ${sub.url}")
+                    AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${sub.lang}] ${sub.url}")
                     updateState {
                         val newSubs = nextEpisodeSubtitles + sub
                         if (!hasStartedPlaying.get()) {
@@ -364,7 +375,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     }
                 },
                 callback = SafePluginInvoker.wrapCallback("LinkCallback") { link ->
-                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
+                    AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
                     updateState {
                         if (!isScrapingLinks) {
                             return@updateState this
@@ -418,7 +429,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         if (result.isSuccess) {
             updateState {
-                val prefQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+                val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
                 val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
                 val newLaunchData = launchData?.copy(links = sortedLinks)
 
@@ -427,7 +438,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         isScrapingLinks = false,
                         targetEpisodeData = null,
                         isLoadingNextEpisode = false,
-                        nextEpisodeError = "No links found for this episode.",
+                        nextEpisodeError = PlayerError.ExtractorError(
+                            pluginName = provider.name,
+                            message = "No links found for this episode."
+                        ),
                     )
                 } else {
                     copy(
@@ -439,15 +453,15 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             }
         } else {
             val ex = result.exceptionOrNull()
-            if (ex is kotlinx.coroutines.CancellationException) {
+            if (ex is CancellationException) {
                 throw ex
             }
             // If links were already delivered via callback and playback has started,
             // the timeout fired after we already got what we needed — not an error.
             if (hasStartedPlaying.get()) {
-                com.lagradost.common.logging.AppLogger.d("Plugin:${provider.name}", "Scrape timed out but playback already started — suppressing error")
+                AppLogger.d("Plugin:${provider.name}", "Scrape timed out but playback already started — suppressing error")
                 updateState {
-                    val prefQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+                    val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
                     val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
                     val newLaunchData = launchData?.copy(links = sortedLinks)
                     copy(
@@ -457,13 +471,17 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     )
                 }
             } else {
-                com.lagradost.common.logging.AppLogger.e("Plugin:${provider.name}", "Failed to load links: ${ex?.message}", ex)
+                AppLogger.e("Plugin:${provider.name}", "Failed to load links: ${ex?.message}", ex)
                 updateState {
                     copy(
                         isScrapingLinks = false,
                         targetEpisodeData = null,
                         isLoadingNextEpisode = false,
-                        nextEpisodeError = "Failed to load links: ${ex?.message ?: "Unknown error"}",
+                        nextEpisodeError = PlayerError.ExtractorError(
+                            pluginName = provider.name,
+                            message = "Failed to load links: ${ex?.message ?: "Unknown error"}",
+                            cause = ex
+                        ),
                     )
                 }
             }
