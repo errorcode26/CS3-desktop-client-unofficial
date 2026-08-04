@@ -491,22 +491,7 @@ fun WatchHistoryCard(
             )
         }
 
-        // Dismiss X — top-right corner
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(6.dp)
-                .size(26.dp)
-                .background(Color.Black.copy(alpha = 0.5f), CircleShape),
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Remove",
-                tint = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier.size(14.dp),
-            )
-        }
+
     }
 }
 

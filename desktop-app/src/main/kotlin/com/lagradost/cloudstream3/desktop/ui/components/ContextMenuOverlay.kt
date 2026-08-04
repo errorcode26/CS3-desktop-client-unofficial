@@ -119,18 +119,12 @@ fun ContextMenuOverlay() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Main)
-                            val hasUnconsumedPress = event.changes.any { it.pressed && !it.isConsumed }
-                            if (hasUnconsumedPress) {
-                                state.dismiss()
-                            }
-                        }
-                    }
-                }
-                .background(Color.Black.copy(alpha = 0.3f)), // Scrim
+                .background(Color.Black.copy(alpha = 0.3f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { state.dismiss() }
+                ),
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
@@ -151,6 +145,7 @@ fun ContextMenuOverlay() {
                             .align(Alignment.Center)
                             .width(cardWidth)
                             .height(cardHeight)
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                     ) {
                             if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
                                 PosterCard(
@@ -186,7 +181,8 @@ fun ContextMenuOverlay() {
                         modifier = Modifier
                             .align(Alignment.Center)
                             .offset(x = (cardWidth / 2) + 32.dp + (menuWidth / 2))
-                            .width(menuWidth),
+                            .width(menuWidth)
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
                         shape = RoundedCornerShape(12.dp),
                         color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
                         tonalElevation = 8.dp,

@@ -58,6 +58,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
  * Single unified entry point for CloudStream Desktop Client.
  */
 fun main(args: Array<String> = emptyArray()) {
+    System.setProperty("sun.awt.noerasebackground", "true")
+    javax.swing.UIManager.put("Panel.background", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("Window.background", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("Frame.background", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("RootPane.background", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("Control.background", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("control", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("window", java.awt.Color.BLACK)
+    javax.swing.UIManager.put("Canvas.background", java.awt.Color.BLACK)
+    
     initCrashHandler()
     initWindowsEnvironment()
 

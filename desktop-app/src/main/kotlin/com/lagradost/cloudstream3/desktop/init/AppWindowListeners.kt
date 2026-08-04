@@ -13,11 +13,15 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
 import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import java.awt.Color
+import java.awt.Component
 import java.awt.Container
 import java.awt.Dimension
 import java.awt.Window
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
+import java.awt.event.ContainerAdapter
+import java.awt.event.ContainerEvent
+import java.awt.event.HierarchyListener
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JComponent
 import javax.swing.JFrame
@@ -103,23 +107,34 @@ fun FrameWindowScope.setupWindowBackgroundAndListeners(fullscreenController: Ful
     SideEffect {
         window.minimumSize = Dimension(1000, 700)
         val black = Color.BLACK
-        window.background = black
-        window.rootPane.background = black
-        window.contentPane.background = black
-        (window.contentPane as? JComponent)?.isOpaque = true
 
-        fun forceBlackBackground(container: Container) {
-            for (c in container.components) {
-                c.background = black
-                if (c is JComponent) {
-                    c.isOpaque = true
-                }
-                if (c is Container) {
-                    forceBlackBackground(c)
+        fun applyBlackRecursively(comp: Component) {
+            comp.background = black
+            if (comp is JComponent) {
+                comp.isOpaque = true
+            }
+            if (comp is Container) {
+                for (child in comp.components) {
+                    applyBlackRecursively(child)
                 }
             }
         }
-        forceBlackBackground(window)
+
+        applyBlackRecursively(window)
+
+        val containerListener = object : ContainerAdapter() {
+            override fun componentAdded(e: ContainerEvent) {
+                applyBlackRecursively(e.child)
+            }
+        }
+        val hierarchyListener = HierarchyListener {
+            applyBlackRecursively(window)
+        }
+
+        window.addContainerListener(containerListener)
+        window.addHierarchyListener(hierarchyListener)
+        window.contentPane.addContainerListener(containerListener)
+        window.rootPane.addContainerListener(containerListener)
     }
 
     LaunchedEffect(Unit) {
