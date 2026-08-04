@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import coil3.request.crossfade
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
 import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
@@ -39,7 +43,6 @@ fun ComposeHomeScreen(
     val historyList = uiState.historyList
     val mergedPluginIcons = uiState.mergedPluginIcons
     val errorSnapshot = uiState.errorSnapshot
-    val heroColor = uiState.heroExtractedColor
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
@@ -51,50 +54,39 @@ fun ComposeHomeScreen(
         .flowOn(kotlinx.coroutines.Dispatchers.IO)
         .collectAsState(initial = emptyList())
 
-    val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val isDockTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
 
-    // Animate the raw extracted color — keep full saturation, we control opacity in drawBehind directly
-    val animatedHeroColor by animateColorAsState(
-        targetValue = if (dynamicColorEnabled && !isLightMode && heroColor != null) {
-            heroColor
-        } else {
-            Color.Transparent
-        },
-        animationSpec = tween(durationMillis = 800),
-        label = "heroBgColor",
-    )
+    var currentHeroImageUrl by remember { mutableStateOf<String?>(null) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .drawWithCache {
-                if (dynamicColorEnabled && !isLightMode && animatedHeroColor != Color.Transparent) {
-                    val flatColor = animatedHeroColor.copy(alpha = 0.28f)
-                    val radius1 = size.width.coerceAtLeast(size.height) * 1.5f
-                    val brush1 = Brush.radialGradient(
-                        colors = listOf(animatedHeroColor.copy(alpha = 0.22f), Color.Transparent),
-                        center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
-                        radius = radius1,
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (heroBackgroundBlurEnabled && currentHeroImageUrl != null) {
+            androidx.compose.animation.Crossfade(
+                targetState = currentHeroImageUrl,
+                animationSpec = tween(2000),
+                label = "home_global_backdrop_crossfade",
+                modifier = Modifier.fillMaxSize()
+            ) { targetBgUrl ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    coil3.compose.AsyncImage(
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(targetBgUrl)
+                            .size(2560, 1440)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
                     )
-                    val radius2 = size.width.coerceAtLeast(size.height) * 0.9f
-                    val brush2 = Brush.radialGradient(
-                        colors = listOf(animatedHeroColor.copy(alpha = 0.12f), Color.Transparent),
-                        center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
-                        radius = radius2,
-                    )
-                    onDrawBehind {
-                        drawRect(flatColor)
-                        drawRect(brush = brush1)
-                        drawRect(brush = brush2)
-                    }
-                } else {
-                    onDrawBehind {}
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
                 }
-            },
-    ) {
+            }
+        }
+        
         // Main content area
         val allPages = remember(activeProviderApis, uiState.disabledCatalogs) {
             activeProviderApis.flatMap { prov ->
@@ -135,11 +127,9 @@ fun ComposeHomeScreen(
                                 isFirstPage = isFirstPage,
                                 parentScope = coroutineScope,
                                 heroMetaMap = uiState.heroMetaMap,
-                                heroColorMap = uiState.heroColorMap,
                                 allBookmarks = uiState.bookmarks,
                                 onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
-                                onSetCurrentHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnSetCurrentHeroColor(url)) },
-                                onUpdateHeroColor = { url -> viewModel.onEvent(HomeUiEvent.OnUpdateHeroColor(url)) },
+                                onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
                                 afterHeroContent = if (isFirstPage) {
                                     {
                                         HomeHistoryRow(

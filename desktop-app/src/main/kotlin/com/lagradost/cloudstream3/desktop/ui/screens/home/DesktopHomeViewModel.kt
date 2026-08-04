@@ -116,8 +116,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             is HomeUiEvent.OnClearHistory -> clearHistory()
             is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
             is HomeUiEvent.OnPrefetchHeroItem -> prefetchHeroItem(event.provider, event.item)
-            is HomeUiEvent.OnSetCurrentHeroColor -> setCurrentHeroColor(event.itemUrl)
-            is HomeUiEvent.OnUpdateHeroColor -> updateHeroColor(event.imageUrl, event.itemUrl)
             is HomeUiEvent.OnProviderRefresh -> reloadProvider()
             is HomeUiEvent.OnShowHomeManagement -> {
                 updateState { copy(showHomeManagement = event.show) }
@@ -133,30 +131,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
                 currentDisabledMap[event.providerName] = newDisabled
                 DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
                 updateState { copy(disabledCatalogs = currentDisabledMap) }
-            }
-        }
-    }
-
-    fun updateHeroColor(imageUrl: String?, itemUrl: String? = null) {
-        if (imageUrl == null) {
-            if (itemUrl == null) updateState { copy(heroExtractedColor = null) }
-            return
-        }
-        viewModelScope.launch {
-            val colorLong = com.lagradost.cloudstream3.desktop.repo.HeroRepository.getHeroColor(imageUrl) ?: return@launch
-            val color = androidx.compose.ui.graphics.Color(colorLong.toULong())
-            if (itemUrl == null) {
-                updateState { copy(heroExtractedColor = color) }
-            } else {
-                updateState { copy(heroColorMap = heroColorMap + (itemUrl to color)) }
-            }
-        }
-    }
-
-    fun setCurrentHeroColor(itemUrl: String?) {
-        if (itemUrl != null) {
-            uiState.value.heroColorMap[itemUrl]?.let { color ->
-                updateState { copy(heroExtractedColor = color) }
             }
         }
     }
@@ -219,7 +193,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
                             }
                         }
                         is HeroUpdate.ColorTarget -> {
-                            updateHeroColor(update.posterUrl, itemUrl = update.url)
+                            // Ignored, color extraction removed
                         }
                     }
                 }

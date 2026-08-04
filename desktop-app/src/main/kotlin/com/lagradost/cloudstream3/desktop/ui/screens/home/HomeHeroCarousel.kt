@@ -50,11 +50,9 @@ fun HomeHeroCarousel(
     items: List<SearchResponse>,
     provider: MainAPI?,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
-    heroColorMap: Map<String, androidx.compose.ui.graphics.Color>,
     allBookmarks: Map<String, DesktopBookmark>,
     onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
-    onSetCurrentHeroColor: (String?) -> Unit,
-    onUpdateHeroColor: (String?) -> Unit,
+    onHeroBackgroundChanged: (String?) -> Unit,
     onItemClick: (SearchResponse, String?, Boolean) -> Unit,
 ) {
     if (items.isEmpty()) return
@@ -69,7 +67,7 @@ fun HomeHeroCarousel(
         }
     }
 
-    val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val scope = rememberCoroutineScope()
     var globalIndex by remember(displayItems.size) {
@@ -98,10 +96,9 @@ fun HomeHeroCarousel(
 
     LaunchedEffect(currentIndex) {
         val currentItem = displayItems.getOrNull(currentIndex)
-        onSetCurrentHeroColor(currentItem?.url)
         val currentMeta = currentItem?.let { heroMetaMap[it.url] }
         val colorSourceUrl = currentMeta?.backdropUrl ?: provider?.fixUrlNull(currentItem?.posterUrl)
-        onUpdateHeroColor(colorSourceUrl)
+        onHeroBackgroundChanged(colorSourceUrl)
     }
 
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
@@ -133,13 +130,8 @@ fun HomeHeroCarousel(
             val ambientBg = meta?.backdropUrl ?: posterUrl
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // Per-page color: each hero page uses its OWN extracted color — no bleed from next/prev
-                val rawPageColor = if (dynamicColorEnabled && !isLightMode) heroColorMap[item.url] else null
-                val animatedPageScrimColor by animateColorAsState(
-                    targetValue = rawPageColor ?: Color.Black,
-                    animationSpec = tween(durationMillis = 600),
-                    label = "pageScrimColor_${item.url}",
-                )
+                // Per-page color: just use black since we rely on massive blur for aesthetics
+                val pageScrimColor = Color.Black
                 val verticalFadeBrush = remember {
                     Brush.verticalGradient(
                         0.0f to Color.Black,
@@ -150,7 +142,7 @@ fun HomeHeroCarousel(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                        .graphicsLayer { alpha = 0.99f }
                         .drawWithContent {
                             drawContent()
                             drawRect(
@@ -174,7 +166,7 @@ fun HomeHeroCarousel(
                         )
                     }
 
-                    val hScrimColor = if (isLightMode) Color.Transparent else animatedPageScrimColor.copy(alpha = 0.80f)
+                    val hScrimColor = if (isLightMode) Color.Transparent else pageScrimColor.copy(alpha = 0.80f)
                     val hScrimBrush = remember(hScrimColor) {
                         Brush.horizontalGradient(
                             colorStops = arrayOf(
@@ -186,13 +178,13 @@ fun HomeHeroCarousel(
                     Box(modifier = Modifier.fillMaxSize().background(hScrimBrush))
 
                     val vBottomAlpha = if (isLightMode) 0f else 0.35f
-                    val vScrimBrush = remember(animatedPageScrimColor, isLightMode) {
+                    val vScrimBrush = remember(pageScrimColor, isLightMode) {
                         Brush.verticalGradient(
                             colorStops = arrayOf(
                                 0.0f to Color.Transparent,
                                 0.40f to Color.Transparent,
-                                0.75f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else 0.25f),
-                                1.0f to animatedPageScrimColor.copy(alpha = if (isLightMode) 0f else vBottomAlpha),
+                                0.75f to pageScrimColor.copy(alpha = if (isLightMode) 0f else 0.25f),
+                                1.0f to pageScrimColor.copy(alpha = if (isLightMode) 0f else vBottomAlpha),
                             ),
                         )
                     }

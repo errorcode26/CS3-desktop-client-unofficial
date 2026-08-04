@@ -81,9 +81,18 @@ fun EpisodeCard(
     val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
 
     val epRunTime = ep.runTime ?: data.duration
-    val runTimeStr = epRunTime?.let { if (it > 300) "${it / 60}m" else "${it}m" }
+    val runTimeStr = epRunTime?.let { dur ->
+        val mins = if (dur > 1000) dur / 60 else dur
+        if (mins >= 60) {
+            val h = mins / 60
+            val m = mins % 60
+            if (m > 0) "${h}h ${m}m" else "${h}h"
+        } else {
+            "${mins}m"
+        }
+    }
 
-    val heroColor = uiState?.heroColor ?: MaterialTheme.colorScheme.primary
+    val heroColor = MaterialTheme.colorScheme.primary
 
     // Card is a pure 16:9 thumbnail — caller supplies width via modifier (weight for grid)
     Box(
@@ -367,13 +376,16 @@ fun EpisodeCard(
             if (progress > 0f && progress < 1f) {
                 val leftSeconds = history.duration - history.position
                 val leftMins = leftSeconds / 60L
-                if (leftMins > 0) "${leftMins}m left" else "<1m left"
+                if (leftMins >= 60) "${leftMins / 60}h ${leftMins % 60}m left"
+                else if (leftMins > 0) "${leftMins}m left"
+                else "<1m left"
             } else {
                 val totalMins = history.duration / 60L
-                "${totalMins}m"
+                if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
             }
         } else if (epRunTime != null) {
-            if (epRunTime > 300) "${epRunTime / 60}m" else "${epRunTime}m"
+            val totalMins = if (epRunTime > 1000) epRunTime / 60 else epRunTime
+            if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
         } else {
             null
         }

@@ -51,10 +51,6 @@ object HeroRepository {
     /** Delegates to the shared TitleUtils cleaner. Kept for call-sites in Composables. */
     fun cleanHeroTitle(title: String): String = TitleUtils.cleanProviderTitle(title).first
 
-    suspend fun getHeroColor(imageUrl: String): Long? {
-        return ImageColorExtractor.getCachedColor(imageUrl)?.value?.toLong()
-            ?: withContext(Dispatchers.IO) { ImageColorExtractor.extractDominantColorFromUrl(imageUrl)?.value?.toLong() }
-    }
 
     suspend fun prefetchTopHistory(topHistory: List<WatchHistory>, providers: List<MainAPI>) {
         withContext(Dispatchers.IO) {

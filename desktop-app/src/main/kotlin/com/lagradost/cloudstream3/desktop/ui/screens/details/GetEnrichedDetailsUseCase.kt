@@ -67,19 +67,7 @@ object GetEnrichedDetailsUseCase {
         val imageUrl = rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster
         val targetEnrichUrl = if (rawData.url.isNotBlank() && !rawData.url.contains("themoviedb.org")) rawData.url else url
 
-        val colorJob = if (!imageUrl.isNullOrBlank()) {
-            launch {
-                val cachedColor = ImageColorExtractor.getCachedColor(imageUrl)
-                if (cachedColor != null) {
-                    trySend(EnrichmentUpdate.ExtractedColor(cachedColor.value.toLong()))
-                } else {
-                    val color = ImageColorExtractor.extractDominantColorFromUrl(imageUrl)
-                    if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color.value.toLong()))
-                }
-            }
-        } else {
-            null
-        }
+
 
         val enrichJob = launch {
             HybridEnrichmentService.enrich(
@@ -97,15 +85,7 @@ object GetEnrichedDetailsUseCase {
                     }
                     trySend(EnrichmentUpdate.FullyEnriched)
 
-                    if (rawData.backgroundPosterUrl != null) {
-                        launch {
-                            val color = ImageColorExtractor.extractDominantColorFromUrl(rawData.backgroundPosterUrl!!)
-                            if (color != null) trySend(EnrichmentUpdate.ExtractedColor(color.value.toLong()))
-                            close()
-                        }
-                    } else {
-                        close()
-                    }
+                    close()
                 },
                 onScreenshotsLoaded = { screenshots ->
                     trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
@@ -124,7 +104,6 @@ object GetEnrichedDetailsUseCase {
         }
 
         awaitClose {
-            colorJob?.cancel()
             enrichJob.cancel()
         }
     }

@@ -39,9 +39,13 @@ class DetailsViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             DesktopDataStore.historyUpdates.collect {
+                val currentDataUrl = uiState.value.response?.url ?: url
+                val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
+                val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
+
                 val historyMap = DesktopDataStore.getAllWatchHistory()
-                    .filter { it.showUrl == url }
-                    .associateBy { it.episodeId ?: it.parentId }
+                    .filter { it.parentId == currentParentId || it.parentId == fallbackParentId || it.showUrl == url || it.showUrl == currentDataUrl }
+                    .associateBy { it.episodeId ?: "" }
                 updateState { copy(watchHistory = historyMap) }
             }
         }
@@ -105,9 +109,6 @@ class DetailsViewModel(
                             )
                         }
                     }
-                    is EnrichmentUpdate.ExtractedColor -> {
-                        updateState { copy(heroColor = androidx.compose.ui.graphics.Color(update.color.toULong())) }
-                    }
                     is EnrichmentUpdate.LogoLoaded -> {
                         updateState { copy(enrichedLogoUrl = update.url) }
                     }
@@ -116,6 +117,9 @@ class DetailsViewModel(
                     }
                     is EnrichmentUpdate.ScreenshotsLoaded -> {
                         updateState { copy(screenshots = update.urls) }
+                    }
+                    is EnrichmentUpdate.ExtractedColor -> {
+                        // Ignored, color extraction removed
                     }
                     is EnrichmentUpdate.ActorsLoaded -> {
                         updateState { copy(enrichedActors = update.actors) }
@@ -297,7 +301,7 @@ class DetailsViewModel(
                 // Marking as watched. Save backup of current states.
                 backupSeasonHistory.clear()
                 episodes.forEach { ep ->
-                    val hist = uiState.value.watchHistory.values.find { it.episodeId == ep.data }
+                    val hist = uiState.value.watchHistory.values.find { (it.episodeId ?: "") == ep.data }
                     if (hist != null) {
                         backupSeasonHistory[ep.data] = hist
                     }

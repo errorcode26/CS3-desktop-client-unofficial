@@ -58,7 +58,6 @@ fun DetailsBackdrop(
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     modifier: Modifier = Modifier,
     dynamicColorEnabled: Boolean = false,
-    animatedHeroColor: Color = Color.Transparent,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
 ) {
     Box(
@@ -115,14 +114,14 @@ fun DetailsBackdrop(
                 modifier = Modifier
                     .fillMaxSize()
                     .run { if (isFallback) this.blur(80.dp) else this }
-                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .graphicsLayer { alpha = 0.99f }
                     .drawWithCache {
                         val verticalFade = Brush.verticalGradient(
                             0.0f to Color.Black,
                             0.65f to Color.Black,
                             1.0f to Color.Transparent,
                         )
-                        val scrimBase = if (dynamicColorEnabled && animatedHeroColor != Color.Transparent) animatedHeroColor else Color.Black
+                        val scrimBase = Color.Black
                         // Smooth horizontal sweep from left — many stops so the edge is completely invisible
                         val logoVignette = Brush.horizontalGradient(
                             0.00f to scrimBase.copy(alpha = 0.82f),
@@ -366,6 +365,18 @@ fun DetailsMetadata(
                             }
                             if (!typeStr.isNullOrBlank()) {
                                 Text(text = typeStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            val finalDuration = uiState?.enrichedDuration ?: data.duration
+                            finalDuration?.takeIf { it > 0 }?.let { dur ->
+                                val mins = if (dur > 1000) dur / 60 else dur // Handle seconds if provider gives seconds
+                                val durationStr = if (mins >= 60) {
+                                    val h = mins / 60
+                                    val m = mins % 60
+                                    if (m > 0) "${h}h ${m}m" else "${h}h"
+                                } else {
+                                    "${mins}m"
+                                }
+                                Text(text = durationStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                             data.score?.takeIf { it.toFloat(10) > 0f }?.let {
                                 Row(verticalAlignment = Alignment.CenterVertically) {

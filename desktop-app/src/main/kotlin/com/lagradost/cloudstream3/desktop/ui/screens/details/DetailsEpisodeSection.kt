@@ -159,7 +159,7 @@ fun DetailsEpisodeSection(
                             .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
                     if (currentSeasonEpisodes.isNotEmpty()) {
                         val isSeasonWatched = currentSeasonEpisodes.all { ep ->
-                            val hist = showHistory.values.find { it.episodeId == ep.data }
+                            val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                             hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
                         }
                         Button(
@@ -579,7 +579,7 @@ private fun RenderEpisodesSection(
             ) {
                 allFilteredEpisodes.forEach { ep ->
                     val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
-                    val history = showHistory.values.find { it.episodeId == ep.data }
+                    val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                     EpisodeCard(
                         ep = ep,
                         isLatest = isLatest,
@@ -612,7 +612,7 @@ private fun RenderEpisodesSection(
         ) {
             items(allFilteredEpisodes) { ep ->
                 val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
-                val history = showHistory.values.find { it.episodeId == ep.data }
+                val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                 EpisodeCard(
                     ep = ep,
                     isLatest = isLatest,

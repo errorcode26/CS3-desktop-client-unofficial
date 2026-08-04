@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,30 +42,41 @@ fun UpdatesNotificationBell(
     var isUpdatesDialogExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.padding(start = 16.dp, bottom = 16.dp)) {
-        Surface(
+        val isLightMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.isLightMode.collectAsState()
+        val glassBase = if (isLightMode) Color.White else Color(0xFF1E1E24)
+        val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                glassBase.copy(alpha = 0.60f),
+                glassBase.copy(alpha = 0.45f),
+            )
+        )
+        val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
+            )
+        )
+
+        Box(
             modifier = Modifier
                 .width(48.dp)
-                .height(48.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
-            shadowElevation = 4.dp.applyShadowMultiplier(),
-            shape = androidx.compose.foundation.shape.CircleShape,
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-            ),
+                .height(48.dp)
+                .shadow(6.dp.applyShadowMultiplier(), androidx.compose.foundation.shape.CircleShape)
+                .background(glassGradient, androidx.compose.foundation.shape.CircleShape)
+                .border(1.5.dp, borderGradient, androidx.compose.foundation.shape.CircleShape)
+                .clip(androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                DockItem(
-                    icon = PremiumIcons.Updates,
-                    label = DesktopStrings.UPDATES,
-                    showLabel = false,
-                    selected = false,
-                    badge = if (hasUnreadUpdates) "!" else null,
-                    onClick = {
-                        isUpdatesDialogExpanded = true
-                    },
-                )
-            }
+            DockItem(
+                icon = PremiumIcons.Updates,
+                label = DesktopStrings.UPDATES,
+                showLabel = false,
+                selected = false,
+                badge = if (hasUnreadUpdates) "!" else null,
+                onClick = {
+                    isUpdatesDialogExpanded = true
+                },
+            )
         }
 
         if (isUpdatesDialogExpanded) {

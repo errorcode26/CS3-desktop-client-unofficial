@@ -39,29 +39,27 @@ object CinemetaAPI {
         @JsonProperty("description") val description: String?,
         @JsonProperty("imdbRating") val imdbRating: String?,
         @JsonProperty("releaseInfo") val releaseInfo: String?,
-        @JsonProperty("genres") val rawGenres: com.fasterxml.jackson.databind.JsonNode?,
+        @JsonProperty("genres") val genres: List<String>?,
         @JsonProperty("videos") val videos: List<CinemetaVideo>?,
         // TMDB ID returned by Cinemeta — used for direct TMDB lookup to avoid text search
         @JsonProperty("moviedb_id") val moviedbId: Int?,
-    ) {
-        val genres: List<String>? get() =
-            if (rawGenres?.isArray == true) {
-                rawGenres.map { it.asText() }
-            } else if (rawGenres?.isTextual == true) {
-                rawGenres.asText().split(" ").filter { it.isNotBlank() }
-            } else {
-                null
-            }
-    }
+    )
 
     suspend fun search(query: String, type: String = "movie"): List<CinemetaMeta>? {
         return withContext(Dispatchers.IO) {
             try {
                 val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
                 val url = "https://v3-cinemeta.strem.io/catalog/$type/top/search=$encodedQuery.json"
-                val response = app.get(url).parsedSafe<CinemetaSearchResponse>()
-                response?.metas
+                val response = app.get(url)
+                val text = response.text
+                com.lagradost.common.logging.AppLogger.i("CinemetaAPI", "Response length: ${text.length}")
+                val parsed = response.parsedSafe<CinemetaSearchResponse>()
+                if (parsed == null) {
+                    com.lagradost.common.logging.AppLogger.w("CinemetaAPI", "Failed to parse: $text")
+                }
+                parsed?.metas
             } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("CinemetaAPI", "Error fetching: ${e.message}")
                 null
             }
         }

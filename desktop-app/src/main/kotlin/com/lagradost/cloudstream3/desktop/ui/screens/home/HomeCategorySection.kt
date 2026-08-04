@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageData
@@ -36,11 +37,9 @@ fun HomeCategorySection(
     isFirstPage: Boolean = false,
     parentScope: CoroutineScope,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
-    heroColorMap: Map<String, androidx.compose.ui.graphics.Color>,
     allBookmarks: Map<String, com.lagradost.common.storage.DesktopBookmark>,
     onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
-    onSetCurrentHeroColor: (String?) -> Unit,
-    onUpdateHeroColor: (String?) -> Unit,
+    onHeroBackgroundChanged: (String?) -> Unit,
     afterHeroContent: @Composable () -> Unit = {},
     isHistoryVisible: Boolean = false,
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
@@ -132,11 +131,9 @@ fun HomeCategorySection(
                             items = heroCandidates,
                             provider = provider,
                             heroMetaMap = heroMetaMap,
-                            heroColorMap = heroColorMap,
                             allBookmarks = allBookmarks,
                             onPrefetchHeroItem = onPrefetchHeroItem,
-                            onSetCurrentHeroColor = onSetCurrentHeroColor,
-                            onUpdateHeroColor = onUpdateHeroColor,
+                            onHeroBackgroundChanged = onHeroBackgroundChanged,
                             onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
                         )
                         afterHeroContent()
@@ -229,7 +226,14 @@ fun HomeCategorySection(
             } else {
                 val minHeight = if (isFirstPage) 350.dp else 150.dp
                 val topPadding = if (isFirstPage) 80.dp else 0.dp
-                Box(modifier = Modifier.fillMaxWidth().height(minHeight).padding(top = topPadding), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(minHeight)
+                        .padding(top = topPadding)
+                        .pointerInput(Unit) {},
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             errorMessage ?: "Failed to load category.",

@@ -44,7 +44,7 @@ fun SettingsAppearance(
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
     val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
-    val heroDynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
@@ -486,10 +486,10 @@ fun SettingsAppearance(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             SettingsToggleItem(
-                label = "Dynamic Hero Color",
-                subtitle = "Tints the home page background with colors sampled from the featured hero item",
-                checked = heroDynamicColorEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroDynamicColorEnabled(it) },
+                label = "Hero Background Blur",
+                subtitle = "Apply a frosted glass blur to the hero section background",
+                checked = heroBackgroundBlurEnabled,
+                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
             )
         }
 

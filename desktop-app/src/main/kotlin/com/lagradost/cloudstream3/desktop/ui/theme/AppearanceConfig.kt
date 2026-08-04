@@ -33,7 +33,7 @@ object AppearanceConfig {
     private const val PREF_AMBIENT_GLOW = "pref_ambient_glow"
     private const val PREF_AMBIENT_GLOW_INTENSITY = "pref_ambient_glow_intensity"
     private const val PREF_AMBIENT_GLOW_POSITION = "pref_ambient_glow_position"
-    private const val PREF_HERO_DYNAMIC_COLOR = "pref_hero_dynamic_color"
+    private const val PREF_HERO_BACKGROUND_BLUR = "pref_hero_background_blur"
     private const val PREF_DOCK_POSITION = "pref_dock_position"
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
@@ -79,7 +79,7 @@ object AppearanceConfig {
     val ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
     val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
     val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
-    val heroDynamicColorEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_DYNAMIC_COLOR) ?: true)
+    val heroBackgroundBlurEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true)
     val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
     val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
@@ -183,9 +183,9 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW_POSITION, current.joinToString(","))
     }
 
-    fun setHeroDynamicColorEnabled(enabled: Boolean) {
-        heroDynamicColorEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_HERO_DYNAMIC_COLOR, enabled)
+    fun setHeroBackgroundBlurEnabled(enabled: Boolean) {
+        heroBackgroundBlurEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_HERO_BACKGROUND_BLUR, enabled)
     }
 
     fun setDockPosition(position: DockPosition) {

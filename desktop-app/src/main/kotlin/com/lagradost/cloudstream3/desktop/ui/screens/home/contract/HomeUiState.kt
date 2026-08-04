@@ -16,8 +16,6 @@ data class HomeUiState(
     val historyList: List<WatchHistory> = emptyList(),
     val mergedPluginIcons: Map<String, String> = emptyMap(),
     val heroMetaMap: Map<String, HeroMeta> = emptyMap(),
-    val heroExtractedColor: Color? = null,
-    val heroColorMap: Map<String, Color> = emptyMap(),
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val disabledCatalogs: Map<String, Set<String>> = emptyMap(),
     val showHomeManagement: Boolean = false,

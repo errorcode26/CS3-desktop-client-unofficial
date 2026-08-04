@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -72,7 +74,7 @@ fun DesktopAppShell(
             val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
             val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
             val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
-            val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+
             val isLightMode by AppearanceConfig.isLightMode.collectAsState()
             val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -368,18 +370,30 @@ private fun NavigationDock(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .blur(8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
+                    .blur(12.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                    .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(20.dp)),
             )
 
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.70f), // Slightly stronger opacity to compensate for dark shadow underneath
-                shape = RoundedCornerShape(16.dp),
-                shadowElevation = 0.dp,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), // Subtle light-catching border
-                ),
+            val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+            val glassBase = if (isLightMode) Color.White else Color(0xFF1E1E24)
+            val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+                colors = listOf(
+                    glassBase.copy(alpha = 0.60f),
+                    glassBase.copy(alpha = 0.45f),
+                )
+            )
+            val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+                colors = listOf(
+                    if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                    if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
+                )
+            )
+
+            Box(
+                modifier = Modifier
+                    .background(glassGradient, RoundedCornerShape(20.dp))
+                    .border(1.5.dp, borderGradient, RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(20.dp))
             ) {
                 if (isHorizontal) {
                     Row(

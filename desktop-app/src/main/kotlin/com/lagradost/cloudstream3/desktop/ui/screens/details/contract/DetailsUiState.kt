@@ -39,7 +39,6 @@ data class DetailsUiState(
     val enrichedReleaseDate: String? = null,
     val enrichedCountry: String? = null,
     val enrichedCollectionItems: List<SearchResponse> = emptyList(),
-    val heroColor: Color? = null,
     val isEnriching: Boolean = false,
     val error: String? = null,
     val enrichedBudget: Long? = null,

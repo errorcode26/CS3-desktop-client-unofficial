@@ -80,19 +80,8 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val enrichmentPhase = uiState.enrichmentPhase
     val activeLinkData = uiState.activeLinkData
     val screenshots = uiState.screenshots
-    val heroExtractedColor = uiState.heroColor
-    val dynamicColorEnabled by AppearanceConfig.heroDynamicColorEnabled.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-
-    val animatedHeroColor by androidx.compose.animation.animateColorAsState(
-        targetValue = if (dynamicColorEnabled && !isLightMode && heroExtractedColor != null) {
-            heroExtractedColor
-        } else {
-            androidx.compose.ui.graphics.Color.Transparent
-        },
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 800),
-        label = "heroBgColor",
-    )
 
     var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
@@ -161,47 +150,33 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            if (bgUrl != null) {
+            if (heroBackgroundBlurEnabled && bgUrl != null) {
                 androidx.compose.animation.Crossfade(
                     targetState = bgUrl,
                     animationSpec = androidx.compose.animation.core.tween(2000),
                     label = "global_backdrop_crossfade",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                        .drawWithCache {
-                            val scrimColor = if (dynamicColorEnabled && !isLightMode && animatedHeroColor != androidx.compose.ui.graphics.Color.Transparent) {
-                                // Mix the hero color with a dark tint to ensure text readability
-                                animatedHeroColor.copy(alpha = 0.3f)
-                            } else {
-                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f)
-                            }
-                            
-                            val darkScrim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
-                            
-                            onDrawWithContent {
-                                drawContent()
-                                drawRect(scrimColor)
-                                drawRect(darkScrim)
-                            }
-                        }
+                    modifier = Modifier.fillMaxSize()
                 ) { targetBgUrl ->
-                    coil3.compose.AsyncImage(
-                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                            .data(targetBgUrl)
-                            .size(2560, 1440)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        coil3.compose.AsyncImage(
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(targetBgUrl)
+                                .size(2560, 1440)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                        )
+                        Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f)))
+                    }
                 }
             }
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState?.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = { navController.goBack() },
@@ -210,7 +185,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState?.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)
+                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -311,7 +286,6 @@ fun DetailsContent(
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
     dynamicColorEnabled: Boolean = false,
-    animatedHeroColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Transparent,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
 ) {
@@ -345,7 +319,6 @@ fun DetailsContent(
             enrichmentPhase = enrichmentPhase,
             modifier = Modifier.fillMaxSize(),
             dynamicColorEnabled = dynamicColorEnabled,
-            animatedHeroColor = animatedHeroColor,
             uiState = uiState,
         )
 
