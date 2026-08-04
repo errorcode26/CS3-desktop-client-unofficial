@@ -83,41 +83,13 @@ fun exitWindowsFullscreen(frame: javax.swing.JFrame) {
 private const val WINDOW_BACKGROUND_RGB = 0x0D0D0D
 private const val WINDOW_TEXT_RGB = 0xF5F7F8
 
-interface WinUserExtra : com.sun.jna.Library {
-    fun SetClassLongPtrW(hwnd: com.sun.jna.platform.win32.WinDef.HWND, nIndex: Int, dwNewLong: com.sun.jna.Pointer): com.sun.jna.Pointer
-    fun SetClassLongW(hwnd: com.sun.jna.platform.win32.WinDef.HWND, nIndex: Int, dwNewLong: Int): Int
-    companion object {
-        val INSTANCE: WinUserExtra by lazy {
-            com.sun.jna.Native.load("user32", WinUserExtra::class.java) as WinUserExtra
-        }
-    }
-}
-
-interface WinGdiExtra : com.sun.jna.Library {
-    fun GetStockObject(fnObject: Int): com.sun.jna.Pointer
-    companion object {
-        val INSTANCE: WinGdiExtra by lazy {
-            com.sun.jna.Native.load("gdi32", WinGdiExtra::class.java) as WinGdiExtra
-        }
-    }
-}
-
 fun setWindowsDarkMode(window: java.awt.Window) {
     if (!System.getProperty("os.name").lowercase().contains("win")) return
+    if (!window.isDisplayable) return
     try {
-        val hwndId = com.sun.jna.Native.getComponentID(window)
-        val hwnd = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer.createConstant(hwndId))
-        
-        // GCLP_HBRBACKGROUND = -10, BLACK_BRUSH = 4
-        val blackBrush = WinGdiExtra.INSTANCE.GetStockObject(4)
-        if (com.sun.jna.Native.POINTER_SIZE == 8) {
-            WinUserExtra.INSTANCE.SetClassLongPtrW(hwnd, -10, blackBrush)
-        } else {
-            WinUserExtra.INSTANCE.SetClassLongW(hwnd, -10, com.sun.jna.Pointer.nativeValue(blackBrush).toInt())
-        }
-
+        val hwnd = com.sun.jna.Native.getComponentID(window)
         com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.applyWindowChrome(
-            hwnd = hwndId,
+            hwnd = hwnd,
             darkMode = true,
             captionColorRgb = WINDOW_BACKGROUND_RGB,
             borderColorRgb = WINDOW_BACKGROUND_RGB,

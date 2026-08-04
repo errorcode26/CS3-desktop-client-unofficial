@@ -197,18 +197,7 @@
     const backBtn       = document.getElementById('backBtn');
     const loadingContainer = document.getElementById('loadingContainer');
     const loadingStatus = document.getElementById('loadingStatus');
-    
-    // Toggle HW/SW Decoding
-    let isHwDec = true;
-    const hwToggleBtn = document.getElementById('hwToggleBtn');
-    if (hwToggleBtn) {
-        hwToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            isHwDec = !isHwDec;
-            hwToggleBtn.innerText = isHwDec ? 'HW' : 'SW';
-            send('setMpvProperty', `hwdec:${isHwDec ? 'auto' : 'no'}`);
-        });
-    }
+
     
     const titleDisplay  = document.getElementById('titleDisplay');
     const nextEpBtn     = document.getElementById('nextEpBtn');
@@ -286,6 +275,13 @@
     let globalIsPlaying = false;
     let lastMouseX = -1;
     let lastMouseY = -1;
+    let isHoveringControls = false;
+
+    // Do not hide controls if the user's mouse is actively resting on the top or bottom bar
+    document.querySelectorAll('.top-bar, .bottom-bar').forEach(el => {
+        el.addEventListener('mouseenter', () => { isHoveringControls = true; clearTimeout(hideTimer); });
+        el.addEventListener('mouseleave', () => { isHoveringControls = false; showControls(); });
+    });
     
     const showControls = (e) => {
         if (e && e.type === 'mousemove') {
@@ -308,10 +304,12 @@
         overlay.classList.remove('hidden-controls');
         document.body.classList.remove('hidden-controls');
         clearTimeout(hideTimer);
-        if (!isMenuOpen && globalIsPlaying) {
+        if (!isMenuOpen && globalIsPlaying && !isHoveringControls && !isSeeking) {
             hideTimer = setTimeout(() => {
-                overlay.classList.add('hidden-controls');
-                document.body.classList.add('hidden-controls');
+                if (!isHoveringControls && !isSeeking && !isMenuOpen) {
+                    overlay.classList.add('hidden-controls');
+                    document.body.classList.add('hidden-controls');
+                }
             }, 3500);
         }
     };
@@ -1551,8 +1549,51 @@
     // Screen Click/Double-Click Zones logic
     let clickCount = 0;
     let clickTimer = null;
+    
+    // Hold-to-speed logic
+    let holdSpeedTimer = null;
+    let isHoldingSpeed = false;
+    let wasHoldingSpeed = false;
+    let originalSpeed = 1.0;
+    const holdSpeedHud = document.getElementById('holdSpeedHud');
+    const holdSpeedHudText = document.getElementById('holdSpeedHudText');
+    // speedMapping must match the one defined later
+    const holdSpeedMapping = [0.25, 0.35, 0.5, 0.65, 0.75, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+    const restoreHoldSpeed = () => {
+        if (!isHoldingSpeed) return;
+        isHoldingSpeed = false;
+        holdSpeedHud.classList.remove('show');
+        send('setMpvProperty', `speed:${originalSpeed}`);
+    };
+
+    const handleZoneHoldStart = (zoneName) => {
+        if (durationMs <= 0 || !globalIsPlaying) return; // Don't allow holding if paused or live stream
+        clearTimeout(holdSpeedTimer);
+        holdSpeedTimer = setTimeout(() => {
+            isHoldingSpeed = true;
+            const slider = document.getElementById('speedSlider');
+            originalSpeed = slider ? (holdSpeedMapping[parseInt(slider.value)] || 1.0) : 1.0;
+            const newSpeed = zoneName === 'left' ? 0.5 : 2.0;
+            send('setMpvProperty', `speed:${newSpeed}`);
+            holdSpeedHudText.innerText = zoneName === 'left' ? '0.5x Speed' : '2x Speed';
+            holdSpeedHud.classList.add('show');
+            clickCount = 0; // Prevent the release from triggering a double-tap seek
+        }, 400); // Trigger after 400ms of holding
+    };
+
+    const handleZoneHoldEnd = () => {
+        clearTimeout(holdSpeedTimer);
+        if (isHoldingSpeed) {
+            wasHoldingSpeed = true;
+            setTimeout(() => { wasHoldingSpeed = false; }, 100);
+            restoreHoldSpeed();
+        }
+    };
+
     const handleZoneClick = (zoneName, e) => {
         e.stopPropagation();
+        if (wasHoldingSpeed) return;
         clickCount++;
         if (clickCount === 1) {
             clickTimer = setTimeout(() => {
@@ -1606,6 +1647,16 @@
     zoneLeft.addEventListener('click', e => handleZoneClick('left', e));
     zoneCenter.addEventListener('click', e => handleZoneClick('center', e));
     zoneRight.addEventListener('click', e => handleZoneClick('right', e));
+
+    zoneLeft.addEventListener('mousedown', () => handleZoneHoldStart('left'));
+    zoneRight.addEventListener('mousedown', () => handleZoneHoldStart('right'));
+    zoneLeft.addEventListener('touchstart', () => handleZoneHoldStart('left'), {passive: true});
+    zoneRight.addEventListener('touchstart', () => handleZoneHoldStart('right'), {passive: true});
+
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => {
+        zoneLeft.addEventListener(evt, handleZoneHoldEnd);
+        zoneRight.addEventListener(evt, handleZoneHoldEnd);
+    });
 
     document.getElementById('probingPlayBtn').addEventListener('click', e => { 
         e.stopPropagation(); 

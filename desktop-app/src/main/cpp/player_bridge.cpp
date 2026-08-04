@@ -756,6 +756,161 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     }
 }
 
+// --- WebView2 Warmup Logic ---
+std::mutex gWebView2WarmupMutex;
+std::condition_variable gWebView2WarmupCv;
+std::thread gWebView2WarmupThread;
+DWORD gWebView2WarmupThreadId = 0;
+bool gWebView2WarmupStarted = false;
+
+ICoreWebView2Environment* g_warmupEnv = nullptr;
+ICoreWebView2Controller* g_warmupCtrl = nullptr;
+ICoreWebView2* g_warmupWebView = nullptr;
+
+class WarmupCtrlHandler : public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler {
+    ULONG m_cRef = 1;
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2CreateCoreWebView2ControllerCompletedHandler) {
+            *ppv = this; AddRef(); return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++m_cRef; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        if (--m_cRef == 0) { delete this; return 0; } return m_cRef;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res, ICoreWebView2Controller* ctrl) override {
+        if (SUCCEEDED(res) && ctrl) {
+            g_warmupCtrl = ctrl;
+            g_warmupCtrl->AddRef();
+            g_warmupCtrl->put_IsVisible(FALSE);
+            g_warmupCtrl->get_CoreWebView2(&g_warmupWebView);
+        } else {
+            PostQuitMessage(0);
+        }
+        return S_OK;
+    }
+};
+
+class WarmupEnvHandler : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler {
+    ULONG m_refCount = 1;
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler) {
+            *ppvObject = this; AddRef(); return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++m_refCount; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        if (--m_refCount == 0) { delete this; return 0; } return m_refCount;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT result, ICoreWebView2Environment* env) override {
+        if (SUCCEEDED(result) && env) {
+            g_warmupEnv = env;
+            g_warmupEnv->AddRef();
+            g_warmupEnv->CreateCoreWebView2Controller(HWND_MESSAGE, new WarmupCtrlHandler());
+        } else {
+            PostQuitMessage(0);
+        }
+        return S_OK;
+    }
+};
+
+void runWebView2WarmupThread() {
+    {
+        std::lock_guard<std::mutex> lock(gWebView2WarmupMutex);
+        gWebView2WarmupThreadId = GetCurrentThreadId();
+    }
+    gWebView2WarmupCv.notify_all();
+
+    bool didOleInitialize = false;
+    HRESULT oleResult = OleInitialize(nullptr);
+    didOleInitialize = SUCCEEDED(oleResult);
+    if (FAILED(oleResult)) return;
+
+    HMODULE hLoader = GetModuleHandleW(L"WebView2Loader.dll");
+    if (!hLoader) {
+        static int s_selfMarker = 0;
+        HMODULE hSelf = nullptr;
+        GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCWSTR)&s_selfMarker,
+            &hSelf);
+        wchar_t selfPath[MAX_PATH] = {};
+        GetModuleFileNameW(hSelf, selfPath, MAX_PATH);
+        std::wstring jniDir(selfPath);
+        auto lastSlash = jniDir.find_last_of(L"\\/");
+        if (lastSlash != std::wstring::npos) jniDir = jniDir.substr(0, lastSlash + 1);
+        std::wstring loaderPath = jniDir + L"WebView2Loader.dll";
+        hLoader = LoadLibraryW(loaderPath.c_str());
+        if (!hLoader) hLoader = LoadLibraryW(L"WebView2Loader.dll");
+    }
+    if (!hLoader) return;
+
+    auto createEnvFunc = (CreateCoreWebView2EnvironmentWithOptionsFunc)
+        GetProcAddress(hLoader, "CreateCoreWebView2EnvironmentWithOptions");
+    if (!createEnvFunc) return;
+
+    wchar_t tempPath[MAX_PATH];
+    GetTempPathW(MAX_PATH, tempPath);
+    std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
+
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        L"--allow-file-access-from-files --disable-web-security "
+        L"--allow-running-insecure-content --disk-cache-size=1 "
+        L"--disable-application-cache --aggressive-cache-discard");
+
+    createEnvFunc(nullptr, userData.c_str(), nullptr, new WarmupEnvHandler());
+
+    MSG msg = {};
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    if (g_warmupWebView) { g_warmupWebView->Release(); g_warmupWebView = nullptr; }
+    if (g_warmupCtrl) { g_warmupCtrl->Close(); g_warmupCtrl->Release(); g_warmupCtrl = nullptr; }
+    if (g_warmupEnv) { g_warmupEnv->Release(); g_warmupEnv = nullptr; }
+
+    if (didOleInitialize) OleUninitialize();
+}
+
+void startWebView2Warmup() {
+    std::lock_guard<std::mutex> lock(gWebView2WarmupMutex);
+    if (!gWebView2WarmupStarted) {
+        gWebView2WarmupStarted = true;
+        gWebView2WarmupThread = std::thread(runWebView2WarmupThread);
+    }
+}
+
+void stopWebView2Warmup() {
+    std::thread threadToJoin;
+    DWORD threadId = 0;
+    {
+        std::unique_lock<std::mutex> lock(gWebView2WarmupMutex);
+        if (!gWebView2WarmupStarted) return;
+        gWebView2WarmupCv.wait_for(lock, std::chrono::seconds(1), []() { return gWebView2WarmupThreadId != 0; });
+        threadId = gWebView2WarmupThreadId;
+    }
+    if (threadId != 0) {
+        PostThreadMessageW(threadId, WM_QUIT, 0, 0);
+    }
+    {
+        std::lock_guard<std::mutex> lock(gWebView2WarmupMutex);
+        if (gWebView2WarmupThread.joinable()) {
+            threadToJoin = std::move(gWebView2WarmupThread);
+        }
+        gWebView2WarmupStarted = false;
+        gWebView2WarmupThreadId = 0;
+    }
+    if (threadToJoin.joinable()) {
+        threadToJoin.join();
+    }
+}
+// --- End WebView2 Warmup Logic ---
+
 extern "C" {
 
 // initWebView
@@ -921,6 +1076,12 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     DwmSetWindowAttribute(hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &captionColor, sizeof(captionColor));
     DwmSetWindowAttribute(hwnd, 34 /*DWMWA_BORDER_COLOR*/,  &borderColor,  sizeof(borderColor));
     DwmSetWindowAttribute(hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &textColor,    sizeof(textColor));
+
+    // The window's default class brush is white, so any region Windows erases before Skia
+    // repaints it flashes white. Erase to black instead; against the near-black UI it is
+    // invisible even if a repaint lags.
+    static HBRUSH s_blackBrush = CreateSolidBrush(RGB(13, 13, 13));
+    SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)s_blackBrush);
 }
 
 // destroyWebView
@@ -1102,6 +1263,15 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
             LOG_TO_FILE("[NativeBridge] MPV native UI sync timer stopped");
         }
     });
+}
+
+
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_warmupWebView2(JNIEnv* env, jobject thiz) {
+    startWebView2Warmup();
+}
+
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_shutdownWebView2Warmup(JNIEnv* env, jobject thiz) {
+    stopWebView2Warmup();
 }
 
 } // extern "C"

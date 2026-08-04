@@ -366,7 +366,7 @@ fun CloudstreamApp() {
 
                     val exitFadeAlpha by androidx.compose.animation.core.animateFloatAsState(
                         targetValue = if (showExitFade) 1f else 0f,
-                        animationSpec = if (showExitFade) androidx.compose.animation.core.tween(400) else androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.LinearEasing),
+                        animationSpec = if (showExitFade) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(400, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
                         label = "exitFadeAlpha",
                     )
 
@@ -381,25 +381,14 @@ fun CloudstreamApp() {
                     val fsController = LocalFullscreenController.current
                     androidx.compose.runtime.LaunchedEffect(showExitFade) {
                         if (showExitFade) {
-                            // Raise the native DWM shield to block the WebView2 destruction flash
-                            com.lagradost.cloudstream3.desktop.player.DesktopPlayerShield.showForActiveWindow()
-
-                            // Smoothly fade to black over 400ms before destroying the player
-                            kotlinx.coroutines.delay(450)
-
-                            // Destroy the native player. The screen stays black because our shield is completely opaque!
+                            // The Compose UI is now snapped to pitch black.
+                            // Destroy the native player instantly (no white flash due to BLACK_BRUSH).
                             currentVideo = null
 
-                            // Wait 50ms more to ensure the native window is truly gone from Windows DWM
+                            // Wait 50ms just to ensure the native window is completely gone from the OS compositor
                             kotlinx.coroutines.delay(50)
 
-                            // Drop the shield and let Compose's exit fade take over!
-                            com.lagradost.cloudstream3.desktop.player.DesktopPlayerShield.hideAfter(100)
-
-                            // Do NOT exit fullscreen here, as the user wants to stay in fullscreen
-                            // if they were already in it before opening the player!
-
-                            // Trigger the smooth fade-out!
+                            // Trigger the smooth fade-out of the black box to reveal the Compose UI!
                             showExitFade = false
                         }
                     }

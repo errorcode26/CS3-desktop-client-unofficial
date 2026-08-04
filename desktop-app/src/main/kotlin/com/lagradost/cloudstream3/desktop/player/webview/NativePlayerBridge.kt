@@ -1,8 +1,10 @@
 package com.lagradost.cloudstream3.desktop.player.webview
 
 import com.lagradost.common.logging.AppLogger
+import java.util.concurrent.atomic.AtomicBoolean
 
 object NativePlayerBridge {
+    private val preloadStarted = AtomicBoolean(false)
 
     init {
         try {
@@ -71,6 +73,50 @@ object NativePlayerBridge {
      * Posts a JSON message directly to the WebView2 control using postWebMessageAsJson.
      */
     external fun postMessage(json: String)
+
+    /**
+     * Posts a JSON message directly to the WebView2 control using postWebMessageAsJson.
+     */
+    external fun notifyThemeChange(isDarkMode: Boolean)
+
+    /**
+     * Initializes an invisible WebView2 instance in the background to warm up Chromium.
+     */
+    external fun warmupWebView2()
+
+    /**
+     * Shuts down the background warmup thread.
+     */
+    external fun shutdownWebView2Warmup()
+
+    /**
+     * Asynchronously warms up the WebView2 environment if running on Windows.
+     * Prevents the 2-second stutter when opening the player.
+     */
+    fun preloadAsync() {
+        if (!preloadStarted.compareAndSet(false, true)) return
+        
+        Thread {
+            runCatching {
+                AppLogger.i("Starting NativePlayerBridge warmup...")
+                warmupWebView2()
+            }.onFailure {
+                AppLogger.e("Failed to warmup NativePlayerBridge: ${it.message}")
+            }
+        }.apply {
+            name = "cloudstream-native-player-preload"
+            isDaemon = true
+            start()
+        }
+
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                runCatching { shutdownWebView2Warmup() }
+            }.apply {
+                name = "cloudstream-webview2-warmup-shutdown"
+            }
+        )
+    }
 
     /**
      * Navigates the WebView to a specific URL (like file:///...)

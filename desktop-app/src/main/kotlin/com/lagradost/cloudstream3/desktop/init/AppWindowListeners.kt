@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.init
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
@@ -13,15 +12,10 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
 import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import java.awt.Color
-import java.awt.Component
-import java.awt.Container
 import java.awt.Dimension
 import java.awt.Window
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
-import java.awt.event.ContainerAdapter
-import java.awt.event.ContainerEvent
-import java.awt.event.HierarchyListener
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JComponent
 import javax.swing.JFrame
@@ -106,38 +100,11 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
 fun FrameWindowScope.setupWindowBackgroundAndListeners(fullscreenController: FullscreenController) {
     SideEffect {
         window.minimumSize = Dimension(1000, 700)
-        val black = Color.BLACK
-
-        fun applyBlackRecursively(comp: Component) {
-            comp.background = black
-            if (comp is JComponent) {
-                comp.isOpaque = true
-            }
-            if (comp is Container) {
-                for (child in comp.components) {
-                    applyBlackRecursively(child)
-                }
-            }
-        }
-
-        applyBlackRecursively(window)
-
-        val containerListener = object : ContainerAdapter() {
-            override fun componentAdded(e: ContainerEvent) {
-                applyBlackRecursively(e.child)
-            }
-        }
-        val hierarchyListener = HierarchyListener {
-            applyBlackRecursively(window)
-        }
-
-        window.addContainerListener(containerListener)
-        window.addHierarchyListener(hierarchyListener)
-        window.contentPane.addContainerListener(containerListener)
-        window.rootPane.addContainerListener(containerListener)
-    }
-
-    LaunchedEffect(Unit) {
+        val black = Color(0x0D, 0x0D, 0x0D)
+        window.background = black
+        window.rootPane.background = black
+        window.contentPane.background = black
+        (window.contentPane as? JComponent)?.isOpaque = true
         setWindowsDarkMode(window)
     }
 

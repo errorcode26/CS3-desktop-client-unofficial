@@ -26,11 +26,13 @@ object PlayerConfig {
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
+        // Unlock maximum rendering quality
+        lib.mpv_set_option_string(handle, "profile", "gpu-hq")
+
         // Hardware Acceleration — let MPV auto-detect the best decoder.
-        // Do NOT set vo, gpu-api, gpu-context, d3d11-flip, etc. here.
-        // MPV's auto-detection is battle-tested; our overrides have caused
-        // repeated regressions. The VO is set in ComposeMpvPlayer before init.
-        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-copy"
+        // Since we render to an independent native HWND instead of an OpenGL texture,
+        // we can safely use 'auto' (zero-copy d3d11va) instead of the slower 'auto-copy'.
+        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto"
         lib.mpv_set_option_string(handle, "hwdec", hwdec)
 
         // Subtitles Size (Default: 45)

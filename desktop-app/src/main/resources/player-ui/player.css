@@ -155,17 +155,6 @@
         .back-btn:active { transform: scale(0.95); }
         .back-btn svg { width: 22px; height: 22px; }
 
-        .hw-toggle-btn {
-            position: absolute; top: 40px; right: 40px; z-index: var(--z-player-controls);
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; cursor: pointer;
-            padding: 6px 14px; border-radius: 14px;
-            font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
-            pointer-events: auto;
-            transition: background 0.2s, transform 0.1s, opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .hidden-controls .hw-toggle-btn { opacity: 0; transform: translateY(-20px) scale(0.98); pointer-events: none; }
-        .hw-toggle-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
-        .hw-toggle-btn:active { transform: scale(0.95); }
 
         /* ── Center: Loading / Buffering ───────────────────────────────── */
         #loadingContainer {
@@ -565,6 +554,20 @@
         .volume-osd-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
         .volume-osd-icon svg { width: 100%; height: 100%; }
         .volume-osd-text { font-size: 20px; font-weight: 600; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* ── Hold Speed HUD ─────────────────────────────────────────────── */
+        .hold-speed-hud {
+            position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(20,20,20,0.85); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 20px;
+            padding: 8px 18px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: var(--z-tooltip); pointer-events: none;
+            opacity: 0; transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%) translateY(-10px);
+        }
+        .hold-speed-hud.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .hold-speed-hud-text { font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
 
         /* ── Floating Panels ────────────────────────────────────────────── */
         .panel {

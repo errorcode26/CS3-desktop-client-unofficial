@@ -11,6 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.blur
+import coil3.request.crossfade
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -150,33 +153,52 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
             }
         }
 
-        Box(
-            modifier = Modifier.fillMaxSize()
-                .drawWithCache {
-                    if (dynamicColorEnabled && !isLightMode && animatedHeroColor != androidx.compose.ui.graphics.Color.Transparent) {
-                        val flatColor = animatedHeroColor.copy(alpha = 0.28f)
-                        val radius1 = size.width.coerceAtLeast(size.height) * 1.5f
-                        val brush1 = androidx.compose.ui.graphics.Brush.radialGradient(
-                            colors = listOf(animatedHeroColor.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, 0f),
-                            radius = radius1,
-                        )
-                        val radius2 = size.width.coerceAtLeast(size.height) * 0.9f
-                        val brush2 = androidx.compose.ui.graphics.Brush.radialGradient(
-                            colors = listOf(animatedHeroColor.copy(alpha = 0.12f), androidx.compose.ui.graphics.Color.Transparent),
-                            center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.15f),
-                            radius = radius2,
-                        )
-                        onDrawBehind {
-                            drawRect(flatColor)
-                            drawRect(brush = brush1)
-                            drawRect(brush = brush2)
+        val bgUrl = remember(response, uiState) {
+            uiState.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
+                ?: response?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
+                ?: response?.posterUrl?.takeIf { it.isNotBlank() }
+                ?: provider.fixUrlNull(response?.backgroundPosterUrl) ?: provider.fixUrlNull(response?.posterUrl)
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (bgUrl != null) {
+                androidx.compose.animation.Crossfade(
+                    targetState = bgUrl,
+                    animationSpec = androidx.compose.animation.core.tween(2000),
+                    label = "global_backdrop_crossfade",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                        .drawWithCache {
+                            val scrimColor = if (dynamicColorEnabled && !isLightMode && animatedHeroColor != androidx.compose.ui.graphics.Color.Transparent) {
+                                // Mix the hero color with a dark tint to ensure text readability
+                                animatedHeroColor.copy(alpha = 0.3f)
+                            } else {
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f)
+                            }
+                            
+                            val darkScrim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
+                            
+                            onDrawWithContent {
+                                drawContent()
+                                drawRect(scrimColor)
+                                drawRect(darkScrim)
+                            }
                         }
-                    } else {
-                        onDrawBehind {}
-                    }
-                },
-        ) {
+                ) { targetBgUrl ->
+                    coil3.compose.AsyncImage(
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(targetBgUrl)
+                            .size(2560, 1440)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
             if (isLoading) {
                 if (fakeData != null) {
                     DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState?.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = dynamicColorEnabled, animatedHeroColor = animatedHeroColor, uiState = uiState, showHistory = showHistory)

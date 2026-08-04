@@ -775,11 +775,9 @@ fun BaseMpvPlayer(
                 mpvHandle = null
                 playerState?.detachMpv()
 
-                // DEFERRED CLEANUP: Wait 150ms for Compose/Skia to draw the DetailsScreen
-                // over the empty space before actually destroying the native window.
+                // Teardown the MPV handle off the EDT to avoid deadlocking with Compose
                 if (h != null) {
                     com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        kotlinx.coroutines.delay(150)
                         try {
                             MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
                         } catch (e: Throwable) {
