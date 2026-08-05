@@ -190,9 +190,7 @@ fun HomeHeroCarousel(
                 }
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 350.dp), // Keep CTA data safely above the posters
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Row(
@@ -534,7 +532,7 @@ fun HomeHeroCarousel(
                 contentAlignment = Alignment.BottomEnd,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.padding(end = paddingEnd),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -545,8 +543,7 @@ fun HomeHeroCarousel(
 
                     LazyRow(
                         state = listState,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(start = paddingStart, end = paddingEnd),
+                        modifier = Modifier.widthIn(max = 816.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
