@@ -24,13 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import kotlinx.coroutines.launch
 
 @Composable
 fun DetailsRecommendationsSection(
     validRecs: List<SearchResponse>,
-    onNavigate: (Screen) -> Unit,
+    onNavigate: (Config) -> Unit,
 ) {
     val similarScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -68,10 +68,10 @@ fun DetailsRecommendationsSection(
                             provider = recProvider,
                             itemWidth = 150.dp,
                             onClick = {
-                                onNavigate(Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+                                onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
                             },
                             onPlayClick = {
-                                onNavigate(Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, true))
+                                onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, true))
                             }
                         )
                 }

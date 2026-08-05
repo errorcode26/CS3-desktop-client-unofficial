@@ -23,12 +23,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.components.UpdatesNotificationBell
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.flowOn
@@ -38,24 +36,18 @@ import kotlinx.coroutines.flow.map
 
 @Composable
 fun DesktopAppShell(
-    navController: NavController,
+    onNavigate: (Config) -> Unit,
+    onBack: () -> Unit = {},
     title: String? = null,
     showBack: Boolean = false,
-    applyMaxWidth: Boolean = true,
-    onErrorLogs: () -> Unit = {},
     homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
+    applySafePadding: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val current = navController.currentScreen
-    var isSyncing by remember { mutableStateOf(false) }
-    var syncStatus by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(current) {
-        // Nothing for search required anymore
-    }
+
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
@@ -173,21 +165,23 @@ fun DesktopAppShell(
                     val tintColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(bgImageTintColor, Color(0xFF7C6BFF))
 
                     // Build saturation ColorMatrix: lerp between grayscale (0) and identity (1)
-                    val colorFilter = if (bgImageSaturation < 0.999f) {
-                        val s = bgImageSaturation
-                        val invS = 1f - s
-                        val rw = 0.213f; val gw = 0.715f; val bw = 0.072f
-                        androidx.compose.ui.graphics.ColorFilter.colorMatrix(
-                            androidx.compose.ui.graphics.ColorMatrix(
-                                floatArrayOf(
-                                    rw * invS + s, gw * invS,       bw * invS,       0f, 0f,
-                                    rw * invS,       gw * invS + s, bw * invS,       0f, 0f,
-                                    rw * invS,       gw * invS,       bw * invS + s, 0f, 0f,
-                                    0f,              0f,              0f,              1f, 0f,
+                    val colorFilter = remember(bgImageSaturation) {
+                        if (bgImageSaturation < 0.999f) {
+                            val s = bgImageSaturation
+                            val invS = 1f - s
+                            val rw = 0.213f; val gw = 0.715f; val bw = 0.072f
+                            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                                androidx.compose.ui.graphics.ColorMatrix(
+                                    floatArrayOf(
+                                        rw * invS + s, gw * invS,       bw * invS,       0f, 0f,
+                                        rw * invS,       gw * invS + s, bw * invS,       0f, 0f,
+                                        rw * invS,       gw * invS,       bw * invS + s, 0f, 0f,
+                                        0f,              0f,              0f,              1f, 0f,
+                                    )
                                 )
                             )
-                        )
-                    } else null
+                        } else null
+                    }
 
                     Box(modifier = Modifier.fillMaxSize().then(if (bgImageOpacity < 0.999f) Modifier.alpha(bgImageOpacity) else Modifier)) {
                         AsyncImage(
@@ -233,15 +227,16 @@ fun DesktopAppShell(
                         }
                     }
                 }
-                val contentPadding = if (current is Screen.Home) {
-                    PaddingValues(0.dp)
-                } else {
+                val contentPadding = if (applySafePadding) {
                     when (dockPosition) {
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(top = 66.dp, start = 88.dp, end = 20.dp, bottom = 12.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(top = 66.dp, start = 20.dp, end = 88.dp, bottom = 12.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(top = 66.dp, start = 20.dp, end = 20.dp, bottom = 88.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 88.dp, start = 20.dp, end = 20.dp, bottom = 12.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(start = 82.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(end = 82.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 82.dp)
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(bottom = 82.dp)
+                        else -> PaddingValues(start = 82.dp)
                     }
+                } else {
+                    PaddingValues(0.dp)
                 }
 
                 Box(
@@ -256,8 +251,8 @@ fun DesktopAppShell(
                 // Positioned outside the width-constrained box so it always anchors to the absolute edges of the window
                 TopBar(
                     showBack = showBack,
-                    onBack = { navController.goBack() },
-                    isHome = current is Screen.Home,
+                    onBack = onBack,
+                    isHome = title == "Home",
                     homeUiState = homeUiState,
                     homeActionDispatcher = homeActionDispatcher,
                 )
@@ -277,12 +272,11 @@ fun DesktopAppShell(
             }
             NavigationDock(
                 modifier = Modifier.align(dockAlignment),
-                current = current,
+                currentTitle = title ?: "",
                 dockPosition = dockPosition,
-                isSyncing = isSyncing,
-                onNavigate = { navController.navigateRoot(it) },
+                onNavigate = onNavigate,
                 onSearchClick = {
-                    navController.navigateRoot(Screen.Search)
+                    onNavigate(Config.Search)
                 },
             )
 
@@ -300,13 +294,11 @@ fun DesktopAppShell(
 @Composable
 private fun NavigationDock(
     modifier: Modifier = Modifier,
-    current: Screen,
+    currentTitle: String,
     dockPosition: com.lagradost.cloudstream3.desktop.ui.DockPosition,
-    isSyncing: Boolean,
-    onNavigate: (Screen) -> Unit,
+    onNavigate: (Config) -> Unit,
     onSearchClick: () -> Unit,
 ) {
-    val savedRepos by DesktopRepositoryManager.savedRepositories.collectAsState()
 
     val isBottom = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM
     val isRight = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT
@@ -317,31 +309,31 @@ private fun NavigationDock(
         DockItem(
             icon = PremiumIcons.Home,
             label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
-            selected = current is Screen.Home,
+            selected = currentTitle == "Home",
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = {
-                onNavigate(Screen.Home)
+                onNavigate(Config.Home)
             },
         )
         DockItem(
             icon = PremiumIcons.Search,
             label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
-            selected = current is Screen.Search,
+            selected = currentTitle == "Search",
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
             onClick = onSearchClick,
         )
-        DockItem(icon = PremiumIcons.Library, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY, selected = current is Screen.Library, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Library) })
+        DockItem(icon = PremiumIcons.Library, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY, selected = currentTitle == "Library", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Library) })
         DockItem(
             icon = PremiumIcons.Extensions,
             label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.EXTENSIONS,
-            selected = current is Screen.Extensions,
+            selected = currentTitle == "Extensions",
             isHorizontal = isHorizontal,
             indicatorAtTop = isTop,
-            onClick = { onNavigate(Screen.Extensions()) },
+            onClick = { onNavigate(Config.Extensions(0)) },
         )
-        DockItem(icon = PremiumIcons.Settings, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS, selected = current is Screen.Settings, isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Screen.Settings) })
+        DockItem(icon = PremiumIcons.Settings, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS, selected = currentTitle == "Settings", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Settings) })
     }
 
     val surfaceModifier = when {
@@ -357,12 +349,6 @@ private fun NavigationDock(
         Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
     }
 
-    val updatesBoxPadding = when {
-        isBottom -> Modifier.padding(bottom = 16.dp, end = 16.dp)
-        isTop -> Modifier.padding(top = 16.dp, end = 16.dp)
-        isRight -> Modifier.padding(end = 16.dp, bottom = 16.dp)
-        else -> Modifier.padding(start = 16.dp, bottom = 16.dp)
-    }
 
     val mainDockSurface = @Composable {
         Box(modifier = surfaceModifier) {

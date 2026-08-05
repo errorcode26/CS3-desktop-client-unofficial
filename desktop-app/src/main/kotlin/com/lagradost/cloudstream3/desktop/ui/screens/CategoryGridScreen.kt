@@ -13,13 +13,13 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun ComposeCategoryGridScreen(
-    navController: NavController,
+    onNavigate: (Config) -> Unit,
+    onBack: () -> Unit,
     provider: MainAPI,
     title: String,
     items: List<SearchResponse>,
@@ -40,10 +40,10 @@ fun ComposeCategoryGridScreen(
                 item = item,
                 provider = provider,
                 onClick = {
-                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
+                    onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
                 },
                 onPlayClick = {
-                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
+                    onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
                 }
             )
         }

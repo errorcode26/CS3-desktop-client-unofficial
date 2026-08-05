@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 
 /**
  * Marker interface for all UI States.
@@ -37,7 +38,7 @@ interface UiEffect
  */
 abstract class BaseMviViewModel<State : UiState, Event : UiEvent, Effect : UiEffect>(
     initialState: State,
-) {
+) : InstanceKeeper.Instance {
     /**
      * Managed coroutine scope for this ViewModel.
      * Automatically cancelled when [dispose] is called when leaving the screen.
@@ -84,5 +85,12 @@ abstract class BaseMviViewModel<State : UiState, Event : UiEvent, Effect : UiEff
      */
     open fun dispose() {
         viewModelScope.cancel()
+    }
+
+    /**
+     * Called by Decompose's InstanceKeeper when the Component holding this ViewModel is destroyed.
+     */
+    override fun onDestroy() {
+        dispose()
     }
 }

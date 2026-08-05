@@ -11,31 +11,26 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-typealias DetailsUiStateAlias = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
-
 class DetailsViewModel(
-    private val provider: MainAPI,
-    private val url: String,
-    private val preloadedName: String? = null,
-    private val preloadedPoster: String? = null,
-    private val preloadedBg: String? = null,
-) : BaseMviViewModel<DetailsUiStateAlias, DetailsUiEvent, DetailsUiEffect>(
-    initialState = DetailsUiStateAlias(
+    val provider: MainAPI,
+    val url: String,
+    val preloadedName: String? = null,
+    val preloadedPoster: String? = null,
+    val preloadedBg: String? = null,
+    cachedResponse: LoadResponse? = DetailsCache.get(url),
+) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
+    initialState = DetailsUiState(
         preloadedName = preloadedName,
-        response = DetailsCache.get(url),
-        enrichedLogoUrl = DetailsCache.get(url)?.logoUrl,
-        enrichedBackdropUrl = DetailsCache.get(url)?.backgroundPosterUrl,
-        isLoading = DetailsCache.get(url) == null,
+        response = cachedResponse,
+        enrichedLogoUrl = cachedResponse?.logoUrl,
+        enrichedBackdropUrl = cachedResponse?.backgroundPosterUrl,
+        isLoading = cachedResponse == null,
         autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
         isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
     ),
 ) {
-    private val isInitialized = MutableStateFlow(false)
-    private val backupSeasonHistory = java.util.concurrent.ConcurrentHashMap<String, WatchHistory>()
-
     init {
         viewModelScope.launch(Dispatchers.IO) {
             DesktopDataStore.historyUpdates.collect {
@@ -63,6 +58,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnOpenLinksPanel -> openLinksPanel(event.data)
             is DetailsUiEvent.OnCloseLinksPanel -> closeLinksPanel()
             is DetailsUiEvent.OnRequestAutoPlay -> handleAutoPlay()
+            is DetailsUiEvent.OnMarkAutoPlayHandled -> updateState { copy(hasAutoPlayed = true) }
             is DetailsUiEvent.OnPlayEpisode -> handlePlayEpisode(event.ep)
             is DetailsUiEvent.OnDownloadEpisode -> handleDownloadEpisode(event.ep)
             is DetailsUiEvent.OnToggleEpisodeWatched -> handleToggleEpisodeWatched(event.ep, event.isWatched)
@@ -73,8 +69,8 @@ class DetailsViewModel(
     }
 
     fun load() {
-        if (isInitialized.value) return
-        isInitialized.value = true
+        if (uiState.value.isInitialized) return
+        updateState { copy(isInitialized = true) }
         loadDetails()
     }
 
@@ -167,6 +163,8 @@ class DetailsViewModel(
     }
 
     private fun handleAutoPlay() {
+        if (uiState.value.hasAutoPlayed) return
+        updateState { copy(hasAutoPlayed = true) }
         viewModelScope.launch(Dispatchers.IO) {
             val resp = uiState.value.response ?: uiState.value.fakeData ?: return@launch
 
@@ -272,8 +270,8 @@ class DetailsViewModel(
                 showUrl = data.url,
             )
             val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-            val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
-            val newPos = if (isWatched) 0L else dur
+            val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
+            val newPos = if (isWatched) dur else 0L
             val history = WatchHistory(
                 parentId = parentId,
                 showName = data.name,
@@ -297,16 +295,16 @@ class DetailsViewModel(
             val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
             val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
 
-            if (!isWatched) {
+            if (isWatched) {
                 // Marking as watched. Save backup of current states.
-                backupSeasonHistory.clear()
+                val newBackupMap = mutableMapOf<String, WatchHistory>()
                 episodes.forEach { ep ->
                     val hist = uiState.value.watchHistory.values.find { (it.episodeId ?: "") == ep.data }
                     if (hist != null) {
-                        backupSeasonHistory[ep.data] = hist
+                        newBackupMap[ep.data] = hist
                     }
                     val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-                    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60_000L
+                    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
                     val history = WatchHistory(
                         parentId = parentId,
                         showName = data.name,
@@ -323,17 +321,18 @@ class DetailsViewModel(
                     )
                     DesktopDataStore.setLastWatched(history)
                 }
+                updateState { copy(backupSeasonHistory = newBackupMap) }
             } else {
                 // Unmarking. Restore from backup.
                 episodes.forEach { ep ->
-                    val backup = backupSeasonHistory[ep.data]
+                    val backup = uiState.value.backupSeasonHistory[ep.data]
                     if (backup != null) {
                         DesktopDataStore.setLastWatched(backup)
                     } else {
                         DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
                     }
                 }
-                backupSeasonHistory.clear()
+                updateState { copy(backupSeasonHistory = emptyMap()) }
             }
         }
     }

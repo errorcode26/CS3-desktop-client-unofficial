@@ -78,6 +78,10 @@ dependencies {
     implementation(compose.foundation)
     implementation("dev.chrisbanes.haze:haze:0.7.3")
 
+    // Decompose Navigation
+    implementation(libs.decompose)
+    implementation(libs.decompose.extensions.compose)
+
     // Image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.0")

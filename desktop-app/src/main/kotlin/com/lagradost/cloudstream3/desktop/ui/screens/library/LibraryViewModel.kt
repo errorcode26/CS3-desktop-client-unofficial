@@ -3,7 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.library
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
@@ -55,7 +55,7 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
     private fun handleBookmarkClick(apiName: String, url: String) {
         val provider = APIHolder.getApiFromNameNull(apiName)
         if (provider != null) {
-            sendEffect(LibraryUiEffect.Navigate(Screen.Details(provider.name, url)))
+            sendEffect(LibraryUiEffect.Navigate(Config.Details(provider.name, url, null, null, null, false)))
         } else {
             updateState {
                 copy(showError = "The provider '$apiName' is not loaded. Please install or enable it first.")

@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.common.storage.DesktopDataStore
@@ -18,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeExtensionScreen(navController: NavController, initialTab: Int = 0) {
+fun ComposeExtensionScreen(onNavigate: (Config) -> Unit, initialTab: Int = 0) {
     var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabs = listOf("Browse", "Installed", "Repositories")
     val coroutineScope = rememberCoroutineScope()

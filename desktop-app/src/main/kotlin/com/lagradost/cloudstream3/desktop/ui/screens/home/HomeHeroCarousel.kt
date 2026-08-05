@@ -70,18 +70,16 @@ fun HomeHeroCarousel(
 
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val scope = rememberCoroutineScope()
-    var globalIndex by remember(displayItems.size) {
+    var globalIndex by androidx.compose.runtime.saveable.rememberSaveable {
         mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
     }
 
     val currentIndex = if (displayItems.isNotEmpty()) globalIndex % displayItems.size else 0
 
-    LaunchedEffect(displayItems.size, autoSlideDelay) {
+    LaunchedEffect(displayItems.size, autoSlideDelay, globalIndex) {
         if (displayItems.isNotEmpty()) {
-            while (true) {
-                delay(autoSlideDelay * 1000L)
-                globalIndex++
-            }
+            delay(autoSlideDelay * 1000L)
+            globalIndex++
         }
     }
 
@@ -192,7 +190,9 @@ fun HomeHeroCarousel(
                 }
 
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 350.dp), // Keep CTA data safely above the posters
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Row(
@@ -534,7 +534,7 @@ fun HomeHeroCarousel(
                 contentAlignment = Alignment.BottomEnd,
             ) {
                 Row(
-                    modifier = Modifier.padding(end = paddingEnd),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -545,7 +545,8 @@ fun HomeHeroCarousel(
 
                     LazyRow(
                         state = listState,
-                        modifier = Modifier.widthIn(max = 816.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = paddingStart, end = paddingEnd),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

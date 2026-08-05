@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.HeroRepository.HeroUpdate
@@ -29,12 +28,9 @@ fun MainAPI.isRealProvider(): Boolean {
     return true
 }
 
-typealias HomeUiState = com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
-
 class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
-    private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     // Redundant StateFlow mappings have been permanently deleted in accordance with MVI best practices.
     // UI should collect `uiState` and read properties directly from the immutable snapshot.
@@ -129,7 +125,9 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
                     currentDisabled + event.catalogName
                 }
                 currentDisabledMap[event.providerName] = newDisabled
-                DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
+                }
                 updateState { copy(disabledCatalogs = currentDisabledMap) }
             }
         }
@@ -186,14 +184,9 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         viewModelScope.launch {
             com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchHeroItem(provider, item)
                 .collect { update ->
-                    when (update) {
-                        is HeroUpdate.Meta -> {
-                            updateState {
-                                copy(heroMetaMap = heroMetaMap.toMutableMap().apply { put(update.url, update.meta) })
-                            }
-                        }
-                        is HeroUpdate.ColorTarget -> {
-                            // Ignored, color extraction removed
+                    if (update is HeroUpdate.Meta) {
+                        updateState {
+                            copy(heroMetaMap = heroMetaMap.toMutableMap().apply { put(update.url, update.meta) })
                         }
                     }
                 }
@@ -208,17 +201,17 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     }
 
     fun clearHistory() {
-        DesktopDataStore.clearAllWatchHistory()
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.clearAllWatchHistory()
+        }
         updateState { copy(historyList = emptyList()) }
     }
 
     fun removeHistoryItem(parentId: String) {
-        DesktopDataStore.removeWatchHistory(parentId)
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.removeWatchHistory(parentId)
+        }
         updateHistory()
-    }
-
-    fun refreshErrorSnapshot() {
-        updateState { copy(errorSnapshot = DesktopErrorReporter.getSnapshot()) }
     }
 
     fun reloadProvider() {
@@ -232,7 +225,4 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    override fun dispose() {
-        super.dispose()
-    }
 }

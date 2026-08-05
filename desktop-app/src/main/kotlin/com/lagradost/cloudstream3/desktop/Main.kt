@@ -47,6 +47,10 @@ import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.resume
+import com.arkivanov.decompose.DefaultComponentContext
+import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
 
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
@@ -129,6 +133,8 @@ fun main(args: Array<String> = emptyArray()) {
                         AppUpdater.checkForUpdates()
                     }
                 }
+                
+
 
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                     Crossfade<Boolean>(
@@ -136,8 +142,14 @@ fun main(args: Array<String> = emptyArray()) {
                         animationSpec = tween(500),
                     ) { ready ->
                         if (ready) {
+                            val root = remember {
+                                val lifecycle = LifecycleRegistry()
+                                lifecycle.resume() // Start it immediately
+                                DefaultRootComponent(DefaultComponentContext(lifecycle))
+                            }
+
                             Box(modifier = Modifier.fillMaxSize()) {
-                                CloudstreamApp()
+                                CloudstreamApp(rootComponent = root)
 
                                 // In-app Docked Dev Studio Overlay
                                 if (isDevOpen && !isDevDetached) {

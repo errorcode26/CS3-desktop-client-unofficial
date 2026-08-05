@@ -8,31 +8,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.graphicsLayer
 import coil3.request.crossfade
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 
 @Composable
 fun ComposeHomeScreen(
-    navController: NavController,
+    onNavigate: (Config) -> Unit,
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -44,20 +36,7 @@ fun ComposeHomeScreen(
     val mergedPluginIcons = uiState.mergedPluginIcons
     val errorSnapshot = uiState.errorSnapshot
 
-    val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
-        .map { DesktopDataStore.hasUnreadUpdates() }
-        .flowOn(kotlinx.coroutines.Dispatchers.IO)
-        .collectAsState(initial = false)
-
-    val updatesHistory by DesktopDataStore.pluginUpdatesFlow
-        .map { DesktopDataStore.getUpdatesHistory() }
-        .flowOn(kotlinx.coroutines.Dispatchers.IO)
-        .collectAsState(initial = emptyList())
-
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val isDockTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
 
     var currentHeroImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -138,20 +117,20 @@ fun ComposeHomeScreen(
                                             onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
                                             onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
                                             onViewAllClick = {
-                                                navController.navigate(Screen.History)
+                                                onNavigate(Config.History)
                                             },
                                             onItemClick = { prov, hist ->
-                                                navController.navigate(Screen.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
+                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
                                             },
                                         )
                                     }
                                 } else { {} },
                                 isHistoryVisible = isFirstPage && historyList.isNotEmpty(),
                                 onViewAll = { provider, title, items ->
-                                    navController.navigate(Screen.CategoryGrid(provider.name, title, items))
+                                    onNavigate(Config.CategoryGrid(provider.name, title, items))
                                 },
                                 onItemClick = { provider, item, backdrop, autoPlay ->
-                                    navController.navigate(Screen.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))
+                                    onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))
                                 },
                             )
                         }
@@ -180,7 +159,7 @@ fun ComposeHomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { navController.navigate(Screen.Extensions(initialTab = 2)) }) {
+                    Button(onClick = { onNavigate(Config.Extensions(initialTab = 2)) }) {
                         Text(com.lagradost.cloudstream3.desktop.utils.DesktopStrings.GO_TO_EXTENSIONS)
                     }
                 }

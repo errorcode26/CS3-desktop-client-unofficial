@@ -20,8 +20,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-const val PREF_GLOBAL_SEARCH = "global_search_enabled"
 const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
+private const val PREF_SEARCH_HISTORY = "search_history"
+private const val MAX_HISTORY_SIZE = 20
 
 class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiEffect>(
     initialState = SearchUiState(),
@@ -31,23 +32,32 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     private var lastSearchedQuery: String = ""
 
     init {
-        updateState { copy(isGlobalSearchEnabled = false) }
         viewModelScope.launch(Dispatchers.IO) {
             val activeProviders = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
-            val selectedProviderName = activeProviders?.firstOrNull() ?: DesktopDataStore.getKey<String>("preferred_provider_name")
+            val selectedProviderName = activeProviders?.firstOrNull() ?: DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
             updateState { copy(selectedProviderName = selectedProviderName) }
+        }
+
+        // Load search history
+        viewModelScope.launch(Dispatchers.IO) {
+            val history = DesktopDataStore.getKey<List<String>>(PREF_SEARCH_HISTORY) ?: emptyList()
+            updateState { copy(searchHistory = history) }
         }
 
         viewModelScope.launch {
             uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { providerName ->
-                providerName?.let { DesktopDataStore.setKey("search_selected_provider_name", it) }
+                providerName?.let { name ->
+                    withContext(Dispatchers.IO) {
+                        DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, name)
+                    }
+                }
             }
         }
 
         viewModelScope.launch {
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             uiState.map { it.searchQuery }
-                .distinctUntilChanged() // prevent spurious re-searches on unrelated state changes
+                .distinctUntilChanged()
                 .debounce(500)
                 .collectLatest { query ->
                     if (query.isBlank()) {
@@ -76,7 +86,10 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     override fun handleEvent(event: SearchUiEvent) {
         when (event) {
             is SearchUiEvent.OnSearchQueryChange -> updateState { copy(searchQuery = event.query) }
-            is SearchUiEvent.OnSearch -> search()
+            is SearchUiEvent.OnSearch -> {
+                addToHistory(uiState.value.searchQuery)
+                search(force = true)
+            }
             is SearchUiEvent.OnClearSearch -> {
                 searchJob?.cancel()
                 lastSearchedQuery = ""
@@ -84,7 +97,6 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
             }
             is SearchUiEvent.OnToggleGlobalSearch -> {
                 updateState { copy(isGlobalSearchEnabled = event.enabled) }
-                // Re-run search immediately with the new scope if there's an active query
                 if (uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -95,9 +107,42 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                     search(force = true)
                 }
             }
-            is SearchUiEvent.OnCategorySelected -> {
-                updateState { copy(selectedCategory = event.category) }
+            is SearchUiEvent.OnToggleCategory -> {
+                val current = uiState.value.selectedCategories
+                val updated = if (event.category in current) {
+                    current - event.category
+                } else {
+                    current + event.category
+                }
+                updateState { copy(selectedCategories = updated) }
             }
+            is SearchUiEvent.OnClearCategories -> updateState { copy(selectedCategories = emptySet()) }
+            is SearchUiEvent.OnRemoveSearchHistoryItem -> {
+                val updated = uiState.value.searchHistory.filter { it != event.query }
+                updateState { copy(searchHistory = updated) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(PREF_SEARCH_HISTORY, updated)
+                }
+            }
+            is SearchUiEvent.OnClearSearchHistory -> {
+                updateState { copy(searchHistory = emptyList()) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(PREF_SEARCH_HISTORY, emptyList<String>())
+                }
+            }
+        }
+    }
+
+    private fun addToHistory(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+        val current = uiState.value.searchHistory.toMutableList()
+        current.remove(trimmed) // Deduplicate
+        current.add(0, trimmed) // Prepend
+        val capped = current.take(MAX_HISTORY_SIZE)
+        updateState { copy(searchHistory = capped) }
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_SEARCH_HISTORY, capped)
         }
     }
 
@@ -106,6 +151,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
         if (query.isBlank() || (!force && query == lastSearchedQuery)) return
 
         lastSearchedQuery = query
+
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             updateState { copy(isLoadingSearch = true, searchResultsGrouped = null) }
@@ -119,7 +165,6 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                     active?.let { listOf(it) } ?: emptyList()
                 }
 
-                // Temporary concurrent map to hold results as they arrive
                 val tempResults = java.util.concurrent.ConcurrentHashMap<String, List<SearchResponse>>()
 
                 activeProviders.map { p ->
@@ -134,8 +179,6 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                         if (res != null && res.items.isNotEmpty()) {
                             com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
                             tempResults[p.name] = res.items
-                            // Update state incrementally so results appear as they arrive,
-                            // but use a snapshot copy to avoid ConcurrentModificationException
                             updateState { copy(searchResultsGrouped = tempResults.toMap()) }
                         } else {
                             com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")

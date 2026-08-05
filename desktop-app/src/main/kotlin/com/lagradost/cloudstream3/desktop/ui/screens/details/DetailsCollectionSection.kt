@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 @Composable
 fun DetailsCollectionSection(
@@ -32,7 +32,7 @@ fun DetailsCollectionSection(
     collBg: String?,
     collItems: List<SearchResponse>,
     provider: MainAPI,
-    onNavigate: (Screen) -> Unit,
+    onNavigate: (Config) -> Unit,
 ) {
     val collScrollState = rememberLazyListState()
     Column(
@@ -97,10 +97,10 @@ fun DetailsCollectionSection(
                                 provider = provider,
                                 itemWidth = 125.dp,
                                 onClick = {
-                                    onNavigate(Screen.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, false))
+                                    onNavigate(Config.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, false))
                                 },
                                 onPlayClick = {
-                                    onNavigate(Screen.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, true))
+                                    onNavigate(Config.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, true))
                                 }
                             )
                         }

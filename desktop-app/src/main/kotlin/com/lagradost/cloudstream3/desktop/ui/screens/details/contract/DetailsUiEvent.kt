@@ -10,6 +10,7 @@ sealed interface DetailsUiEvent : UiEvent {
     data class OnOpenLinksPanel(val data: Triple<MainAPI, String, WatchHistory>) : DetailsUiEvent
     data object OnCloseLinksPanel : DetailsUiEvent
     data object OnRequestAutoPlay : DetailsUiEvent
+    data object OnMarkAutoPlayHandled : DetailsUiEvent
     data class OnPlayEpisode(val ep: com.lagradost.cloudstream3.Episode) : DetailsUiEvent
     data class OnDownloadEpisode(val ep: com.lagradost.cloudstream3.Episode) : DetailsUiEvent
     data class OnToggleEpisodeWatched(val ep: com.lagradost.cloudstream3.Episode, val isWatched: Boolean) : DetailsUiEvent

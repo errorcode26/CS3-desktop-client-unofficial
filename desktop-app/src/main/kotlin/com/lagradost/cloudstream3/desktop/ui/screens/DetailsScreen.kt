@@ -13,7 +13,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.blur
 import coil3.request.crossfade
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -40,29 +38,24 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.details.*
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: String, preloadedName: String? = null, preloadedPoster: String? = null, preloadedBg: String? = null, autoPlay: Boolean = false) {
-    val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember(url) { DetailsViewModel(provider, url, preloadedName, preloadedPoster, preloadedBg) }
-
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.dispose()
-        }
-    }
-
+fun ComposeDetailsScreen(
+    onNavigate: (Config) -> Unit,
+    onBack: () -> Unit,
+    viewModel: DetailsViewModel,
+    autoPlay: Boolean = false
+) {
+    val provider = viewModel.provider
     LaunchedEffect(viewModel) {
         viewModel.onEvent(DetailsUiEvent.OnLoad)
     }
@@ -75,13 +68,11 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     val fakeData = uiState.fakeData
     val isLoading = uiState.isLoading
     val error = uiState.error
-    val watchHistory = uiState.watchHistory
     val isPanelOpen = uiState.isPanelOpen
     val enrichmentPhase = uiState.enrichmentPhase
     val activeLinkData = uiState.activeLinkData
     val screenshots = uiState.screenshots
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
 
     var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
@@ -131,14 +122,14 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
     )
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        var hasAutoPlayed by remember { mutableStateOf(false) }
-
-        LaunchedEffect(response) {
-            if (!hasAutoPlayed && response != null) {
+        LaunchedEffect(response, uiState.hasAutoPlayed) {
+            if (!uiState.hasAutoPlayed && response != null) {
                 if (autoPlay) {
                     viewModel.onEvent(DetailsUiEvent.OnRequestAutoPlay)
+                } else {
+                    // Mark as handled so it never triggers if the state recombines
+                    viewModel.onEvent(DetailsUiEvent.OnMarkAutoPlayHandled)
                 }
-                hasAutoPlayed = true
             }
         }
 
@@ -176,16 +167,16 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
             }
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(navController, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
-                        onBack = { navController.goBack() },
-                        preloadedPoster = preloadedPoster,
-                        preloadedBg = preloadedBg,
+                        onBack = onBack,
+                        preloadedPoster = viewModel.preloadedPoster,
+                        preloadedBg = viewModel.preloadedBg,
                     )
                 }
             } else if (response != null) {
-                DetailsContent(navController, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -195,7 +186,7 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { navController.goBack() }) {
+                        Button(onClick = onBack) {
                             Text("Go Back")
                         }
                     }
@@ -272,7 +263,8 @@ fun ComposeDetailsScreen(navController: NavController, provider: MainAPI, url: S
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun DetailsContent(
-    navController: NavController,
+    onNavigate: (Config) -> Unit,
+    onBack: () -> Unit,
     provider: MainAPI,
     data: LoadResponse,
     screenshots: List<String>?,
@@ -291,7 +283,6 @@ fun DetailsContent(
 ) {
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val backupSeasonHistory = remember { mutableMapOf<String, com.lagradost.common.storage.WatchHistory?>() }
     val hazeState = remember { HazeState() }
 
     val latestHistory = remember(data.url, uiState?.watchHistory) {
@@ -301,8 +292,6 @@ fun DetailsContent(
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(true) }
     var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
-    val screenshotsScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val similarScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     val isMovieLike = remember(data) {
         data is com.lagradost.cloudstream3.MovieLoadResponse || data is com.lagradost.cloudstream3.TorrentLoadResponse || data is com.lagradost.cloudstream3.LiveStreamLoadResponse ||
@@ -324,7 +313,6 @@ fun DetailsContent(
 
         val remoteIcons by com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.remotePluginIcons.collectAsState()
 
-        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
         val heroAction: @Composable (Modifier) -> Unit = { modifier ->
             com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsPlayButton(
                 modifier = modifier,
@@ -534,7 +522,7 @@ fun DetailsContent(
                                     if (validRecs.isNotEmpty()) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
                                             validRecs = validRecs,
-                                            onNavigate = { screen -> navController.navigate(screen) },
+                                            onNavigate = onNavigate,
                                         )
                                     } else {
                                         Box(modifier = Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) {
@@ -599,7 +587,7 @@ fun DetailsContent(
                                         collBg = collBg,
                                         collItems = collItems,
                                         provider = provider,
-                                        onNavigate = { screen -> navController.navigate(screen) },
+                                        onNavigate = onNavigate,
                                     )
                                 }
                             }
@@ -615,7 +603,7 @@ fun DetailsContent(
 
         // Back button
         IconButton(
-            onClick = { navController.goBack() },
+            onClick = onBack,
             modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
@@ -659,7 +647,7 @@ fun DetailsContent(
                 onDismiss = { selectedActor = null },
                 onMovieClick = { rec ->
                     val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
-                    navController.navigate(com.lagradost.cloudstream3.desktop.ui.navigation.Screen.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+                    onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
                 },
             )
         }

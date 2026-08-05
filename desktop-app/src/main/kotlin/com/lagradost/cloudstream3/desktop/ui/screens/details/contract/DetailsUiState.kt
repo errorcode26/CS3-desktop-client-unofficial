@@ -50,5 +50,8 @@ data class DetailsUiState(
     val enrichedActors: List<ActorData>? = null,
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val autoPlayEnabled: Boolean = true,
+    val hasAutoPlayed: Boolean = false,
+    val isInitialized: Boolean = false,
+    val backupSeasonHistory: Map<String, WatchHistory> = emptyMap(),
     val isEpisodesStackedView: Boolean = false,
 ) : UiState

@@ -38,8 +38,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
@@ -48,7 +47,7 @@ import com.lagradost.common.storage.DesktopWatchType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeLibraryScreen(navController: NavController) {
+fun ComposeLibraryScreen(onNavigate: (Config) -> Unit) {
     val viewModel = remember { LibraryViewModel() }
     DisposableEffect(viewModel) {
         onDispose {
@@ -60,7 +59,7 @@ fun ComposeLibraryScreen(navController: NavController) {
         viewModel.effectFlow.collect { effect ->
             when (effect) {
                 is LibraryUiEffect.Navigate -> {
-                    navController.navigate(effect.screen)
+                    onNavigate(effect.screen)
                 }
             }
         }
@@ -86,7 +85,7 @@ fun ComposeLibraryScreen(navController: NavController) {
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
-                Button(onClick = { navController.navigate(Screen.Home) }) {
+                Button(onClick = { onNavigate(Config.Home) }) {
                     Text("Browse Shows")
                 }
             }

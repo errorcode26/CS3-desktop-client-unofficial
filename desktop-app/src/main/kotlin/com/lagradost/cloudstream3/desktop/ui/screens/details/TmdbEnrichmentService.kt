@@ -28,6 +28,11 @@ object TmdbRateLimiter {
     }
 }
 
+// ARCHITECTURE NOTE: This is a self-contained, swappable enrichment source.
+// It is called exclusively by HybridEnrichmentService and must remain decoupled
+// from all UI and ViewModel layers. If this service needs to be replaced (e.g.
+// the upstream API goes down), create a new service with the same enrich()
+// signature and swap the single call site in HybridEnrichmentService.
 object TmdbEnrichmentService {
     private val TMDB_API_KEY: String
         get() = com.lagradost.common.storage.DesktopDataStore.getKey<String>("tmdb_api_key")?.takeIf { it.isNotBlank() } ?: "3828864585df9d4f006c09403eb9a888"

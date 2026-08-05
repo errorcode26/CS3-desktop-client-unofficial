@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 enum class SettingsTab(val title: String) {
     ACCOUNTS("Accounts"),
@@ -35,7 +35,7 @@ object SettingsSession {
 }
 
 @Composable
-fun ComposeSettingsScreen(navController: NavController) {
+fun ComposeSettingsScreen(onNavigate: (Config) -> Unit) {
     var selectedTab by SettingsSession::selectedTab
     var activeSubScreen by SettingsSession::activeSubScreen
 

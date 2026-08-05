@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search.contract
 
+import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 
 sealed class SearchUiEvent : UiEvent {
@@ -8,5 +9,8 @@ sealed class SearchUiEvent : UiEvent {
     object OnClearSearch : SearchUiEvent()
     data class OnToggleGlobalSearch(val enabled: Boolean) : SearchUiEvent()
     data class OnProviderSelected(val providerName: String) : SearchUiEvent()
-    data class OnCategorySelected(val category: com.lagradost.cloudstream3.TvType?) : SearchUiEvent()
+    data class OnToggleCategory(val category: TvType) : SearchUiEvent()
+    data object OnClearCategories : SearchUiEvent()
+    data class OnRemoveSearchHistoryItem(val query: String) : SearchUiEvent()
+    object OnClearSearchHistory : SearchUiEvent()
 }

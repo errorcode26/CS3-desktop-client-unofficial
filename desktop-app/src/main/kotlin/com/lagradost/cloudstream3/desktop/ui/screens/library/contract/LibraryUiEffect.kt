@@ -1,8 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.library.contract
 
 import com.lagradost.cloudstream3.desktop.ui.base.UiEffect
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 sealed interface LibraryUiEffect : UiEffect {
-    data class Navigate(val screen: Screen) : LibraryUiEffect
+    data class Navigate(val screen: Config) : LibraryUiEffect
 }

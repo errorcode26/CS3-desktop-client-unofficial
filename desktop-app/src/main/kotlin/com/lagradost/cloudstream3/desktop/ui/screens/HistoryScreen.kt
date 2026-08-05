@@ -14,14 +14,13 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeHistoryScreen(navController: NavController) {
+fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val updates by DesktopDataStore.historyUpdates.collectAsState()
 
@@ -67,7 +66,7 @@ fun ComposeHistoryScreen(navController: NavController) {
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
-                Button(onClick = { navController.navigate(Screen.Home) }) {
+                Button(onClick = { onNavigate(Config.Home) }) {
                     Text("Browse Home")
                 }
             }
@@ -119,26 +118,28 @@ fun ComposeHistoryScreen(navController: NavController) {
                             },
                             onClick = {
                                 if (provider != null) {
-                                    navController.navigate(
-                                        Screen.Details(
+                                    onNavigate(
+                                        Config.Details(
                                             providerName = provider.name,
                                             url = history.showUrl,
                                             preloadedName = history.showName,
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
+                                            autoPlay = false
                                         ),
                                     )
                                 }
                             },
                             onPlayClick = {
                                 if (provider != null) {
-                                    navController.navigate(
-                                        Screen.Details(
+                                    onNavigate(
+                                        Config.Details(
                                             providerName = provider.name,
                                             url = history.showUrl,
                                             preloadedName = history.showName,
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
+                                            autoPlay = true
                                         ),
                                     )
                                 }

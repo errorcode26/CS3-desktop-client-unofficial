@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui
 
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,13 +18,18 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.blur
-import com.lagradost.cloudstream3.desktop.ui.navigation.NavController
-import com.lagradost.cloudstream3.desktop.ui.navigation.Screen
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
-import com.lagradost.cloudstream3.desktop.ui.screens.ComposeExtensionScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
 import com.lagradost.common.storage.WatchHistory
+import com.arkivanov.decompose.extensions.compose.stack.Children
+import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
+import com.arkivanov.decompose.extensions.compose.stack.animation.fade
+import com.arkivanov.decompose.extensions.compose.stack.animation.scale
+import com.arkivanov.decompose.extensions.compose.stack.animation.plus
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 
 data class VideoLaunchData(
     val links: List<com.lagradost.cloudstream3.utils.ExtractorLink> = emptyList(),
@@ -80,23 +84,10 @@ val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalO
 
 @androidx.compose.ui.ExperimentalComposeUiApi
 @Composable
-fun CloudstreamApp() {
-    val homeViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel() }
-    androidx.compose.runtime.DisposableEffect(homeViewModel) {
-        onDispose {
-            homeViewModel.dispose()
-        }
-    }
-    val searchViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.search.SearchViewModel() }
-    androidx.compose.runtime.DisposableEffect(searchViewModel) {
-        onDispose {
-            searchViewModel.dispose()
-        }
-    }
-    val navController = remember { NavController() }
+fun CloudstreamApp(rootComponent: RootComponent) {
     var showErrorsDialog by remember { mutableStateOf(false) }
     var currentVideo by remember { mutableStateOf<VideoLaunchData?>(null) }
-    val screen = navController.currentScreen
+    val childStack by rootComponent.childStack.subscribeAsState()
 
     val isLightMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.isLightMode.collectAsState()
     val themeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.themeAccent.collectAsState()
@@ -114,9 +105,6 @@ fun CloudstreamApp() {
     }
 
     val searchUiState = remember { SearchUiState() }
-
-    val homeUiState by homeViewModel.uiState.collectAsState()
-    val homeActionDispatcher: (com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit = { homeViewModel.onEvent(it) }
 
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
@@ -143,10 +131,11 @@ fun CloudstreamApp() {
                                         if (currentVideo == null) {
                                             when (event.button) {
                                                 PointerButton.Back -> {
-                                                    if (navController.canGoBack()) navController.goBack()
+                                                    rootComponent.pop()
                                                 }
                                                 PointerButton.Forward -> {
-                                                    if (navController.canGoForward()) navController.goForward()
+                                                    // Decompose doesn't natively have forward stack out of the box unless implemented.
+                                                    // We can ignore forward for now or implement it later.
                                                 }
                                                 else -> {}
                                             }
@@ -164,181 +153,99 @@ fun CloudstreamApp() {
                     androidx.compose.foundation.layout.Box(
                         modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
                     ) {
-                        val saveableStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-
-                    androidx.compose.animation.AnimatedContent(
-                        targetState = screen,
-                        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                        contentAlignment = androidx.compose.ui.Alignment.TopStart,
-                        transitionSpec = {
-                            val currentAction = navController.lastAction
-                            val isTopLevelTarget = targetState is Screen.Home || targetState is Screen.Library || targetState is Screen.Extensions || targetState is Screen.Settings
-                            val isTopLevelInitial = initialState is Screen.Home || initialState is Screen.Library || initialState is Screen.Extensions || initialState is Screen.Settings
-
-                            val isTabSwitch = isTopLevelInitial && isTopLevelTarget
-                            val isPush = currentAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Push && !isTabSwitch
-                            val isPop = currentAction == com.lagradost.cloudstream3.desktop.ui.navigation.NavController.NavAction.Pop && !isTabSwitch
-
-                            val isToDetails = targetState is Screen.Details
-                            val isFromDetails = initialState is Screen.Details
-
-                            if (isPush) {
-                                if (isToDetails) {
-                                    // Smooth fade and slight scale-in for Details, without scaling the Home screen
-                                    (
-                                        androidx.compose.animation.fadeIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            initialScale = 0.95f,
-                                        )
-                                        ).togetherWith(
-                                        androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ),
-                                    ).apply { targetContentZIndex = 1f }
-                                } else {
-                                    // Shared Axis Z — push: new screen scales up from 92%, old screen zooms away to 108%
-                                    (
-                                        androidx.compose.animation.fadeIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            initialScale = 0.92f,
-                                        )
-                                        ).togetherWith(
-                                        androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 1.08f,
-                                        ),
-                                    ).apply { targetContentZIndex = 1f }
-                                }
-                            } else if (isPop) {
-                                if (isFromDetails) {
-                                    // Smooth fade out and scale down for Details, without scaling the Home screen
-                                    (
-                                        androidx.compose.animation.fadeIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        )
-                                        ).togetherWith(
-                                        androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 0.95f,
-                                        ),
-                                    ).apply { targetContentZIndex = -1f }
-                                } else {
-                                    // Shared Axis Z — pop: old screen shrinks back to 92%, previous screen zooms in from 108%
-                                    (
-                                        androidx.compose.animation.fadeIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleIn(
-                                            animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            initialScale = 1.08f,
-                                        )
-                                        ).togetherWith(
-                                        androidx.compose.animation.fadeOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                        ) + androidx.compose.animation.scaleOut(
-                                            animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                            targetScale = 0.92f,
-                                        ),
-                                    ).apply { targetContentZIndex = -1f }
-                                }
-                            } else {
-                                // Tab switch: simple crossfade — no depth needed for same-level navigation
-                                androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
-                                    androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
-                            }
-                        },
-                        label = "screen_transition",
-                    ) { targetScreen ->
-                        saveableStateHolder.SaveableStateProvider(targetScreen) {
-                            when (targetScreen) {
-                                is Screen.Details -> {
-                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(targetScreen.providerName)
+                        Children(
+                            stack = childStack,
+                            modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                            animation = stackAnimation(fade() + scale()),
+                        ) {
+                            when (val child = it.instance) {
+                                is RootComponent.Child.Details -> {
+                                    val api = child.component.api
                                     if (api != null) {
-                                        ComposeDetailsScreen(navController, api, targetScreen.url, targetScreen.preloadedName, targetScreen.preloadedPoster, targetScreen.preloadedBg, targetScreen.autoPlay)
+                                        ComposeDetailsScreen(
+                                            onBack = { rootComponent.pop() },
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                            autoPlay = child.component.config.autoPlay
+                                        )
                                     } else {
                                         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                            androidx.compose.material.Text("Plugin unloaded. Cannot load details.")
+                                            androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
                                         }
                                     }
                                 }
 
-                                is Screen.Home -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.Home -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
                                     title = "Home",
-                                    onErrorLogs = { showErrorsDialog = true },
-                                    homeUiState = homeUiState,
-                                    homeActionDispatcher = homeActionDispatcher,
+                                    homeUiState = child.component.viewModel.uiState.collectAsState().value,
+                                    homeActionDispatcher = { ev -> child.component.viewModel.onEvent(ev) },
                                 ) {
                                     ComposeHomeScreen(
-                                        navController = navController,
-                                        viewModel = homeViewModel,
+                                        onNavigate = { config -> rootComponent.bringToFront(config) },
+                                        viewModel = child.component.viewModel,
                                     )
                                 }
-                                is Screen.History -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.History -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
+                                    onBack = { rootComponent.pop() },
                                     title = "Watch History",
                                     showBack = true,
-                                    onErrorLogs = { showErrorsDialog = true },
+                                    applySafePadding = true,
                                 ) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(navController)
+                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(onNavigate = { rootComponent.bringToFront(it) })
                                 }
-                                is Screen.Search -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.Search -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
                                     title = "Search",
-                                    onErrorLogs = { showErrorsDialog = true },
+                                    applySafePadding = true,
                                 ) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
-                                        navController = navController,
-                                        viewModel = searchViewModel,
+                                        onNavigate = { config -> rootComponent.bringToFront(config) },
+                                        viewModel = child.component.viewModel,
                                     )
                                 }
-                                is Screen.Extensions -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.Extensions -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
                                     title = "Extensions",
-                                    onErrorLogs = { showErrorsDialog = true },
+                                    applySafePadding = true,
                                 ) {
-                                    ComposeExtensionScreen(navController, targetScreen.initialTab)
+                                    ComposeExtensionScreen(onNavigate = { rootComponent.bringToFront(it) }, child.initialTab)
                                 }
-                                is Screen.Library -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.Library -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
                                     title = "Library",
-                                    onErrorLogs = { showErrorsDialog = true },
+                                    applySafePadding = true,
                                 ) {
-                                    ComposeLibraryScreen(navController)
+                                    ComposeLibraryScreen(onNavigate = { rootComponent.bringToFront(it) })
                                 }
-                                is Screen.Settings -> DesktopAppShell(
-                                    navController = navController,
+                                is RootComponent.Child.Settings -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
                                     title = "Settings",
+                                    applySafePadding = true,
                                 ) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
-                                        navController = navController,
+                                        onNavigate = { config -> rootComponent.bringToFront(config) },
                                     )
                                 }
-                                is Screen.CategoryGrid -> DesktopAppShell(
-                                    navController = navController,
-                                    title = targetScreen.title,
+                                is RootComponent.Child.CategoryGrid -> DesktopAppShell(
+                                    onNavigate = { config -> rootComponent.bringToFront(config) },
+                                    onBack = { rootComponent.pop() },
+                                    title = child.title,
                                     showBack = true,
-                                    onErrorLogs = { showErrorsDialog = true },
+                                    applySafePadding = true,
                                 ) {
-                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(targetScreen.providerName)
+                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.providerName)
                                     if (api != null) {
-                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(navController, api, targetScreen.title, targetScreen.items)
+                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.title, child.items)
                                     } else {
                                         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                            androidx.compose.material.Text("Plugin unloaded. Cannot load category.")
+                                            androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
                 }
 
@@ -348,20 +255,18 @@ fun CloudstreamApp() {
                 var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
                     // The Embedded Video Player Overlay
-                    if (currentVideo != null) {
-                        currentVideo?.let { launchData ->
-                            com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
-                                launchData = launchData,
-                                isExiting = false,
-                                onClose = {
-                                    showExitFade = true
-                                },
-                                onError = { err ->
-                                    com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
-                                    showErrorsDialog = true
-                                },
-                            )
-                        }
+                    currentVideo?.let { launchData ->
+                        com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
+                            launchData = launchData,
+                            isExiting = false,
+                            onClose = {
+                                showExitFade = true
+                            },
+                            onError = { err ->
+                                com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
+                                showErrorsDialog = true
+                            },
+                        )
                     }
 
                     val exitFadeAlpha by androidx.compose.animation.core.animateFloatAsState(
@@ -378,7 +283,6 @@ fun CloudstreamApp() {
                         )
                     }
 
-                    val fsController = LocalFullscreenController.current
                     androidx.compose.runtime.LaunchedEffect(showExitFade) {
                         if (showExitFade) {
                             // The Compose UI is now snapped to pitch black.

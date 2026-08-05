@@ -6,6 +6,19 @@ import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// ARCHITECTURE NOTE: This is the enrichment orchestrator. It calls Stage 1 (Cinemeta)
+// and Stage 2 (TMDB) sequentially, merging their results into the LoadResponse.
+//
+// Each enrichment source (Cinemeta, TMDB) is a self-contained service behind a
+// try/catch boundary. If any source goes down, the pipeline degrades gracefully
+// to whatever data the remaining sources (and the raw provider) can supply.
+//
+// DO NOT couple downstream consumers (DetailsViewModel, UI screens) directly to
+// any specific enrichment source. All enrichment data flows through the generic
+// callback parameters (onMetadataLoaded, onScreenshotsLoaded, etc.).
+//
+// To replace TMDB: create a new service with the same enrich() signature and
+// swap the call on the Stage 2 line below. No other files need to change.
 object HybridEnrichmentService {
     private const val TAG = "Enrichment"
 

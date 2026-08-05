@@ -65,6 +65,7 @@ jdkToolchain = "17"
 minSdk = "23"
 compileSdk = "36"
 targetSdk = "36"
+decompose = "3.2.2"
 
 [libraries]
   kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlinGradlePlugin" }
@@ -142,6 +143,8 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref =
 ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "ksoup" }
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-extensions-jvm", version.ref = "sqldelight" }
+decompose = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
+decompose-extensions-compose = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
