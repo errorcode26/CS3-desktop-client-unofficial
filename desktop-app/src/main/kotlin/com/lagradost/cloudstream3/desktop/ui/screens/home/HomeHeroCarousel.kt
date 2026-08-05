@@ -190,7 +190,9 @@ fun HomeHeroCarousel(
                 }
 
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 320.dp), // Reserves space for the bottom-right posters to prevent overlap
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Row(
