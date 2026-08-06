@@ -99,7 +99,7 @@ fun DetailsEpisodeSection(
     LaunchedEffect(selectedSeason, selectedDub, isSortAscending) {
         selectedEpisodeChunk = 0
     }
-    var isAntiSpoiler by remember { mutableStateOf(true) }
+    val isAntiSpoiler by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.antiSpoilerEnabled.collectAsState()
     val episodesScrollState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     if (isLoading) {
@@ -185,7 +185,7 @@ fun DetailsEpisodeSection(
                         Spacer(modifier = Modifier.width(8.dp))
                         Switch(
                             checked = isAntiSpoiler,
-                            onCheckedChange = { isAntiSpoiler = it },
+                            onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
                             modifier = Modifier.scale(0.85f),
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.primary,

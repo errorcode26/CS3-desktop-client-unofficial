@@ -71,8 +71,10 @@ object AppearanceConfig {
     private const val PREF_BG_IMAGE_TINT_ENABLED = "pref_bg_image_tint_enabled"
     private const val PREF_BG_IMAGE_TINT_COLOR = "pref_bg_image_tint_color"
     private const val PREF_BG_IMAGE_TINT_ALPHA = "pref_bg_image_tint_alpha"
+    private const val PREF_ANTI_SPOILER_ENABLED = "pref_anti_spoiler_enabled"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
+    val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
     val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
     val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
@@ -135,6 +137,11 @@ object AppearanceConfig {
     fun setThemeAccent(colorName: String) {
         themeAccent.value = colorName
         DesktopDataStore.setKey(PREF_THEME_ACCENT, colorName)
+    }
+
+    fun setAntiSpoilerEnabled(enabled: Boolean) {
+        antiSpoilerEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_ANTI_SPOILER_ENABLED, enabled)
     }
 
     fun setAmoledMode(enabled: Boolean) {
