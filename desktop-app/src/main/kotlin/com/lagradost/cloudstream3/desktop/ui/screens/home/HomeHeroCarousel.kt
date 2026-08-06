@@ -547,6 +547,8 @@ fun HomeHeroCarousel(
                 modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Bottom,
+                // Trailing padding so the last poster isn't hard-clipped by the container edge
+                contentPadding = PaddingValues(end = 24.dp),
             ) {
                 if (displayItems.isNotEmpty()) {
                     items(Int.MAX_VALUE) { globalThumbIndex ->
