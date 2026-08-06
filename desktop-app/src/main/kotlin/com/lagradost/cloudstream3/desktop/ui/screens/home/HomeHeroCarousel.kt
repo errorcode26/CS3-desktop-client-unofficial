@@ -202,24 +202,6 @@ fun HomeHeroCarousel(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Start,
                     ) {
-                        if (posterUrl != null && meta?.backdropUrl == null) {
-                            AsyncImage(
-                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                    .data(posterUrl)
-                                    .size(320, 480)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .width(160.dp)
-                                    .aspectRatio(2f / 3f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                    .shadow(16.dp, RoundedCornerShape(12.dp)),
-                            )
-                            Spacer(modifier = Modifier.width(32.dp))
-                        }
-
                         Column(
                             modifier = Modifier.widthIn(max = 500.dp), // Wrap text properly, don't stretch to middle
                         ) {
@@ -266,19 +248,20 @@ fun HomeHeroCarousel(
                                             alignment = Alignment.BottomStart,
                                             error = {
                                                 if (displayTitle.isNotBlank()) {
-                                                    Text(
-                                                        text = displayTitle,
-                                                        style = MaterialTheme.typography.displayLarge.copy(
-                                                            shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
-                                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                                                            letterSpacing = (-1).sp,
-                                                        ),
-                                                        fontWeight = FontWeight.Black,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        lineHeight = 48.sp,
-                                                    )
+                                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
+                                                        Text(
+                                                            text = displayTitle,
+                                                            style = MaterialTheme.typography.displayLarge.copy(
+                                                                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
+                                                                letterSpacing = (-1).sp,
+                                                            ),
+                                                            fontWeight = FontWeight.Black,
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            lineHeight = 48.sp,
+                                                        )
+                                                    }
                                                 }
                                             },
                                         )
@@ -290,7 +273,6 @@ fun HomeHeroCarousel(
                                             text = displayTitle,
                                             style = MaterialTheme.typography.displayLarge.copy(
                                                 shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
-                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
                                                 letterSpacing = (-1).sp,
                                             ),
                                             fontWeight = FontWeight.Black,
