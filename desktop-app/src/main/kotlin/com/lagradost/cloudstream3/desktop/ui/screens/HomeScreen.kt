@@ -89,12 +89,25 @@ fun ComposeHomeScreen(
 
         if (allPages.isNotEmpty()) {
             val listState = rememberLazyListState()
+            val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
+            
+            // Extract individual safe padding components
+            val safeLeft = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+            val safeRight = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+            val safeTop = safeArea.calculateTopPadding()
+            val safeBottom = safeArea.calculateBottomPadding()
 
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 32.dp),
+                    // Add safe area to the bottom (plus 32.dp extra spacing) and sides
+                    contentPadding = PaddingValues(
+                        start = safeLeft,
+                        end = safeRight,
+                        top = safeTop,
+                        bottom = safeBottom + 32.dp
+                    ),
                 ) {
                     items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].second.name}" }) { index ->
                         val (currentProvider, pageData) = allPages[index]

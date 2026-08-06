@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 // Removed DesktopUiState globally!
+val LocalSafeArea = staticCompositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
 
 @Composable
 fun DesktopAppShell(
@@ -240,11 +241,11 @@ fun DesktopAppShell(
                 }
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    content()
+                    CompositionLocalProvider(LocalSafeArea provides contentPadding) {
+                        content()
+                    }
                 }
 
                 // Global TopBar (Back button + Window Controls)

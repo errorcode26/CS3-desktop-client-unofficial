@@ -104,10 +104,12 @@ fun HomeHeroCarousel(
     val dynamicHeight = with(density) { windowInfo.containerSize.height.toDp() }.coerceAtLeast(400.dp)
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    // 88.dp base padding + 10.dp internal padding = 98.dp
-    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 140.dp else 80.dp
-    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 98.dp else 32.dp
+    val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
+    val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+    val safeEnd = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+    
+    val paddingStart = safeStart + 64.dp
+    val paddingEnd = safeEnd + 32.dp
 
     Box(
         modifier = Modifier
