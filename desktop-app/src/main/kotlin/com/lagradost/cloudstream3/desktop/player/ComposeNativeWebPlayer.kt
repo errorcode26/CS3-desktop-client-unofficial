@@ -246,7 +246,10 @@ fun ComposeNativeWebPlayer(
         subtitles = subtitles,
         startPositionMs = startPositionMs,
         shouldPauseForResume = shouldPauseForResume,
-        onPlaybackReady = currentOnPlaybackReady,
+        onPlaybackReady = {
+            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.__dismissProbingOverlay) window.__dismissProbingOverlay();")
+            currentOnPlaybackReady()
+        },
         onPlaybackError = currentOnPlaybackError,
         onFinished = currentOnFinished,
         onPositionChange = { posMs, durMs ->
