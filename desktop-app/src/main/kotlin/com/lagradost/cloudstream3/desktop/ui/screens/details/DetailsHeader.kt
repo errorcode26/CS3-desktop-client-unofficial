@@ -193,7 +193,7 @@ fun AdaptiveMetadataLayout(
     } else {
         Row(
             modifier = modifier,
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 mainContent()
@@ -638,46 +638,20 @@ fun DetailsMetadata(
                         // Stats & Info Sidebar
                         Column(
                             modifier = Modifier
-                                .width(340.dp)
-                                .shadow(24.dp, RoundedCornerShape(16.dp))
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFF151515).copy(alpha = 0.9f))
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                .width(320.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                                 .padding(vertical = 4.dp)
                         ) {
                             val stats = buildList {
                                 add("Source" to provider.name)
                                 
-                                val status = uiState?.enrichedStatus
-                                if (!status.isNullOrBlank()) add("Status" to status)
-                                
                                 val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
                                 if (!relDate.isNullOrBlank()) add("Release Date" to relDate)
                                 
-                                val seasons = uiState?.enrichedSeasonsCount
-                                val episodes = uiState?.enrichedEpisodesCount
-                                if (seasons != null && seasons > 0) {
-                                    val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
-                                    add("Seasons" to "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
-                                } else if (episodes != null && episodes > 0) {
-                                    add("Episodes" to "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
-                                }
-
-                                val country = uiState?.enrichedCountry
-                                val lang = uiState?.enrichedOriginalLanguage
-                                if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
-                                    add("Origin" to listOfNotNull(country, lang).joinToString(" • "))
-                                }
-                                
-                                val networks = uiState?.enrichedNetworks ?: emptyList()
-                                if (networks.isNotEmpty()) {
-                                    add((if (networks.size > 1) "Networks" else "Network") to networks.joinToString(", "))
-                                }
-                                
-                                val studios = uiState?.enrichedStudios ?: emptyList()
-                                if (studios.isNotEmpty()) {
-                                    add((if (studios.size > 1) "Studios" else "Studio") to studios.joinToString(", "))
-                                }
+                                val status = uiState?.enrichedStatus
+                                if (!status.isNullOrBlank()) add("Status" to status)
                             }
                             
                             stats.forEachIndexed { index, stat ->
