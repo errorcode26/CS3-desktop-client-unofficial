@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -113,6 +115,9 @@ fun HomeHeroCarousel(
         val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
         val safeEnd = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
         val safeBottom = safeArea.calculateBottomPadding()
+        
+        // Convert auto-slide delay to ms for the progress bar animation
+        val autoAdvanceIntervalMs = autoSlideDelay * 1000L
         
         // 5% proportional safe edge, guaranteeing at least 48dp buffer on top of any dock.
         val proportionalEdge = (maxWidth * 0.05f).coerceAtLeast(48.dp)
@@ -521,81 +526,171 @@ fun HomeHeroCarousel(
             }
         }
 
+        // --- Cinematic Filmstrip ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = safeBottom + (maxHeight * 0.05f)), // Anchors perfectly to bottom corner with a small proportional padding
-            contentAlignment = Alignment.BottomCenter,
+                .padding(bottom = safeBottom + (maxHeight * 0.04f)),
+            contentAlignment = Alignment.BottomEnd,
         ) {
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+                initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0,
+            )
+            LaunchedEffect(globalIndex) {
+                listState.animateScrollToItem(maxOf(0, globalIndex - 1))
+            }
+
+            // Glass backdrop panel behind the strip
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.BottomEnd,
+                    .padding(end = paddingEnd)
+                    .widthIn(max = thumbnailsMaxWidth)
+                    .wrapContentHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0f),
+                                Color.Black.copy(alpha = 0.55f),
+                            )
+                        )
+                    ),
             ) {
-                Row(
-                    modifier = Modifier.padding(end = paddingEnd),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier
+                        .widthIn(max = thumbnailsMaxWidth)
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
-                    LaunchedEffect(globalIndex) {
-                        listState.animateScrollToItem(maxOf(0, globalIndex - 2))
-                    }
+                    if (displayItems.isNotEmpty()) {
+                        items(Int.MAX_VALUE) { globalThumbIndex ->
+                            val itemIndex = globalThumbIndex % displayItems.size
+                            val item = displayItems[itemIndex]
+                            val posterUrl = provider?.fixUrlNull(item.posterUrl)
+                            val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
+                            val isSelected = globalThumbIndex == globalIndex
 
-                    LazyRow(
-                        state = listState,
-                        modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (displayItems.isNotEmpty()) {
-                            items(Int.MAX_VALUE) { globalThumbIndex ->
-                                val itemIndex = globalThumbIndex % displayItems.size
-                                val item = displayItems[itemIndex]
-                                val posterUrl = provider?.fixUrlNull(item.posterUrl)
-                                val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
+                            if (thumbUrl != null) {
+                                // Depth scale: selected=1.0, ±1=0.82, rest=0.68
+                                val distance = kotlin.math.abs(globalThumbIndex - globalIndex)
+                                val targetScale = when {
+                                    isSelected -> 1.0f
+                                    distance == 1 -> 0.82f
+                                    else -> 0.68f
+                                }
+                                val scale by animateFloatAsState(
+                                    targetValue = targetScale,
+                                    animationSpec = tween(300),
+                                    label = "thumb_scale",
+                                )
+                                val thumbAlpha by animateFloatAsState(
+                                    targetValue = if (isSelected) 1f else if (distance == 1) 0.65f else 0.35f,
+                                    animationSpec = tween(300),
+                                    label = "thumb_alpha",
+                                )
 
-                                val isSelected = globalThumbIndex == globalIndex
+                                // Auto-advance progress for selected item
+                                var progressFraction by remember { mutableFloatStateOf(0f) }
+                                LaunchedEffect(isSelected, globalIndex) {
+                                    if (isSelected) {
+                                        progressFraction = 0f
+                                        val steps = 60
+                                        val stepDelay = autoAdvanceIntervalMs / steps
+                                        repeat(steps) {
+                                            delay(stepDelay)
+                                            progressFraction = (it + 1f) / steps
+                                        }
+                                    } else {
+                                        progressFraction = 0f
+                                    }
+                                }
+                                val animatedProgress by animateFloatAsState(
+                                    targetValue = progressFraction,
+                                    animationSpec = tween(120, easing = LinearEasing),
+                                    label = "thumb_progress",
+                                )
 
-                                if (thumbUrl != null) {
-                                    val currentThumbHeight by androidx.compose.animation.core.animateDpAsState(
-                                        targetValue = if (isSelected) thumbnailHeight else thumbnailHeight * 0.75f,
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    )
-                                    val thumbAlpha by androidx.compose.animation.core.animateFloatAsState(
-                                        targetValue = if (isSelected) 1f else 0.5f,
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    )
-                                    val borderWidth by androidx.compose.animation.core.animateDpAsState(
-                                        targetValue = if (isSelected) 2.dp else 0.dp,
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    )
-                                    val borderColor by androidx.compose.animation.animateColorAsState(
-                                        targetValue = if (isSelected) Color.White else Color.Transparent,
-                                        animationSpec = androidx.compose.animation.core.tween(300),
-                                    )
-
-                                    AsyncImage(
-                                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                            .data(thumbUrl)
-                                            .size(240, 360) // We can keep size request fixed for Coil cache hits
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                        alpha = thumbAlpha
+                                        // Anchor scale from bottom so posters grow upward
+                                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1.0f)
+                                    },
+                                ) {
+                                    Box(
                                         modifier = Modifier
-                                            .height(currentThumbHeight)
-                                            .aspectRatio(2f / 3f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .border(
-                                                width = borderWidth,
-                                                color = borderColor,
-                                                shape = RoundedCornerShape(8.dp),
+                                            .height(thumbnailHeight)
+                                            .aspectRatio(2f / 3f),
+                                    ) {
+                                        // Ambient glow behind selected poster
+                                        if (isSelected) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .offset(y = 8.dp)
+                                                    .blur(18.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(Color.White.copy(alpha = 0.25f)),
                                             )
-                                            .alpha(thumbAlpha)
-                                            .clickable {
-                                                globalIndex = globalThumbIndex
-                                            },
-                                    )
+                                        }
+                                        AsyncImage(
+                                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                                .data(thumbUrl)
+                                                .size(240, 360)
+                                                .build(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .then(
+                                                    if (isSelected) Modifier.border(
+                                                        width = 1.5.dp,
+                                                        brush = Brush.verticalGradient(
+                                                            listOf(Color.White.copy(alpha = 0.9f), Color.White.copy(alpha = 0.3f)),
+                                                        ),
+                                                        shape = RoundedCornerShape(10.dp),
+                                                    ) else Modifier
+                                                )
+                                                .clickable { globalIndex = globalThumbIndex },
+                                        )
+                                    }
+
+                                    // Progress bar below selected poster
+                                    Box(
+                                        modifier = Modifier
+                                            .height(thumbnailHeight)
+                                            .aspectRatio(2f / 3f)
+                                            .then(
+                                                if (isSelected) Modifier else Modifier.alpha(0f)
+                                            ),
+                                        contentAlignment = Alignment.BottomCenter,
+                                    ) {}
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width((thumbnailHeight * (2f / 3f)))
+                                                .height(2.dp)
+                                                .clip(RoundedCornerShape(1.dp))
+                                                .background(Color.White.copy(alpha = 0.2f)),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(animatedProgress)
+                                                    .clip(RoundedCornerShape(1.dp))
+                                                    .background(Color.White),
+                                            )
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
                                 }
                             }
                         }
