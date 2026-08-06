@@ -101,11 +101,8 @@ fun ComposeHomeScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    // Hero carousel goes edge-to-edge; only bottom + sides need safe insets
+                    // Items handle their own horizontal safe padding internally
                     contentPadding = PaddingValues(
-                        start = safeLeft,
-                        end = safeRight,
-                        top = 0.dp,
                         bottom = safeBottom + 32.dp
                     ),
                 ) {
