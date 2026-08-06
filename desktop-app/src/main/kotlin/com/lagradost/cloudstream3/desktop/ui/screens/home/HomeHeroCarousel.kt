@@ -120,16 +120,16 @@ fun HomeHeroCarousel(
         val paddingStart = safeStart + proportionalEdge
         val paddingEnd = safeEnd + proportionalEdge
         
-        // Push info block up by 25% of screen height to clear thumbnails perfectly
-        val infoBlockBottomPadding = safeBottom + (maxHeight * 0.25f).coerceAtLeast(180.dp)
-        
-        // The info block should take about 45% of the screen width for optimal readability
-        val infoBlockMaxWidth = (maxWidth * 0.45f).coerceIn(400.dp, 750.dp)
-        
         // Thumbnails dynamically sized based on height
         val thumbnailHeight = (maxHeight * 0.22f).coerceIn(160.dp, 280.dp)
         val thumbnailWidth = thumbnailHeight * (2f/3f)
         val thumbnailsMaxWidth = maxWidth * 0.55f
+        
+        // Push info block up exactly above the thumbnails
+        val infoBlockBottomPadding = safeBottom + (maxHeight * 0.05f) + thumbnailHeight + 48.dp
+        
+        // The info block should take about 45% of the screen width for optimal readability
+        val infoBlockMaxWidth = (maxWidth * 0.45f).coerceIn(400.dp, 750.dp)
 
         AnimatedContent(
             targetState = currentIndex,
@@ -210,7 +210,7 @@ fun HomeHeroCarousel(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(bottom = infoBlockBottomPadding), 
-                    contentAlignment = Alignment.CenterStart,
+                    contentAlignment = Alignment.BottomStart,
                 ) {
                     Row(
                         modifier = Modifier
