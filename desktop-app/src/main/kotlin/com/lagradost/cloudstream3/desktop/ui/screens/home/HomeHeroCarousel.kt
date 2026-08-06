@@ -527,12 +527,15 @@ fun HomeHeroCarousel(
         }
 
         // --- Cinematic Filmstrip ---
-        // Strictly anchored to BottomEnd with explicit right-side padding so it never
-        // bleeds into the hero info block on the left.
+        // Anchored to BottomEnd. We remove the hard right padding from the container 
+        // and instead add it to the LazyRow's max width and contentPadding.
+        // This keeps the left edge (selected poster) exactly in the same position, 
+        // but allows the right side to extend all the way to the screen edge so posters
+        // don't clip abruptly.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = safeBottom + (maxHeight * 0.04f), end = paddingEnd),
+                .padding(bottom = safeBottom + (maxHeight * 0.04f)),
             contentAlignment = Alignment.BottomEnd,
         ) {
             val listState = androidx.compose.foundation.lazy.rememberLazyListState(
@@ -542,35 +545,13 @@ fun HomeHeroCarousel(
                 listState.animateScrollToItem(maxOf(0, globalIndex - 1))
             }
 
-            // Wrap in a Box with a right-fade mask so the strip fades gracefully instead of hard-clipping
-            Box(
-                modifier = Modifier
-                    .widthIn(max = thumbnailsMaxWidth)
-                    .wrapContentHeight()
-                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                    .drawWithContent {
-                        drawContent()
-                        // Fade the right 10% of the strip to transparent
-                        val fadeWidth = size.width * 0.10f
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                0f to Color.Transparent,
-                                (1f - fadeWidth / size.width) to Color.Black,
-                                1f to Color.Black,
-                                startX = 0f,
-                                endX = size.width,
-                            ),
-                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-                        )
-                    },
+            LazyRow(
+                state = listState,
+                modifier = Modifier.widthIn(max = thumbnailsMaxWidth + paddingEnd),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+                contentPadding = PaddingValues(end = paddingEnd),
             ) {
-                LazyRow(
-                    state = listState,
-                    modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    contentPadding = PaddingValues(end = 32.dp),
-                ) {
                 if (displayItems.isNotEmpty()) {
                     items(Int.MAX_VALUE) { globalThumbIndex ->
                         val itemIndex = globalThumbIndex % displayItems.size
@@ -675,5 +656,4 @@ fun HomeHeroCarousel(
             }
         }
     }
-}
 }
