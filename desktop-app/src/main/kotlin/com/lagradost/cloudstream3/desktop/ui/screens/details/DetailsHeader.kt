@@ -638,11 +638,11 @@ fun DetailsMetadata(
                         // Stats & Info Sidebar
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .shadow(16.dp, RoundedCornerShape(16.dp))
+                                .width(340.dp)
+                                .shadow(24.dp, RoundedCornerShape(16.dp))
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(Color.Black.copy(alpha = 0.35f))
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                .background(Color(0xFF151515).copy(alpha = 0.9f))
+                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                                 .padding(vertical = 4.dp)
                         ) {
                             val stats = buildList {
@@ -701,27 +701,28 @@ private fun InfoRowItem(label: String, value: String, isLast: Boolean) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.5f),
+                color = Color.White.copy(alpha = 0.55f),
                 fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(0.4f)
             )
-            Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.9f),
+                color = Color.White.copy(alpha = 0.95f),
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.weight(0.6f)
             )
         }
         if (!isLast) {
@@ -729,7 +730,7 @@ private fun InfoRowItem(label: String, value: String, isLast: Boolean) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(Color.White.copy(alpha = 0.05f))
+                    .background(Color.White.copy(alpha = 0.1f))
             )
         }
     }
