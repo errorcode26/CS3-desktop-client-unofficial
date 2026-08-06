@@ -193,7 +193,7 @@ fun AdaptiveMetadataLayout(
     } else {
         Row(
             modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 mainContent()
@@ -600,8 +600,8 @@ fun DetailsMetadata(
                                     }
                                 }
                             },
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
-                        horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.End,
                     ) {
                         val textShadow = androidx.compose.ui.text.TextStyle(
                             shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
@@ -614,10 +614,7 @@ fun DetailsMetadata(
                                 label = "pinAlpha"
                             )
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .graphicsLayer { alpha = pinAlpha }
-                                    .padding(bottom = 0.dp),
+                                modifier = Modifier.graphicsLayer { alpha = pinAlpha },
                                 horizontalArrangement = Arrangement.End,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -637,12 +634,8 @@ fun DetailsMetadata(
 
                         // Stats & Info Sidebar
                         Column(
-                            modifier = Modifier
-                                .width(320.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.18f))
-                                .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                                .padding(vertical = 4.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.End,
                         ) {
                             val stats = buildList {
                                 add("Source" to provider.name)
@@ -658,7 +651,7 @@ fun DetailsMetadata(
                                 InfoRowItem(
                                     label = stat.first,
                                     value = stat.second,
-                                    isLast = index == stats.lastIndex
+                                    textShadow = textShadow
                                 )
                             }
                         }
@@ -670,43 +663,28 @@ fun DetailsMetadata(
 }
 
 @Composable
-private fun InfoRowItem(label: String, value: String, isLast: Boolean) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f),
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(0.4f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.95f),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                modifier = Modifier.weight(0.6f)
-            )
-        }
-        if (!isLast) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Color.White.copy(alpha = 0.1f))
-            )
-        }
+private fun InfoRowItem(label: String, value: String, textShadow: androidx.compose.ui.text.TextStyle) {
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall.merge(textShadow),
+            color = Color.White.copy(alpha = 0.55f),
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            fontSize = 11.sp,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.merge(textShadow),
+            color = Color.White.copy(alpha = 0.95f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
