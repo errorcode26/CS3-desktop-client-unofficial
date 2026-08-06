@@ -44,8 +44,10 @@ class DetailsViewModel(
                 val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
                 val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
 
-                val historyMap = DesktopDataStore.getAllWatchHistory()
-                    .filter { it.parentId == currentParentId || it.parentId == fallbackParentId || it.showUrl == url || it.showUrl == currentDataUrl }
+                val historyMap = (DesktopDataStore.getWatchHistoryByParent(currentParentId) + 
+                                 DesktopDataStore.getWatchHistoryByParent(fallbackParentId))
+                    .distinctBy { it.episodeId }
+                    .filter { it.showUrl == url || it.showUrl == currentDataUrl }
                     .associateBy { it.episodeId ?: "" }
                 updateState { copy(watchHistory = historyMap) }
             }
@@ -312,6 +314,8 @@ class DetailsViewModel(
             if (isWatched) {
                 // Marking as watched. Save backup of current states.
                 val newBackupMap = mutableMapOf<String, WatchHistory>()
+                val historiesToSave = mutableListOf<WatchHistory>()
+                
                 episodes.forEach { ep ->
                     val hist = uiState.value.watchHistory.values.find { (it.episodeId ?: "") == ep.data }
                     if (hist != null) {
@@ -319,33 +323,56 @@ class DetailsViewModel(
                     }
                     val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
                     val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
-                    val history = WatchHistory(
-                        parentId = parentId,
-                        showName = data.name,
-                        showUrl = data.url,
-                        apiName = provider.name,
-                        posterUrl = data.posterUrl,
-                        episodeThumbnailUrl = ep.posterUrl,
-                        screenshotUrl = saved?.screenshotUrl,
-                        episode = ep.episode,
-                        season = ep.season,
-                        episodeId = ep.data,
-                        position = dur,
-                        duration = dur,
+                    historiesToSave.add(
+                        WatchHistory(
+                            parentId = parentId,
+                            showName = data.name,
+                            showUrl = data.url,
+                            apiName = provider.name,
+                            posterUrl = data.posterUrl,
+                            episodeThumbnailUrl = ep.posterUrl,
+                            screenshotUrl = saved?.screenshotUrl,
+                            episode = ep.episode,
+                            season = ep.season,
+                            episodeId = ep.data,
+                            position = dur,
+                            duration = dur,
+                        )
                     )
-                    DesktopDataStore.setLastWatched(history)
                 }
+                DesktopDataStore.setMultipleLastWatched(historiesToSave)
                 updateState { copy(backupSeasonHistory = newBackupMap) }
             } else {
                 // Unmarking. Restore from backup.
+                val historiesToRestore = mutableListOf<WatchHistory>()
+                val episodesToRemove = mutableListOf<String>()
+                
                 episodes.forEach { ep ->
                     val backup = uiState.value.backupSeasonHistory[ep.data]
                     if (backup != null) {
-                        DesktopDataStore.setLastWatched(backup)
+                        val dur = if (backup.duration > 0L) backup.duration else 60L
+                        historiesToRestore.add(
+                            WatchHistory(
+                                parentId = parentId,
+                                showName = data.name,
+                                showUrl = data.url,
+                                apiName = provider.name,
+                                posterUrl = data.posterUrl,
+                                episodeThumbnailUrl = ep.posterUrl,
+                                screenshotUrl = backup.screenshotUrl,
+                                episode = ep.episode,
+                                season = ep.season,
+                                episodeId = ep.data,
+                                position = backup.position,
+                                duration = dur,
+                            )
+                        )
                     } else {
-                        DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
+                        episodesToRemove.add(ep.data)
                     }
                 }
+                DesktopDataStore.setMultipleLastWatched(historiesToRestore)
+                DesktopDataStore.removeMultipleEpisodesWatched(parentId, episodesToRemove)
                 updateState { copy(backupSeasonHistory = emptyMap()) }
             }
         }

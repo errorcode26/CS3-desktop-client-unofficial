@@ -226,6 +226,16 @@ object DesktopDataStore {
         historyUpdates.value++
     }
 
+    fun removeMultipleEpisodesWatched(parentId: String, episodeIds: List<String>) {
+        if (episodeIds.isEmpty()) return
+        DatabaseFactory.database.cloudstreamDBQueries.transaction {
+            episodeIds.forEach { episodeId ->
+                DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
+            }
+        }
+        historyUpdates.value++
+    }
+
     fun watchHistoryId(
         apiName: String,
         showUrl: String,
@@ -267,12 +277,66 @@ object DesktopDataStore {
         historyUpdates.value++
     }
 
+    fun setMultipleLastWatched(histories: List<WatchHistory>) {
+        if (histories.isEmpty()) return
+        DatabaseFactory.database.cloudstreamDBQueries.transaction {
+            histories.forEach { history ->
+                val normalizedDuration = history.duration.coerceAtLeast(0)
+                val normalizedPosition = if (normalizedDuration > 0) {
+                    history.position.coerceIn(0, normalizedDuration)
+                } else {
+                    history.position.coerceAtLeast(0)
+                }
+
+                DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
+                    parentId = history.parentId,
+                    episodeId = history.episodeId ?: "",
+                    showName = history.showName,
+                    showUrl = history.showUrl,
+                    apiName = history.apiName,
+                    posterUrl = history.posterUrl,
+                    episodeThumbnailUrl = history.episodeThumbnailUrl,
+                    screenshotUrl = history.screenshotUrl,
+                    episode = history.episode?.toLong(),
+                    season = history.season?.toLong(),
+                    position = normalizedPosition,
+                    duration = normalizedDuration,
+                    updateTime = System.currentTimeMillis(),
+                )
+            }
+        }
+        historyUpdates.value++
+    }
+
     fun getLastWatched(parentId: String): WatchHistory? {
         return DatabaseFactory.database.cloudstreamDBQueries
             .selectWatchHistoryByParent(parentId)
             .executeAsList()
             .firstOrNull()
             ?.let {
+                WatchHistory(
+                    parentId = it.parentId,
+                    showName = it.showName,
+                    showUrl = it.showUrl,
+                    apiName = it.apiName,
+                    posterUrl = it.posterUrl,
+                    episodeThumbnailUrl = it.episodeThumbnailUrl,
+                    screenshotUrl = it.screenshotUrl,
+                    episode = it.episode?.toInt(),
+                    season = it.season?.toInt(),
+                    episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                    position = it.position,
+                    duration = it.duration,
+                    updateTime = it.updateTime,
+                )
+            }
+    }
+
+    fun getWatchHistoryByParent(parentId: String): List<WatchHistory> {
+        return DatabaseFactory.database.cloudstreamDBQueries
+            .selectWatchHistoryByParent(parentId)
+            .executeAsList()
+            .map {
                 WatchHistory(
                     parentId = it.parentId,
                     showName = it.showName,
