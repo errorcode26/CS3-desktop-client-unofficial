@@ -638,167 +638,46 @@ fun DetailsMetadata(
                             }
                         }
 
-                        // Photos Preview
-                        val finalScreenshots = screenshots ?: uiState?.screenshots
-                        if (!finalScreenshots.isNullOrEmpty()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Photos", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, style = textShadow, modifier = Modifier.clickable { onPhotosClick() })
-                                var currentPhotoIndex by remember { mutableStateOf(0) }
-                                val displayPhotos = finalScreenshots.take(10)
-
-                                LaunchedEffect(displayPhotos) {
-                                    if (displayPhotos.size > 1) {
-                                        while (true) {
-                                            kotlinx.coroutines.delay(4000)
-                                            currentPhotoIndex = (currentPhotoIndex + 1) % displayPhotos.size
-                                        }
-                                    }
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    val imageWidth = (130f * 16f / 9f).dp
-                                    Box(
-                                        modifier = Modifier
-                                            .height(160.dp) // Taller to avoid clipping the bottom cards' shadows and offsets
-                                            .width(imageWidth + 80.dp) // Wider to prevent horizontal clipping
-                                            .clickable { onPhotosClick() },
-                                        contentAlignment = Alignment.CenterStart, // Align everything to the left side of the container
-                                    ) {
-                                        androidx.compose.animation.AnimatedContent(
-                                            targetState = currentPhotoIndex,
-                                            transitionSpec = {
-                                                // Slide the old stack out to the left and up (like peeling/tossing it away)
-                                                (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(600)))
-                                                    .togetherWith(
-                                                        androidx.compose.animation.slideOutHorizontally(
-                                                            animationSpec = androidx.compose.animation.core.tween(600),
-                                                            targetOffsetX = { -it },
-                                                        ) + androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(600)),
-                                                    )
-                                            },
-                                            label = "photos_carousel",
-                                        ) { page ->
-                                            val url = displayPhotos.getOrNull(page)
-                                            val next1Url = if (displayPhotos.size > 1) displayPhotos.getOrNull((page + 1) % displayPhotos.size) else null
-                                            val next2Url = if (displayPhotos.size > 2) displayPhotos.getOrNull((page + 2) % displayPhotos.size) else null
-
-                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                                                // Bottom Card (peeking bottom-right)
-                                                if (next2Url != null) {
-                                                    coil3.compose.AsyncImage(
-                                                        model = next2Url,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .height(130.dp)
-                                                            .width(imageWidth)
-                                                            .offset(x = 32.dp, y = 16.dp)
-                                                            .shadow(8.dp, RoundedCornerShape(12.dp))
-                                                            .clip(RoundedCornerShape(12.dp))
-                                                            .alpha(0.4f),
-                                                        contentScale = ContentScale.Crop,
-                                                    )
-                                                }
-                                                // Middle Card (peeking middle-right)
-                                                if (next1Url != null) {
-                                                    coil3.compose.AsyncImage(
-                                                        model = next1Url,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .height(130.dp)
-                                                            .width(imageWidth)
-                                                            .offset(x = 16.dp, y = 8.dp)
-                                                            .shadow(12.dp, RoundedCornerShape(12.dp))
-                                                            .clip(RoundedCornerShape(12.dp))
-                                                            .alpha(0.7f),
-                                                        contentScale = ContentScale.Crop,
-                                                    )
-                                                }
-                                                // Top Card
-                                                if (url != null) {
-                                                    coil3.compose.AsyncImage(
-                                                        model = url,
-                                                        contentDescription = "Screenshot",
-                                                        modifier = Modifier
-                                                            .height(130.dp)
-                                                            .width(imageWidth)
-                                                            .shadow(16.dp, RoundedCornerShape(12.dp))
-                                                            .clip(RoundedCornerShape(12.dp)),
-                                                        contentScale = ContentScale.Crop,
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (displayPhotos.size > 1) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            modifier = Modifier.width((130f * 16f / 9f).dp), // Approximately match width of image
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            displayPhotos.forEachIndexed { index, _ ->
-                                                val isSelected = index == currentPhotoIndex
-                                                val width by androidx.compose.animation.core.animateDpAsState(if (isSelected) 16.dp else 6.dp, label = "indicator_width")
-                                                val color by androidx.compose.animation.animateColorAsState(if (isSelected) Color.White else Color.White.copy(alpha = 0.3f), label = "indicator_color")
-                                                Box(
-                                                    modifier = Modifier
-                                                        .height(3.dp)
-                                                        .width(width)
-                                                        .clip(RoundedCornerShape(1.5.dp))
-                                                        .background(color),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                        // Stats & Info Sidebar
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            InfoRowItem("Source", provider.name)
+                            
+                            val status = uiState?.enrichedStatus
+                            if (!status.isNullOrBlank()) {
+                                InfoRowItem("Status", status)
                             }
-                        }
+                            
+                            val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
+                            if (!relDate.isNullOrBlank()) {
+                                InfoRowItem("Release Date", relDate)
+                            }
+                            
+                            val seasons = uiState?.enrichedSeasonsCount
+                            val episodes = uiState?.enrichedEpisodesCount
+                            if (seasons != null && seasons > 0) {
+                                val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
+                                InfoRowItem("Seasons", "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
+                            } else if (episodes != null && episodes > 0) {
+                                InfoRowItem("Episodes", "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
+                            }
 
-                        // Stars Preview
-                        val cast = uiState?.enrichedActors ?: data.actors
-                        if (!cast.isNullOrEmpty()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Text("Stars", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, style = textShadow, modifier = Modifier.clickable { onCastClick() })
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    cast.take(4).forEach { actor ->
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            coil3.compose.AsyncImage(
-                                                model = actor.actor.image,
-                                                contentDescription = actor.actor?.name,
-                                                modifier = Modifier
-                                                    .size(80.dp)
-                                                    .shadow(12.dp, CircleShape)
-                                                    .clip(CircleShape)
-                                                    .background(Color.White.copy(alpha = 0.1f))
-                                                    .clickable { onActorClick(actor) },
-                                                contentScale = ContentScale.Crop,
-                                            )
-                                            Text(
-                                                text = actor.actor?.name?.split(" ")?.firstOrNull() ?: "",
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontSize = 12.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.widthIn(max = 80.dp),
-                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                style = textShadow,
-                                            )
-                                        }
-                                    }
-                                    if (cast.size > 4) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(80.dp)
-                                                .shadow(12.dp, CircleShape)
-                                                .clip(CircleShape)
-                                                .background(Color.White.copy(alpha = 0.15f))
-                                                .clickable { onCastClick() },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text("+${cast.size - 4}", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, style = textShadow)
-                                        }
-                                    }
-                                }
+                            val country = uiState?.enrichedCountry
+                            val lang = uiState?.enrichedOriginalLanguage
+                            if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
+                                val combined = listOfNotNull(country, lang).joinToString(" • ")
+                                InfoRowItem("Origin", combined)
+                            }
+                            
+                            val networks = uiState?.enrichedNetworks ?: emptyList()
+                            if (networks.isNotEmpty()) {
+                                val label = if (networks.size > 1) "Networks" else "Network"
+                                InfoRowItem(label, networks.joinToString(", "))
+                            }
+                            
+                            val studios = uiState?.enrichedStudios ?: emptyList()
+                            if (studios.isNotEmpty()) {
+                                val label = if (studios.size > 1) "Studios" else "Studio"
+                                InfoRowItem(label, studios.joinToString(", "))
                             }
                         }
                     }
