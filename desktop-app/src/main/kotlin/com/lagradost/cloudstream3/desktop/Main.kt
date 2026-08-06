@@ -105,6 +105,7 @@ fun main(args: Array<String> = emptyArray()) {
             icon = painterResource("app_icon_small.png"),
             onKeyEvent = fullscreenHelper.onKeyEvent,
         ) {
+            window.minimumSize = java.awt.Dimension(800, 600)
             fullscreenHelper.attachToWindow(window)
             setupWindowBackgroundAndListeners(fullscreenHelper.controller)
 
