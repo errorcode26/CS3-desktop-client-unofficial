@@ -805,8 +805,17 @@ fun BaseMpvPlayer(
             val h = mpvHandle
             if (h != null) {
                 mpvHandle = null
-                MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
                 playerState?.detachMpv()
+                
+                // Push the heavy C++ teardown to a background daemon thread 
+                // to prevent blocking the Compose EDT.
+                java.lang.Thread({
+                    com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Destroying mpv engine on daemon thread...")
+                    MpvLibrary.INSTANCE.mpv_terminate_destroy(h)
+                }, "cs3-player-dispose").apply {
+                    isDaemon = true
+                    start()
+                }
             }
         }
     }

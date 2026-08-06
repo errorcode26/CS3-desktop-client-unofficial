@@ -304,7 +304,7 @@ fun EpisodeCard(
                         onRemoveEpisodeWatched(ep)
                     } else {
                         // Watch: Mark completely watched
-                        onToggleWatched(ep, false)
+                        onToggleWatched(ep, true)
                     }
                 }
                 .padding(6.dp),

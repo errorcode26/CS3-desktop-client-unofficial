@@ -609,21 +609,18 @@ fun DetailsMetadata(
 
                         // Pin Toggle Row
                         if (!isNarrow) {
+                            val pinAlpha by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = if (isRightColumnHovered) 1f else 0f,
+                                label = "pinAlpha"
+                            )
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer { alpha = pinAlpha }
+                                    .padding(bottom = 0.dp),
+                                horizontalArrangement = Arrangement.End,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = "SIDEBAR",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 11.sp,
-                                        letterSpacing = 1.sp,
-                                        color = Color.White.copy(alpha = 0.4f),
-                                        shadow = textShadow.shadow,
-                                    ),
-                                    fontWeight = FontWeight.Bold,
-                                )
                                 IconButton(
                                     onClick = { isRightColumnPinned = !isRightColumnPinned },
                                     modifier = Modifier.size(36.dp),
@@ -639,45 +636,56 @@ fun DetailsMetadata(
                         }
 
                         // Stats & Info Sidebar
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            InfoRowItem("Source", provider.name)
-                            
-                            val status = uiState?.enrichedStatus
-                            if (!status.isNullOrBlank()) {
-                                InfoRowItem("Status", status)
-                            }
-                            
-                            val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
-                            if (!relDate.isNullOrBlank()) {
-                                InfoRowItem("Release Date", relDate)
-                            }
-                            
-                            val seasons = uiState?.enrichedSeasonsCount
-                            val episodes = uiState?.enrichedEpisodesCount
-                            if (seasons != null && seasons > 0) {
-                                val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
-                                InfoRowItem("Seasons", "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
-                            } else if (episodes != null && episodes > 0) {
-                                InfoRowItem("Episodes", "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
-                            }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(16.dp, RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.Black.copy(alpha = 0.35f))
+                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                .padding(vertical = 4.dp)
+                        ) {
+                            val stats = buildList {
+                                add("Source" to provider.name)
+                                
+                                val status = uiState?.enrichedStatus
+                                if (!status.isNullOrBlank()) add("Status" to status)
+                                
+                                val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
+                                if (!relDate.isNullOrBlank()) add("Release Date" to relDate)
+                                
+                                val seasons = uiState?.enrichedSeasonsCount
+                                val episodes = uiState?.enrichedEpisodesCount
+                                if (seasons != null && seasons > 0) {
+                                    val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
+                                    add("Seasons" to "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
+                                } else if (episodes != null && episodes > 0) {
+                                    add("Episodes" to "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
+                                }
 
-                            val country = uiState?.enrichedCountry
-                            val lang = uiState?.enrichedOriginalLanguage
-                            if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
-                                val combined = listOfNotNull(country, lang).joinToString(" • ")
-                                InfoRowItem("Origin", combined)
+                                val country = uiState?.enrichedCountry
+                                val lang = uiState?.enrichedOriginalLanguage
+                                if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
+                                    add("Origin" to listOfNotNull(country, lang).joinToString(" • "))
+                                }
+                                
+                                val networks = uiState?.enrichedNetworks ?: emptyList()
+                                if (networks.isNotEmpty()) {
+                                    add((if (networks.size > 1) "Networks" else "Network") to networks.joinToString(", "))
+                                }
+                                
+                                val studios = uiState?.enrichedStudios ?: emptyList()
+                                if (studios.isNotEmpty()) {
+                                    add((if (studios.size > 1) "Studios" else "Studio") to studios.joinToString(", "))
+                                }
                             }
                             
-                            val networks = uiState?.enrichedNetworks ?: emptyList()
-                            if (networks.isNotEmpty()) {
-                                val label = if (networks.size > 1) "Networks" else "Network"
-                                InfoRowItem(label, networks.joinToString(", "))
-                            }
-                            
-                            val studios = uiState?.enrichedStudios ?: emptyList()
-                            if (studios.isNotEmpty()) {
-                                val label = if (studios.size > 1) "Studios" else "Studio"
-                                InfoRowItem(label, studios.joinToString(", "))
+                            stats.forEachIndexed { index, stat ->
+                                InfoRowItem(
+                                    label = stat.first,
+                                    value = stat.second,
+                                    isLast = index == stats.lastIndex
+                                )
                             }
                         }
                     }
@@ -688,25 +696,42 @@ fun DetailsMetadata(
 }
 
 @Composable
-private fun InfoRowItem(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.55f),
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp,
-            fontSize = 11.sp,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.95f),
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+private fun InfoRowItem(label: String, value: String, isLast: Boolean) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.5f),
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.9f),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            )
+        }
+        if (!isLast) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Color.White.copy(alpha = 0.05f))
+            )
+        }
     }
 }
 

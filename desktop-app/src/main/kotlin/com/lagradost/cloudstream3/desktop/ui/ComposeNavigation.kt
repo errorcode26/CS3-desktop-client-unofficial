@@ -287,6 +287,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                         if (showExitFade) {
                             // The Compose UI is now snapped to pitch black.
                             // Destroy the native player instantly (no white flash due to BLACK_BRUSH).
+                            // The heavy C++ teardown runs on a daemon thread in BaseMpvPlayer.
                             currentVideo = null
 
                             // Wait 50ms just to ensure the native window is completely gone from the OS compositor

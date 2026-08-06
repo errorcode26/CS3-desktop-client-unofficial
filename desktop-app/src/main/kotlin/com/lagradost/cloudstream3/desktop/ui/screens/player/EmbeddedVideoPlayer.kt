@@ -38,6 +38,8 @@ fun EmbeddedVideoPlayer(
         viewModel.onEvent(PlayerUiEvent.OnInit(launchData))
     }
 
+
+
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->
             when (effect) {
