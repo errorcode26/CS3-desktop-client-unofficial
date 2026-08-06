@@ -104,18 +104,33 @@ fun HomeHeroCarousel(
     val dynamicHeight = with(density) { windowInfo.containerSize.height.toDp() }.coerceAtLeast(400.dp)
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
-    val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
-    val safeEnd = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
-    
-    val paddingStart = safeStart + 64.dp
-    val paddingEnd = safeEnd + 32.dp
-
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .height(dynamicHeight),
     ) {
+        val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
+        val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+        val safeEnd = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+        val safeBottom = safeArea.calculateBottomPadding()
+        
+        // 5% proportional safe edge, guaranteeing at least 48dp buffer on top of any dock.
+        val proportionalEdge = (maxWidth * 0.05f).coerceAtLeast(48.dp)
+        
+        val paddingStart = safeStart + proportionalEdge
+        val paddingEnd = safeEnd + proportionalEdge
+        
+        // Push info block up by 25% of screen height to clear thumbnails perfectly
+        val infoBlockBottomPadding = safeBottom + (maxHeight * 0.25f).coerceAtLeast(180.dp)
+        
+        // The info block should take about 45% of the screen width for optimal readability
+        val infoBlockMaxWidth = (maxWidth * 0.45f).coerceIn(400.dp, 750.dp)
+        
+        // Thumbnails dynamically sized based on height
+        val thumbnailHeight = (maxHeight * 0.22f).coerceIn(160.dp, 280.dp)
+        val thumbnailWidth = thumbnailHeight * (2f/3f)
+        val thumbnailsMaxWidth = maxWidth * 0.55f
+
         AnimatedContent(
             targetState = currentIndex,
             transitionSpec = {
@@ -194,7 +209,7 @@ fun HomeHeroCarousel(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 320.dp), // Reserves space for the bottom-right posters to prevent overlap
+                        .padding(bottom = infoBlockBottomPadding), 
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Row(
@@ -205,7 +220,7 @@ fun HomeHeroCarousel(
                         horizontalArrangement = Arrangement.Start,
                     ) {
                         Column(
-                            modifier = Modifier.widthIn(max = 500.dp), // Wrap text properly, don't stretch to middle
+                            modifier = Modifier.widthIn(max = infoBlockMaxWidth), // Wrap text properly with proportional max width
                         ) {
                             Column(modifier = Modifier.height(350.dp), verticalArrangement = Arrangement.Bottom) {
                                 if (!meta?.logoUrl.isNullOrBlank()) {
@@ -509,7 +524,7 @@ fun HomeHeroCarousel(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 64.dp),
+                .padding(bottom = safeBottom + (maxHeight * 0.05f)), // Anchors perfectly to bottom corner with a small proportional padding
             contentAlignment = Alignment.BottomCenter,
         ) {
             Box(
@@ -529,7 +544,7 @@ fun HomeHeroCarousel(
 
                     LazyRow(
                         state = listState,
-                        modifier = Modifier.widthIn(max = 816.dp),
+                        modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -543,8 +558,8 @@ fun HomeHeroCarousel(
                                 val isSelected = globalThumbIndex == globalIndex
 
                                 if (thumbUrl != null) {
-                                    val thumbHeight by androidx.compose.animation.core.animateDpAsState(
-                                        targetValue = if (isSelected) 240.dp else 180.dp,
+                                    val currentThumbHeight by androidx.compose.animation.core.animateDpAsState(
+                                        targetValue = if (isSelected) thumbnailHeight else thumbnailHeight * 0.75f,
                                         animationSpec = androidx.compose.animation.core.tween(300),
                                     )
                                     val thumbAlpha by androidx.compose.animation.core.animateFloatAsState(
@@ -563,12 +578,12 @@ fun HomeHeroCarousel(
                                     AsyncImage(
                                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                             .data(thumbUrl)
-                                            .size(240, 360)
+                                            .size(240, 360) // We can keep size request fixed for Coil cache hits
                                             .build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
-                                            .height(thumbHeight)
+                                            .height(currentThumbHeight)
                                             .aspectRatio(2f / 3f)
                                             .clip(RoundedCornerShape(8.dp))
                                             .border(

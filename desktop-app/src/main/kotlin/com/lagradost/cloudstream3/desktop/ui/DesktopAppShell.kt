@@ -228,16 +228,12 @@ fun DesktopAppShell(
                         }
                     }
                 }
-                val contentPadding = if (applySafePadding) {
-                    when (dockPosition) {
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(start = 82.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(end = 82.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 82.dp)
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(bottom = 82.dp)
-                        else -> PaddingValues(start = 82.dp)
-                    }
-                } else {
-                    PaddingValues(0.dp)
+                val contentPadding = when (dockPosition) {
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(start = 82.dp)
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(end = 82.dp)
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 82.dp)
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(bottom = 82.dp)
+                    else -> PaddingValues(start = 82.dp)
                 }
 
                 Box(
