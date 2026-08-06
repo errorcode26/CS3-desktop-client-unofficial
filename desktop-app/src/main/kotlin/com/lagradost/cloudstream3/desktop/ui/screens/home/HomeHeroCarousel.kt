@@ -542,14 +542,35 @@ fun HomeHeroCarousel(
                 listState.animateScrollToItem(maxOf(0, globalIndex - 1))
             }
 
-            LazyRow(
-                state = listState,
-                modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-                // Trailing padding so the last poster isn't hard-clipped by the container edge
-                contentPadding = PaddingValues(end = 24.dp),
+            // Wrap in a Box with a right-fade mask so the strip fades gracefully instead of hard-clipping
+            Box(
+                modifier = Modifier
+                    .widthIn(max = thumbnailsMaxWidth)
+                    .wrapContentHeight()
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        // Fade the right 10% of the strip to transparent
+                        val fadeWidth = size.width * 0.10f
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                0f to Color.Transparent,
+                                (1f - fadeWidth / size.width) to Color.Black,
+                                1f to Color.Black,
+                                startX = 0f,
+                                endX = size.width,
+                            ),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        )
+                    },
             ) {
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier.widthIn(max = thumbnailsMaxWidth),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    contentPadding = PaddingValues(end = 32.dp),
+                ) {
                 if (displayItems.isNotEmpty()) {
                     items(Int.MAX_VALUE) { globalThumbIndex ->
                         val itemIndex = globalThumbIndex % displayItems.size
@@ -654,4 +675,5 @@ fun HomeHeroCarousel(
             }
         }
     }
+}
 }
