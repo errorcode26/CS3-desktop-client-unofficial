@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -423,49 +425,26 @@ fun DetailsMetadata(
 
                     val libraryButton: @Composable (Modifier) -> Unit = { mod ->
                         Box(modifier = mod) {
-                            Box(
+                            androidx.compose.material3.IconButton(
+                                onClick = { showBookmarkMenu = true },
                                 modifier = Modifier
-                                    .height(56.dp)
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .size(56.dp)
                                     .background(
-                                        if (currentBookmark != null) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            Color.White.copy(alpha = 0.18f)
-                                        },
+                                        if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.18f),
+                                        RoundedCornerShape(12.dp),
                                     )
                                     .border(
                                         1.2.dp,
-                                        if (currentBookmark != null) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            Color.White.copy(alpha = 0.35f)
-                                        },
+                                        if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.35f),
                                         RoundedCornerShape(12.dp),
-                                    )
-                                    .clickable { showBookmarkMenu = true }
-                                    .padding(horizontal = 24.dp),
-                                contentAlignment = Alignment.Center,
+                                    ),
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                        contentDescription = "Library",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    val text = currentBookmark?.let { b ->
-                                        com.lagradost.common.storage.DesktopWatchType.entries.find { type -> type.id == b.watchType }?.stringRes
-                                    } ?: "Add to Library"
-                                    Text(
-                                        text = text,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (currentBookmark != null) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = "Library",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp),
+                                )
                             }
                             DropdownMenu(
                                 expanded = showBookmarkMenu,
@@ -533,9 +512,16 @@ fun DetailsMetadata(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            heroAction(Modifier.fillMaxWidth())
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    heroAction(Modifier.fillMaxWidth())
+                                }
+                                libraryButton(Modifier)
+                            }
                             downloadAction?.invoke(Modifier.fillMaxWidth())
-                            libraryButton(Modifier.fillMaxWidth())
                         }
                     } else {
                         Column(
@@ -549,7 +535,7 @@ fun DetailsMetadata(
                                 Box(modifier = Modifier.weight(1f)) {
                                     heroAction(Modifier.fillMaxWidth())
                                 }
-                                libraryButton(Modifier.weight(1f))
+                                libraryButton(Modifier)
                             }
                             downloadAction?.invoke(Modifier.fillMaxWidth())
                         }
@@ -868,11 +854,39 @@ fun DetailsCastSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 16.dp)
-                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                .padding(24.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
+
+            if (cast.isNotEmpty()) {
+                Text(
+                    text = "Cast",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                ) {
+                    cast.take(18).forEach { actor ->
+                        ActorCard(
+                            actor = actor,
+                            provider = provider,
+                            isInverted = invertedMap[actor] == true,
+                            onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
+                            onClick = { onActorClick(actor) },
+                        )
+                    }
+                }
+            }
+
+            if (directors.isNotEmpty() && cast.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(32.dp))
+            }
 
             if (directors.isNotEmpty()) {
                 val headerTitle = if (directors.any { it.roleString?.equals("Creator", ignoreCase = true) == true }) "Directors & Creators" else "Directors"
@@ -890,36 +904,6 @@ fun DetailsCastSection(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 ) {
                     directors.forEach { actor ->
-                        ActorCard(
-                            actor = actor,
-                            provider = provider,
-                            isInverted = invertedMap[actor] == true,
-                            onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { onActorClick(actor) },
-                        )
-                    }
-                }
-            }
-
-            if (directors.isNotEmpty() && cast.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-
-            if (cast.isNotEmpty()) {
-                Text(
-                    text = "Cast",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                ) {
-                    cast.take(18).forEach { actor ->
                         ActorCard(
                             actor = actor,
                             provider = provider,
@@ -1065,6 +1049,7 @@ private fun ActorCard(
 @Composable
 fun DetailsStatsSection(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    modifier: Modifier = Modifier
 ) {
     if (uiState == null) return
 
@@ -1083,58 +1068,75 @@ fun DetailsStatsSection(
 
     if (hasStats) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 8.dp)
-                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                .padding(24.dp),
+                .padding(vertical = 8.dp),
         ) {
-            Text(
-                text = "Information & Production",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-
             androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 if (seasons != null && seasons > 0) {
                     val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
-                    InfoStatCard(label = "Seasons", value = "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
+                    InfoStatItem(label = "Seasons", value = "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
                 } else if (episodes != null && episodes > 0) {
-                    InfoStatCard(label = "Episodes", value = "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
+                    InfoStatItem(label = "Episodes", value = "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
                 }
                 if (!status.isNullOrBlank()) {
-                    InfoStatCard(label = "Status", value = status)
-                }
-                if (networks.isNotEmpty()) {
-                    val label = if (networks.size > 1) "Networks" else "Network"
-                    InfoStatCard(label = label, value = networks.joinToString(", "))
-                }
-                if (studios.isNotEmpty()) {
-                    val label = if (studios.size > 1) "Production Companies" else "Production Company"
-                    InfoStatCard(label = label, value = studios.joinToString(", "))
-                }
-                if (budget != null) {
-                    InfoStatCard(label = "Budget", value = formatCurrency(budget))
-                }
-                if (revenue != null) {
-                    InfoStatCard(label = "Box Office Revenue", value = formatCurrency(revenue))
+                    InfoStatItem(label = "Status", value = status)
                 }
                 if (!relDate.isNullOrBlank()) {
-                    InfoStatCard(label = "Release Date", value = relDate)
+                    InfoStatItem(label = "Release Date", value = relDate)
                 }
                 if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
                     val combined = listOfNotNull(country, lang).joinToString(" • ")
-                    InfoStatCard(label = "Origin", value = combined)
+                    InfoStatItem(label = "Origin", value = combined)
+                }
+                if (budget != null && budget > 0) {
+                    InfoStatItem(label = "Budget", value = formatCurrency(budget))
+                }
+                if (revenue != null && revenue > 0) {
+                    InfoStatItem(label = "Box Office", value = formatCurrency(revenue))
+                }
+                if (networks.isNotEmpty()) {
+                    val label = if (networks.size > 1) "Networks" else "Network"
+                    InfoStatItem(label = label, value = networks.joinToString(", "))
+                }
+                if (studios.isNotEmpty()) {
+                    val label = if (studios.size > 1) "Production Companies" else "Production Company"
+                    InfoStatItem(label = label, value = studios.joinToString(", "))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoStatItem(label: String, value: String) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 120.dp, max = 240.dp)
+            .padding(end = 48.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.Top,
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1143,38 +1145,5 @@ private fun formatCurrency(amount: Long): String {
         amount >= 1_000_000_000 -> "$${String.format("%.1f", amount.toDouble() / 1_000_000_000)} Billion"
         amount >= 1_000_000 -> "$${String.format("%.1f", amount.toDouble() / 1_000_000)} Million"
         else -> "$${java.text.NumberFormat.getIntegerInstance().format(amount)}"
-    }
-}
-
-@Composable
-private fun InfoStatCard(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .width(200.dp)
-            .heightIn(min = 80.dp)
-            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.5f),
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
-            letterSpacing = 0.8.sp,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            lineHeight = 18.sp,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }

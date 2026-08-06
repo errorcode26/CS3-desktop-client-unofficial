@@ -38,9 +38,7 @@ fun DetailsRecommendationsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 8.dp)
-            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-            .padding(vertical = 24.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
             text = "Similar Content",
@@ -66,7 +64,7 @@ fun DetailsRecommendationsSection(
                         PosterCard(
                             item = rec,
                             provider = recProvider,
-                            itemWidth = 150.dp,
+                            itemWidth = 200.dp,
                             onClick = {
                                 onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
                             },

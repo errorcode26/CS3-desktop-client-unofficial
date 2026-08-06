@@ -36,6 +36,7 @@ object HybridEnrichmentService {
             collectionBg: String?,
             seasonsCount: Int?,
             episodesCount: Int?,
+            seasons: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata>?,
             originalLang: String?,
             releaseDate: String?,
             country: String?,
@@ -47,7 +48,7 @@ object HybridEnrichmentService {
             duration: Int?,
             tags: List<String>?,
             actors: List<com.lagradost.cloudstream3.ActorData>?,
-        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
     ) {
         withContext(Dispatchers.IO) {
@@ -137,21 +138,6 @@ object HybridEnrichmentService {
                         val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
 
                         val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
-                        var isSmartSubsetMatch = false
-
-                        if (!hasNumberMismatch) {
-                            val isQuerySubsetOfResult = resultWords.containsAll(cleanWords)
-                            val isResultSubsetOfQuery = cleanWords.containsAll(resultWords)
-
-                            if (isQuerySubsetOfResult && cleanWords.size >= 2) {
-                                isSmartSubsetMatch = true
-                            } else if (isResultSubsetOfQuery && resultWords.size >= 2) {
-                                val wordDiff = cleanWords.size - resultWords.size
-                                if (wordDiff <= 1) {
-                                    isSmartSubsetMatch = true
-                                }
-                            }
-                        }
 
                         // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
                         val loadedYear = loaded.year
@@ -162,8 +148,6 @@ object HybridEnrichmentService {
                         var score = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName, strippedResultName)
                         if (isStrictMatch) {
                             score = 1.0
-                        } else if (isSmartSubsetMatch && score < 0.85) {
-                            score = 0.85
                         }
 
                         if (hasNumberMismatch) {
@@ -242,6 +226,10 @@ object HybridEnrichmentService {
                                 if (ep.description.isNullOrBlank() && !cinemetaEp.description.isNullOrBlank()) {
                                     ep.description = cinemetaEp.description
                                 }
+                                if (cinemetaEp.released != null) {
+                                    val releaseDateIso = cinemetaEp.released.take(10) // Format: "YYYY-MM-DD"
+                                    ep.description = "||DATE:${releaseDateIso}||" + (ep.description ?: "")
+                                }
                                 if (ep.posterUrl.isNullOrBlank() && !cinemetaEp.thumbnail.isNullOrBlank()) {
                                     ep.posterUrl = cinemetaEp.thumbnail
                                 }
@@ -265,6 +253,7 @@ object HybridEnrichmentService {
                     null, // collectionBg
                     null, // seasonsCount
                     null, // episodesCount
+                    null, // seasonsMetadata
                     null, // originalLang
                     null, // releaseDate
                     null, // country
@@ -288,6 +277,7 @@ object HybridEnrichmentService {
             var tmdbCollectionBg: String? = null
             var tmdbSeasonsCount: Int? = null
             var tmdbEpisodesCount: Int? = null
+            var tmdbSeasonsMetadata: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata>? = null
             var tmdbOriginalLang: String? = null
             var tmdbReleaseDate: String? = null
             var tmdbCountry: String? = null
@@ -307,7 +297,7 @@ object HybridEnrichmentService {
                     fetchCast = fetchCast,
                     onScreenshotsLoaded = onScreenshotsLoaded,
                     onActorsLoaded = onActorsLoaded,
-                    onMetadataLoaded = { tagline, status, studios, collectionName, collectionBg, seasonsCount, episodesCount, originalLang, releaseDate, country, collectionItems, budget, revenue, networks, year, duration, tags, actors ->
+                    onMetadataLoaded = { tagline, status, studios, collectionName, collectionBg, seasonsCount, episodesCount, seasons, originalLang, releaseDate, country, collectionItems, budget, revenue, networks, year, duration, tags, actors ->
                         tmdbTagline = tagline
                         tmdbStatus = status
                         tmdbStudios = studios
@@ -315,6 +305,7 @@ object HybridEnrichmentService {
                         tmdbCollectionBg = collectionBg
                         tmdbSeasonsCount = seasonsCount
                         tmdbEpisodesCount = episodesCount
+                        tmdbSeasonsMetadata = seasons
                         tmdbOriginalLang = originalLang
                         tmdbReleaseDate = releaseDate
                         tmdbCountry = country
@@ -330,7 +321,7 @@ object HybridEnrichmentService {
                     onEnrichmentComplete = {},
                     directTmdbId = directTmdbId,
                     directImdbId = directImdbId,
-                    overwrite = true,
+                    overwrite = false,
                 )
                 AppLogger.i(TAG, "  ✓ Stage2: TMDB done | bg=${loaded.backgroundPosterUrl != null} | logo=${loaded.logoUrl != null}")
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -377,6 +368,7 @@ object HybridEnrichmentService {
                 tmdbCollectionBg,
                 tmdbSeasonsCount,
                 tmdbEpisodesCount,
+                tmdbSeasonsMetadata,
                 tmdbOriginalLang,
                 tmdbReleaseDate,
                 tmdbCountry,

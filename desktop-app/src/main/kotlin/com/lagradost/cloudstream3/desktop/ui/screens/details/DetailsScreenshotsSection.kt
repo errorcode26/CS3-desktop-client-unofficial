@@ -48,9 +48,7 @@ fun DetailsScreenshotsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 8.dp)
-            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-            .padding(vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         // Collapsible Screenshots header row
         Row(

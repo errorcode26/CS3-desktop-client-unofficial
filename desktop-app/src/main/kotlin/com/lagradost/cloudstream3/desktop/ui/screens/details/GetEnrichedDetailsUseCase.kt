@@ -24,6 +24,7 @@ sealed interface EnrichmentUpdate {
         val collBg: String?,
         val seasons: Int?,
         val episodes: Int?,
+        val seasonsMetadata: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata>?,
         val lang: String?,
         val relDate: String?,
         val country: String?,
@@ -93,10 +94,10 @@ object GetEnrichedDetailsUseCase {
                 onActorsLoaded = { actors ->
                     trySend(EnrichmentUpdate.ActorsLoaded(actors))
                 },
-                onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
+                onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
                     trySend(
                         EnrichmentUpdate.MetadataLoaded(
-                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
+                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
                         ),
                     )
                 },

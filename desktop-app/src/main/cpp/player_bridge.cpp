@@ -1242,7 +1242,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     }
     postUiTask([]() {
         if (!g_syncTimer && g_messageHwnd) {
-            g_syncTimer = SetTimer(g_messageHwnd, 0x4E51, 100, nullptr);
+            g_syncTimer = SetTimer(g_messageHwnd, 0x4E51, 16, nullptr);
             LOG_TO_FILE("[NativeBridge] MPV native UI sync timer started");
         }
     });

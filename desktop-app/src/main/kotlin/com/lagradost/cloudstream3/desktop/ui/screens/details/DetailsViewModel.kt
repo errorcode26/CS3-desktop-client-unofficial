@@ -20,8 +20,14 @@ class DetailsViewModel(
     val preloadedPoster: String? = null,
     val preloadedBg: String? = null,
     cachedResponse: LoadResponse? = DetailsCache.get(url),
+    cachedUiState: DetailsUiState? = EnrichedDetailsCache.get(url),
 ) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
-    initialState = DetailsUiState(
+    initialState = cachedUiState?.copy(
+        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
+        isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
+        fetchFailed = false,
+        error = null,
+    ) ?: DetailsUiState(
         preloadedName = preloadedName,
         response = cachedResponse,
         enrichedLogoUrl = cachedResponse?.logoUrl,
@@ -130,6 +136,7 @@ class DetailsViewModel(
                                 enrichedCollectionBackdrop = update.collBg,
                                 enrichedSeasonsCount = update.seasons,
                                 enrichedEpisodesCount = update.episodes,
+                                enrichedSeasonsMetadata = update.seasonsMetadata ?: emptyList(),
                                 enrichedOriginalLanguage = update.lang,
                                 enrichedReleaseDate = update.relDate,
                                 enrichedCountry = update.country,
@@ -145,7 +152,14 @@ class DetailsViewModel(
                         }
                     }
                     is EnrichmentUpdate.FullyEnriched -> {
-                        updateState { copy(isEnriching = false, enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete) }
+                        updateState { 
+                            val newState = copy(isEnriching = false, enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete)
+                            EnrichedDetailsCache.put(url, newState)
+                            newState.response?.url?.let {
+                                if (it != url) EnrichedDetailsCache.put(it, newState)
+                            }
+                            newState
+                        }
                     }
                     is EnrichmentUpdate.Error -> {
                         AppLogger.e("DetailsViewModel", "Error loading details: ${update.message}")

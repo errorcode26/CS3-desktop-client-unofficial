@@ -296,6 +296,7 @@ fun EmbeddedVideoPlayer(
                             else -> {
                                 com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources exhausted. Terminating playback.")
                                 isProbingOverlay = false
+                                actualLaunchData.history.episodeId?.let { LinkCache.remove(it) }
                                 onError("All sources failed. Please try again later.")
                                 onClose()
                             }

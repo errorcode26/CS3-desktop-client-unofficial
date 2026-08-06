@@ -28,6 +28,24 @@ object DetailsCache {
     fun containsKey(url: String): Boolean = _cache.containsKey(url)
 }
 
+object EnrichedDetailsCache {
+    private val _cache: MutableMap<String, com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState> = Collections.synchronizedMap(
+        object : java.util.LinkedHashMap<String, com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState>(50, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState>?): Boolean {
+                return size > 50
+            }
+        },
+    )
+    fun get(url: String): com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = _cache[url]
+    fun put(url: String, state: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState) {
+        _cache[url] = state
+    }
+    fun remove(url: String) {
+        _cache.remove(url)
+    }
+    fun containsKey(url: String): Boolean = _cache.containsKey(url)
+}
+
 object DetailsRepository {
     suspend fun fetchRaw(provider: com.lagradost.cloudstream3.MainAPI, url: String, fallbackName: String? = null): LoadResponse? {
         DetailsCache.get(url)?.let { return it }

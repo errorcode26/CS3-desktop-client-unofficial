@@ -38,15 +38,12 @@ fun DetailsCollectionSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 8.dp)
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF161618)),
+            .padding(vertical = 24.dp),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 120.dp),
+                .heightIn(min = 250.dp),
             contentAlignment = Alignment.TopStart,
         ) {
             if (collBg != null) {
@@ -54,14 +51,23 @@ fun DetailsCollectionSection(
                     model = collBg,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize().blur(16.dp),
+                    modifier = Modifier.matchParentSize().blur(24.dp),
                 )
                 Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.65f)))
+                Box(modifier = Modifier.matchParentSize().background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(Color(0xFF0F0F0F), Color.Transparent, Color.Transparent, Color(0xFF0F0F0F))
+                    )
+                ))
+            } else {
+                Box(modifier = Modifier.matchParentSize().background(Color(0xFF161618)))
             }
+            
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                    .padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = "COLLECTION / SAGA",
@@ -69,19 +75,22 @@ fun DetailsCollectionSection(
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = collName,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 if (collItems.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     LazyRow(
                         state = collScrollState,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                        contentPadding = PaddingValues(horizontal = 32.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .pointerInput(Unit) {
@@ -95,7 +104,7 @@ fun DetailsCollectionSection(
                             PosterCard(
                                 item = partItem,
                                 provider = provider,
-                                itemWidth = 125.dp,
+                                itemWidth = 200.dp,
                                 onClick = {
                                     onNavigate(Config.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, false))
                                 },

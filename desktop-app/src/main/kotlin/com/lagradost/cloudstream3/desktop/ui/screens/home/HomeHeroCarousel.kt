@@ -449,10 +449,10 @@ fun HomeHeroCarousel(
                                             ),
                                     ) {
                                         Icon(
-                                            imageVector = com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library,
-                                            contentDescription = "Bookmark",
+                                            imageVector = if (currentBookmark != null) Icons.Default.Check else Icons.Default.Add,
+                                            contentDescription = "Library",
                                             tint = Color.White,
-                                            modifier = Modifier.size(22.dp),
+                                            modifier = Modifier.size(26.dp),
                                         )
                                     }
 

@@ -267,6 +267,7 @@ fun EpisodeCard(
             }
 
             ep.episode?.let { epNum ->
+                val epText = if (ep.season != null) "S${ep.season}E$epNum" else "EP $epNum"
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(percent = 50))
@@ -274,7 +275,7 @@ fun EpisodeCard(
                         .padding(horizontal = 9.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text = "EP $epNum",
+                        text = epText,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         color = Color.White,
                         fontWeight = FontWeight.ExtraBold,
@@ -317,61 +318,12 @@ fun EpisodeCard(
         }
 
         // Bottom overlay: Title + plot description
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 60.dp, bottom = 12.dp), // end padding to avoid overlap with duration pill
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 17.sp),
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
-                    modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this }.weight(1f, fill = false),
-                )
-                if (rating10p != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = "Rating",
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(14.dp),
-                        )
-                        Text(
-                            text = String.format(java.util.Locale.US, "%.1f", rating10p),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
-            val hasDesc = !ep.description.isNullOrBlank()
-            Text(
-                text = when {
-                    shouldHideSpoilers -> "Description hidden."
-                    hasDesc -> ep.description ?: ""
-                    runTimeStr != null -> "Runtime: $runTimeStr"
-                    else -> "No description available."
-                },
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.72f else 0.42f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
-            )
-        }
-
-        // Bottom-Right: Duration / Time Left pill
+        val rawDesc = ep.description ?: ""
+        val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
+        val releaseDate = dateMatch?.groupValues?.get(1)
+        val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
+        val hasDesc = cleanDesc.isNotBlank()
+        // Calculate duration text
         val durationText = if (history != null && history.duration > 0) {
             if (progress > 0f && progress < 1f) {
                 val leftSeconds = history.duration - history.position
@@ -390,21 +342,93 @@ fun EpisodeCard(
             null
         }
 
-        if (durationText != null) {
-            Box(
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 120.dp, bottom = 22.dp), // Safe buffer to prevent overlap with bottom-right pills
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 21.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
+                    modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this }.weight(1f, fill = false),
+                )
+                if (rating10p != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Rating",
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.1f", rating10p),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 16.sp),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = when {
+                    shouldHideSpoilers -> "Description hidden."
+                    hasDesc -> cleanDesc
+                    runTimeStr != null -> "Runtime: $runTimeStr"
+                    else -> "No description available."
+                },
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 16.sp, lineHeight = 22.sp),
+                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.72f else 0.42f),
+                minLines = 2,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
+            )
+        }
+
+        // Bottom-Right: Duration / Time Left pill and Release Date
+        if (releaseDate != null || durationText != null) {
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = 12.dp, end = 10.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                    .padding(bottom = 22.dp, end = 16.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    text = durationText,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (releaseDate != null) {
+                    Text(
+                        text = releaseDate,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (durationText != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.8f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = durationText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
         }
 

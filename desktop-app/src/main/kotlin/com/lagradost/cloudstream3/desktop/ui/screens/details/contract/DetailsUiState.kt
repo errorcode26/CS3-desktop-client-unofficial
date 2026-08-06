@@ -15,6 +15,13 @@ sealed interface EnrichmentPhase {
     data object Complete : EnrichmentPhase
 }
 
+data class SeasonMetadata(
+    val seasonNumber: Int,
+    val name: String,
+    val episodeCount: Int?,
+    val posterUrl: String?
+)
+
 data class DetailsUiState(
     val preloadedName: String? = null,
     val response: LoadResponse? = null,
@@ -35,6 +42,7 @@ data class DetailsUiState(
     val enrichedCollectionBackdrop: String? = null,
     val enrichedSeasonsCount: Int? = null,
     val enrichedEpisodesCount: Int? = null,
+    val enrichedSeasonsMetadata: List<SeasonMetadata> = emptyList(),
     val enrichedOriginalLanguage: String? = null,
     val enrichedReleaseDate: String? = null,
     val enrichedCountry: String? = null,

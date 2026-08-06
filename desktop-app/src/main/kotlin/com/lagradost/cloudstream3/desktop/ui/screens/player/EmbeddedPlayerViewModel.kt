@@ -345,6 +345,51 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             null
         }
 
+        val cached = LinkCache.get(targetEpisodeId)
+        if (cached != null) {
+            AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
+            
+            val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+            val sortedLinks = sortLinks(cached.links, prefQuality)
+
+            val newLaunchData = if (targetEpisodeData != null && newHistory != null) {
+                current.copy(
+                    links = sortedLinks,
+                    subtitles = cached.subtitles,
+                    history = newHistory,
+                    initialIndex = 0,
+                    startPositionMs = startPos,
+                    title = buildString {
+                        append(newHistory.showName)
+                        if (newHistory.season != null && newHistory.episode != null) {
+                            append(" - S${newHistory.season}E${newHistory.episode}")
+                        } else if (newHistory.episode != null) {
+                            append(" - E${newHistory.episode}")
+                        }
+                    },
+                )
+            } else {
+                current.copy(
+                    links = sortedLinks,
+                    subtitles = cached.subtitles,
+                    initialIndex = 0,
+                )
+            }
+
+            updateState {
+                copy(
+                    isScrapingLinks = false,
+                    nextEpisodeLinks = sortedLinks,
+                    nextEpisodeSubtitles = cached.subtitles,
+                    launchData = newLaunchData,
+                    targetEpisodeData = null,
+                    isLoadingNextEpisode = false,
+                    nextEpisodeError = null,
+                )
+            }
+            return
+        }
+
         val result = SafePluginInvoker.invoke(
             tag = "EmbeddedPlayerViewModel:${provider.name}",
             providerName = provider.name,
@@ -444,6 +489,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         ),
                     )
                 } else {
+                    LinkCache.set(targetEpisodeId, sortedLinks, nextEpisodeSubtitles)
                     copy(
                         isScrapingLinks = false,
                         nextEpisodeLinks = sortedLinks,

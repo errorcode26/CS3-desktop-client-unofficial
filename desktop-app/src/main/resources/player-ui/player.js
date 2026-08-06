@@ -1573,7 +1573,7 @@
         holdSpeedTimer = setTimeout(() => {
             isHoldingSpeed = true;
             const slider = document.getElementById('speedSlider');
-            originalSpeed = slider ? (holdSpeedMapping[parseInt(slider.value)] || 1.0) : 1.0;
+            originalSpeed = slider ? (holdSpeedMapping[parseInt(slider.value) + 6] || 1.0) : 1.0;
             const newSpeed = zoneName === 'left' ? 0.5 : 2.0;
             send('setMpvProperty', `speed:${newSpeed}`);
             holdSpeedHudText.innerText = zoneName === 'left' ? '0.5x Speed' : '2x Speed';

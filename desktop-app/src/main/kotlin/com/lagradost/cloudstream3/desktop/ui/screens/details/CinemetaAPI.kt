@@ -26,6 +26,7 @@ object CinemetaAPI {
         @JsonProperty("description") val description: String?,
         @JsonProperty("imdbRating") val imdbRating: String?,
         @JsonProperty("thumbnail") val thumbnail: String?,
+        @JsonProperty("released") val released: String?,
     )
 
     @JsonIgnoreProperties(ignoreUnknown = true)

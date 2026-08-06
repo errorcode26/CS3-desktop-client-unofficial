@@ -135,6 +135,7 @@ object TmdbEnrichmentService {
             collectionBg: String?,
             seasonsCount: Int?,
             episodesCount: Int?,
+            seasons: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata>?,
             originalLang: String?,
             releaseDate: String?,
             country: String?,
@@ -146,7 +147,7 @@ object TmdbEnrichmentService {
             duration: Int?,
             tags: List<String>?,
             actors: List<com.lagradost.cloudstream3.ActorData>?,
-        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
         // When Cinemeta already resolved the TMDB ID, we can skip text search entirely.
         directTmdbId: Int? = null,
@@ -201,21 +202,6 @@ object TmdbEnrichmentService {
                             val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
 
                             val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
-                            var isSmartSubsetMatch = false
-
-                            if (!hasNumberMismatch) {
-                                val isQuerySubsetOfResult = resultWords.containsAll(cleanWords)
-                                val isResultSubsetOfQuery = cleanWords.containsAll(resultWords)
-
-                                if (isQuerySubsetOfResult && cleanWords.size >= 2) {
-                                    isSmartSubsetMatch = true
-                                } else if (isResultSubsetOfQuery && resultWords.size >= 2) {
-                                    val wordDiff = cleanWords.size - resultWords.size
-                                    if (wordDiff <= 1) {
-                                        isSmartSubsetMatch = true
-                                    }
-                                }
-                            }
 
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
@@ -229,8 +215,6 @@ object TmdbEnrichmentService {
 
                             if (isStrictMatch) {
                                 score = 1.0
-                            } else if (isSmartSubsetMatch && score < 0.85) {
-                                score = 0.85
                             }
 
                             if (hasNumberMismatch) {
@@ -368,6 +352,27 @@ object TmdbEnrichmentService {
 
                             val seasonsCount = tmdbData.get("number_of_seasons")?.asInt()?.takeIf { it > 0 }
                             val episodesCount = tmdbData.get("number_of_episodes")?.asInt()?.takeIf { it > 0 }
+                            val seasonsArray = tmdbData.get("seasons")
+                            val parsedSeasons = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata>()
+                            if (seasonsArray != null && seasonsArray.isArray) {
+                                seasonsArray.forEach { s ->
+                                    val seasonNumber = s.get("season_number")?.asInt()
+                                    if (seasonNumber != null) {
+                                        val sName = s.get("name")?.asText() ?: "Season $seasonNumber"
+                                        val sEpisodeCount = s.get("episode_count")?.asInt()
+                                        val sPosterPath = s.get("poster_path")?.asText()
+                                        val sPosterUrl = if (sPosterPath != null && sPosterPath != "null") "https://image.tmdb.org/t/p/w500$sPosterPath" else null
+                                        parsedSeasons.add(
+                                            com.lagradost.cloudstream3.desktop.ui.screens.details.contract.SeasonMetadata(
+                                                seasonNumber = seasonNumber,
+                                                name = sName,
+                                                episodeCount = sEpisodeCount,
+                                                posterUrl = sPosterUrl
+                                            )
+                                        )
+                                    }
+                                }
+                            }
                             val originalLangCode = tmdbData.get("original_language")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                             val formattedLang = when (originalLangCode?.lowercase()) {
                                 "ja" -> "Japanese"
@@ -608,6 +613,7 @@ object TmdbEnrichmentService {
                                 collBgUrl,
                                 seasonsCount,
                                 episodesCount,
+                                parsedSeasons,
                                 formattedLang,
                                 releaseDateStr,
                                 countryStr,
@@ -683,6 +689,10 @@ object TmdbEnrichmentService {
                                                 val epOverview = epNode.get("overview")?.asText()
                                                 if ((ep.description.isNullOrBlank() || overwrite) && !epOverview.isNullOrBlank() && epOverview != "null") {
                                                     ep.description = epOverview
+                                                }
+                                                val epReleaseDate = epNode.get("air_date")?.asText()
+                                                if (!epReleaseDate.isNullOrBlank() && epReleaseDate != "null") {
+                                                    ep.description = "||DATE:${epReleaseDate}||" + (ep.description ?: "")
                                                 }
                                                 val epName = epNode.get("name")?.asText()
                                                 if (!epName.isNullOrBlank() && epName != "null") {
