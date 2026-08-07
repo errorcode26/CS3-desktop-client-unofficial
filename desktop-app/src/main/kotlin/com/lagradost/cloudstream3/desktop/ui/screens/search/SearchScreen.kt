@@ -35,9 +35,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.ui.LocalSafeArea
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
+import androidx.compose.ui.platform.LocalLayoutDirection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +83,19 @@ fun ComposeSearchScreen(
         } catch (_: Exception) {}
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    val safeArea = LocalSafeArea.current
+    val layoutDir = LocalLayoutDirection.current
+    val safeStart = safeArea.calculateStartPadding(layoutDir)
+    val safeEnd = safeArea.calculateEndPadding(layoutDir)
+    val safeTop = safeArea.calculateTopPadding()
+    val safeBottom = safeArea.calculateBottomPadding()
+
+    Column(modifier = Modifier.fillMaxSize().padding(
+        start = safeStart,
+        end = safeEnd,
+        top = safeTop,
+        bottom = safeBottom,
+    )) {
         // ── Search Header ──────────────────────────────────────────────
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
