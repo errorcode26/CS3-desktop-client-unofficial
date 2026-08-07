@@ -32,7 +32,11 @@ fun ComposeCategoryGridScreen(
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
     val minSize = posterWidthDp.dp
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
