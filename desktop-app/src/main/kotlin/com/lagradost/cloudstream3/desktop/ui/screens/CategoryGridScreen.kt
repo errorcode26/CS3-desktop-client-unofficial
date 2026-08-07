@@ -29,8 +29,12 @@ fun ComposeCategoryGridScreen(
     title: String,
     items: List<SearchResponse>,
 ) {
-    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
-    val minSize = posterWidthDp.dp
+    val gridScale by AppearanceConfig.gridScale.collectAsState()
+    val minSize = when (gridScale) {
+        "Compact" -> 150.dp
+        "Large" -> 220.dp
+        else -> 190.dp
+    }
 
     Column(
         modifier = Modifier
