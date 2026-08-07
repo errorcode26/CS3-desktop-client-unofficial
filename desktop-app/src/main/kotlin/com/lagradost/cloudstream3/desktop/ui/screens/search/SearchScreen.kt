@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 
@@ -53,6 +54,8 @@ fun ComposeSearchScreen(
     val pluginIcons = uiState.pluginIcons
     val searchHistory = uiState.searchHistory
     var showProviderDropdown by remember { mutableStateOf(false) }
+    // Local filter for the provider picker — does not affect the search itself
+    var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
@@ -203,8 +206,35 @@ fun ComposeSearchScreen(
                     DropdownMenu(
                         expanded = showProviderDropdown,
                         onDismissRequest = { showProviderDropdown = false },
-                        modifier = Modifier.heightIn(max = 400.dp),
+                        modifier = Modifier.heightIn(max = 440.dp),
                     ) {
+                        // Category chips to narrow the provider list
+                        val providerFilterCategories = listOf(
+                            TvType.Movie to "Movies",
+                            TvType.TvSeries to "Series",
+                            TvType.Anime to "Anime",
+                            TvType.Documentary to "Docs",
+                            TvType.Live to "Live",
+                        )
+                        CategoryFilterChips(
+                            categories = providerFilterCategories.map { it.second },
+                            selected = providerTypeFilter.mapNotNullTo(mutableSetOf()) { t ->
+                                providerFilterCategories.firstOrNull { it.first == t }?.second
+                            },
+                            onToggle = { label ->
+                                val tvType = providerFilterCategories.firstOrNull { it.second == label }?.first
+                                if (tvType != null) {
+                                    providerTypeFilter = if (tvType in providerTypeFilter) {
+                                        providerTypeFilter - tvType
+                                    } else {
+                                        providerTypeFilter + tvType
+                                    }
+                                }
+                            },
+                            onClearAll = { providerTypeFilter = emptySet() },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("All Plugins", fontWeight = FontWeight.SemiBold) },
                             onClick = {
@@ -213,7 +243,14 @@ fun ComposeSearchScreen(
                             },
                         )
                         HorizontalDivider()
-                        uiState.providers.forEach { provider ->
+                        val visibleProviders = if (providerTypeFilter.isEmpty()) {
+                            uiState.providers
+                        } else {
+                            uiState.providers.filter { p ->
+                                p.supportedTypes.any { it in providerTypeFilter }
+                            }
+                        }
+                        visibleProviders.forEach { provider ->
                             DropdownMenuItem(
                                 text = { Text(provider.name) },
                                 leadingIcon = {

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
+import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
@@ -30,7 +31,7 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     var searchQuery by remember { mutableStateOf("") }
     var languageFilter by remember { mutableStateOf("All") }
-    var categoryFilter by remember { mutableStateOf("All") }
+    var selectedCategories by remember { mutableStateOf(emptySet<String>()) }
     var repoFilter by remember { mutableStateOf("All") }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -44,14 +45,13 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         listOf("All") + plugins.mapNotNull { it.second.language?.takeIf { l -> l.isNotBlank() } }.distinct().sorted()
     }
     val categories = remember(plugins) {
-        listOf("All") + plugins.flatMap { it.second.tvTypes ?: emptyList() }.distinct().sorted()
+        plugins.flatMap { it.second.tvTypes ?: emptyList() }.distinct().sorted()
     }
     val reposList = remember(plugins) {
         listOf("All") + plugins.map { it.first }.distinct().sorted()
     }
 
     var showLangDropdown by remember { mutableStateOf(false) }
-    var showCatDropdown by remember { mutableStateOf(false) }
     var showRepoDropdown by remember { mutableStateOf(false) }
 
     LaunchedEffect(syncGeneration) {
@@ -142,32 +142,6 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
-            Box {
-                FilledTonalButton(
-                    onClick = { showCatDropdown = true },
-                    modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
-                ) {
-                    Text(
-                        if (categoryFilter == "All") "Category: All" else categoryFilter,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-                AppDropdownMenu(expanded = showCatDropdown, onDismissRequest = { showCatDropdown = false }) {
-                    categories.forEach { cat ->
-                        DropdownMenuItem(
-                            text = { Text(if (cat == "All") "All Categories" else cat) },
-                            onClick = {
-                                categoryFilter = cat
-                                showCatDropdown = false
-                            },
-                        )
-                    }
-                }
-            }
 
             Box {
                 FilledTonalButton(
@@ -222,6 +196,23 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             }
         }
 
+        // Row 3: Multi-select category chips
+        if (categories.isNotEmpty()) {
+            CategoryFilterChips(
+                categories = categories,
+                selected = selectedCategories,
+                onToggle = { cat ->
+                    selectedCategories = if (cat in selectedCategories) {
+                        selectedCategories - cat
+                    } else {
+                        selectedCategories + cat
+                    }
+                },
+                onClearAll = { selectedCategories = emptySet() },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            )
+        }
+
         Text(statusText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -229,7 +220,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             val matchesSearch = it.second.name.contains(searchQuery, ignoreCase = true) ||
                 it.second.internalName.contains(searchQuery, ignoreCase = true)
             val matchesLang = languageFilter == "All" || it.second.language == languageFilter
-            val matchesCat = categoryFilter == "All" || (it.second.tvTypes?.contains(categoryFilter) == true)
+            val matchesCat = selectedCategories.isEmpty() || it.second.tvTypes?.any { t -> t in selectedCategories } == true
             val matchesRepo = repoFilter == "All" || it.first == repoFilter
             matchesSearch && matchesLang && matchesCat && matchesRepo
         }
