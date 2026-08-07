@@ -798,18 +798,18 @@ private fun ActorCard(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(150.dp)
+            .width(200.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(8.dp),
+            .padding(12.dp),
     ) {
-        Box(modifier = Modifier.size(130.dp)) {
+        Box(modifier = Modifier.size(170.dp)) {
             val actorImg = provider.fixUrlNull(mainImgRaw)
             if (actorImg != null) {
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(actorImg)
-                        .size(256, 256)
+                        .size(512, 512)
                         .build(),
                     contentDescription = mainName,
                     contentScale = ContentScale.Crop,
@@ -831,7 +831,7 @@ private fun ActorCard(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = mainName,
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(80.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
@@ -841,11 +841,11 @@ private fun ActorCard(
             if (voiceActorImg != null) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(64.dp)
                         .align(Alignment.BottomEnd)
-                        .offset(x = 6.dp, y = 6.dp)
+                        .offset(x = 4.dp, y = 4.dp)
                         .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(3.dp)
+                        .padding(4.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onInvertToggle() },
@@ -862,14 +862,14 @@ private fun ActorCard(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         Text(
             mainName ?: "",
-            style = MaterialTheme.typography.bodyLarge.copy(
+            style = MaterialTheme.typography.titleMedium.copy(
                 shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
             ),
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -879,7 +879,7 @@ private fun ActorCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 subName,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -892,11 +892,12 @@ private fun ActorCard(
         if (!roleStr.isNullOrBlank()) {
             Text(
                 roleStr,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                maxLines = 1,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
