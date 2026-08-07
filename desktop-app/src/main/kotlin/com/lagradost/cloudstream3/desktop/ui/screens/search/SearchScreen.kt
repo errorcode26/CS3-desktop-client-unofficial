@@ -245,7 +245,6 @@ fun ComposeSearchScreen(
                                     }
                                 }
                             },
-                            onClearAll = { providerTypeFilter = emptySet() },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         HorizontalDivider()

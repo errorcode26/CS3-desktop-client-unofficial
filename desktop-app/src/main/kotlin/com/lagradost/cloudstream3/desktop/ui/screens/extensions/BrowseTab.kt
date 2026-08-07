@@ -208,7 +208,6 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                         selectedCategories + cat
                     }
                 },
-                onClearAll = { selectedCategories = emptySet() },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
             )
         }
