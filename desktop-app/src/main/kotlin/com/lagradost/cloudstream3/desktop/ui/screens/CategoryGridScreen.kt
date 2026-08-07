@@ -35,18 +35,18 @@ fun ComposeCategoryGridScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(vertical = 8.dp)
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 24.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
         )
         
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = minSize),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
