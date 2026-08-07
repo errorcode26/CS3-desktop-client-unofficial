@@ -224,7 +224,7 @@ fun DetailsMetadata(
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var isRightColumnHovered by remember { mutableStateOf(false) }
-    var isRightColumnPinned by remember { mutableStateOf(false) }
+    var isRightColumnPinned by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("DETAILS_RIGHT_COLUMN_PINNED") ?: false) }
     val rightColumnAlpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isRightColumnPinned || isRightColumnHovered) 1f else 0f,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 300),
@@ -619,7 +619,10 @@ fun DetailsMetadata(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 IconButton(
-                                    onClick = { isRightColumnPinned = !isRightColumnPinned },
+                                    onClick = { 
+                                        isRightColumnPinned = !isRightColumnPinned 
+                                        com.lagradost.common.storage.DesktopDataStore.setKey("DETAILS_RIGHT_COLUMN_PINNED", isRightColumnPinned)
+                                    },
                                     modifier = Modifier.size(36.dp),
                                 ) {
                                     Icon(
