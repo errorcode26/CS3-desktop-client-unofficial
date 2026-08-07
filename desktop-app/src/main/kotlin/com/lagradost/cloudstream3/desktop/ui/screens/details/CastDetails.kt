@@ -73,7 +73,7 @@ fun CastDetailsDialog(
     com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
         show = show,
         onDismissRequest = triggerDismiss,
-        modifier = Modifier.width(1000.dp).heightIn(max = 700.dp)
+        modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
                     if (isLoading) {
