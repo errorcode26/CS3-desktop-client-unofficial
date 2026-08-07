@@ -337,18 +337,11 @@ fun DetailsContent(
             null
         }
 
-        val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
-        val safeLeft = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
-        val safeRight = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
-        val safeBottom = safeArea.calculateBottomPadding()
-        
         LazyColumn(
             state = scrollState, 
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = safeLeft,
-                end = safeRight,
-                bottom = safeBottom + 32.dp
+                bottom = 32.dp
             )
         ) {
             item(key = "HeroAndTabs") {

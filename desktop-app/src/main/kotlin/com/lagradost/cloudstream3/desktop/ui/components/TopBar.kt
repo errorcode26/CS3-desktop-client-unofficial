@@ -22,8 +22,6 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun TopBar(
-    showBack: Boolean,
-    onBack: () -> Unit,
     isHome: Boolean,
     homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
@@ -37,20 +35,6 @@ fun TopBar(
                 .padding(horizontal = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (showBack) {
-                val theme = LocalDesktopTheme.current
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.SurfaceElevated.copy(alpha = 0.5f))
-                        .clickable { onBack() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.TextPrimary, modifier = Modifier.size(20.dp))
-                }
-                Spacer(Modifier.width(8.dp))
-            }
             ClockWidget()
             Spacer(Modifier.weight(1f))
 
@@ -82,7 +66,6 @@ private fun ClockWidget() {
     Column(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier.padding(start = 4.dp),
     ) {
         if (mode == ClockDisplayMode.TIME_ONLY || mode == ClockDisplayMode.BOTH) {
             Text(

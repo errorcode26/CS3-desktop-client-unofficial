@@ -40,9 +40,10 @@ fun DesktopAppShell(
     onNavigate: (Config) -> Unit,
     onBack: () -> Unit = {},
     title: String? = null,
-    showBack: Boolean = false,
     homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
+    showDock: Boolean = true,
+    showTopBar: Boolean = true,
     applySafePadding: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -228,31 +229,68 @@ fun DesktopAppShell(
                         }
                     }
                 }
-                val contentPadding = when (dockPosition) {
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(start = 82.dp)
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(end = 82.dp)
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(top = 82.dp)
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(bottom = 82.dp)
-                    else -> PaddingValues(start = 82.dp)
+                val safeTop = if (showTopBar) 64.dp else 0.dp
+                val basePadding = 16.dp
+                
+                val contentPadding = if (showDock) {
+                    when (dockPosition) {
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(
+                            start = 82.dp + basePadding, 
+                            top = safeTop + basePadding,
+                            end = basePadding,
+                            bottom = basePadding
+                        )
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(
+                            start = basePadding, 
+                            top = safeTop + basePadding,
+                            end = 82.dp + basePadding,
+                            bottom = basePadding
+                        )
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(
+                            start = basePadding,
+                            top = 82.dp + safeTop + basePadding,
+                            end = basePadding,
+                            bottom = basePadding
+                        )
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(
+                            start = basePadding,
+                            top = safeTop + basePadding,
+                            end = basePadding,
+                            bottom = 82.dp + basePadding
+                        )
+                        else -> PaddingValues(
+                            start = 82.dp + basePadding, 
+                            top = safeTop + basePadding,
+                            end = basePadding,
+                            bottom = basePadding
+                        )
+                    }
+                } else {
+                    PaddingValues(
+                        start = basePadding,
+                        top = safeTop + basePadding,
+                        end = basePadding,
+                        bottom = basePadding
+                    )
                 }
 
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().then(if (applySafePadding) Modifier.padding(contentPadding) else Modifier)
                 ) {
                     CompositionLocalProvider(LocalSafeArea provides contentPadding) {
                         content()
                     }
                 }
 
-                // Global TopBar (Back button + Window Controls)
-                // Positioned outside the width-constrained box so it always anchors to the absolute edges of the window
-                TopBar(
-                    showBack = showBack,
-                    onBack = onBack,
-                    isHome = title == "Home",
-                    homeUiState = homeUiState,
-                    homeActionDispatcher = homeActionDispatcher,
-                )
+                if (showTopBar) {
+                    // Global TopBar (Back button + Window Controls)
+                    // Positioned outside the width-constrained box so it always anchors to the absolute edges of the window
+                    TopBar(
+                        isHome = title == "Home",
+                        homeUiState = homeUiState,
+                        homeActionDispatcher = homeActionDispatcher,
+                    )
+                }
 
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -260,22 +298,24 @@ fun DesktopAppShell(
                 )
             }
 
-            // Navigation Dock
-            val dockAlignment = when (dockPosition) {
-                com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
-                com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
-                com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
-                else -> Alignment.CenterStart
+            if (showDock) {
+                // Navigation Dock
+                val dockAlignment = when (dockPosition) {
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
+                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
+                    else -> Alignment.CenterStart
+                }
+                NavigationDock(
+                    modifier = Modifier.align(dockAlignment),
+                    currentTitle = title ?: "",
+                    dockPosition = dockPosition,
+                    onNavigate = onNavigate,
+                    onSearchClick = {
+                        onNavigate(Config.Search)
+                    },
+                )
             }
-            NavigationDock(
-                modifier = Modifier.align(dockAlignment),
-                currentTitle = title ?: "",
-                dockPosition = dockPosition,
-                onNavigate = onNavigate,
-                onSearchClick = {
-                    onNavigate(Config.Search)
-                },
-            )
 
             // Updates Notification Bell (Always bottom left)
             UpdatesNotificationBell(

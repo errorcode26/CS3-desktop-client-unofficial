@@ -153,94 +153,98 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     androidx.compose.foundation.layout.Box(
                         modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
                     ) {
-                        Children(
-                            stack = childStack,
-                            modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                            animation = stackAnimation(fade() + scale()),
+                        val activeInstance = childStack.active.instance
+
+                        val title = when (activeInstance) {
+                            is RootComponent.Child.Home -> "Home"
+                            is RootComponent.Child.History -> "Watch History"
+                            is RootComponent.Child.Search -> "Search"
+                            is RootComponent.Child.Extensions -> "Extensions"
+                            is RootComponent.Child.Library -> "Library"
+                            is RootComponent.Child.Settings -> "Settings"
+                            is RootComponent.Child.CategoryGrid -> activeInstance.title
+                            is RootComponent.Child.Details -> null
+                        }
+                        val applySafePadding = when (activeInstance) {
+                            is RootComponent.Child.Details -> false // Details manually pads itself
+                            is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
+                            else -> true
+                        }
+                        val showDock = when (activeInstance) {
+                            is RootComponent.Child.Details -> false
+                            else -> true
+                        }
+                        val showTopBar = when (activeInstance) {
+                            is RootComponent.Child.Details -> false
+                            else -> true
+                        }
+
+                        DesktopAppShell(
+                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                            onBack = { rootComponent.pop() },
+                            title = title,
+                            homeUiState = (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.uiState?.collectAsState()?.value,
+                            homeActionDispatcher = { ev -> (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.onEvent(ev) },
+                            showDock = showDock,
+                            showTopBar = showTopBar,
+                            applySafePadding = applySafePadding,
                         ) {
-                            when (val child = it.instance) {
-                                is RootComponent.Child.Details -> {
-                                    val api = child.component.api
-                                    if (api != null) {
-                                        ComposeDetailsScreen(
-                                            onBack = { rootComponent.pop() },
-                                            onNavigate = { config -> rootComponent.bringToFront(config) },
-                                            viewModel = child.component.viewModel,
-                                            autoPlay = child.component.config.autoPlay
-                                        )
-                                    } else {
-                                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                            androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
+                            Children(
+                                stack = childStack,
+                                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                animation = stackAnimation(fade() + scale()),
+                            ) {
+                                when (val child = it.instance) {
+                                    is RootComponent.Child.Details -> {
+                                        val api = child.component.api
+                                        if (api != null) {
+                                            ComposeDetailsScreen(
+                                                onBack = { rootComponent.pop() },
+                                                onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                viewModel = child.component.viewModel,
+                                                autoPlay = child.component.config.autoPlay
+                                            )
+                                        } else {
+                                            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
+                                            }
                                         }
                                     }
-                                }
 
-                                is RootComponent.Child.Home -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    title = "Home",
-                                    homeUiState = child.component.viewModel.uiState.collectAsState().value,
-                                    homeActionDispatcher = { ev -> child.component.viewModel.onEvent(ev) },
-                                ) {
-                                    ComposeHomeScreen(
-                                        onNavigate = { config -> rootComponent.bringToFront(config) },
-                                        viewModel = child.component.viewModel,
-                                    )
-                                }
-                                is RootComponent.Child.History -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    onBack = { rootComponent.pop() },
-                                    title = "Watch History",
-                                    showBack = true,
-                                    applySafePadding = true,
-                                ) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(onNavigate = { rootComponent.bringToFront(it) })
-                                }
-                                is RootComponent.Child.Search -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    title = "Search",
-                                    applySafePadding = true,
-                                ) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
-                                        onNavigate = { config -> rootComponent.bringToFront(config) },
-                                        viewModel = child.component.viewModel,
-                                    )
-                                }
-                                is RootComponent.Child.Extensions -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    title = "Extensions",
-                                    applySafePadding = true,
-                                ) {
-                                    ComposeExtensionScreen(onNavigate = { rootComponent.bringToFront(it) }, child.initialTab)
-                                }
-                                is RootComponent.Child.Library -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    title = "Library",
-                                    applySafePadding = true,
-                                ) {
-                                    ComposeLibraryScreen(onNavigate = { rootComponent.bringToFront(it) })
-                                }
-                                is RootComponent.Child.Settings -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    title = "Settings",
-                                    applySafePadding = true,
-                                ) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
-                                        onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    )
-                                }
-                                is RootComponent.Child.CategoryGrid -> DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    onBack = { rootComponent.pop() },
-                                    title = child.title,
-                                    showBack = true,
-                                    applySafePadding = true,
-                                ) {
-                                    val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.providerName)
-                                    if (api != null) {
-                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.title, child.items)
-                                    } else {
-                                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                            androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
+                                    is RootComponent.Child.Home -> {
+                                        ComposeHomeScreen(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                        )
+                                    }
+                                    is RootComponent.Child.History -> {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(onNavigate = { rootComponent.bringToFront(it) })
+                                    }
+                                    is RootComponent.Child.Search -> {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                        )
+                                    }
+                                    is RootComponent.Child.Extensions -> {
+                                        ComposeExtensionScreen(onNavigate = { rootComponent.bringToFront(it) }, child.initialTab)
+                                    }
+                                    is RootComponent.Child.Library -> {
+                                        ComposeLibraryScreen(onNavigate = { rootComponent.bringToFront(it) })
+                                    }
+                                    is RootComponent.Child.Settings -> {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                        )
+                                    }
+                                    is RootComponent.Child.CategoryGrid -> {
+                                        val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.providerName)
+                                        if (api != null) {
+                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.title, child.items)
+                                        } else {
+                                            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
+                                            }
                                         }
                                     }
                                 }

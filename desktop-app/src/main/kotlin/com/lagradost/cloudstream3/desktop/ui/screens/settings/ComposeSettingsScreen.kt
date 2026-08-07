@@ -9,10 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.LocalSafeArea
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 enum class SettingsTab(val title: String) {
@@ -41,20 +39,8 @@ fun ComposeSettingsScreen(onNavigate: (Config) -> Unit) {
     var selectedTab by SettingsSession::selectedTab
     var activeSubScreen by SettingsSession::activeSubScreen
 
-    val safeArea = LocalSafeArea.current
-    val layoutDir = LocalLayoutDirection.current
-    val safeStart = safeArea.calculateStartPadding(layoutDir)
-    val safeEnd = safeArea.calculateEndPadding(layoutDir)
-    val safeTop = safeArea.calculateTopPadding()
-    val safeBottom = safeArea.calculateBottomPadding()
-
     Row(
-        modifier = Modifier.fillMaxSize().padding(
-            start = safeStart + 32.dp,
-            end = safeEnd + 32.dp,
-            top = safeTop + 32.dp,
-            bottom = safeBottom + 32.dp,
-        ),
+        modifier = Modifier.fillMaxSize().padding(32.dp),
     ) {
         // Left Pane: Sidebar Navigation
         Column(
