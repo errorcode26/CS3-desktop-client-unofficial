@@ -156,15 +156,44 @@ fun CastDetailsDialog(
                                 if (d.biography != null) {
                                     Text("Biography", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     Spacer(modifier = Modifier.height(12.dp))
+                                    var isBioExpanded by remember { mutableStateOf(false) }
+                                    var showReadMoreButton by remember { mutableStateOf(false) }
                                     val scrollState = rememberScrollState()
-                                    Box(modifier = Modifier.weight(1f, fill = false)) {
+
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .verticalScroll(scrollState)
+                                            .padding(end = 12.dp)
+                                            .animateContentSize()
+                                    ) {
                                         Text(
-                                            d.biography,
+                                            text = d.biography,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             lineHeight = 22.sp,
-                                            modifier = Modifier.verticalScroll(scrollState).padding(end = 12.dp),
+                                            maxLines = if (isBioExpanded) Int.MAX_VALUE else 4,
+                                            overflow = TextOverflow.Ellipsis,
+                                            onTextLayout = { textLayoutResult ->
+                                                if (!isBioExpanded && textLayoutResult.hasVisualOverflow) {
+                                                    showReadMoreButton = true
+                                                }
+                                            }
                                         )
+                                        
+                                        if (showReadMoreButton) {
+                                            Text(
+                                                text = if (isBioExpanded) "Read less" else "Read more",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                modifier = Modifier
+                                                    .padding(top = 8.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .clickable { isBioExpanded = !isBioExpanded }
+                                                    .padding(vertical = 4.dp, horizontal = 8.dp)
+                                            )
+                                        }
                                     }
                                     Spacer(modifier = Modifier.height(32.dp))
                                 }
