@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 
 @Composable
@@ -37,6 +39,7 @@ fun HomeManagementDialog(
 ) {
     var isAdvancedMode by remember { mutableStateOf(activeProviders.size > 1) }
     var catalogProvider by remember { mutableStateOf<MainAPI?>(null) }
+    var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
@@ -81,6 +84,33 @@ fun HomeManagementDialog(
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
+            
+            if (catalogProvider == null) {
+                val providerFilterCategories = listOf(
+                    TvType.Movie to "Movies",
+                    TvType.TvSeries to "Series",
+                    TvType.Anime to "Anime",
+                    TvType.Documentary to "Docs",
+                    TvType.Live to "Live",
+                )
+                CategoryFilterChips(
+                    categories = providerFilterCategories.map { it.second },
+                    selected = providerTypeFilter.mapNotNullTo(mutableSetOf()) { t ->
+                        providerFilterCategories.firstOrNull { it.first == t }?.second
+                    },
+                    onToggle = { label ->
+                        val tvType = providerFilterCategories.firstOrNull { it.second == label }?.first
+                        if (tvType != null) {
+                            providerTypeFilter = if (tvType in providerTypeFilter) {
+                                providerTypeFilter - tvType
+                            } else {
+                                providerTypeFilter + tvType
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                )
+            }
 
             // MAIN CONTENT (Takes remaining space)
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -128,7 +158,12 @@ fun HomeManagementDialog(
                     }
                 } else if (!isAdvancedMode) {
                     // SIMPLE MODE: Just a grid of all providers
-                    val sortedProviders = allProviders.sortedBy { it.name }
+                    val filteredProviders = if (providerTypeFilter.isEmpty()) {
+                        allProviders
+                    } else {
+                        allProviders.filter { p -> p.supportedTypes.any { it in providerTypeFilter } }
+                    }
+                    val sortedProviders = filteredProviders.sortedBy { it.name }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 250.dp),
                         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f), RoundedCornerShape(12.dp)).padding(12.dp),
@@ -221,7 +256,12 @@ fun HomeManagementDialog(
                             Text("Available Plugins", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            val inactiveProviders = allProviders.filter { it.name !in activeProviders }.sortedBy { it.name }
+                            val filteredInactive = if (providerTypeFilter.isEmpty()) {
+                                allProviders.filter { it.name !in activeProviders }
+                            } else {
+                                allProviders.filter { it.name !in activeProviders && it.supportedTypes.any { t -> t in providerTypeFilter } }
+                            }
+                            val inactiveProviders = filteredInactive.sortedBy { it.name }
                             
                             if (inactiveProviders.isEmpty()) {
                                 Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.5f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
