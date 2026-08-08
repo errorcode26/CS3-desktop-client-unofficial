@@ -31,6 +31,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private var loadLinksJob: Job? = null
     private var saveJob: Job? = null
     private var scrapeJob: Job? = null
+    private var timeoutJob: Job? = null
+    private var countdownJob: Job? = null
 
     init {
         PlayerDiagnosticsHolder.register(playerState)
@@ -96,6 +98,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             is PlayerUiEvent.OnSelectShader -> selectShader(event.shaderName)
             is PlayerUiEvent.OnPlaybackError -> handlePlaybackError(event.failedUrl)
             is PlayerUiEvent.OnLinkChange -> handleLinkChange(event.url)
+            is PlayerUiEvent.OnPlaybackReady -> handlePlaybackReady()
+            is PlayerUiEvent.OnPlaybackFinished -> handlePlaybackFinished()
+            is PlayerUiEvent.OnCancelCountdown -> cancelCountdown()
         }
     }
 
@@ -129,32 +134,76 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    private fun handlePlaybackError(failedUrl: String) {
-        AppLogger.e("EmbeddedPlayerViewModel", "Playback error on: $failedUrl")
-        updateState {
-            val newFailed = failedLinks + failedUrl
-            val links = launchData?.links ?: emptyList()
-            val startPos = launchData?.startPositionMs ?: 0L
-            val next = pickBestActiveLink(links, newFailed, startPos)
-            if (next == null && !isScrapingLinks) {
-                // All links exhausted and scraping is done — surface the error
-                AppLogger.e("EmbeddedPlayerViewModel", "All sources exhausted.")
-            }
+    private fun setActiveLink(link: ExtractorLink?, newFailedLinks: Set<String>? = null) {
+        timeoutJob?.cancel()
+        countdownJob?.cancel()
+        updateState { 
             copy(
-                failedLinks = newFailed,
-                activeLink = next,
+                activeLink = link,
+                isProbingOverlay = link != null,
+                countdownToNextEpisode = null,
+                failedLinks = newFailedLinks ?: failedLinks
             )
+        }
+        if (link != null) {
+            timeoutJob = viewModelScope.launch {
+                delay(48000)
+                if (uiState.value.isProbingOverlay) {
+                    handleEvent(PlayerUiEvent.OnPlaybackError("Network timed out (48s fail-safe)"))
+                }
+            }
         }
     }
 
-    private fun handleLinkChange(url: String) {
-        updateState {
-            val link = launchData?.links?.find { it.url == url }
-            copy(
-                failedLinks = emptySet(),
-                activeLink = link,
-            )
+    private fun handlePlaybackReady() {
+        timeoutJob?.cancel()
+        updateState { copy(isProbingOverlay = false) }
+    }
+
+    private fun handlePlaybackFinished() {
+        timeoutJob?.cancel()
+        if (uiState.value.hasNextEpisode && uiState.value.autoPlayEnabled) {
+            startCountdown()
         }
+    }
+
+    private fun cancelCountdown() {
+        countdownJob?.cancel()
+        updateState { copy(countdownToNextEpisode = null) }
+    }
+
+    private fun startCountdown() {
+        countdownJob?.cancel()
+        countdownJob = viewModelScope.launch {
+            val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000"
+            var ticks = (timeoutStr.toLongOrNull() ?: 15000L) / 1000L
+            
+            while (ticks > 0) {
+                updateState { copy(countdownToNextEpisode = ticks.toInt()) }
+                delay(1000)
+                ticks--
+            }
+            updateState { copy(countdownToNextEpisode = null) }
+            handleEvent(PlayerUiEvent.OnLoadNextEpisode)
+        }
+    }
+
+    private fun handlePlaybackError(failedUrl: String) {
+        AppLogger.e("EmbeddedPlayerViewModel", "Playback error on: $failedUrl")
+        val newFailed = uiState.value.failedLinks + failedUrl
+        val links = uiState.value.launchData?.links ?: emptyList()
+        val startPos = uiState.value.launchData?.startPositionMs ?: 0L
+        val next = pickBestActiveLink(links, newFailed, startPos)
+        if (next == null && !uiState.value.isScrapingLinks) {
+            // All links exhausted and scraping is done — surface the error
+            AppLogger.e("EmbeddedPlayerViewModel", "All sources exhausted.")
+        }
+        setActiveLink(next, newFailed)
+    }
+
+    private fun handleLinkChange(url: String) {
+        val link = uiState.value.launchData?.links?.find { it.url == url }
+        setActiveLink(link, emptySet())
     }
 
     private fun selectShader(shaderName: String) {

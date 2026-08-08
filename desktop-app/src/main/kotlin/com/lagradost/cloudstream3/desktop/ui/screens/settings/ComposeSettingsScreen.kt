@@ -35,7 +35,10 @@ object SettingsSession {
 }
 
 @Composable
-fun ComposeSettingsScreen(onNavigate: (Config) -> Unit) {
+fun ComposeSettingsScreen(
+    onNavigate: (Config) -> Unit,
+    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel? = null
+) {
     var selectedTab by SettingsSession::selectedTab
     var activeSubScreen by SettingsSession::activeSubScreen
 

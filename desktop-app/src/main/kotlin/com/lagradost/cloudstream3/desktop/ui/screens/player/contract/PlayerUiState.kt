@@ -21,6 +21,8 @@ data class PlayerUiState(
     // URLs that have failed playback in the current episode session.
     // Owned by the ViewModel so link-picking can account for failures across recompositions.
     val failedLinks: Set<String> = emptySet(),
+    val isProbingOverlay: Boolean = true,
+    val countdownToNextEpisode: Int? = null,
 ) : UiState {
     val episodes: List<Episode> get() {
         val currentData = launchData ?: return emptyList()

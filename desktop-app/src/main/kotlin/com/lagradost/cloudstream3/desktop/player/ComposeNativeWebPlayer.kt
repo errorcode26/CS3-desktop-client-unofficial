@@ -333,37 +333,7 @@ fun ComposeNativeWebPlayer(
                                     val season = parsed["season"]?.asText()?.toIntOrNull()
                                     val episode = parsed["episode"]?.asText()?.toIntOrNull()
 
-                                    val search = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleSearch(
-                                        query = query,
-                                        lang = lang,
-                                        seasonNumber = season,
-                                        epNumber = episode,
-                                    )
-
-                                    val allResults = mutableListOf<Map<String, Any?>>()
-                                    for (provider in com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders) {
-                                        val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[provider.idPrefix]?.firstOrNull()
-                                        val subList = SafePluginInvoker.invokeOrNull(
-                                            tag = "SubSearch:${provider.name}",
-                                            providerName = provider.name,
-                                            timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
-                                        ) {
-                                            provider.search(auth, search)
-                                        }
-                                        subList?.forEach { sub ->
-                                            allResults.add(
-                                                mapOf(
-                                                    "idPrefix" to sub.idPrefix,
-                                                    "name" to sub.name,
-                                                    "lang" to sub.lang,
-                                                    "data" to sub.data,
-                                                    "source" to sub.source,
-                                                    "seasonNumber" to sub.seasonNumber,
-                                                    "epNumber" to sub.epNumber,
-                                                ),
-                                            )
-                                        }
-                                    }
+                                    val allResults = SubtitleExtractionService.searchSubtitles(query, lang, season, episode)
 
                                     val json = playerObjectMapper.writeValueAsString(
                                         mapOf("type" to "subtitle_search_results", "results" to allResults),
@@ -386,74 +356,24 @@ fun ComposeNativeWebPlayer(
                                     val data = parsed["data"]?.asText() ?: return@launch
                                     val name = parsed["name"]?.asText() ?: "subtitle"
 
-                                    val provider = com.lagradost.cloudstream3.syncproviders.AccountManager.subtitleProviders.firstOrNull { it.idPrefix == idPrefix }
-                                    if (provider != null) {
-                                        val auth = com.lagradost.cloudstream3.syncproviders.AccountManager.cachedAccounts[idPrefix]?.firstOrNull()
+                                    val safeUrl = SubtitleExtractionService.downloadAndExtractSubtitle(
+                                        idPrefix = idPrefix,
+                                        data = data,
+                                        name = name,
+                                        lang = parsed["lang"]?.asText() ?: "",
+                                        source = parsed["source"]?.asText() ?: ""
+                                    )
 
-                                        val sub = com.lagradost.cloudstream3.subtitles.AbstractSubtitleEntities.SubtitleEntity(
-                                            idPrefix = idPrefix,
-                                            name = name,
-                                            data = data,
-                                            lang = parsed["lang"]?.asText() ?: "",
-                                            source = parsed["source"]?.asText() ?: "",
+                                    if (safeUrl != null) {
+                                        if (!persistentSubtitles.contains(safeUrl)) {
+                                            persistentSubtitles.add(safeUrl)
+                                        }
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
+
+                                        val toastJson = playerObjectMapper.writeValueAsString(
+                                            mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle"),
                                         )
-
-                                        val fileUrl = SafePluginInvoker.invokeOrNull(
-                                            tag = "SubLoad:${provider.name}",
-                                            providerName = provider.name,
-                                            timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
-                                        ) {
-                                            provider.load(auth, sub)
-                                        }
-                                        if (fileUrl != null) {
-                                            var finalUrl: String = fileUrl
-                                            val cleanUrl = fileUrl.substringBefore("?")
-                                            if (cleanUrl.endsWith(".zip", ignoreCase = true)) {
-                                                val zipFile = if (fileUrl.startsWith("http", ignoreCase = true)) {
-                                                    val tmp = java.io.File.createTempFile("sub", ".zip")
-                                                    val res = com.lagradost.cloudstream3.app.get(fileUrl).okhttpResponse
-                                                    val bytes = res.body.bytes()
-                                                    if (bytes != null) {
-                                                        tmp.writeBytes(bytes)
-                                                        tmp
-                                                    } else {
-                                                        null
-                                                    }
-                                                } else if (fileUrl.startsWith("file://", ignoreCase = true)) {
-                                                    java.io.File(java.net.URI(fileUrl))
-                                                } else {
-                                                    java.io.File(fileUrl)
-                                                }
-
-                                                if (zipFile != null && zipFile.exists()) {
-                                                    java.util.zip.ZipFile(zipFile).use { zip ->
-                                                        val entry = zip.entries().toList().firstOrNull {
-                                                            it.name.endsWith(".srt", true) || it.name.endsWith(".vtt", true) || it.name.endsWith(".ass", true)
-                                                        }
-                                                        if (entry != null) {
-                                                            val ext = "." + entry.name.substringAfterLast('.', "srt")
-                                                            val extracted = java.io.File.createTempFile("sub_ext", ext)
-                                                            zip.getInputStream(entry).use { input ->
-                                                                extracted.outputStream().use { output ->
-                                                                    input.copyTo(output)
-                                                                }
-                                                            }
-                                                            finalUrl = extracted.absolutePath
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            val safeUrl = finalUrl.replace("\\", "/")
-                                            if (!persistentSubtitles.contains(safeUrl)) {
-                                                persistentSubtitles.add(safeUrl)
-                                            }
-                                            MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
-
-                                            val toastJson = playerObjectMapper.writeValueAsString(
-                                                mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle"),
-                                            )
-                                            NativePlayerBridge.postMessage(toastJson)
-                                        }
+                                        NativePlayerBridge.postMessage(toastJson)
                                     }
                                 } catch (e: Exception) {
                                     com.lagradost.common.logging.AppLogger.e("Player:Web", "downloadSubtitle error: ${e.message}", e)

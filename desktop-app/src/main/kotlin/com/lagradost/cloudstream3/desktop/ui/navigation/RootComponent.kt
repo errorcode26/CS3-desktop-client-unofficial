@@ -14,15 +14,12 @@ interface RootComponent {
 
     sealed class Child {
         class Home(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent) : Child()
-        data object History : Child()
+        class History(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent) : Child()
         class Search(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent) : Child()
-        data class Extensions(val initialTab: Int) : Child()
-        data object Library : Child()
-        data object Settings : Child()
+        class Extensions(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent) : Child()
+        class Library(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent) : Child()
+        class Settings(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent) : Child()
         class Details(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent) : Child()
-        data class CategoryGrid(
-            val providerName: String,
-            val title: String,
-        ) : Child()
+        class CategoryGrid(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.CategoryGridComponent) : Child()
     }
 }

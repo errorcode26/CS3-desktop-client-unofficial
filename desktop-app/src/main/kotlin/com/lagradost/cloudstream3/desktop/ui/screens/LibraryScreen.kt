@@ -47,13 +47,10 @@ import com.lagradost.common.storage.DesktopWatchType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeLibraryScreen(onNavigate: (Config) -> Unit) {
-    val viewModel = remember { LibraryViewModel() }
-    DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.dispose()
-        }
-    }
+fun ComposeLibraryScreen(
+    onNavigate: (Config) -> Unit,
+    viewModel: LibraryViewModel
+) {
 
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->

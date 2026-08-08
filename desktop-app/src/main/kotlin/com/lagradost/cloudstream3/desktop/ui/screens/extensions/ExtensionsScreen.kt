@@ -18,14 +18,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeExtensionScreen(onNavigate: (Config) -> Unit, initialTab: Int = 0) {
+fun ComposeExtensionScreen(
+    onNavigate: (Config) -> Unit, 
+    initialTab: Int = 0,
+    viewModel: ExtensionsViewModel
+) {
     var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabs = listOf("Browse", "Installed", "Repositories")
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { ExtensionsViewModel() }
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.dispose() }
-    }
     val uiState by viewModel.uiState.collectAsState()
     val syncGen = uiState.syncGeneration
     val inspectedRepoName = uiState.inspectedRepoName

@@ -8,6 +8,9 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.search.SearchViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ExtensionsViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel
 
 class HomeComponent(
     componentContext: ComponentContext,
@@ -20,6 +23,35 @@ class SearchComponent(
 ) : ComponentContext by componentContext {
     val viewModel = instanceKeeper.getOrCreate { SearchViewModel() }
 }
+
+class HistoryComponent(
+    componentContext: ComponentContext,
+) : ComponentContext by componentContext
+
+class ExtensionsComponent(
+    componentContext: ComponentContext,
+    val initialTab: Int,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate { ExtensionsViewModel() }
+}
+
+class LibraryComponent(
+    componentContext: ComponentContext,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate { LibraryViewModel() }
+}
+
+class SettingsComponent(
+    componentContext: ComponentContext,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate { PluginSettingsViewModel() }
+}
+
+class CategoryGridComponent(
+    componentContext: ComponentContext,
+    val providerName: String,
+    val title: String,
+) : ComponentContext by componentContext
 
 class DetailsComponent(
     componentContext: ComponentContext,

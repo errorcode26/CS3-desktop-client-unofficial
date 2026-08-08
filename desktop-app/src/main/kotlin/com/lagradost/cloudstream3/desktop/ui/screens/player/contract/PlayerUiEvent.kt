@@ -16,4 +16,7 @@ sealed interface PlayerUiEvent : UiEvent {
     data class OnSelectShader(val shaderName: String) : PlayerUiEvent
     data class OnPlaybackError(val failedUrl: String) : PlayerUiEvent
     data class OnLinkChange(val url: String) : PlayerUiEvent
+    data object OnPlaybackReady : PlayerUiEvent
+    data object OnPlaybackFinished : PlayerUiEvent
+    data object OnCancelCountdown : PlayerUiEvent
 }

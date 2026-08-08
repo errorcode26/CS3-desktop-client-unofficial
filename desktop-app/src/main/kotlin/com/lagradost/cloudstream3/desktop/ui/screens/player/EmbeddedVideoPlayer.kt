@@ -101,27 +101,7 @@ fun EmbeddedVideoPlayer(
             val playerMaxHeight = maxHeight
 
             if (!isFinished) {
-                var countdownToNextEpisode by remember { mutableStateOf<Int?>(null) }
-
-                LaunchedEffect(countdownToNextEpisode) {
-                    if (countdownToNextEpisode != null) {
-                        if (countdownToNextEpisode!! > 0) {
-                            kotlinx.coroutines.delay(1000)
-                            countdownToNextEpisode = countdownToNextEpisode!! - 1
-                        } else {
-                            countdownToNextEpisode = null
-                            viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
-                        }
-                    }
-                }
-
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // isProbingOverlay: true until onPlaybackReady fires.
-                    // Keyed on episodeId so it resets when switching episodes.
-                    var isProbingOverlay by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
-                    // Once onPlaybackReady fires, we never show the probing overlay again for this episode.
-                    var hasPlaybackStarted by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
-
                     // activeLink is owned entirely by the ViewModel — no local picking logic here.
                     val activeLink = uiState.activeLink
                     val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink
@@ -130,23 +110,6 @@ fun EmbeddedVideoPlayer(
                     val uiFailedLinks = actualLaunchData.links
                         .mapIndexedNotNull { index, link -> if (link.url in uiState.failedLinks) index to "Failed" else null }
                         .toMap()
-
-                    // Safety-net timeout: MPV fires its own error after 45s on a hung stream.
-                    // This 48s fallback catches any edge case where MPV silently hangs without
-                    // surfacing an event (e.g. proxy stall, JNA freeze during init).
-                    // Keyed on activeLink ONLY — isProbingOverlay must NOT be a key or every
-                    // overlay-dismiss from onPlaybackReady would restart the 48s timer.
-                    LaunchedEffect(activeLink) {
-                        if (activeLink != null && isProbingOverlay) {
-                            kotlinx.coroutines.delay(48000)
-                            if (isProbingOverlay) {
-                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Link timed out after 48s. Forcing fallback.")
-                                activeLink.url.let { viewModel.onEvent(PlayerUiEvent.OnPlaybackError(it)) }
-                                isLoading = true
-                                if (!hasPlaybackStarted) isProbingOverlay = true
-                            }
-                        }
-                    }
 
                     // When ViewModel clears activeLink after all sources are exhausted, close.
                     LaunchedEffect(activeLink, uiState.isScrapingLinks) {
@@ -208,7 +171,7 @@ fun EmbeddedVideoPlayer(
                         episodes = episodes,
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
-                        isProbing = !isExiting && isProbingOverlay,
+                        isProbing = !isExiting && uiState.isProbingOverlay,
                         failedLinks = uiFailedLinks,
                         backdropUrl = backdropUrl,
                         logoUrl = logoUrl,
@@ -216,14 +179,12 @@ fun EmbeddedVideoPlayer(
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange -> $targetUrl")
                             playerState.pause()
                             isLoading = true
-                            isProbingOverlay = true
                             viewModel.onEvent(PlayerUiEvent.OnLinkChange(targetUrl))
                         },
                         onEpisodeChange = { epId ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onEpisodeChange triggered -> new episodeId: $epId")
                             playerState.pause()
                             isLoading = true
-                            isProbingOverlay = true
                             val targetEp = episodes.find { it.data == epId }
                             if (targetEp != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(targetEp))
@@ -232,14 +193,12 @@ fun EmbeddedVideoPlayer(
                         onNextEpisode = {
                             playerState.pause()
                             isLoading = true
-                            isProbingOverlay = true
                             viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
                         },
                         onReplayEpisode = {
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onReplayEpisode triggered")
                             playerState.pause()
                             isLoading = true
-                            isProbingOverlay = true
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(currentEp))
@@ -250,8 +209,7 @@ fun EmbeddedVideoPlayer(
                         onPlaybackReady = {
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady for link index $displayLinkIndex")
                             isLoading = false
-                            isProbingOverlay = false
-                            hasPlaybackStarted = true
+                            viewModel.onEvent(PlayerUiEvent.OnPlaybackReady)
                         },
                         onPositionChange = { posMs, durMs ->
                             playerState.updatePositionFromPlayer(posMs)
@@ -267,6 +225,7 @@ fun EmbeddedVideoPlayer(
                             val hasNext = uiState.hasNextEpisode
                             val isAutoPlay = uiState.autoPlayEnabled
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $isAutoPlay);")
+                            viewModel.onEvent(PlayerUiEvent.OnPlaybackFinished)
                         },
                         onPlaybackError = { err ->
                             com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error — $err")
@@ -275,10 +234,6 @@ fun EmbeddedVideoPlayer(
                                 viewModel.onEvent(PlayerUiEvent.OnPlaybackError(failedUrl))
                             }
                             isLoading = true
-                            // Only re-show the probing screen if playback never actually started.
-                            // If the video was already playing, silently attempt the next link
-                            // without flashing the overlay at the user.
-                            if (!hasPlaybackStarted) isProbingOverlay = true
                         },
                         onFullscreenToggle = {
                             fullscreenController?.toggle?.invoke()
