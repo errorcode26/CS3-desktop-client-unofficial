@@ -155,8 +155,8 @@ fun BaseMpvPlayer(
                                             playerState?.seekTo(startPositionMs)
                                         }
 
-                                        playerState?.isBuffering?.value = false
-                                        playerState?.isProbing?.value = false
+                                        playerState?._isBuffering?.value = false
+                                        playerState?._isProbing?.value = false
                                         currentOnPlaybackReady()
                                     }
                                 }
@@ -176,8 +176,8 @@ fun BaseMpvPlayer(
                                                         if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
                                                             hasEverPlayed = true
                                                             playbackStartedAt = System.currentTimeMillis()
-                                                            playerState?.isBuffering?.value = false
-                                                            playerState?.isProbing?.value = false
+                                                            playerState?._isBuffering?.value = false
+                                                            playerState?._isProbing?.value = false
                                                             currentOnPlaybackReady()
                                                         }
 
@@ -210,29 +210,29 @@ fun BaseMpvPlayer(
                                                 "duration" -> {
                                                     if (prop.format == 5) {
                                                         lastDur = prop.data!!.getDouble(0)
-                                                        playerState?.durationMs?.value = (lastDur * 1000).toLong()
+                                                        playerState?._durationMs?.value = (lastDur * 1000).toLong()
                                                     }
                                                 }
                                                 "pause" -> {
-                                                    if (prop.format == 3) playerState?.isPaused?.value = prop.data!!.getInt(0) != 0
+                                                    if (prop.format == 3) playerState?._isPaused?.value = prop.data!!.getInt(0) != 0
                                                 }
                                                 "paused-for-cache" -> {
                                                     if (prop.format == 3) {
-                                                        playerState?.isBuffering?.value = prop.data!!.getInt(0) != 0
+                                                        playerState?._isBuffering?.value = prop.data!!.getInt(0) != 0
                                                     }
                                                 }
                                                 "mute" -> {
-                                                    if (prop.format == 3) playerState?.isMuted?.value = prop.data!!.getInt(0) != 0
+                                                    if (prop.format == 3) playerState?._isMuted?.value = prop.data!!.getInt(0) != 0
                                                 }
                                                 "volume" -> {
-                                                    if (prop.format == 5) playerState?.volume?.value = prop.data!!.getDouble(0).toFloat()
+                                                    if (prop.format == 5) playerState?._volume?.value = prop.data!!.getDouble(0).toFloat()
                                                 }
                                                 "speed" -> {
-                                                    if (prop.format == 5) playerState?.playbackSpeed?.value = prop.data!!.getDouble(0).toFloat()
+                                                    if (prop.format == 5) playerState?._playbackSpeed?.value = prop.data!!.getDouble(0).toFloat()
                                                 }
                                                 "core-idle" -> {
                                                     if (prop.format == 3 && !hasEverPlayed) {
-                                                        playerState?.isProbing?.value = prop.data!!.getInt(0) != 0
+                                                        playerState?._isProbing?.value = prop.data!!.getInt(0) != 0
                                                     }
                                                 }
                                             }
@@ -253,7 +253,7 @@ fun BaseMpvPlayer(
                             val currentDur = MpvLibrary.getPropertyDouble(h, "duration", -1.0)
                             if (currentDur > 0.0) {
                                 lastDur = currentDur
-                                playerState?.durationMs?.value = (currentDur * 1000).toLong()
+                                playerState?._durationMs?.value = (currentDur * 1000).toLong()
                             }
 
                             // Poll position
@@ -265,8 +265,8 @@ fun BaseMpvPlayer(
                                 if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
                                     hasEverPlayed = true
                                     playbackStartedAt = System.currentTimeMillis()
-                                    playerState?.isBuffering?.value = false
-                                    playerState?.isProbing?.value = false
+                                    playerState?._isBuffering?.value = false
+                                    playerState?._isProbing?.value = false
                                     currentOnPlaybackReady()
                                 }
                             }
@@ -279,7 +279,7 @@ fun BaseMpvPlayer(
                                 currentOnPositionChange(posMs, (lastDur * 1000).toLong())
                                 // Refresh buffer indicator
                                 MpvLibrary.getPropertyString(h, "paused-for-cache")?.let { s ->
-                                    playerState?.isBuffering?.value = s == "yes"
+                                    playerState?._isBuffering?.value = s == "yes"
                                 }
                             }
                         }
@@ -336,21 +336,21 @@ fun BaseMpvPlayer(
                                     videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
                                 }
                             }
-                            playerState?.audioTracks?.value = audioTracks
-                            playerState?.subtitleTracks?.value = subTracks
-                            playerState?.videoTracks?.value = videoTracks
+                            playerState?._audioTracks?.value = audioTracks
+                            playerState?._subtitleTracks?.value = subTracks
+                            playerState?._videoTracks?.value = videoTracks
                             // Poll Video Stats
-                            if (playerState != null && playerState.showStats.value) {
-                                playerState.videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
-                                playerState.audioCodec.value = MpvLibrary.getPropertyString(h, "audio-codec") ?: "Unknown"
-                                playerState.hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current") ?: "Unknown"
-                                playerState.droppedFrames.value = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
-                                playerState.fps.value = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
+                            if (playerState != null && playerState._showStats.value) {
+                                playerState._videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
+                                playerState._audioCodec.value = MpvLibrary.getPropertyString(h, "audio-codec") ?: "Unknown"
+                                playerState._hwdecCurrent.value = MpvLibrary.getPropertyString(h, "hwdec-current") ?: "Unknown"
+                                playerState._droppedFrames.value = MpvLibrary.getPropertyString(h, "vo-drop-frame-count")?.toLongOrNull() ?: 0L
+                                playerState._fps.value = MpvLibrary.getPropertyString(h, "container-fps")?.toDoubleOrNull() ?: 0.0
                                 val w = MpvLibrary.getPropertyString(h, "width") ?: "0"
                                 val hw = MpvLibrary.getPropertyString(h, "height") ?: "0"
-                                playerState.resolution.value = "${w}x$hw"
-                                playerState.videoBitrate.value = MpvLibrary.getPropertyString(h, "video-bitrate")?.toLongOrNull() ?: 0L
-                                playerState.audioBitrate.value = MpvLibrary.getPropertyString(h, "audio-bitrate")?.toLongOrNull() ?: 0L
+                                playerState._resolution.value = "${w}x$hw"
+                                playerState._videoBitrate.value = MpvLibrary.getPropertyString(h, "video-bitrate")?.toLongOrNull() ?: 0L
+                                playerState._audioBitrate.value = MpvLibrary.getPropertyString(h, "audio-bitrate")?.toLongOrNull() ?: 0L
                             }
                         } // End of periodic track poll block
                         loops++
@@ -386,7 +386,7 @@ fun BaseMpvPlayer(
         if (link == null) {
             MpvLibrary.INSTANCE.mpv_command_string(handle, "stop")
             MpvLibrary.INSTANCE.mpv_set_property_string(handle, "pause", "yes")
-            playerState?.isPaused?.value = true
+            playerState?._isPaused?.value = true
             hasEverPlayed = false
             return@LaunchedEffect // Idle state — WebView player while scraping
         }
@@ -553,7 +553,7 @@ fun BaseMpvPlayer(
         // However, if resuming from a saved position, pause it so the UI can show a "Resume" dialog.
         val shouldPause = shouldPauseForResume && startSec > 0
         lib.mpv_set_property_string(handle, "pause", if (shouldPause) "yes" else "no")
-        playerState?.isPaused?.value = shouldPause
+        playerState?._isPaused?.value = shouldPause
 
         // Subtitles handling
         val sessionId = validated.proxySessionId

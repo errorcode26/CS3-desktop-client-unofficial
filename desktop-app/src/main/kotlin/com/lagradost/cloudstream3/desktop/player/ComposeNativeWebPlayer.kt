@@ -202,9 +202,9 @@ fun ComposeNativeWebPlayer(
 
     fun pushMetadataToWebView() {
         try {
-            val vol = playerState?.volume?.value ?: 100f
-            val isMuted = playerState?.isMuted?.value ?: false
-            val isBuf = playerState?.isBuffering?.value == true
+            val vol = playerState?._volume?.value ?: 100f
+            val isMuted = playerState?._isMuted?.value ?: false
+            val isBuf = playerState?._isBuffering?.value == true
 
             var currentlyLoading = isBuf
             var isAppScraping = false
@@ -469,7 +469,7 @@ fun ComposeNativeWebPlayer(
                         }
                         "togglePlay" -> {
                             val isMpvPaused = MpvLibrary.getPropertyString(h, "pause") == "yes"
-                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. MPV state: pause=$isMpvPaused, Kotlin state: isPaused=${playerState?.isPaused?.value}")
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. MPV state: pause=$isMpvPaused, Kotlin state: isPaused=${playerState?._isPaused?.value}")
                             if (isMpvPaused) {
                                 playerState?.play()
                             } else {
@@ -485,12 +485,12 @@ fun ComposeNativeWebPlayer(
                             playerState?.pause()
                         }
                         "toggleMute" -> {
-                            playerState?.let { it.isMuted.value = !it.isMuted.value }
+                            playerState?.let { it._isMuted.value = !it.isMuted.value }
                         }
                         "setVolume" -> {
                             val vol = eventValue.toDoubleOrNull()
                             if (vol != null) {
-                                playerState?.volume?.value = vol.toFloat()
+                                playerState?._volume?.value = vol.toFloat()
                             }
                         }
                         "toggleFullscreen" -> {

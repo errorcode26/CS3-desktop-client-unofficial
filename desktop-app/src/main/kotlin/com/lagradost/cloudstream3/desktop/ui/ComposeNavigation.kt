@@ -54,7 +54,6 @@ class SearchUiState(
     var isSearchForced by androidx.compose.runtime.mutableStateOf(isSearchForced)
     var searchFocusTrigger by androidx.compose.runtime.mutableStateOf(searchFocusTrigger)
 }
-val LocalSearchUiState = androidx.compose.runtime.staticCompositionLocalOf<SearchUiState> { error("No SearchUiState provided") }
 
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
@@ -104,12 +103,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
         )
     }
 
-    val searchUiState = remember { SearchUiState() }
-
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
         LocalVideoPlayerActive provides (currentVideo != null),
-        LocalSearchUiState provides searchUiState,
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)

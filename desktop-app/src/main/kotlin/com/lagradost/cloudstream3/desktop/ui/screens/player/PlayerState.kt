@@ -4,29 +4,45 @@ import com.lagradost.cloudstream3.desktop.player.MpvLibrary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 class PlayerState {
-    val positionMs = MutableStateFlow(0L)
-    val durationMs = MutableStateFlow(0L)
-    val bufferMs = MutableStateFlow(0L)
-    val isPaused = MutableStateFlow(false)
-    val isBuffering = MutableStateFlow(true)
-    val isProbing = MutableStateFlow(false)
-    val volume = MutableStateFlow(100f) // 0 to 130 in MPV usually, let's say 0 to 100
-    val isMuted = MutableStateFlow(false)
-    val playbackSpeed = MutableStateFlow(1.0f)
-    val showControls = MutableStateFlow(true)
-    val subtitleDelayMs = MutableStateFlow(0L)
-    val isInterpolationEnabled = MutableStateFlow(
+    internal val _positionMs = MutableStateFlow(0L)
+    val positionMs: StateFlow<Long> = _positionMs.asStateFlow()
+    internal val _durationMs = MutableStateFlow(0L)
+    val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
+    internal val _bufferMs = MutableStateFlow(0L)
+    val bufferMs: StateFlow<Long> = _bufferMs.asStateFlow()
+    internal val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+    internal val _isBuffering = MutableStateFlow(true)
+    val isBuffering: StateFlow<Boolean> = _isBuffering.asStateFlow()
+    internal val _isProbing = MutableStateFlow(false)
+    val isProbing: StateFlow<Boolean> = _isProbing.asStateFlow()
+    internal val _volume = MutableStateFlow(100f) // 0 to 130 in MPV usually, let's say 0 to 100
+    val volume: StateFlow<Float> = _volume.asStateFlow()
+    internal val _isMuted = MutableStateFlow(false)
+    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+    internal val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+    internal val _showControls = MutableStateFlow(true)
+    val showControls: StateFlow<Boolean> = _showControls.asStateFlow()
+    internal val _subtitleDelayMs = MutableStateFlow(0L)
+    val subtitleDelayMs: StateFlow<Long> = _subtitleDelayMs.asStateFlow()
+    internal val _isInterpolationEnabled = MutableStateFlow(
         com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION) ?: false,
     )
+    val isInterpolationEnabled: StateFlow<Boolean> = _isInterpolationEnabled.asStateFlow()
 
-    val toastMessage = MutableStateFlow<String?>(null)
+    internal val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
     fun showToast(message: String) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch {
-            toastMessage.value = message
+            _toastMessage.value = message
             kotlinx.coroutines.delay(4000)
-            toastMessage.compareAndSet(message, null)
+            _toastMessage.compareAndSet(message, null)
         }
     }
 
@@ -36,25 +52,39 @@ class PlayerState {
         val isSelected: Boolean,
     )
 
-    val subtitleTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
-    val audioTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
-    val videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
-    val activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
+    internal val _subtitleTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
+    val subtitleTracks: StateFlow<List<VideoTrack>> = _subtitleTracks.asStateFlow()
+    internal val _audioTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
+    val audioTracks: StateFlow<List<VideoTrack>> = _audioTracks.asStateFlow()
+    internal val _videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
+    val videoTracks: StateFlow<List<VideoTrack>> = _videoTracks.asStateFlow()
+    internal val _activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
+    val activeLazyVideoTrackUrl: StateFlow<String?> = _activeLazyVideoTrackUrl.asStateFlow()
 
-    val activeShader = MutableStateFlow<String>(
+    internal val _activeShader = MutableStateFlow<String>(
         com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None",
     )
+    val activeShader: StateFlow<String> = _activeShader.asStateFlow()
 
     // Video Stats
-    val videoCodec = MutableStateFlow("")
-    val audioCodec = MutableStateFlow("")
-    val hwdecCurrent = MutableStateFlow("")
-    val droppedFrames = MutableStateFlow(0L)
-    val fps = MutableStateFlow(0.0)
-    val resolution = MutableStateFlow("")
-    val videoBitrate = MutableStateFlow(0L)
-    val audioBitrate = MutableStateFlow(0L)
-    val showStats = MutableStateFlow(false)
+    internal val _videoCodec = MutableStateFlow("")
+    val videoCodec: StateFlow<String> = _videoCodec.asStateFlow()
+    internal val _audioCodec = MutableStateFlow("")
+    val audioCodec: StateFlow<String> = _audioCodec.asStateFlow()
+    internal val _hwdecCurrent = MutableStateFlow("")
+    val hwdecCurrent: StateFlow<String> = _hwdecCurrent.asStateFlow()
+    internal val _droppedFrames = MutableStateFlow(0L)
+    val droppedFrames: StateFlow<Long> = _droppedFrames.asStateFlow()
+    internal val _fps = MutableStateFlow(0.0)
+    val fps: StateFlow<Double> = _fps.asStateFlow()
+    internal val _resolution = MutableStateFlow("")
+    val resolution: StateFlow<String> = _resolution.asStateFlow()
+    internal val _videoBitrate = MutableStateFlow(0L)
+    val videoBitrate: StateFlow<Long> = _videoBitrate.asStateFlow()
+    internal val _audioBitrate = MutableStateFlow(0L)
+    val audioBitrate: StateFlow<Long> = _audioBitrate.asStateFlow()
+    internal val _showStats = MutableStateFlow(false)
+    val showStats: StateFlow<Boolean> = _showStats.asStateFlow()
 
     private var mpvHandle: com.sun.jna.Pointer? = null
     internal var lastSeekTime = 0L
@@ -78,16 +108,16 @@ class PlayerState {
      * Call this before ComposeMpvPlayer loads a new URL so the UI shows correct initial state.
      */
     fun reset() {
-        positionMs.value = 0L
-        durationMs.value = 0L
-        bufferMs.value = 0L
-        isPaused.value = false
-        isBuffering.value = true
-        isProbing.value = false
-        isMuted.value = false
+        _positionMs.value = 0L
+        _durationMs.value = 0L
+        _bufferMs.value = 0L
+        _isPaused.value = false
+        _isBuffering.value = true
+        _isProbing.value = false
+        _isMuted.value = false
         lastSeekTime = 0L
         targetSeekMs = -1L
-        activeLazyVideoTrackUrl.value = null
+        _activeLazyVideoTrackUrl.value = null
     }
 
     fun togglePlayPause() {
@@ -96,7 +126,7 @@ class PlayerState {
             val nextState = if (currentlyPaused) "no" else "yes"
             MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", nextState)
             // State will be updated by the observer loop in ComposeMpvPlayer
-            isPaused.value = !currentlyPaused
+            _isPaused.value = !currentlyPaused
         }
     }
 
@@ -107,7 +137,7 @@ class PlayerState {
             if (res < 0) {
                 MpvLibrary.INSTANCE.mpv_command_string(it, "set pause yes")
             }
-            isPaused.value = true
+            _isPaused.value = true
         }
     }
 
@@ -118,7 +148,7 @@ class PlayerState {
             if (res < 0) {
                 MpvLibrary.INSTANCE.mpv_command_string(it, "set pause no")
             }
-            isPaused.value = false
+            _isPaused.value = false
         }
     }
 
@@ -133,7 +163,7 @@ class PlayerState {
             // but the video doesn't. mpv_command_string(seek absolute) forces a demuxer
             // flush and a real network segment re-request.
             MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute")
-            this.positionMs.value = positionMs
+            this._positionMs.value = positionMs
         }
     }
 
@@ -143,7 +173,7 @@ class PlayerState {
             targetSeekMs = this.positionMs.value + offsetMs
             val offsetSec = offsetMs / 1000.0
             MpvLibrary.INSTANCE.mpv_command_string(it, "seek $offsetSec relative+exact")
-            this.positionMs.value = targetSeekMs
+            this._positionMs.value = targetSeekMs
         }
     }
 
@@ -169,19 +199,19 @@ class PlayerState {
             }
         }
 
-        this.positionMs.value = posMs
+        this._positionMs.value = posMs
     }
 
     fun updateDurationFromPlayer(durMs: Long) {
         if (durMs > 0 && this.durationMs.value != durMs) {
-            this.durationMs.value = durMs
+            this._durationMs.value = durMs
         }
     }
 
     fun setSpeed(speed: Float) {
         mpvHandle?.let {
             MpvLibrary.INSTANCE.mpv_set_property_string(it, "speed", speed.toString())
-            playbackSpeed.value = speed
+            _playbackSpeed.value = speed
         }
     }
 
@@ -197,7 +227,7 @@ class PlayerState {
         mpvHandle?.let {
             val safeVol = vol.coerceIn(0f, 130f)
             MpvLibrary.INSTANCE.mpv_set_property_string(it, "volume", safeVol.toString())
-            volume.value = safeVol
+            _volume.value = safeVol
         }
     }
 
@@ -205,13 +235,13 @@ class PlayerState {
         mpvHandle?.let {
             val nextMuted = !isMuted.value
             MpvLibrary.INSTANCE.mpv_set_property_string(it, "mute", if (nextMuted) "yes" else "no")
-            isMuted.value = nextMuted
+            _isMuted.value = nextMuted
         }
     }
 
     fun setInterpolation(enabled: Boolean) {
         com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
-        isInterpolationEnabled.value = enabled
+        _isInterpolationEnabled.value = enabled
         mpvHandle?.let {
             if (enabled) {
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-sync", "display-resample")
@@ -228,7 +258,7 @@ class PlayerState {
         mpvHandle?.let {
             val delaySec = delayMs / 1000.0
             MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-delay", delaySec.toString())
-            subtitleDelayMs.value = delayMs
+            _subtitleDelayMs.value = delayMs
         }
     }
 
@@ -303,7 +333,7 @@ class PlayerState {
             com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
             shaderName,
         )
-        activeShader.value = shaderName
+        _activeShader.value = shaderName
 
         mpvHandle?.let { handle ->
             if (shaderName.isBlank() || shaderName == "None") {
@@ -362,7 +392,7 @@ class PlayerState {
             if (track.bitrate != null) {
                 // Native HLS bitrate switching (seamless!)
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "hls-bitrate", track.bitrate.toString())
-                activeLazyVideoTrackUrl.value = track.url
+                _activeLazyVideoTrackUrl.value = track.url
             } else {
                 val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
                 val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
@@ -373,7 +403,7 @@ class PlayerState {
 
                 val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
                 proxyState.lazyVideoTracks.value = proxyState.lazyVideoTracks.value.filter { t -> t.url != track.url }
-                activeLazyVideoTrackUrl.value = track.url
+                _activeLazyVideoTrackUrl.value = track.url
             }
         }
     }
@@ -388,12 +418,13 @@ class PlayerState {
         }
     }
 
-    val aspectRatioMode = MutableStateFlow(0) // 0=Fit, 1=Fill, 2=Crop
+    internal val _aspectRatioMode = MutableStateFlow(0) // 0=Fit, 1=Fill, 2=Crop
+    val aspectRatioMode: StateFlow<Int> = _aspectRatioMode.asStateFlow()
 
     fun cycleAspectRatio() {
         mpvHandle?.let {
             val nextMode = (aspectRatioMode.value + 1) % 3
-            aspectRatioMode.value = nextMode
+            _aspectRatioMode.value = nextMode
             when (nextMode) {
                 0 -> { // Fit
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-aspect-override", "no")
