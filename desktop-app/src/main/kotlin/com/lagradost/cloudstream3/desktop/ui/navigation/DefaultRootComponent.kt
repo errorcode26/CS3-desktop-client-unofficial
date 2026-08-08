@@ -47,7 +47,6 @@ class DefaultRootComponent(
             is Config.CategoryGrid -> RootComponent.Child.CategoryGrid(
                 providerName = config.providerName,
                 title = config.title,
-                items = config.items,
             )
         }
 

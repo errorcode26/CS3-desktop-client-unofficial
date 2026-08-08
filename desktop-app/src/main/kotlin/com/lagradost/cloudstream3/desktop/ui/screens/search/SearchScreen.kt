@@ -456,7 +456,8 @@ fun ComposeSearchScreen(
                     selectedCategories = selectedCategories,
                     isLoadingSearch = isLoadingSearch,
                     onViewAll = { provider, title, items ->
-                        onNavigate(Config.CategoryGrid(provider.name, title, items))
+                        com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.put(provider.name, title, items)
+                        onNavigate(Config.CategoryGrid(provider.name, title))
                     },
                     onItemClick = { provider, item, backdrop, autoPlay ->
                         onNavigate(

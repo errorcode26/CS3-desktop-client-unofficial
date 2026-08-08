@@ -137,7 +137,8 @@ fun ComposeHomeScreen(
                                 },
                                 isHistoryVisible = isFirstPage && historyList.isNotEmpty(),
                                 onViewAll = { provider, title, items ->
-                                    onNavigate(Config.CategoryGrid(provider.name, title, items))
+                                    CategoryGridCache.put(provider.name, title, items)
+                                    onNavigate(Config.CategoryGrid(provider.name, title))
                                 },
                                 onItemClick = { provider, item, backdrop, autoPlay ->
                                     onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, backdrop, autoPlay))

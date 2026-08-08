@@ -23,7 +23,6 @@ interface RootComponent {
         data class CategoryGrid(
             val providerName: String,
             val title: String,
-            val items: List<com.lagradost.cloudstream3.SearchResponse>,
         ) : Child()
     }
 }

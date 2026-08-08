@@ -20,6 +20,5 @@ sealed class Config {
     data class CategoryGrid(
         val providerName: String,
         val title: String,
-        val items: List<SearchResponse>,
     ) : Config()
 }

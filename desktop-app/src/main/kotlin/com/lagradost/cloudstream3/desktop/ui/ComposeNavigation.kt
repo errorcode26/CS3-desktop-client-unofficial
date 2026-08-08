@@ -245,7 +245,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     is RootComponent.Child.CategoryGrid -> {
                                         val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.providerName)
                                         if (api != null) {
-                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.title, child.items)
+                                            val items = com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.get(child.providerName, child.title) ?: emptyList()
+                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.title, items)
                                         } else {
                                             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                                 androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
