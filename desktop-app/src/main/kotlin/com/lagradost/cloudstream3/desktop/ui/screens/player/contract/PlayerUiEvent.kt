@@ -14,4 +14,6 @@ sealed interface PlayerUiEvent : UiEvent {
     data object OnCancelScraping : PlayerUiEvent
     data class OnSavePosition(val history: com.lagradost.common.storage.WatchHistory) : PlayerUiEvent
     data class OnSelectShader(val shaderName: String) : PlayerUiEvent
+    data class OnPlaybackError(val failedUrl: String) : PlayerUiEvent
+    data class OnLinkChange(val url: String) : PlayerUiEvent
 }

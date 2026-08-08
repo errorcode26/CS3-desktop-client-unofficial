@@ -299,11 +299,46 @@ class NativeMpdConverter {
             val duration = d.toDouble() / timescale.toDouble()
             sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
 
-            val numSegments = if (isLive) 500 else 100
             val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
             if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startNum")
-            var time = 0L
 
+            // Compute the actual segment count from the total presentation duration so the
+            // full video length is exposed to MPV. Prefer mediaPresentationDuration on the
+            // root MPD element, then fall back to the Period's own duration attribute.
+            // If neither is present (e.g. truly unknown-length live stream), cap at 500.
+            val numSegments: Int = if (isLive) {
+                500
+            } else {
+                fun parseMpdDuration(raw: String): Double? {
+                    // ISO 8601 duration: PT1H22M30.000S or PT22M30S or PT30S
+                    if (!raw.startsWith("PT", ignoreCase = true)) return null
+                    val hoursMatch = Regex("(\\d+(?:\\.\\d+)?)H").find(raw)
+                    val minsMatch  = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
+                    val secsMatch  = Regex("(\\d+(?:\\.\\d+)?)S").find(raw)
+                    val hours = hoursMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+                    val mins  = minsMatch?.groupValues?.get(1)?.toDoubleOrNull()  ?: 0.0
+                    val secs  = secsMatch?.groupValues?.get(1)?.toDoubleOrNull()  ?: 0.0
+                    val total = hours * 3600.0 + mins * 60.0 + secs
+                    return if (total > 0.0) total else null
+                }
+
+                val mpdDurRaw    = mpd.getAttribute("mediaPresentationDuration")
+                val periodDurRaw = period?.getAttribute("duration")
+
+                val totalSecs = parseMpdDuration(mpdDurRaw)
+                    ?: parseMpdDuration(periodDurRaw ?: "")
+                    ?: 0.0
+
+                if (totalSecs > 0.0 && duration > 0.0) {
+                    // +1 to ensure the final partial segment is included
+                    ceil(totalSecs / duration).toInt() + 1
+                } else {
+                    // Unknown total duration — use a safe generous cap
+                    500
+                }
+            }
+
+            var time = 0L
             for (i in 0 until numSegments) {
                 val segNum = startNum + i
                 var segUrl = mediaAttr

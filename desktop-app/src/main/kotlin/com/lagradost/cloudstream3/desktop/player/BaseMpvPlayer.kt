@@ -802,6 +802,7 @@ fun BaseMpvPlayer(
 
     DisposableEffect(Unit) {
         onDispose {
+            videoCanvas.isVisible = false
             val h = mpvHandle
             if (h != null) {
                 mpvHandle = null

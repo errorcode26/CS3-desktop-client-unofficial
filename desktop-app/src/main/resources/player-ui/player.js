@@ -715,18 +715,7 @@
 
                 // Update title: show episode-aware title immediately
                 if (pTitle) {
-                    let displayTitle = meta.title;
-                    if (activeEp) {
-                        let epStr = '';
-                        if (activeEp.season && activeEp.episode) epStr = `S${activeEp.season}:E${activeEp.episode}`;
-                        else if (activeEp.episode) epStr = `Ep ${activeEp.episode}`;
-                        if (epStr) displayTitle += ` \u2022 ${epStr}`;
-                        const epTitle = activeEp.title || '';
-                        if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
-                            displayTitle += ` - ${epTitle}`;
-                        }
-                    }
-                    pTitle.innerText = displayTitle;
+                    pTitle.innerText = meta.title || '';
                     pTitle.style.display = 'block';
                 }
                 if (pLogo) pLogo.style.display = 'none';
@@ -865,25 +854,8 @@
                 pLogo.style.display = 'none';
                 pTitle.style.display = 'block';
                 
-                let displayTitle = meta.title || '';
-                if (activeEpInfo) {
-                    let epStr = '';
-                    if (activeEpInfo.season && activeEpInfo.episode) {
-                        epStr = `S${activeEpInfo.season}:E${activeEpInfo.episode}`;
-                    } else if (activeEpInfo.episode) {
-                        epStr = `Ep ${activeEpInfo.episode}`;
-                    }
-                    if (epStr) {
-                        displayTitle += ` • ${epStr}`;
-                    }
-                    
-                    const epTitle = activeEpInfo.title || '';
-                    if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
-                        displayTitle += ` - ${epTitle}`;
-                    }
-                }
                 
-                pTitle.innerText = displayTitle;
+                pTitle.innerText = meta.title || '';
             }
 
             // Status label

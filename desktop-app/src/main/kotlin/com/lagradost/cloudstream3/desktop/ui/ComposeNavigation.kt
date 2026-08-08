@@ -263,7 +263,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     currentVideo?.let { launchData ->
                         com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
                             launchData = launchData,
-                            isExiting = false,
+                            isExiting = showExitFade,
                             onClose = {
                                 showExitFade = true
                             },
@@ -290,12 +290,18 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                     androidx.compose.runtime.LaunchedEffect(showExitFade) {
                         if (showExitFade) {
-                            // The Compose UI is now snapped to pitch black.
+                            // Wait for the Compose UI to snap to black and the isExiting state to propagate
+                            // down to the player components so they can hide the AWT canvases BEFORE destruction.
+                            // We wait for 2 frames to guarantee the black box is physically painted on screen,
+                            // regardless of any JIT compilation pauses that might occur the first time.
+                            androidx.compose.runtime.withFrameNanos { }
+                            androidx.compose.runtime.withFrameNanos { }
+
                             // Destroy the native player instantly (no white flash due to BLACK_BRUSH).
                             // The heavy C++ teardown runs on a daemon thread in BaseMpvPlayer.
                             currentVideo = null
 
-                            // Wait 50ms just to ensure the native window is completely gone from the OS compositor
+                            // Wait another 50ms just to ensure the native window is completely gone from the OS compositor
                             kotlinx.coroutines.delay(50)
 
                             // Trigger the smooth fade-out of the black box to reveal the Compose UI!

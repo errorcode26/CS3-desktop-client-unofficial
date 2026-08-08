@@ -91,6 +91,66 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             is PlayerUiEvent.OnCancelScraping -> cancelScraping()
             is PlayerUiEvent.OnSavePosition -> savePosition(event.history)
             is PlayerUiEvent.OnSelectShader -> selectShader(event.shaderName)
+            is PlayerUiEvent.OnPlaybackError -> handlePlaybackError(event.failedUrl)
+            is PlayerUiEvent.OnLinkChange -> handleLinkChange(event.url)
+        }
+    }
+
+    // Picks the best available link from the current launchData that hasn't failed.
+    // This is the single decision point — replaces all the inline logic that was in the UI.
+    private fun pickBestActiveLink(
+        links: List<ExtractorLink>,
+        failed: Set<String>,
+        startPositionMs: Long,
+    ): ExtractorLink? {
+        val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+        val targetQualityInt: Int? = when (prefQuality) {
+            "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
+            "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
+            "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
+            "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
+            else -> null
+        }
+        val isResuming = startPositionMs > 0
+        val available = links.filter { it.url !in failed }
+        return available.minByOrNull { link ->
+            val qualityDelta = if (targetQualityInt != null) kotlin.math.abs(link.quality - targetQualityInt) else 0
+            val seekPenalty = if (isResuming) {
+                when {
+                    link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 -> 1
+                    link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH -> 2
+                    else -> 0
+                }
+            } else { 0 }
+            seekPenalty * 10_000 + qualityDelta
+        }
+    }
+
+    private fun handlePlaybackError(failedUrl: String) {
+        AppLogger.e("EmbeddedPlayerViewModel", "Playback error on: $failedUrl")
+        updateState {
+            val newFailed = failedLinks + failedUrl
+            val links = launchData?.links ?: emptyList()
+            val startPos = launchData?.startPositionMs ?: 0L
+            val next = pickBestActiveLink(links, newFailed, startPos)
+            if (next == null && !isScrapingLinks) {
+                // All links exhausted and scraping is done — surface the error
+                AppLogger.e("EmbeddedPlayerViewModel", "All sources exhausted.")
+            }
+            copy(
+                failedLinks = newFailed,
+                activeLink = next,
+            )
+        }
+    }
+
+    private fun handleLinkChange(url: String) {
+        updateState {
+            val link = launchData?.links?.find { it.url == url }
+            copy(
+                failedLinks = emptySet(),
+                activeLink = link,
+            )
         }
     }
 
@@ -129,7 +189,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 showUrl = history.showUrl,
                                 apiName = history.apiName,
                                 posterUrl = history.posterUrl,
-                                episodeThumbnailUrl = nextEp.posterUrl,
+                                episodeThumbnailUrl = nextEp.posterUrl ?: history.posterUrl,
                                 screenshotUrl = null,
                                 episode = nextEp.episode,
                                 season = nextEp.season,
@@ -159,7 +219,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             } else {
                 initialData
             }
-            updateState { copy(launchData = adjustedData) }
+            updateState { copy(launchData = adjustedData, activeLink = null, failedLinks = emptySet()) }
 
             // Auto-scrape initial episode if links are empty
             if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
@@ -182,9 +242,13 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     }
 
                     loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                        scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData)
+                        scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
                     }
                 }
+            } else if (adjustedData.links.isNotEmpty()) {
+                // Links already provided at launch (e.g. direct open) — pick immediately
+                val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
+                updateState { copy(activeLink = best) }
             }
         }
     }
@@ -201,6 +265,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 nextEpisodeLinks = emptyList(),
                 nextEpisodeSubtitles = emptyList(),
                 targetEpisodeData = episode,
+                activeLink = null,
+                failedLinks = emptySet(),
             )
         }
 
@@ -410,6 +476,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 )
             }
 
+            val bestLink = pickBestActiveLink(sortedLinks, emptySet(), startPos)
+            AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Cache hit — picked link: ${bestLink?.url?.take(60)}")
             updateState {
                 copy(
                     isScrapingLinks = false,
@@ -419,6 +487,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     targetEpisodeData = null,
                     isLoadingNextEpisode = false,
                     nextEpisodeError = null,
+                    activeLink = bestLink,
+                    failedLinks = emptySet(),
                 )
             }
             return
@@ -484,6 +554,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                     initialIndex = 0,
                                 )
                             }
+                            val bestLink = pickBestActiveLink(newLinks, failedLinks, startPos)
 
                             copy(
                                 nextEpisodeLinks = newLinks,
@@ -491,6 +562,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 targetEpisodeData = null,
                                 isLoadingNextEpisode = false,
                                 nextEpisodeError = null,
+                                activeLink = bestLink,
                             )
                         } else {
                             val currentLaunch = launchData

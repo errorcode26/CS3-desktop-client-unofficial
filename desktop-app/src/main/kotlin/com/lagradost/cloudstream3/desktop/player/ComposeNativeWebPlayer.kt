@@ -284,11 +284,16 @@ fun ComposeNativeWebPlayer(
             val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
             val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
 
+            val initialBackdropUrl = backdropUrl ?: (episodes.find { it.data == currentEpisodeId }?.posterUrl ?: "")
+            val initialBackdropClass = if (initialBackdropUrl.isNotEmpty()) "loaded" else ""
+
             val htmlContent = htmlTemplate
                 .replace("/* CSS_INJECT */", cssContent)
                 .replace("/* JS_INJECT */", jsContent)
                 .replace("{{ACCENT_COLOR}}", accentColorHex)
                 .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
+                .replace("{{INITIAL_BACKDROP_URL}}", initialBackdropUrl)
+                .replace("{{INITIAL_BACKDROP_CLASS}}", initialBackdropClass)
 
             if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
                 tempFile.writeText(htmlContent, Charsets.UTF_8)
@@ -708,10 +713,20 @@ fun ComposeNativeWebPlayer(
                 // Force initial layout push so WebView isn't hidden until the first resize
                 NativePlayerBridge.resizeWebView(videoCanvas.width, videoCanvas.height)
                 onDispose {
+                    videoCanvas.isVisible = false
                     videoCanvas.removeComponentListener(componentListener)
                     NativePlayerBridge.resizeWebView(0, 0)
                     NativePlayerBridge.stopMpvSync()
-                    NativePlayerBridge.destroyWebView()
+                    
+                    // Push the heavy WebView teardown to a background daemon thread
+                    // to prevent blocking the Compose EDT on first exit.
+                    java.lang.Thread({
+                        com.lagradost.common.logging.AppLogger.i("NativePlayer: Destroying WebView on daemon thread...")
+                        NativePlayerBridge.destroyWebView()
+                    }, "cs3-webview-dispose").apply {
+                        isDaemon = true
+                        start()
+                    }
                 }
             }
 

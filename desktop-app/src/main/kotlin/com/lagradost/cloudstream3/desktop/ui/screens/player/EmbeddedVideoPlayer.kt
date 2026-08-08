@@ -64,20 +64,9 @@ fun EmbeddedVideoPlayer(
     val actualLaunchData = currentLaunchData!!
     val isScrapingLinks = uiState.isScrapingLinks
 
-    var isInitialLoad by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
-    var userSkippedScraping by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
-    var currentLinkIndex by remember(actualLaunchData.history.episodeId) {
-        mutableIntStateOf(actualLaunchData.initialIndex)
-    }
-    var fallbackToBeginning by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
-
     var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var showSources by remember { mutableStateOf(false) }
     var isFinished by remember { mutableStateOf(false) }
-
-    var activelyPlayingLink by remember { mutableStateOf<com.lagradost.cloudstream3.utils.ExtractorLink?>(null) }
-    var lastLinkIndex by remember { mutableIntStateOf(-1) }
-    var lastEpisodeId by remember { mutableStateOf<String?>(null) }
 
     val windowState = LocalWindowState.current
     val fullscreenController = LocalFullscreenController.current
@@ -129,64 +118,48 @@ fun EmbeddedVideoPlayer(
                 Box(modifier = Modifier.fillMaxSize()) {
                     // isProbingOverlay: true until onPlaybackReady fires.
                     // Keyed on episodeId so it resets when switching episodes.
-                    // NOT tied to isScrapingLinks — background scraping can continue while video plays.
                     var isProbingOverlay by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
+                    // Once onPlaybackReady fires, we never show the probing overlay again for this episode.
+                    var hasPlaybackStarted by remember(actualLaunchData.history.episodeId) { mutableStateOf(false) }
 
-                    var currentUrl by remember(actualLaunchData.history.episodeId) { mutableStateOf<String?>(null) }
-                    var failedUrls by remember(actualLaunchData.history.episodeId) { mutableStateOf<Set<String>>(emptySet()) }
-                    var scrapeStartTime by remember(actualLaunchData.history.episodeId) { mutableStateOf(System.currentTimeMillis()) }
+                    // activeLink is owned entirely by the ViewModel — no local picking logic here.
+                    val activeLink = uiState.activeLink
+                    val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink
 
-                    val activelyPlayingLink = actualLaunchData.links.find { it.url == currentUrl }
+                    val displayLinkIndex = actualLaunchData.links.indexOfFirst { it.url == activeLink?.url }.coerceAtLeast(0)
+                    val uiFailedLinks = actualLaunchData.links
+                        .mapIndexedNotNull { index, link -> if (link.url in uiState.failedLinks) index to "Failed" else null }
+                        .toMap()
 
-                    val autoPlay = uiState.autoPlayEnabled
-                    val waitForLinks = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true
-                    val preferredQuality = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-                    val targetQualityInt = when (preferredQuality) {
-                        "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
-                        "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
-                        "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
-                        "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
-                        else -> null
-                    }
-
-                    val isResuming = !fallbackToBeginning && actualLaunchData.startPositionMs > 0
-
-                    fun pickBestLink(candidates: List<com.lagradost.cloudstream3.utils.ExtractorLink>): com.lagradost.cloudstream3.utils.ExtractorLink? {
-                        return candidates.minByOrNull { link ->
-                            val qualityDelta = if (targetQualityInt != null) kotlin.math.abs(link.quality - targetQualityInt) else 0
-                            val seekPenalty = if (isResuming) {
-                                when {
-                                    link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 -> 1
-                                    link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH -> 2
-                                    else -> 0 // PROGRESSIVE — seeks via HTTP Range
-                                }
-                            } else {
-                                0
-                            }
-                            seekPenalty * 10_000 + qualityDelta
-                        }
-                    }
-
-                    val canPickLink = activelyPlayingLink == null && !isExiting && !isLoadingNextEpisode
-
-                    if (canPickLink && actualLaunchData.links.isNotEmpty()) {
-                        val hasTargetQuality = targetQualityInt != null && actualLaunchData.links.any { it.quality == targetQualityInt }
-                        val scrapeTimedOut = (System.currentTimeMillis() - scrapeStartTime) > 10000
-
-                        val shouldPickNow = !autoPlay || userSkippedScraping || !waitForLinks || !isScrapingLinks || hasTargetQuality || scrapeTimedOut
-
-                        if (shouldPickNow) {
-                            val availableLinks = actualLaunchData.links.filter { it.url !in failedUrls }
-                            val bestLink = pickBestLink(availableLinks)
-                            if (bestLink != null) {
-                                com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Selected link URL ${bestLink.url.take(50)}...")
-                                currentUrl = bestLink.url
+                    // Safety-net timeout: MPV fires its own error after 45s on a hung stream.
+                    // This 48s fallback catches any edge case where MPV silently hangs without
+                    // surfacing an event (e.g. proxy stall, JNA freeze during init).
+                    // Keyed on activeLink ONLY — isProbingOverlay must NOT be a key or every
+                    // overlay-dismiss from onPlaybackReady would restart the 48s timer.
+                    LaunchedEffect(activeLink) {
+                        if (activeLink != null && isProbingOverlay) {
+                            kotlinx.coroutines.delay(48000)
+                            if (isProbingOverlay) {
+                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Link timed out after 48s. Forcing fallback.")
+                                activeLink.url.let { viewModel.onEvent(PlayerUiEvent.OnPlaybackError(it)) }
+                                isLoading = true
+                                if (!hasPlaybackStarted) isProbingOverlay = true
                             }
                         }
                     }
 
-                    val isSwitchingEpisode = isLoadingNextEpisode
-                    val safeLink = if (isExiting || isSwitchingEpisode) null else activelyPlayingLink
+                    // When ViewModel clears activeLink after all sources are exhausted, close.
+                    LaunchedEffect(activeLink, uiState.isScrapingLinks) {
+                        if (activeLink == null && !uiState.isScrapingLinks && !isLoadingNextEpisode && uiState.launchData != null) {
+                            val hasEverHadLinks = actualLaunchData.links.isNotEmpty()
+                            if (hasEverHadLinks && uiState.failedLinks.isNotEmpty()) {
+                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources exhausted. Closing.")
+                                actualLaunchData.history.episodeId?.let { LinkCache.remove(it) }
+                                onError("All sources failed. Please try again later.")
+                                onClose()
+                            }
+                        }
+                    }
 
                     val displayTitle = if (targetEpisodeData != null) {
                         buildString {
@@ -215,64 +188,6 @@ fun EmbeddedVideoPlayer(
                     val plot = targetEpisodeData?.description ?: actualLaunchData.loadResponse?.plot
                     val year = uiState.launchData?.loadResponse?.year
                     val tags = actualLaunchData.loadResponse?.tags
-
-                    val displayLinkIndex = actualLaunchData.links.indexOfFirst { it.url == currentUrl }.coerceAtLeast(0)
-                    val uiFailedLinks = actualLaunchData.links
-                        .mapIndexedNotNull { index, link -> if (link.url in failedUrls) index to "Failed" else null }
-                        .toMap()
-
-                    val handlePlaybackError: (String) -> Unit = { err ->
-                        com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error. Error: $err")
-
-                        if (currentUrl != null) {
-                            failedUrls = failedUrls + currentUrl!!
-                            currentUrl = null // Clears the current link, allowing the loop above to pick the next one
-                        }
-
-                        val unfailed = actualLaunchData.links.filter { it.url !in failedUrls }
-                        val nextLink = pickBestLink(unfailed)
-
-                        when {
-                            nextLink != null -> {
-                                com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: Moving to next link (quality=${nextLink.quality})")
-                                isLoading = true
-                                isProbingOverlay = true
-                            }
-                            isScrapingLinks -> {
-                                com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: All current links failed, but still scraping. Waiting...")
-                                isLoading = true
-                                isProbingOverlay = true
-                            }
-                            !fallbackToBeginning && actualLaunchData.startPositionMs > 0 -> {
-                                com.lagradost.common.logging.AppLogger.w("EmbeddedVideoPlayer: All links failed on RESUME. Falling back to startPositionMs = 0")
-                                fallbackToBeginning = true
-                                failedUrls = emptySet()
-                                isLoading = true
-                                isProbingOverlay = true
-                            }
-                            else -> {
-                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources exhausted. Terminating playback.")
-                                isProbingOverlay = false
-                                actualLaunchData.history.episodeId?.let { LinkCache.remove(it) }
-                                onError("All sources failed. Please try again later.")
-                                onClose()
-                            }
-                        }
-                    }
-
-                    // Safety-net timeout: MPV fires its own error after 45s on a hung stream.
-                    // This 48s fallback catches any edge case where MPV silently hangs without
-                    // surfacing an event (e.g. proxy stall, JNA freeze during init).
-                    LaunchedEffect(activelyPlayingLink, isProbingOverlay) {
-                        if (activelyPlayingLink != null && isProbingOverlay) {
-                            kotlinx.coroutines.delay(48000)
-                            if (isProbingOverlay) {
-                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Link timed out after 48s. Forcing fallback.")
-                                handlePlaybackError("Connection timed out")
-                            }
-                        }
-                    }
-
                     ComposeNativeWebPlayer(
                         link = safeLink,
                         title = displayTitle,
@@ -282,9 +197,7 @@ fun EmbeddedVideoPlayer(
                         tags = tags,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
-                        startPositionMs = if (fallbackToBeginning) {
-                            0L
-                        } else if (displayLinkIndex != 0 && playerState.positionMs.value > 0) {
+                        startPositionMs = if (displayLinkIndex != 0 && playerState.positionMs.value > 0) {
                             playerState.positionMs.value
                         } else {
                             actualLaunchData.startPositionMs
@@ -300,13 +213,11 @@ fun EmbeddedVideoPlayer(
                         backdropUrl = backdropUrl,
                         logoUrl = logoUrl,
                         onLinkChange = { targetUrl ->
-                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange triggered -> new url: $targetUrl")
+                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange -> $targetUrl")
                             playerState.pause()
-
-                            currentUrl = targetUrl
-                            userSkippedScraping = true
                             isLoading = true
-                            isProbingOverlay = true // Show overlay again while switching to a new link
+                            isProbingOverlay = true
+                            viewModel.onEvent(PlayerUiEvent.OnLinkChange(targetUrl))
                         },
                         onEpisodeChange = { epId ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onEpisodeChange triggered -> new episodeId: $epId")
@@ -337,10 +248,10 @@ fun EmbeddedVideoPlayer(
                             }
                         },
                         onPlaybackReady = {
-                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady received for link index $displayLinkIndex! Video is starting.")
+                            com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady for link index $displayLinkIndex")
                             isLoading = false
-                            isInitialLoad = false
-                            isProbingOverlay = false // Video is playing — dismiss the overlay
+                            isProbingOverlay = false
+                            hasPlaybackStarted = true
                         },
                         onPositionChange = { posMs, durMs ->
                             playerState.updatePositionFromPlayer(posMs)
@@ -350,7 +261,6 @@ fun EmbeddedVideoPlayer(
                             onClose()
                         },
                         onSkipScraping = {
-                            userSkippedScraping = true
                             viewModel.onEvent(PlayerUiEvent.OnCancelScraping)
                         },
                         onFinished = {
@@ -358,7 +268,18 @@ fun EmbeddedVideoPlayer(
                             val isAutoPlay = uiState.autoPlayEnabled
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $isAutoPlay);")
                         },
-                        onPlaybackError = handlePlaybackError,
+                        onPlaybackError = { err ->
+                            com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error — $err")
+                            val failedUrl = activeLink?.url
+                            if (failedUrl != null) {
+                                viewModel.onEvent(PlayerUiEvent.OnPlaybackError(failedUrl))
+                            }
+                            isLoading = true
+                            // Only re-show the probing screen if playback never actually started.
+                            // If the video was already playing, silently attempt the next link
+                            // without flashing the overlay at the user.
+                            if (!hasPlaybackStarted) isProbingOverlay = true
+                        },
                         onFullscreenToggle = {
                             fullscreenController?.toggle?.invoke()
                         },

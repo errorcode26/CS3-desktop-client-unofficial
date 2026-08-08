@@ -15,6 +15,12 @@ data class PlayerUiState(
     val isScrapingLinks: Boolean = false,
     val targetEpisodeData: Episode? = null,
     val autoPlayEnabled: Boolean = true,
+    // Single source of truth: the link MPV should be playing right now.
+    // Owned entirely by the ViewModel — the UI never mutates this directly.
+    val activeLink: ExtractorLink? = null,
+    // URLs that have failed playback in the current episode session.
+    // Owned by the ViewModel so link-picking can account for failures across recompositions.
+    val failedLinks: Set<String> = emptySet(),
 ) : UiState {
     val episodes: List<Episode> get() {
         val currentData = launchData ?: return emptyList()

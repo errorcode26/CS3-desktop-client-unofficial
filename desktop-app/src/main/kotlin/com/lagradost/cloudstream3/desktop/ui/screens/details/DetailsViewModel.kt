@@ -223,7 +223,7 @@ class DetailsViewModel(
             showUrl = data.url,
             apiName = provider.name,
             posterUrl = data.posterUrl,
-            episodeThumbnailUrl = ep.posterUrl,
+            episodeThumbnailUrl = ep.posterUrl ?: data.posterUrl,
             screenshotUrl = saved?.screenshotUrl,
             episode = ep.episode,
             season = ep.season,
