@@ -2481,22 +2481,38 @@
                 if (pStatus) pStatus.innerText = 'Finding sources\u2026';
 
                 // Update title: show episode-aware title immediately
-                if (pTitle) {
-                    let displayTitle = meta.title;
-                    if (activeEp) {
-                        let epStr = '';
-                        if (activeEp.season && activeEp.episode) epStr = `S${activeEp.season}:E${activeEp.episode}`;
-                        else if (activeEp.episode) epStr = `Ep ${activeEp.episode}`;
-                        if (epStr) displayTitle += ` \u2022 ${epStr}`;
-                        const epTitle = activeEp.title || '';
-                        if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
-                            displayTitle += ` - ${epTitle}`;
+                if (meta.logoUrl) {
+                    if (pLogo) {
+                        pLogo.src = meta.logoUrl;
+                        pLogo.style.display = 'block';
+                    }
+                    if (pTitle) {
+                        if (activeEp) {
+                            let epStr = '';
+                            if (activeEp.season && activeEp.episode) epStr = `S${activeEp.season}:E${activeEp.episode}`;
+                            else if (activeEp.episode) epStr = `Ep ${activeEp.episode}`;
+                            
+                            const epTitle = activeEp.title || '';
+                            if (epTitle && !epTitle.toLowerCase().startsWith('episode')) {
+                                epStr += ` - ${epTitle}`;
+                            }
+                            if (epStr) {
+                                pTitle.innerText = epStr;
+                                pTitle.style.display = 'block';
+                            } else {
+                                pTitle.style.display = 'none';
+                            }
+                        } else {
+                            pTitle.style.display = 'none';
                         }
                     }
-                    pTitle.innerText = displayTitle;
-                    pTitle.style.display = 'block';
+                } else {
+                    if (pLogo) pLogo.style.display = 'none';
+                    if (pTitle) {
+                        pTitle.innerText = meta.title || '';
+                        pTitle.style.display = 'block';
+                    }
                 }
-                if (pLogo) pLogo.style.display = 'none';
 
                 // Crossfade backdrop to the new episode's art immediately
                 const newBackdrop = meta.backdropUrl || (activeEp ? activeEp.posterUrl : '');
@@ -2621,36 +2637,37 @@
                 pBackdrop.dataset.lastSrc = '';
             }
 
-            // Logo or text hero
-            if (meta.logoUrl && !activeEpInfo) {
-                // Only use the show logo if it's a movie (no episodes), 
-                // for episodes we prefer the text title to show the episode number.
-                pLogo.src = meta.logoUrl;
-                pLogo.style.display = 'block';
-                pTitle.style.display = 'none';
-            } else {
-                pLogo.style.display = 'none';
-                pTitle.style.display = 'block';
-                
-                let displayTitle = meta.title || '';
-                if (activeEpInfo) {
-                    let epStr = '';
-                    if (activeEpInfo.season && activeEpInfo.episode) {
-                        epStr = `S${activeEpInfo.season}:E${activeEpInfo.episode}`;
-                    } else if (activeEpInfo.episode) {
-                        epStr = `Ep ${activeEpInfo.episode}`;
-                    }
-                    if (epStr) {
-                        displayTitle += ` • ${epStr}`;
-                    }
-                    
-                    const epTitle = activeEpInfo.title || '';
-                    if (epTitle && epTitle !== meta.title && !epTitle.toLowerCase().startsWith('episode')) {
-                        displayTitle += ` - ${epTitle}`;
+            if (meta.logoUrl) {
+                if (pLogo) {
+                    pLogo.src = meta.logoUrl;
+                    pLogo.style.display = 'block';
+                }
+                if (pTitle) {
+                    if (activeEpInfo) {
+                        let epStr = '';
+                        if (activeEpInfo.season && activeEpInfo.episode) epStr = `S${activeEpInfo.season}:E${activeEpInfo.episode}`;
+                        else if (activeEpInfo.episode) epStr = `Ep ${activeEpInfo.episode}`;
+                        
+                        const epTitle = activeEpInfo.title || '';
+                        if (epTitle && !epTitle.toLowerCase().startsWith('episode')) {
+                            epStr += ` - ${epTitle}`;
+                        }
+                        if (epStr) {
+                            pTitle.innerText = epStr;
+                            pTitle.style.display = 'block';
+                        } else {
+                            pTitle.style.display = 'none';
+                        }
+                    } else {
+                        pTitle.style.display = 'none';
                     }
                 }
-                
-                pTitle.innerText = displayTitle;
+            } else {
+                if (pLogo) pLogo.style.display = 'none';
+                if (pTitle) {
+                    pTitle.innerText = meta.title || '';
+                    pTitle.style.display = 'block';
+                }
             }
 
             // Status label
