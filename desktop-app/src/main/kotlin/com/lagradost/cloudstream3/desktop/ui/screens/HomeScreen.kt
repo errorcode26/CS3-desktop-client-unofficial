@@ -1,9 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -12,11 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.blur
-import coil3.request.crossfade
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
@@ -46,7 +44,7 @@ fun ComposeHomeScreen(
                 targetState = currentHeroImageUrl,
                 animationSpec = tween(2000),
                 label = "home_global_backdrop_crossfade",
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) { targetBgUrl ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     coil3.compose.AsyncImage(
@@ -65,7 +63,7 @@ fun ComposeHomeScreen(
                 }
             }
         }
-        
+
         // Main content area
         val allPages = remember(activeProviderApis, uiState.disabledCatalogs) {
             activeProviderApis.flatMap { prov ->
@@ -84,13 +82,13 @@ fun ComposeHomeScreen(
             onSetSingleProvider = { name -> viewModel.onEvent(HomeUiEvent.OnSetSingleProvider(name)) },
             onToggleProviderActive = { name, isActive -> viewModel.onEvent(HomeUiEvent.OnToggleProviderActive(name, isActive)) },
             onMoveProvider = { from, to -> viewModel.onEvent(HomeUiEvent.OnMoveProvider(from, to)) },
-            onToggleCatalog = { prov, cat, enabled -> viewModel.onEvent(HomeUiEvent.OnToggleCatalog(prov, cat, enabled)) }
+            onToggleCatalog = { prov, cat, enabled -> viewModel.onEvent(HomeUiEvent.OnToggleCatalog(prov, cat, enabled)) },
         )
 
         if (allPages.isNotEmpty()) {
             val listState = rememberLazyListState()
             val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
-            
+
             // Extract individual safe padding components
             val safeLeft = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
             val safeRight = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
@@ -103,7 +101,7 @@ fun ComposeHomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     // Items handle their own horizontal safe padding internally
                     contentPadding = PaddingValues(
-                        bottom = safeBottom + 32.dp
+                        bottom = safeBottom + 32.dp,
                     ),
                 ) {
                     items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].second.name}" }) { index ->
@@ -134,7 +132,9 @@ fun ComposeHomeScreen(
                                             },
                                         )
                                     }
-                                } else { {} },
+                                } else {
+                                    {}
+                                },
                                 isHistoryVisible = isFirstPage && historyList.isNotEmpty(),
                                 onViewAll = { provider, title, items ->
                                     onNavigate(Config.CategoryGrid(provider.name, title, items))

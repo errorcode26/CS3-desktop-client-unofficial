@@ -123,7 +123,7 @@ val availableFonts: List<String>
 
 fun getFontFamily(name: String): FontFamily {
     if (name.isBlank()) return InterFontFamily
-    
+
     // Check if the user selected a custom font from their fonts folder
     val customFontFile = CustomFontManager.getFontFile(name)
     if (customFontFile != null) {

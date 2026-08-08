@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import com.lagradost.cloudstream3.*
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import java.util.Collections
 import java.util.LinkedHashMap

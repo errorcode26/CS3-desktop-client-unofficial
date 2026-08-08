@@ -48,13 +48,13 @@ fun UpdatesNotificationBell(
             colors = listOf(
                 glassBase.copy(alpha = 0.60f),
                 glassBase.copy(alpha = 0.45f),
-            )
+            ),
         )
         val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
             colors = listOf(
                 if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
                 if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
-            )
+            ),
         )
 
         Box(
@@ -65,7 +65,7 @@ fun UpdatesNotificationBell(
                 .background(glassGradient, androidx.compose.foundation.shape.CircleShape)
                 .border(1.5.dp, borderGradient, androidx.compose.foundation.shape.CircleShape)
                 .clip(androidx.compose.foundation.shape.CircleShape),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             DockItem(
                 icon = PremiumIcons.Updates,

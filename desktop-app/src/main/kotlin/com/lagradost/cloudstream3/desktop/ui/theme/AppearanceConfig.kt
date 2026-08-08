@@ -18,7 +18,11 @@ enum class PosterTitlePosition {
 }
 
 enum class ClockDisplayMode {
-    HIDDEN, TIME_ONLY, DATE_ONLY, BOTH;
+    HIDDEN,
+    TIME_ONLY,
+    DATE_ONLY,
+    BOTH,
+    ;
 
     companion object {
         fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) } ?: HIDDEN

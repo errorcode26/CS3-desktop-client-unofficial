@@ -15,11 +15,11 @@ sealed class Config {
         val preloadedName: String? = null,
         val preloadedPoster: String? = null,
         val preloadedBg: String? = null,
-        val autoPlay: Boolean = false
+        val autoPlay: Boolean = false,
     ) : Config()
     data class CategoryGrid(
         val providerName: String,
         val title: String,
-        val items: List<SearchResponse>
+        val items: List<SearchResponse>,
     ) : Config()
 }

@@ -1,11 +1,11 @@
 package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -13,23 +13,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.blur
-import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
+import com.arkivanov.decompose.extensions.compose.stack.Children
+import com.arkivanov.decompose.extensions.compose.stack.animation.fade
+import com.arkivanov.decompose.extensions.compose.stack.animation.plus
+import com.arkivanov.decompose.extensions.compose.stack.animation.scale
+import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
 import com.lagradost.common.storage.WatchHistory
-import com.arkivanov.decompose.extensions.compose.stack.Children
-import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
-import com.arkivanov.decompose.extensions.compose.stack.animation.fade
-import com.arkivanov.decompose.extensions.compose.stack.animation.scale
-import com.arkivanov.decompose.extensions.compose.stack.animation.plus
-import com.arkivanov.decompose.extensions.compose.subscribeAsState
-import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 
 data class VideoLaunchData(
     val links: List<com.lagradost.cloudstream3.utils.ExtractorLink> = emptyList(),
@@ -146,12 +146,17 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                         },
                 ) {
                     val blurRadius by androidx.compose.animation.core.animateDpAsState(
-                        targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen || 
-                                          com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) 16.dp else 0.dp
+                        targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen ||
+                            com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive
+                        ) {
+                            16.dp
+                        } else {
+                            0.dp
+                        },
                     )
-                    
+
                     androidx.compose.foundation.layout.Box(
-                        modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius),
                     ) {
                         val activeInstance = childStack.active.instance
 
@@ -202,7 +207,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                 onBack = { rootComponent.pop() },
                                                 onNavigate = { config -> rootComponent.bringToFront(config) },
                                                 viewModel = child.component.viewModel,
-                                                autoPlay = child.component.config.autoPlay
+                                                autoPlay = child.component.config.autoPlay,
                                             )
                                         } else {
                                             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -250,13 +255,12 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 }
                             }
                         }
+                    }
 
-                }
+                    // Context Menu Overlay (unblurred)
+                    com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
 
-                // Context Menu Overlay (unblurred)
-                com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
-
-                var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                    var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
                     // The Embedded Video Player Overlay
                     currentVideo?.let { launchData ->
@@ -310,19 +314,19 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                         androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.padding(20.dp)) {
                             androidx.compose.material3.Text("Error Logs", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
                             androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-                            
+
                             val errorSnapshot = com.lagradost.cloudstream3.desktop.DesktopErrorReporter.getSnapshot()
                             androidx.compose.material3.OutlinedTextField(
                                 value = errorSnapshot,
                                 onValueChange = {},
                                 modifier = androidx.compose.ui.Modifier.fillMaxWidth().weight(1f),
                             )
-                            
+
                             androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-                            
+
                             androidx.compose.foundation.layout.Row(
                                 modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
                             ) {
                                 val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
                                 androidx.compose.material3.TextButton(onClick = {

@@ -328,9 +328,13 @@ fun EpisodeCard(
             if (progress > 0f && progress < 1f) {
                 val leftSeconds = history.duration - history.position
                 val leftMins = leftSeconds / 60L
-                if (leftMins >= 60) "${leftMins / 60}h ${leftMins % 60}m left"
-                else if (leftMins > 0) "${leftMins}m left"
-                else "<1m left"
+                if (leftMins >= 60) {
+                    "${leftMins / 60}h ${leftMins % 60}m left"
+                } else if (leftMins > 0) {
+                    "${leftMins}m left"
+                } else {
+                    "<1m left"
+                }
             } else {
                 val totalMins = history.duration / 60L
                 if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
@@ -404,7 +408,7 @@ fun EpisodeCard(
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 22.dp, end = 16.dp),
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (releaseDate != null) {
                     Text(

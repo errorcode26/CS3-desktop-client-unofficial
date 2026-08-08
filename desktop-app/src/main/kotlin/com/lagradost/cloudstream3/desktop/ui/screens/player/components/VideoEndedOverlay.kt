@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun VideoEndedOverlay(
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     Column(
         modifier = Modifier

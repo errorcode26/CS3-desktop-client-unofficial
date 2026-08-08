@@ -3,8 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.navigation
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
-import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.bringToFront
+import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.popTo
 import com.arkivanov.decompose.router.stack.push
@@ -26,28 +26,28 @@ class DefaultRootComponent(
             serializer = null,
             initialConfiguration = Config.Home, // Initial screen
             handleBackButton = true, // Pops the stack on back button press
-            childFactory = ::createChild
+            childFactory = ::createChild,
         )
 
     private fun createChild(config: Config, componentContext: ComponentContext): RootComponent.Child =
         when (config) {
             is Config.Home -> RootComponent.Child.Home(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext),
             )
             is Config.History -> RootComponent.Child.History
             is Config.Search -> RootComponent.Child.Search(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent(componentContext)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent(componentContext),
             )
             is Config.Extensions -> RootComponent.Child.Extensions(config.initialTab)
             is Config.Library -> RootComponent.Child.Library
             is Config.Settings -> RootComponent.Child.Settings
             is Config.Details -> RootComponent.Child.Details(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent(componentContext, config)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent(componentContext, config),
             )
             is Config.CategoryGrid -> RootComponent.Child.CategoryGrid(
                 providerName = config.providerName,
                 title = config.title,
-                items = config.items
+                items = config.items,
             )
         }
 

@@ -6,18 +6,20 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -26,6 +28,9 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.arkivanov.decompose.DefaultComponentContext
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.resume
 import com.lagradost.cloudstream3.desktop.init.AppUpdateDialog
 import com.lagradost.cloudstream3.desktop.init.initCoil
 import com.lagradost.cloudstream3.desktop.init.initCrashHandler
@@ -42,21 +47,14 @@ import com.lagradost.cloudstream3.desktop.init.setupWindowBackgroundAndListeners
 import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
+import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
+import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
+import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
-import com.arkivanov.essenty.lifecycle.LifecycleRegistry
-import com.arkivanov.essenty.lifecycle.resume
-import com.arkivanov.decompose.DefaultComponentContext
-import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
-
-import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
-import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
-import androidx.compose.runtime.collectAsState
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 
 /**
  * Single unified entry point for CloudStream Desktop Client.
@@ -66,7 +64,7 @@ fun main(args: Array<String> = emptyArray()) {
     initWindowsEnvironment()
 
     val isDevMode = args.any { it.equals("--dev", ignoreCase = true) || it.equals("--dev-logger", ignoreCase = true) } ||
-            System.getProperty("cloudstream.dev") != null
+        System.getProperty("cloudstream.dev") != null
 
     AppLogger.i("Launching CloudStream Desktop Client...")
     AppLogger.i("Platform: ${PlatformPaths.currentOS}")
@@ -125,7 +123,7 @@ fun main(args: Array<String> = emptyArray()) {
                         com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize()
                         com.lagradost.cloudstream3.APIHolder.initAll()
                     }.join()
-                    
+
                     isAppReady = true
 
                     // Run updates in the background so they don't block the UI if the network is down or slow
@@ -134,8 +132,6 @@ fun main(args: Array<String> = emptyArray()) {
                         AppUpdater.checkForUpdates()
                     }
                 }
-                
-
 
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                     Crossfade<Boolean>(
@@ -158,7 +154,7 @@ fun main(args: Array<String> = emptyArray()) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .fillMaxHeight(0.50f)
-                                            .align(Alignment.BottomCenter)
+                                            .align(Alignment.BottomCenter),
                                     ) {
                                         DevStudioView(isDetached = false)
                                     }

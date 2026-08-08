@@ -2,9 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.dev
 
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.common.logging.LogBuffer
-import com.lagradost.common.logging.LogEntry
 import com.lagradost.common.logging.LogLevel
-import com.lagradost.common.logging.LogSubsystem
 import com.lagradost.runtime.executor.PluginCircuitBreaker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

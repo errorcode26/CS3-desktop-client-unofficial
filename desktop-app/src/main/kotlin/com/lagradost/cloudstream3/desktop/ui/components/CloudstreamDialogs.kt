@@ -12,6 +12,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
  */
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,7 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,9 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.runtime.DisposableEffect
 
 object GlobalDialogState {
     var activeDialogCount by mutableStateOf(0)
@@ -66,7 +64,7 @@ fun CloudstreamAlertDialog(
     transitionState.targetState = show
 
     val isVisible = transitionState.currentState || transitionState.targetState
-    
+
     DisposableEffect(isVisible) {
         if (isVisible) GlobalDialogState.activeDialogCount++
         onDispose {
@@ -121,7 +119,7 @@ fun CloudstreamCustomDialog(
     transitionState.targetState = show
 
     val isVisible = transitionState.currentState || transitionState.targetState
-    
+
     DisposableEffect(isVisible) {
         if (isVisible) GlobalDialogState.activeDialogCount++
         onDispose {

@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerError
@@ -9,19 +11,16 @@ import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEff
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
-import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
-import com.lagradost.common.logging.AppLogger
 import com.lagradost.runtime.executor.SafePluginInvoker
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -348,7 +347,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val cached = LinkCache.get(targetEpisodeId)
         if (cached != null) {
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
-            
+
             val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
             val sortedLinks = sortLinks(cached.links, prefQuality)
 
@@ -485,7 +484,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         isLoadingNextEpisode = false,
                         nextEpisodeError = PlayerError.ExtractorError(
                             pluginName = provider.name,
-                            message = "No links found for this episode."
+                            message = "No links found for this episode.",
                         ),
                     )
                 } else {
@@ -526,7 +525,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         nextEpisodeError = PlayerError.ExtractorError(
                             pluginName = provider.name,
                             message = "Failed to load links: ${ex?.message ?: "Unknown error"}",
-                            cause = ex
+                            cause = ex,
                         ),
                     )
                 }

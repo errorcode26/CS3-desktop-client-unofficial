@@ -95,7 +95,7 @@ object NativePlayerBridge {
      */
     fun preloadAsync() {
         if (!preloadStarted.compareAndSet(false, true)) return
-        
+
         Thread {
             runCatching {
                 AppLogger.i("Starting NativePlayerBridge warmup...")
@@ -114,7 +114,7 @@ object NativePlayerBridge {
                 runCatching { shutdownWebView2Warmup() }
             }.apply {
                 name = "cloudstream-webview2-warmup-shutdown"
-            }
+            },
         )
     }
 

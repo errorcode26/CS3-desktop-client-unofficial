@@ -60,11 +60,11 @@ object PlayerConfig {
         val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)
         val enableOverride = DesktopDataStore.getKey<Boolean>(PREF_ENABLE_SUB_OVERRIDE) ?: false
         lib.mpv_set_option_string(handle, "sub-fonts-dir", com.lagradost.common.platform.PlatformPaths.fontsDir.absolutePath)
-        
+
         if (!subFont.isNullOrBlank()) {
             lib.mpv_set_option_string(handle, "sub-font", subFont)
         }
-        
+
         if (enableOverride) {
             lib.mpv_set_option_string(handle, "sub-ass-override", "force")
         } else {

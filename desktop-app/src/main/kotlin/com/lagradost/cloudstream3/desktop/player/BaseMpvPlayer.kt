@@ -108,7 +108,7 @@ fun BaseMpvPlayer(
                                     if (endFilePtr != null) {
                                         val endFile = MpvLibrary.MpvEventEndFile(endFilePtr)
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Media ended (reason=${endFile.reason}, error=${endFile.error})")
-                                        
+
                                         // 0 = EOF, 2 = STOP, 3 = QUIT, 4 = ERROR
                                         if (endFile.reason == 4) { // MPV_END_FILE_REASON_ERROR
                                             com.lagradost.common.logging.AppLogger.e("Player:MPV", "MPV stream error (MPV_END_FILE_REASON_ERROR, code=${endFile.error})")
@@ -806,8 +806,8 @@ fun BaseMpvPlayer(
             if (h != null) {
                 mpvHandle = null
                 playerState?.detachMpv()
-                
-                // Push the heavy C++ teardown to a background daemon thread 
+
+                // Push the heavy C++ teardown to a background daemon thread
                 // to prevent blocking the Compose EDT.
                 java.lang.Thread({
                     com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Destroying mpv engine on daemon thread...")

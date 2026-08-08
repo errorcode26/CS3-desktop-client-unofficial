@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -611,7 +610,7 @@ fun DetailsMetadata(
                         if (!isNarrow) {
                             val pinAlpha by androidx.compose.animation.core.animateFloatAsState(
                                 targetValue = if (isRightColumnHovered) 1f else 0f,
-                                label = "pinAlpha"
+                                label = "pinAlpha",
                             )
                             Row(
                                 modifier = Modifier.graphicsLayer { alpha = pinAlpha },
@@ -619,8 +618,8 @@ fun DetailsMetadata(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 IconButton(
-                                    onClick = { 
-                                        isRightColumnPinned = !isRightColumnPinned 
+                                    onClick = {
+                                        isRightColumnPinned = !isRightColumnPinned
                                         com.lagradost.common.storage.DesktopDataStore.setKey("DETAILS_RIGHT_COLUMN_PINNED", isRightColumnPinned)
                                     },
                                     modifier = Modifier.size(36.dp),
@@ -642,19 +641,19 @@ fun DetailsMetadata(
                         ) {
                             val stats = buildList {
                                 add("Source" to provider.name)
-                                
+
                                 val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
                                 if (!relDate.isNullOrBlank()) add("Release Date" to relDate)
-                                
+
                                 val status = uiState?.enrichedStatus
                                 if (!status.isNullOrBlank()) add("Status" to status)
                             }
-                            
+
                             stats.forEachIndexed { index, stat ->
                                 InfoRowItem(
                                     label = stat.first,
                                     value = stat.second,
-                                    textShadow = textShadow
+                                    textShadow = textShadow,
                                 )
                             }
                         }
@@ -669,7 +668,7 @@ fun DetailsMetadata(
 private fun InfoRowItem(label: String, value: String, textShadow: androidx.compose.ui.text.TextStyle) {
     Column(
         horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
             text = label.uppercase(),
@@ -910,7 +909,7 @@ private fun ActorCard(
 @Composable
 fun DetailsStatsSection(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (uiState == null) return
 

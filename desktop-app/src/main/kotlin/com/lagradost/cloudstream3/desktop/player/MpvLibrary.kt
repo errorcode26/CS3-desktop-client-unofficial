@@ -25,8 +25,11 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("event_id", "error", "reply_userdata", "data")
     open class MpvEvent(p: Pointer? = null) : Structure(p) {
         @JvmField var event_id: Int = 0
+
         @JvmField var error: Int = 0
+
         @JvmField var reply_userdata: Long = 0
+
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -36,7 +39,9 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("name", "format", "data")
     open class MpvEventProperty(p: Pointer? = null) : Structure(p) {
         @JvmField var name: String? = null
+
         @JvmField var format: Int = 0
+
         @JvmField var data: Pointer? = null
         init {
             p?.let { read() }
@@ -46,9 +51,13 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("reason", "error", "playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries")
     open class MpvEventEndFile(p: Pointer? = null) : Structure(p) {
         @JvmField var reason: Int = 0
+
         @JvmField var error: Int = 0
+
         @JvmField var playlist_entry_id: Long = 0
+
         @JvmField var playlist_insert_id: Long = 0
+
         @JvmField var playlist_insert_num_entries: Int = 0
         init {
             p?.let { read() }
@@ -58,8 +67,11 @@ interface MpvLibrary : Library {
     @Structure.FieldOrder("prefix", "level", "text", "log_level")
     open class MpvEventLogMessage(p: Pointer? = null) : Structure(p) {
         @JvmField var prefix: String? = null
+
         @JvmField var level: String? = null
+
         @JvmField var text: String? = null
+
         @JvmField var log_level: Int = 0
         init {
             p?.let { read() }

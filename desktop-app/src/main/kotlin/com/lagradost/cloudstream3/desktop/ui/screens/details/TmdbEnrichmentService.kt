@@ -367,8 +367,8 @@ object TmdbEnrichmentService {
                                                 seasonNumber = seasonNumber,
                                                 name = sName,
                                                 episodeCount = sEpisodeCount,
-                                                posterUrl = sPosterUrl
-                                            )
+                                                posterUrl = sPosterUrl,
+                                            ),
                                         )
                                     }
                                 }
@@ -692,7 +692,7 @@ object TmdbEnrichmentService {
                                                 }
                                                 val epReleaseDate = epNode.get("air_date")?.asText()
                                                 if (!epReleaseDate.isNullOrBlank() && epReleaseDate != "null") {
-                                                    ep.description = "||DATE:${epReleaseDate}||" + (ep.description ?: "")
+                                                    ep.description = "||DATE:$epReleaseDate||" + (ep.description ?: "")
                                                 }
                                                 val epName = epNode.get("name")?.asText()
                                                 if (!epName.isNullOrBlank() && epName != "null") {

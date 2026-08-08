@@ -142,7 +142,6 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
-
             Box {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },

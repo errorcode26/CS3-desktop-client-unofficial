@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -69,7 +68,6 @@ fun HomeHeroCarousel(
         }
     }
 
-
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val scope = rememberCoroutineScope()
     var globalIndex by androidx.compose.runtime.saveable.rememberSaveable {
@@ -115,24 +113,24 @@ fun HomeHeroCarousel(
         val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
         val safeEnd = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
         val safeBottom = safeArea.calculateBottomPadding()
-        
+
         // Convert auto-slide delay to ms for the progress bar animation
         val autoAdvanceIntervalMs = autoSlideDelay * 1000L
-        
+
         // 5% proportional safe edge, guaranteeing at least 48dp buffer on top of any dock.
         val proportionalEdge = (maxWidth * 0.05f).coerceAtLeast(48.dp)
-        
+
         val paddingStart = safeStart + proportionalEdge
         val paddingEnd = safeEnd + proportionalEdge
-        
+
         // Thumbnails dynamically sized based on height
         val thumbnailHeight = (maxHeight * 0.22f).coerceIn(160.dp, 280.dp)
-        val thumbnailWidth = thumbnailHeight * (2f/3f)
+        val thumbnailWidth = thumbnailHeight * (2f / 3f)
         val thumbnailsMaxWidth = maxWidth * 0.55f
-        
+
         // Push info block up exactly above the thumbnails
         val infoBlockBottomPadding = safeBottom + (maxHeight * 0.05f) + thumbnailHeight + 48.dp
-        
+
         // The info block should take about 45% of the screen width for optimal readability
         val infoBlockMaxWidth = (maxWidth * 0.45f).coerceIn(400.dp, 750.dp)
 
@@ -214,7 +212,7 @@ fun HomeHeroCarousel(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = infoBlockBottomPadding), 
+                        .padding(bottom = infoBlockBottomPadding),
                     contentAlignment = Alignment.BottomStart,
                 ) {
                     Row(
@@ -527,9 +525,9 @@ fun HomeHeroCarousel(
         }
 
         // --- Cinematic Filmstrip ---
-        // Anchored to BottomEnd. We remove the hard right padding from the container 
+        // Anchored to BottomEnd. We remove the hard right padding from the container
         // and instead add it to the LazyRow's max width and contentPadding.
-        // This keeps the left edge (selected poster) exactly in the same position, 
+        // This keeps the left edge (selected poster) exactly in the same position,
         // but allows the right side to extend all the way to the screen edge so posters
         // don't clip abruptly.
         Box(
@@ -615,16 +613,20 @@ fun HomeHeroCarousel(
                                             .fillMaxSize()
                                             .clip(RoundedCornerShape(8.dp))
                                             .then(
-                                                if (isSelected) Modifier.border(
-                                                    width = 1.5.dp,
-                                                    brush = Brush.verticalGradient(
-                                                        listOf(
-                                                            Color.White.copy(alpha = 0.95f),
-                                                            Color.White.copy(alpha = 0.25f),
+                                                if (isSelected) {
+                                                    Modifier.border(
+                                                        width = 1.5.dp,
+                                                        brush = Brush.verticalGradient(
+                                                            listOf(
+                                                                Color.White.copy(alpha = 0.95f),
+                                                                Color.White.copy(alpha = 0.25f),
+                                                            ),
                                                         ),
-                                                    ),
-                                                    shape = RoundedCornerShape(8.dp),
-                                                ) else Modifier
+                                                        shape = RoundedCornerShape(8.dp),
+                                                    )
+                                                } else {
+                                                    Modifier
+                                                },
                                             )
                                             .clickable { globalIndex = globalThumbIndex },
                                     )

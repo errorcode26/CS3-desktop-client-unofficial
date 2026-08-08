@@ -161,7 +161,7 @@ fun DetailsEpisodeSection(
                             hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
                         }
                         Button(
-                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, isSeasonWatched) },
+                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isSeasonWatched) Color(0xFF1B4D2E).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 contentColor = if (isSeasonWatched) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
@@ -281,7 +281,7 @@ fun DetailsEpisodeSection(
                                                 text = {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                                                     ) {
                                                         if (meta?.posterUrl != null) {
                                                             coil3.compose.AsyncImage(
@@ -298,13 +298,13 @@ fun DetailsEpisodeSection(
                                                             Text(
                                                                 text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
                                                                 style = MaterialTheme.typography.bodyLarge,
-                                                                fontWeight = FontWeight.SemiBold
+                                                                fontWeight = FontWeight.SemiBold,
                                                             )
                                                             if (meta?.episodeCount != null) {
                                                                 Text(
                                                                     text = "${meta.episodeCount} episodes",
                                                                     style = MaterialTheme.typography.bodySmall,
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 )
                                                             }
                                                         }

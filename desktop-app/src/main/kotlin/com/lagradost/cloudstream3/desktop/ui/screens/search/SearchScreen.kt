@@ -159,7 +159,7 @@ fun ComposeSearchScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(0.5f).align(Alignment.CenterEnd),
                     horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Spacer(modifier = Modifier.width(266.dp)) // 250dp (half search bar) + 16dp (gap)
 
@@ -169,110 +169,110 @@ fun ComposeSearchScreen(
                             shape = RoundedCornerShape(24.dp),
                             color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
                             onClick = { showProviderDropdown = true },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (!isGlobalSearchEnabled && selectedProviderName != null) {
-                                val icon = pluginIcons[selectedProviderName] ?: fuzzyMatchIcon(selectedProviderName)
-                                if (icon != null) {
-                                    coil3.compose.AsyncImage(
-                                        model = icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
-                                    )
-                                }
-                            }
-                            Text(
-                                text = if (isGlobalSearchEnabled) "All Plugins" else (selectedProviderName ?: "Select Plugin"),
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                modifier = Modifier.widthIn(max = 120.dp),
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = showProviderDropdown,
-                        onDismissRequest = { showProviderDropdown = false },
-                        modifier = Modifier.heightIn(max = 440.dp),
-                    ) {
-                        // Category chips to narrow the provider list
-                        val providerFilterCategories = listOf(
-                            TvType.Movie to "Movies",
-                            TvType.TvSeries to "Series",
-                            TvType.Anime to "Anime",
-                            TvType.Documentary to "Docs",
-                            TvType.Live to "Live",
-                        )
-                        CategoryFilterChips(
-                            categories = providerFilterCategories.map { it.second },
-                            selected = providerTypeFilter.mapNotNullTo(mutableSetOf()) { t ->
-                                providerFilterCategories.firstOrNull { it.first == t }?.second
-                            },
-                            onToggle = { label ->
-                                val tvType = providerFilterCategories.firstOrNull { it.second == label }?.first
-                                if (tvType != null) {
-                                    providerTypeFilter = if (tvType in providerTypeFilter) {
-                                        providerTypeFilter - tvType
-                                    } else {
-                                        providerTypeFilter + tvType
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text("All Plugins", fontWeight = FontWeight.SemiBold) },
-                            onClick = {
-                                viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
-                                showProviderDropdown = false
-                            },
-                        )
-                        HorizontalDivider()
-                        val visibleProviders = if (providerTypeFilter.isEmpty()) {
-                            uiState.providers
-                        } else {
-                            uiState.providers.filter { p ->
-                                p.supportedTypes.any { it in providerTypeFilter }
-                            }
-                        }
-                        visibleProviders.forEach { provider ->
-                            DropdownMenuItem(
-                                text = { Text(provider.name) },
-                                leadingIcon = {
-                                    val icon = pluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                if (!isGlobalSearchEnabled && selectedProviderName != null) {
+                                    val icon = pluginIcons[selectedProviderName] ?: fuzzyMatchIcon(selectedProviderName)
                                     if (icon != null) {
                                         coil3.compose.AsyncImage(
                                             model = icon,
                                             contentDescription = null,
-                                            modifier = Modifier.size(24.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
+                                            modifier = Modifier.size(20.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
                                         )
-                                    } else {
-                                        Spacer(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                                Text(
+                                    text = if (isGlobalSearchEnabled) "All Plugins" else (selectedProviderName ?: "Select Plugin"),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    modifier = Modifier.widthIn(max = 120.dp),
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showProviderDropdown,
+                            onDismissRequest = { showProviderDropdown = false },
+                            modifier = Modifier.heightIn(max = 440.dp),
+                        ) {
+                            // Category chips to narrow the provider list
+                            val providerFilterCategories = listOf(
+                                TvType.Movie to "Movies",
+                                TvType.TvSeries to "Series",
+                                TvType.Anime to "Anime",
+                                TvType.Documentary to "Docs",
+                                TvType.Live to "Live",
+                            )
+                            CategoryFilterChips(
+                                categories = providerFilterCategories.map { it.second },
+                                selected = providerTypeFilter.mapNotNullTo(mutableSetOf()) { t ->
+                                    providerFilterCategories.firstOrNull { it.first == t }?.second
+                                },
+                                onToggle = { label ->
+                                    val tvType = providerFilterCategories.firstOrNull { it.second == label }?.first
+                                    if (tvType != null) {
+                                        providerTypeFilter = if (tvType in providerTypeFilter) {
+                                            providerTypeFilter - tvType
+                                        } else {
+                                            providerTypeFilter + tvType
+                                        }
                                     }
                                 },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("All Plugins", fontWeight = FontWeight.SemiBold) },
                                 onClick = {
-                                    viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
-                                    viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name))
+                                    viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
                                     showProviderDropdown = false
                                 },
                             )
+                            HorizontalDivider()
+                            val visibleProviders = if (providerTypeFilter.isEmpty()) {
+                                uiState.providers
+                            } else {
+                                uiState.providers.filter { p ->
+                                    p.supportedTypes.any { it in providerTypeFilter }
+                                }
+                            }
+                            visibleProviders.forEach { provider ->
+                                DropdownMenuItem(
+                                    text = { Text(provider.name) },
+                                    leadingIcon = {
+                                        val icon = pluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
+                                        if (icon != null) {
+                                            coil3.compose.AsyncImage(
+                                                model = icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(24.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.size(24.dp))
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
+                                        viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name))
+                                        showProviderDropdown = false
+                                    },
+                                )
+                            }
                         }
-                    }
-                } // closes inner Box
+                    } // closes inner Box
                 } // closes Row
             } // closes outer Box
 

@@ -8,7 +8,7 @@ object LinkCache {
     data class CachedLinks(
         val links: List<ExtractorLink>,
         val subtitles: List<SubtitleFile>,
-        val timestamp: Long
+        val timestamp: Long,
     )
 
     private val cache = ConcurrentHashMap<String, CachedLinks>()
@@ -31,7 +31,7 @@ object LinkCache {
         cache[episodeId] = CachedLinks(
             links = links,
             subtitles = subtitles,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
         )
     }
 }

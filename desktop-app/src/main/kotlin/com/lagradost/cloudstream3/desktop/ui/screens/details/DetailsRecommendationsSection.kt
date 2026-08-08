@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -61,17 +60,17 @@ fun DetailsRecommendationsSection(
             items(validRecs.take(18)) { rec ->
                 val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName)
                 if (recProvider != null) {
-                        PosterCard(
-                            item = rec,
-                            provider = recProvider,
-                            itemWidth = 200.dp,
-                            onClick = {
-                                onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
-                            },
-                            onPlayClick = {
-                                onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, true))
-                            }
-                        )
+                    PosterCard(
+                        item = rec,
+                        provider = recProvider,
+                        itemWidth = 200.dp,
+                        onClick = {
+                            onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
+                        },
+                        onPlayClick = {
+                            onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, true))
+                        },
+                    )
                 }
             }
         }

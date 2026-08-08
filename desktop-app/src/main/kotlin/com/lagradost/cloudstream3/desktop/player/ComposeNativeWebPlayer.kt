@@ -97,6 +97,7 @@ fun ComposeNativeWebPlayer(
     var isUiReady by remember { mutableStateOf(false) }
     val audioTracks by (playerState?.audioTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
     val subtitleTracks by (playerState?.subtitleTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
+    val videoTracks by (playerState?.videoTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
     val isBuffering by (playerState?.isBuffering ?: kotlinx.coroutines.flow.flowOf(false)).collectAsState(false)
 
     val proxyAudioTracks by com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.collectAsState()
@@ -110,7 +111,7 @@ fun ComposeNativeWebPlayer(
     val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     val activeSubtitleOverrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
         if (isUiReady) {
             val payload = PlayerUiSyncState(
                 plot = plot,
@@ -129,7 +130,7 @@ fun ComposeNativeWebPlayer(
                         isActive = (index == currentLinkIndex),
                         isM3u8 = l.isM3u8,
                         isDash = l.isDash,
-                        url = l.url
+                        url = l.url,
                     )
                 },
                 episodes = episodes.map {
@@ -141,13 +142,16 @@ fun ComposeNativeWebPlayer(
                         isActive = (it.data == currentEpisodeId),
                         posterUrl = (it.posterUrl ?: seriesPosterUrl)?.let { url -> com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(url) },
                         description = it.description,
-                        runTime = it.runTime
+                        runTime = it.runTime,
                     )
                 },
                 audioTracks = audioTracks.map {
                     SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
                 subTracks = subtitleTracks.map {
+                    SubtitleTrackPayload(it.id, it.name, it.isSelected)
+                },
+                videoTracks = videoTracks.map {
                     SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
                 lazyAudioTracks = proxyAudioTracks.map {
@@ -177,9 +181,9 @@ fun ComposeNativeWebPlayer(
                 resolution = resolution,
                 activeSubtitleOverrideEnabled = activeSubtitleOverrideEnabled,
             )
-            
+
             val wrapper = MetadataUpdatePayloadWrapper(
-                value = payload
+                value = payload,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(wrapper))
         }
@@ -225,7 +229,7 @@ fun ComposeNativeWebPlayer(
                 debugWait = false,
                 debugHasEver = true,
                 debugPos = 0.0,
-                interpolationEnabled = interpolationEnabled
+                interpolationEnabled = interpolationEnabled,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -275,17 +279,17 @@ fun ComposeNativeWebPlayer(
             val webView2DataDir = File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
             webView2DataDir.mkdirs()
             val tempFile = File(webView2DataDir, "cloudstream_controls.html")
-            
+
             val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
             val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
             val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-            
+
             val htmlContent = htmlTemplate
                 .replace("/* CSS_INJECT */", cssContent)
                 .replace("/* JS_INJECT */", jsContent)
                 .replace("{{ACCENT_COLOR}}", accentColorHex)
                 .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
-            
+
             if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
                 tempFile.writeText(htmlContent, Charsets.UTF_8)
             } else {
@@ -515,6 +519,12 @@ fun ComposeNativeWebPlayer(
                                 playerState?.setAudioTrack(id)
                             }
                         }
+                        "setVideoTrack" -> {
+                            val id = eventValue.toIntOrNull()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                playerState?.setVideoTrack(id)
+                            }
+                        }
                         "loadLazyAudioTrack" -> {
                             val url = eventValue
                             val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == url }
@@ -579,7 +589,7 @@ fun ComposeNativeWebPlayer(
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
-                                
+
                                 playerState?.setSubtitleFont(null)
                                 playerState?.setSubtitleOverrideEnabled(false)
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bg-color", "#00000000")

@@ -21,7 +21,7 @@ object DesktopRepositoryManager {
     private val reposFile by lazy { File(getExtensionsDir(), "repos.json") }
     private val repoCacheFile by lazy { File(getExtensionsDir(), "repo_cache.json") }
     private val pluginsCacheFile by lazy { File(getExtensionsDir(), "plugins_cache.json") }
-    
+
     private val repoCache = java.util.concurrent.ConcurrentHashMap<String, Repository>()
     private val pluginsCache = java.util.concurrent.ConcurrentHashMap<String, List<SitePlugin>>()
 
@@ -33,7 +33,7 @@ object DesktopRepositoryManager {
 
     private val _syncGeneration = MutableStateFlow(0)
     val syncGeneration: StateFlow<Int> = _syncGeneration.asStateFlow()
-    
+
     fun incrementSyncGeneration() {
         _syncGeneration.update { it + 1 }
     }
@@ -44,7 +44,9 @@ object DesktopRepositoryManager {
 
     private val _failedIconUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     fun isIconFailed(url: String): Boolean = _failedIconUrls.contains(url)
-    fun markIconFailed(url: String) { _failedIconUrls.add(url) }
+    fun markIconFailed(url: String) {
+        _failedIconUrls.add(url)
+    }
 
     data class SyncReport(
         val reposRefreshed: Int,
@@ -279,7 +281,7 @@ object DesktopRepositoryManager {
 
     fun getExtensionsDir(): File = PluginFileUtils.getExtensionsDir()
 
-    suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? = 
+    suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? =
         PluginFileUtils.downloadPlugin(repoName, plugin)
 
     fun clearCaches() {

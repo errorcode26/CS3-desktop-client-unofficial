@@ -54,7 +54,7 @@ fun SettingsPlayer(
                     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                         DesktopDataStore.setKey(PlayerConfig.PREF_INTERPOLATION, it)
                     }
-                }
+                },
             )
 
             SettingsDropdownItem(

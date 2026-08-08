@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details.contract
 
-import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
@@ -19,7 +18,7 @@ data class SeasonMetadata(
     val seasonNumber: Int,
     val name: String,
     val episodeCount: Int?,
-    val posterUrl: String?
+    val posterUrl: String?,
 )
 
 data class DetailsUiState(

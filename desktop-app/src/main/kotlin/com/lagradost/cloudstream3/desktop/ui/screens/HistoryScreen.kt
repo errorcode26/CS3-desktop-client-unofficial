@@ -125,7 +125,7 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
                                             preloadedName = history.showName,
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
-                                            autoPlay = false
+                                            autoPlay = false,
                                         ),
                                     )
                                 }
@@ -139,11 +139,11 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
                                             preloadedName = history.showName,
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
-                                            autoPlay = true
+                                            autoPlay = true,
                                         ),
                                     )
                                 }
-                            }
+                            },
                         )
                     }
                 }

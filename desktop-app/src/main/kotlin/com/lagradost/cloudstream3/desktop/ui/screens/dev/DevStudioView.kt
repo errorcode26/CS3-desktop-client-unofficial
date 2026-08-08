@@ -32,19 +32,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.common.logging.LogEntry
 import com.lagradost.common.logging.LogLevel
 import com.lagradost.common.logging.LogSubsystem
 import com.lagradost.runtime.executor.PluginHealthStats
 import com.lagradost.runtime.executor.PluginHealthStatus
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
-
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 // Dark Studio Palette
 private val DevBgDark = Color(0xFF0F1117)
@@ -96,7 +93,7 @@ fun DevStudioView(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DevBgDark)
+            .background(DevBgDark),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Top App Bar
@@ -132,7 +129,7 @@ fun DevStudioView(
                             .width(420.dp)
                             .fillMaxHeight()
                             .background(DevSurfaceDark)
-                            .border(1.dp, DevBorderDark)
+                            .border(1.dp, DevBorderDark),
                     ) {
                         DevStudioInspector(
                             entry = state.selectedEntry!!,
@@ -339,7 +336,7 @@ private fun DevStudioToolbar(
                                 Icons.Default.Search,
                                 contentDescription = null,
                                 tint = Color.Gray,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                             Spacer(Modifier.width(8.dp))
                             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -350,7 +347,7 @@ private fun DevStudioToolbar(
                                         color = Color.Gray,
                                         fontFamily = FontFamily.Monospace,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                                 innerTextField()
@@ -363,12 +360,12 @@ private fun DevStudioToolbar(
                                     tint = Color.Gray,
                                     modifier = Modifier
                                         .size(14.dp)
-                                        .clickable { onEvent(DevStudioUiEvent.UpdateSearchQuery("")) }
+                                        .clickable { onEvent(DevStudioUiEvent.UpdateSearchQuery("")) },
                                 )
                             }
                         }
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
 
                 // Subsystem Dropdown
@@ -401,14 +398,14 @@ private fun DevStudioToolbar(
                     color = if (state.exceptionsOnly) DevLevelError else DevBgDark,
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = if (state.exceptionsOnly) 1f else 0.5f)),
-                    modifier = Modifier.clickable { onEvent(DevStudioUiEvent.ToggleExceptionsOnly) }
+                    modifier = Modifier.clickable { onEvent(DevStudioUiEvent.ToggleExceptionsOnly) },
                 ) {
                     Text(
                         "🔥 CRASHES ONLY",
                         color = if (state.exceptionsOnly) Color.White else DevLevelError,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
 
@@ -472,8 +469,8 @@ private fun DevStudioToolbar(
                             onClick = {
                                 onEvent(
                                     DevStudioUiEvent.SelectPlugin(
-                                        if (state.selectedPlugin == health.providerName) null else health.providerName
-                                    )
+                                        if (state.selectedPlugin == health.providerName) null else health.providerName,
+                                    ),
                                 )
                             },
                             onReset = { onEvent(DevStudioUiEvent.ResetCircuit(health.providerName)) },
@@ -703,8 +700,11 @@ private fun DevStudioLogRow(
             .background(rowBg)
             .clickable { onClick() }
             .then(
-                if (entry.level == LogLevel.ERROR && !isSelected) Modifier.border(width = 0.dp, color = Color.Transparent) // We'll just use the background, but add a spacer
-                else Modifier
+                if (entry.level == LogLevel.ERROR && !isSelected) {
+                    Modifier.border(width = 0.dp, color = Color.Transparent) // We'll just use the background, but add a spacer
+                } else {
+                    Modifier
+                },
             )
             .padding(end = 12.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -794,11 +794,11 @@ private fun DevStudioLogRow(
             Surface(
                 color = DevLevelError.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(3.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = 0.5f))
+                border = androidx.compose.foundation.BorderStroke(1.dp, DevLevelError.copy(alpha = 0.5f)),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
                     Icon(Icons.Default.BugReport, contentDescription = null, tint = DevLevelError, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
@@ -863,7 +863,7 @@ private fun DevStudioInspector(
                 shape = RoundedCornerShape(6.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) DevLevelError else DevBorderDark
+                    if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) DevLevelError else DevBorderDark,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -920,14 +920,16 @@ private fun DevStudioInspector(
         // Full Message
         Text("Message (Payload):", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        
+
         val mapper = remember { jacksonObjectMapper() }
         val jsonNode = remember(entry.message) {
             try {
                 val trimmed = entry.message.trim()
                 if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
                     mapper.readTree(trimmed)
-                } else null
+                } else {
+                    null
+                }
             } catch (e: Exception) {
                 null
             }
@@ -1016,13 +1018,23 @@ private fun PluginHealthChip(
     }
 
     Surface(
-        color = if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) DevLevelError.copy(alpha = 0.2f)
-                else if (isSelected) statusColor.copy(alpha = 0.2f) else DevBgDark,
+        color = if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) {
+            DevLevelError.copy(alpha = 0.2f)
+        } else if (isSelected) {
+            statusColor.copy(alpha = 0.2f)
+        } else {
+            DevBgDark
+        },
         shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) DevLevelError
-            else if (isSelected) statusColor else DevBorderDark
+            if (health.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED) {
+                DevLevelError
+            } else if (isSelected) {
+                statusColor
+            } else {
+                DevBorderDark
+            },
         ),
         modifier = Modifier.clickable { onClick() },
     ) {
@@ -1035,7 +1047,7 @@ private fun PluginHealthChip(
                 modifier = Modifier
                     .size(6.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(statusColor)
+                    .background(statusColor),
             )
             Text(
                 text = health.providerName,
@@ -1084,13 +1096,13 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
             Column(modifier = Modifier.padding(start = padding.dp)) {
                 Row(
                     modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color.Gray,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(14.dp),
                     )
                     Text("{...} ${fieldNames.size} keys", color = DevLevelVerbose, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
@@ -1103,7 +1115,7 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
                                 color = DevAccentCyan,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.padding(start = (padding + 12).dp)
+                                modifier = Modifier.padding(start = (padding + 12).dp),
                             )
                             JsonNodeViewer(child, depth + 1)
                         } else {
@@ -1133,13 +1145,13 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
             Column(modifier = Modifier.padding(start = padding.dp)) {
                 Row(
                     modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color.Gray,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(14.dp),
                     )
                     Text("[...] ${node.size()} items", color = DevLevelVerbose, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
@@ -1151,7 +1163,7 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
                                 color = Color.Gray,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.padding(start = (padding + 12).dp)
+                                modifier = Modifier.padding(start = (padding + 12).dp),
                             )
                             JsonNodeViewer(child, depth + 1)
                         } else {
@@ -1199,7 +1211,7 @@ private fun StackTraceViewer(stackTrace: String) {
                 color = color,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
-                fontWeight = if (isCore) FontWeight.Bold else FontWeight.Normal
+                fontWeight = if (isCore) FontWeight.Bold else FontWeight.Normal,
             )
         }
     }

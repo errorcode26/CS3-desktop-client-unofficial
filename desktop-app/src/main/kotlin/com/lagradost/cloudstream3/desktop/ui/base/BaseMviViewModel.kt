@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.base
 
+import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,7 +13,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 
 /**
  * Marker interface for all UI States.

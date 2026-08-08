@@ -239,7 +239,7 @@ class PlayerState {
             } else {
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-font", "sans-serif")
             }
-            
+
             val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
             if (overrideEnabled) {
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")

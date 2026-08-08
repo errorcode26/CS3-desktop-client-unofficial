@@ -44,8 +44,10 @@ class DetailsViewModel(
                 val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
                 val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
 
-                val historyMap = (DesktopDataStore.getWatchHistoryByParent(currentParentId) + 
-                                 DesktopDataStore.getWatchHistoryByParent(fallbackParentId))
+                val historyMap = (
+                    DesktopDataStore.getWatchHistoryByParent(currentParentId) +
+                        DesktopDataStore.getWatchHistoryByParent(fallbackParentId)
+                    )
                     .distinctBy { it.episodeId }
                     .filter { it.showUrl == url || it.showUrl == currentDataUrl }
                     .associateBy { it.episodeId ?: "" }
@@ -154,7 +156,7 @@ class DetailsViewModel(
                         }
                     }
                     is EnrichmentUpdate.FullyEnriched -> {
-                        updateState { 
+                        updateState {
                             val newState = copy(isEnriching = false, enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete)
                             EnrichedDetailsCache.put(url, newState)
                             newState.response?.url?.let {
@@ -315,7 +317,7 @@ class DetailsViewModel(
                 // Marking as watched. Save backup of current states.
                 val newBackupMap = mutableMapOf<String, WatchHistory>()
                 val historiesToSave = mutableListOf<WatchHistory>()
-                
+
                 episodes.forEach { ep ->
                     val hist = uiState.value.watchHistory.values.find { (it.episodeId ?: "") == ep.data }
                     if (hist != null) {
@@ -337,7 +339,7 @@ class DetailsViewModel(
                             episodeId = ep.data,
                             position = dur,
                             duration = dur,
-                        )
+                        ),
                     )
                 }
                 DesktopDataStore.setMultipleLastWatched(historiesToSave)
@@ -346,7 +348,7 @@ class DetailsViewModel(
                 // Unmarking. Restore from backup.
                 val historiesToRestore = mutableListOf<WatchHistory>()
                 val episodesToRemove = mutableListOf<String>()
-                
+
                 episodes.forEach { ep ->
                     val backup = uiState.value.backupSeasonHistory[ep.data]
                     if (backup != null) {
@@ -365,7 +367,7 @@ class DetailsViewModel(
                                 episodeId = ep.data,
                                 position = backup.position,
                                 duration = dur,
-                            )
+                            ),
                         )
                     } else {
                         episodesToRemove.add(ep.data)

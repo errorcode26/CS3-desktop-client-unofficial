@@ -228,7 +228,7 @@ object HybridEnrichmentService {
                                 }
                                 if (cinemetaEp.released != null) {
                                     val releaseDateIso = cinemetaEp.released.take(10) // Format: "YYYY-MM-DD"
-                                    ep.description = "||DATE:${releaseDateIso}||" + (ep.description ?: "")
+                                    ep.description = "||DATE:$releaseDateIso||" + (ep.description ?: "")
                                 }
                                 if (ep.posterUrl.isNullOrBlank() && !cinemetaEp.thumbnail.isNullOrBlank()) {
                                     ep.posterUrl = cinemetaEp.thumbnail

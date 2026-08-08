@@ -13,6 +13,7 @@ data class PlayerUiSyncState(
     val episodes: List<EpisodePayload>,
     val audioTracks: List<SubtitleTrackPayload>,
     val subTracks: List<SubtitleTrackPayload>,
+    val videoTracks: List<SubtitleTrackPayload>,
     val lazyAudioTracks: List<LazyTrackPayload>,
     val lazySubTracks: List<LazyTrackPayload>,
     val lazyVideoTracks: List<LazyTrackPayload>,
@@ -37,7 +38,7 @@ data class PlayerUiSyncState(
 
 data class FailedLinkPayload(
     val index: Int,
-    val reason: String
+    val reason: String,
 )
 
 data class LinkPayload(
@@ -47,7 +48,7 @@ data class LinkPayload(
     val isActive: Boolean,
     val isM3u8: Boolean,
     val isDash: Boolean,
-    val url: String
+    val url: String,
 )
 
 data class EpisodePayload(
@@ -58,19 +59,19 @@ data class EpisodePayload(
     val isActive: Boolean,
     val posterUrl: String?,
     val description: String?,
-    val runTime: Int?
+    val runTime: Int?,
 )
 
 data class SubtitleTrackPayload(
     val id: Int,
     val name: String,
-    val isSelected: Boolean
+    val isSelected: Boolean,
 )
 
 data class LazyTrackPayload(
     val url: String,
     val name: String,
-    val language: String?
+    val language: String?,
 )
 
 data class AppStateUpdatePayload(
@@ -82,15 +83,15 @@ data class AppStateUpdatePayload(
     val debugWait: Boolean = false,
     val debugHasEver: Boolean = true,
     val debugPos: Double = 0.0,
-    val interpolationEnabled: Boolean = false
+    val interpolationEnabled: Boolean = false,
 )
 
 data class ToastPayload(
     val type: String = "show_toast",
-    val message: String
+    val message: String,
 )
 
 data class MetadataUpdatePayloadWrapper(
     val type: String = "metadata_update",
-    val value: PlayerUiSyncState
+    val value: PlayerUiSyncState,
 )

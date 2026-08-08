@@ -11,7 +11,7 @@ interface RootComponent {
     fun popTo(index: Int)
     fun replaceAll(config: Config)
     fun bringToFront(config: Config)
-    
+
     sealed class Child {
         class Home(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent) : Child()
         data object History : Child()
@@ -23,7 +23,7 @@ interface RootComponent {
         data class CategoryGrid(
             val providerName: String,
             val title: String,
-            val items: List<com.lagradost.cloudstream3.SearchResponse>
+            val items: List<com.lagradost.cloudstream3.SearchResponse>,
         ) : Child()
     }
 }

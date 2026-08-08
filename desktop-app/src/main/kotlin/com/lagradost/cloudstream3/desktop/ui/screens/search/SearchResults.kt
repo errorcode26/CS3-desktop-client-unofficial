@@ -67,7 +67,7 @@ fun SearchResults(
                                 },
                                 onPlayClick = {
                                     onItemClick(provider, item, heroMeta?.backdropUrl, true)
-                                }
+                                },
                             )
                         }
                     }

@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -48,8 +47,6 @@ fun DesktopAppShell(
     content: @Composable () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-
-
 
     val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.hasUnreadUpdates() }
@@ -171,18 +168,22 @@ fun DesktopAppShell(
                         if (bgImageSaturation < 0.999f) {
                             val s = bgImageSaturation
                             val invS = 1f - s
-                            val rw = 0.213f; val gw = 0.715f; val bw = 0.072f
+                            val rw = 0.213f
+                            val gw = 0.715f
+                            val bw = 0.072f
                             androidx.compose.ui.graphics.ColorFilter.colorMatrix(
                                 androidx.compose.ui.graphics.ColorMatrix(
                                     floatArrayOf(
-                                        rw * invS + s, gw * invS,       bw * invS,       0f, 0f,
-                                        rw * invS,       gw * invS + s, bw * invS,       0f, 0f,
-                                        rw * invS,       gw * invS,       bw * invS + s, 0f, 0f,
-                                        0f,              0f,              0f,              1f, 0f,
-                                    )
-                                )
+                                        rw * invS + s, gw * invS, bw * invS, 0f, 0f,
+                                        rw * invS, gw * invS + s, bw * invS, 0f, 0f,
+                                        rw * invS, gw * invS, bw * invS + s, 0f, 0f,
+                                        0f, 0f, 0f, 1f, 0f,
+                                    ),
+                                ),
                             )
-                        } else null
+                        } else {
+                            null
+                        }
                     }
 
                     Box(modifier = Modifier.fillMaxSize().then(if (bgImageOpacity < 0.999f) Modifier.alpha(bgImageOpacity) else Modifier)) {
@@ -223,7 +224,7 @@ fun DesktopAppShell(
                                         ),
                                         center = Offset(size.width / 2f, size.height / 2f),
                                         radius = (size.width.coerceAtLeast(size.height)) * 0.75f,
-                                    )
+                                    ),
                                 )
                             }
                         }
@@ -231,38 +232,38 @@ fun DesktopAppShell(
                 }
                 val safeTop = if (showTopBar) 64.dp else 0.dp
                 val basePadding = 16.dp
-                
+
                 val contentPadding = if (showDock) {
                     when (dockPosition) {
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(
-                            start = 82.dp + basePadding, 
+                            start = 82.dp + basePadding,
                             top = safeTop + basePadding,
                             end = basePadding,
-                            bottom = basePadding
+                            bottom = basePadding,
                         )
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(
-                            start = basePadding, 
+                            start = basePadding,
                             top = safeTop + basePadding,
                             end = 82.dp + basePadding,
-                            bottom = basePadding
+                            bottom = basePadding,
                         )
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(
                             start = basePadding,
                             top = 82.dp + safeTop + basePadding,
                             end = basePadding,
-                            bottom = basePadding
+                            bottom = basePadding,
                         )
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(
                             start = basePadding,
                             top = safeTop + basePadding,
                             end = basePadding,
-                            bottom = 82.dp + basePadding
+                            bottom = 82.dp + basePadding,
                         )
                         else -> PaddingValues(
-                            start = 82.dp + basePadding, 
+                            start = 82.dp + basePadding,
                             top = safeTop + basePadding,
                             end = basePadding,
-                            bottom = basePadding
+                            bottom = basePadding,
                         )
                     }
                 } else {
@@ -270,12 +271,12 @@ fun DesktopAppShell(
                         start = basePadding,
                         top = safeTop + basePadding,
                         end = basePadding,
-                        bottom = basePadding
+                        bottom = basePadding,
                     )
                 }
 
                 Box(
-                    modifier = Modifier.fillMaxSize().then(if (applySafePadding) Modifier.padding(contentPadding) else Modifier)
+                    modifier = Modifier.fillMaxSize().then(if (applySafePadding) Modifier.padding(contentPadding) else Modifier),
                 ) {
                     CompositionLocalProvider(LocalSafeArea provides contentPadding) {
                         content()
@@ -336,7 +337,6 @@ private fun NavigationDock(
     onNavigate: (Config) -> Unit,
     onSearchClick: () -> Unit,
 ) {
-
     val isBottom = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM
     val isRight = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT
     val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
@@ -386,7 +386,6 @@ private fun NavigationDock(
         Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
     }
 
-
     val mainDockSurface = @Composable {
         Box(modifier = surfaceModifier) {
             // Drop shadow without occlusion to prevent weird whitish middle bar artifact
@@ -403,20 +402,20 @@ private fun NavigationDock(
                 colors = listOf(
                     glassBase.copy(alpha = 0.60f),
                     glassBase.copy(alpha = 0.45f),
-                )
+                ),
             )
             val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
                 colors = listOf(
                     if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
                     if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
-                )
+                ),
             )
 
             Box(
                 modifier = Modifier
                     .background(glassGradient, RoundedCornerShape(20.dp))
                     .border(1.5.dp, borderGradient, RoundedCornerShape(20.dp))
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(20.dp)),
             ) {
                 if (isHorizontal) {
                     Row(

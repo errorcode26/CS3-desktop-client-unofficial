@@ -1038,6 +1038,17 @@
 
         // Video Tracks (Qualities)
         let videoHtml = '';
+        if (meta.videoTracks && meta.videoTracks.length > 0) {
+            videoHtml += meta.videoTracks.map(t => {
+                const isHD = t.name.includes('1080') || t.name.includes('720');
+                const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+                return `
+                <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
+                    <span class="track-name">${t.name} ${resBadge}</span>
+                    <span class="track-check">${SVGS.check}</span>
+                </div>`;
+            }).join('');
+        }
         if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
             videoHtml += meta.lazyVideoTracks.map(t => {
                 const isHD = t.name.includes('1080') || t.name.includes('720');

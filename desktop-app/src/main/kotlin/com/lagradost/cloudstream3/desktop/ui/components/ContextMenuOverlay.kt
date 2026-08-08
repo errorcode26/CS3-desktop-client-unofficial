@@ -13,6 +13,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,12 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.MainAPI
@@ -35,20 +37,12 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.ui.graphics.vector.ImageVector
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
 enum class ContextMenuType {
-    POSTER, WATCH_HISTORY
+    POSTER,
+    WATCH_HISTORY,
 }
 
 object GlobalContextMenuState {
@@ -73,7 +67,7 @@ object GlobalContextMenuState {
         item: SearchResponse,
         provider: MainAPI?,
         onClick: (() -> Unit)?,
-        onPlayClick: (() -> Unit)? = null
+        onPlayClick: (() -> Unit)? = null,
     ) {
         this.bounds = bounds
         this.searchResponse = item
@@ -90,7 +84,7 @@ object GlobalContextMenuState {
         provider: MainAPI?,
         onRemove: () -> Unit,
         onClick: (() -> Unit)?,
-        onPlayClick: (() -> Unit)? = null
+        onPlayClick: (() -> Unit)? = null,
     ) {
         this.bounds = bounds
         this.watchHistory = history
@@ -123,7 +117,7 @@ fun ContextMenuOverlay() {
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = { state.dismiss() }
+                    onClick = { state.dismiss() },
                 ),
         ) {
             AnimatedVisibility(
@@ -134,7 +128,7 @@ fun ContextMenuOverlay() {
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     val cardWidth = if (state.menuType == ContextMenuType.WATCH_HISTORY) 480.dp else 240.dp
                     val cardHeight = if (state.menuType == ContextMenuType.WATCH_HISTORY) (480.dp * 9f / 16f) else (240.dp * 3f / 2f)
@@ -145,33 +139,33 @@ fun ContextMenuOverlay() {
                             .align(Alignment.Center)
                             .width(cardWidth)
                             .height(cardHeight)
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
                     ) {
-                            if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
-                                PosterCard(
-                                    item = state.searchResponse!!,
-                                    provider = state.provider,
-                                    itemWidth = 240.dp,
-                                    onClick = {
-                                        state.dismiss()
-                                        state.onDetailsClick?.invoke()
-                                    }
-                                )
-                            } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
-                                WatchHistoryCard(
-                                    history = state.watchHistory!!,
-                                    provider = state.provider,
-                                    modifier = Modifier.fillMaxSize(),
-                                    onRemove = {
-                                        state.dismiss()
-                                        state.onRemove?.invoke()
-                                    },
-                                    onClick = {
-                                        state.dismiss()
-                                        state.onDetailsClick?.invoke()
-                                    }
-                                )
-                            }
+                        if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
+                            PosterCard(
+                                item = state.searchResponse!!,
+                                provider = state.provider,
+                                itemWidth = 240.dp,
+                                onClick = {
+                                    state.dismiss()
+                                    state.onDetailsClick?.invoke()
+                                },
+                            )
+                        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
+                            WatchHistoryCard(
+                                history = state.watchHistory!!,
+                                provider = state.provider,
+                                modifier = Modifier.fillMaxSize(),
+                                onRemove = {
+                                    state.dismiss()
+                                    state.onRemove?.invoke()
+                                },
+                                onClick = {
+                                    state.dismiss()
+                                    state.onDetailsClick?.invoke()
+                                },
+                            )
+                        }
                     }
 
                     // Render the floating menu next to it
@@ -190,7 +184,7 @@ fun ContextMenuOverlay() {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)) else Modifier)
+                                .then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)) else Modifier),
                         ) {
                             Column(modifier = Modifier.padding(4.dp)) {
                                 if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
@@ -200,7 +194,7 @@ fun ContextMenuOverlay() {
                                         onClick = {
                                             state.dismiss()
                                             if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
-                                        }
+                                        },
                                     )
                                     ContextMenuItem(
                                         text = "Details",
@@ -208,9 +202,9 @@ fun ContextMenuOverlay() {
                                         onClick = {
                                             state.dismiss()
                                             state.onDetailsClick?.invoke()
-                                        }
+                                        },
                                     )
-                                    
+
                                     val item = state.searchResponse!!
                                     val bookmarkId = if (state.provider != null) "${state.provider!!.name}_${item.url.hashCode()}" else ""
                                     val allBookmarks by BookmarksRepository.bookmarksFlow.collectAsState()
@@ -226,7 +220,7 @@ fun ContextMenuOverlay() {
                                             onClick = {
                                                 state.dismiss()
                                                 BookmarksRepository.removeBookmark(bookmarkId)
-                                            }
+                                            },
                                         )
                                     } else {
                                         ContextMenuItem(
@@ -234,9 +228,9 @@ fun ContextMenuOverlay() {
                                             icon = Icons.Default.Add,
                                             onClick = {
                                                 isLibraryExpanded = !isLibraryExpanded
-                                            }
+                                            },
                                         )
-                                        
+
                                         AnimatedVisibility(visible = isLibraryExpanded) {
                                             Column(modifier = Modifier.padding(start = 16.dp)) {
                                                 DesktopWatchType.entries.forEach { watchType ->
@@ -256,7 +250,7 @@ fun ContextMenuOverlay() {
                                                                 )
                                                                 BookmarksRepository.addBookmark(newBookmark)
                                                             }
-                                                        }
+                                                        },
                                                     )
                                                 }
                                             }
@@ -270,9 +264,8 @@ fun ContextMenuOverlay() {
                                             state.dismiss()
                                             val selection = StringSelection(item.name)
                                             Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
-                                        }
+                                        },
                                     )
-                                    
                                 } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
                                     ContextMenuItem(
                                         text = "Resume Playing",
@@ -280,7 +273,7 @@ fun ContextMenuOverlay() {
                                         onClick = {
                                             state.dismiss()
                                             if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
-                                        }
+                                        },
                                     )
                                     ContextMenuItem(
                                         text = "Details",
@@ -288,7 +281,7 @@ fun ContextMenuOverlay() {
                                         onClick = {
                                             state.dismiss()
                                             state.onDetailsClick?.invoke()
-                                        }
+                                        },
                                     )
                                     ContextMenuItem(
                                         text = "Remove from Continue Watching",
@@ -297,7 +290,7 @@ fun ContextMenuOverlay() {
                                         onClick = {
                                             state.dismiss()
                                             state.onRemove?.invoke()
-                                        }
+                                        },
                                     )
                                 }
                             }
@@ -314,7 +307,7 @@ private fun ContextMenuItem(
     text: String,
     icon: ImageVector,
     color: Color = MaterialTheme.colorScheme.onSurface,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
@@ -324,19 +317,19 @@ private fun ContextMenuItem(
             .clickable(interactionSource = interactionSource, indication = androidx.compose.material3.ripple()) { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = text,
             modifier = Modifier.size(18.dp),
-            tint = color
+            tint = color,
         )
         Text(
             text = text,
             color = color,
             fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }

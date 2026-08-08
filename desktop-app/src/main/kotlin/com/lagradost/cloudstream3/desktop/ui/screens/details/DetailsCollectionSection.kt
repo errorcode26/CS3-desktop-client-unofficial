@@ -1,20 +1,17 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -54,15 +51,17 @@ fun DetailsCollectionSection(
                     modifier = Modifier.matchParentSize().blur(24.dp),
                 )
                 Box(modifier = Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.65f)))
-                Box(modifier = Modifier.matchParentSize().background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(Color(0xFF0F0F0F), Color.Transparent, Color.Transparent, Color(0xFF0F0F0F))
-                    )
-                ))
+                Box(
+                    modifier = Modifier.matchParentSize().background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color(0xFF0F0F0F), Color.Transparent, Color.Transparent, Color(0xFF0F0F0F)),
+                        ),
+                    ),
+                )
             } else {
                 Box(modifier = Modifier.matchParentSize().background(Color(0xFF161618)))
             }
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,7 +109,7 @@ fun DetailsCollectionSection(
                                 },
                                 onPlayClick = {
                                     onNavigate(Config.Details(provider.name, partItem.url, partItem.name, partItem.posterUrl, null, true))
-                                }
+                                },
                             )
                         }
                     }

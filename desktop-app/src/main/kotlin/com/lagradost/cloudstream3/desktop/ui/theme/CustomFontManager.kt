@@ -40,8 +40,8 @@ object CustomFontManager {
         if (file.exists() && file.isFile) return file
 
         // 2. Try matching by extracted font family name
-        val files = dir.listFiles()?.filter { 
-            it.isFile && (it.extension.equals("ttf", ignoreCase = true) || it.extension.equals("otf", ignoreCase = true)) 
+        val files = dir.listFiles()?.filter {
+            it.isFile && (it.extension.equals("ttf", ignoreCase = true) || it.extension.equals("otf", ignoreCase = true))
         } ?: emptyList()
 
         for (f in files) {

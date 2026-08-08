@@ -39,15 +39,15 @@ fun ComposeCategoryGridScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 8.dp),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
-        
+
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = minSize),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
@@ -65,7 +65,7 @@ fun ComposeCategoryGridScreen(
                     },
                     onPlayClick = {
                         onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
-                    }
+                    },
                 )
             }
         }

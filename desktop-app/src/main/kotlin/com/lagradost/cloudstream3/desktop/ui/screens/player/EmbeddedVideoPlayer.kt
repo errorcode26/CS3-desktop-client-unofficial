@@ -7,8 +7,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
@@ -37,8 +35,6 @@ fun EmbeddedVideoPlayer(
     LaunchedEffect(launchData) {
         viewModel.onEvent(PlayerUiEvent.OnInit(launchData))
     }
-
-
 
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->
@@ -128,7 +124,6 @@ fun EmbeddedVideoPlayer(
         }
     }
 
-
     DisposableEffect(Unit) {
         onDispose {
             if (lastDurationSec > 0 && lastPositionSec > 0) {
@@ -203,23 +198,27 @@ fun EmbeddedVideoPlayer(
                     fun pickBestLink(candidates: List<com.lagradost.cloudstream3.utils.ExtractorLink>): com.lagradost.cloudstream3.utils.ExtractorLink? {
                         return candidates.minByOrNull { link ->
                             val qualityDelta = if (targetQualityInt != null) kotlin.math.abs(link.quality - targetQualityInt) else 0
-                            val seekPenalty = if (isResuming) when {
-                                link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 -> 1
-                                link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH -> 2
-                                else -> 0 // PROGRESSIVE — seeks via HTTP Range
-                            } else 0
+                            val seekPenalty = if (isResuming) {
+                                when {
+                                    link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 -> 1
+                                    link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH -> 2
+                                    else -> 0 // PROGRESSIVE — seeks via HTTP Range
+                                }
+                            } else {
+                                0
+                            }
                             seekPenalty * 10_000 + qualityDelta
                         }
                     }
 
                     val canPickLink = activelyPlayingLink == null && !isExiting && !isLoadingNextEpisode
-                    
+
                     if (canPickLink && actualLaunchData.links.isNotEmpty()) {
                         val hasTargetQuality = targetQualityInt != null && actualLaunchData.links.any { it.quality == targetQualityInt }
                         val scrapeTimedOut = (System.currentTimeMillis() - scrapeStartTime) > 10000
-                        
+
                         val shouldPickNow = !autoPlay || userSkippedScraping || !waitForLinks || !isScrapingLinks || hasTargetQuality || scrapeTimedOut
-                        
+
                         if (shouldPickNow) {
                             val availableLinks = actualLaunchData.links.filter { it.url !in failedUrls }
                             val bestLink = pickBestLink(availableLinks)
@@ -268,7 +267,7 @@ fun EmbeddedVideoPlayer(
 
                     val handlePlaybackError: (String) -> Unit = { err ->
                         com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error. Error: $err")
-                        
+
                         if (currentUrl != null) {
                             failedUrls = failedUrls + currentUrl!!
                             currentUrl = null // Clears the current link, allowing the loop above to pick the next one
@@ -347,7 +346,7 @@ fun EmbeddedVideoPlayer(
                         onLinkChange = { targetUrl ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange triggered -> new url: $targetUrl")
                             playerState.pause()
-                            
+
                             currentUrl = targetUrl
                             userSkippedScraping = true
                             isLoading = true

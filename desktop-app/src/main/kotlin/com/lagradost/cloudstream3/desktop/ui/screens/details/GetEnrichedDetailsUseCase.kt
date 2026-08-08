@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -67,8 +66,6 @@ object GetEnrichedDetailsUseCase {
 
         val imageUrl = rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster
         val targetEnrichUrl = if (rawData.url.isNotBlank() && !rawData.url.contains("themoviedb.org")) rawData.url else url
-
-
 
         val enrichJob = launch {
             HybridEnrichmentService.enrich(

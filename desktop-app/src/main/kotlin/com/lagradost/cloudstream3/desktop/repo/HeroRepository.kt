@@ -5,7 +5,6 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCache
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository
 import com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentService
-import com.lagradost.cloudstream3.desktop.utils.ImageColorExtractor
 import com.lagradost.cloudstream3.desktop.utils.TitleUtils
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.newMovieLoadResponse
@@ -50,7 +49,6 @@ object HeroRepository {
 
     /** Delegates to the shared TitleUtils cleaner. Kept for call-sites in Composables. */
     fun cleanHeroTitle(title: String): String = TitleUtils.cleanProviderTitle(title).first
-
 
     suspend fun prefetchTopHistory(topHistory: List<WatchHistory>, providers: List<MainAPI>) {
         withContext(Dispatchers.IO) {

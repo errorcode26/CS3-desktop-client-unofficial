@@ -77,7 +77,6 @@ fun SettingsAppearance(
     val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
     val scope = rememberCoroutineScope()
 
-
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var newPresetName by remember { mutableStateOf("") }
 
@@ -1124,7 +1123,7 @@ fun SettingsPosterEditorScreen() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(top = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             SettingsGroupCard(title = "Poster Properties") {
                 SettingsDropdownItem(

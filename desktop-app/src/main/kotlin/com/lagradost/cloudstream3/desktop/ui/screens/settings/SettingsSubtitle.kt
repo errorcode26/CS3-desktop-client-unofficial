@@ -18,8 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -105,11 +105,15 @@ fun SettingsSubtitleEditorScreen() {
                     textAlign = TextAlign.Center,
                     fontWeight = if (subBold == "yes") FontWeight.Bold else FontWeight.Normal,
                     fontStyle = if (subItalic == "yes") androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
-                    shadow = if (parseShadowOffset > 0f) Shadow(
-                        color = subShadowColor.toColor(),
-                        offset = Offset(parseShadowOffset * 2, parseShadowOffset * 2),
-                        blurRadius = parseBlur * 2,
-                    ) else null,
+                    shadow = if (parseShadowOffset > 0f) {
+                        Shadow(
+                            color = subShadowColor.toColor(),
+                            offset = Offset(parseShadowOffset * 2, parseShadowOffset * 2),
+                            blurRadius = parseBlur * 2,
+                        )
+                    } else {
+                        null
+                    },
                 )
 
                 if (parseBorderSize > 0f) {
@@ -146,7 +150,7 @@ fun SettingsSubtitleEditorScreen() {
                     label = "Override Video Subtitles",
                     subtitle = "When enabled, the player forces these custom styles over the video's default subtitle styles.",
                     checked = subOverrideEnabled,
-                    onCheckedChange = { 
+                    onCheckedChange = {
                         subOverrideEnabled = it
                         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             DesktopDataStore.setKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, it)
@@ -309,7 +313,7 @@ fun SettingsSubtitleEditorScreen() {
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer),
             ) {
                 Text("Reset to Defaults", color = MaterialTheme.colorScheme.onErrorContainer)
             }
@@ -338,8 +342,11 @@ fun SubtitleColorPickerRow(label: String, selectedHex: String, onColorSelected: 
                         .background(hex.toColor())
                         .clickable { onColorSelected(hex) }
                         .then(
-                            if (isSelected) Modifier.padding(2.dp).background(Color.Transparent, CircleShape)
-                            else Modifier
+                            if (isSelected) {
+                                Modifier.padding(2.dp).background(Color.Transparent, CircleShape)
+                            } else {
+                                Modifier
+                            },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {

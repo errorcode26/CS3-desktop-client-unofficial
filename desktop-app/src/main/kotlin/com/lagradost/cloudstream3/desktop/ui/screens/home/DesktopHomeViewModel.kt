@@ -139,7 +139,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         if (currentProviders.size != currentProvState.size || !currentProviders.containsAll(currentProvState)) {
             val currentActive = uiState.value.activeProviders
             val validActive = currentActive.filter { active -> currentProviders.any { it.name == active } }
-            
+
             if (validActive.isNotEmpty()) {
                 updateState { copy(providers = currentProviders, activeProviders = validActive) }
             } else if (currentProviders.isNotEmpty()) {
@@ -162,11 +162,11 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     private fun updateHistory() {
         val newHistory = DesktopDataStore.getAllWatchHistory()
-            .filter { 
+            .filter {
                 // Either it's a partially watched episode
                 (it.duration >= 30L && (it.position * 100 / it.duration) > 1L) ||
-                // OR it's a queued "Next Episode" (position = 0, duration = 0)
-                (it.duration == 0L && it.position == 0L)
+                    // OR it's a queued "Next Episode" (position = 0, duration = 0)
+                    (it.duration == 0L && it.position == 0L)
             }
             .sortedByDescending { it.updateTime }
             .distinctBy { it.parentId }
@@ -229,5 +229,4 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
         }
     }
-
 }

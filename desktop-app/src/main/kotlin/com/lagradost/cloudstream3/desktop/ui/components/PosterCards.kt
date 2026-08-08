@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -22,15 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,7 +38,6 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
-import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
@@ -84,7 +81,7 @@ fun PosterCard(
                 .onGloballyPositioned { coordinates ->
                     bounds = Rect(
                         offset = coordinates.positionInWindow(),
-                        size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                        size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                     )
                 }
                 .pointerInput(Unit) {
@@ -98,7 +95,7 @@ fun PosterCard(
                                         item = item,
                                         provider = provider,
                                         onClick = onClick,
-                                        onPlayClick = onPlayClick
+                                        onPlayClick = onPlayClick,
                                     )
                                 } else if (event.button == PointerButton.Primary) {
                                     onClick()
@@ -175,7 +172,6 @@ fun PosterCard(
                         )
                     }
                 }
-
 
                 // Gradient at the bottom with the title
                 androidx.compose.animation.AnimatedVisibility(
@@ -293,7 +289,7 @@ fun WatchHistoryCard(
             .onGloballyPositioned { coordinates ->
                 bounds = Rect(
                     offset = coordinates.positionInWindow(),
-                    size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                    size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                 )
             }
             .pointerInput(Unit) {
@@ -308,7 +304,7 @@ fun WatchHistoryCard(
                                     provider = provider,
                                     onRemove = onRemove,
                                     onClick = onClick,
-                                    onPlayClick = onPlayClick
+                                    onPlayClick = onPlayClick,
                                 )
                             } else if (event.button == PointerButton.Primary) {
                                 onClick()
@@ -490,8 +486,6 @@ fun WatchHistoryCard(
                     .background(DesktopUi.Accent),
             )
         }
-
-
     }
 }
 
