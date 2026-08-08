@@ -74,9 +74,6 @@ fun EmbeddedVideoPlayer(
     var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var showSources by remember { mutableStateOf(false) }
     var isFinished by remember { mutableStateOf(false) }
-    var lastPositionSec by remember { mutableStateOf(0L) }
-    var lastDurationSec by remember { mutableStateOf(0L) }
-    var lastSavedPositionSec by remember { mutableStateOf(0L) }
 
     var activelyPlayingLink by remember { mutableStateOf<com.lagradost.cloudstream3.utils.ExtractorLink?>(null) }
     var lastLinkIndex by remember { mutableIntStateOf(-1) }
@@ -87,31 +84,9 @@ fun EmbeddedVideoPlayer(
     val isFullscreen = fullscreenController?.isFullscreen ?: false
     val initialPlacement = remember { windowState?.placement ?: WindowPlacement.Floating }
 
-    // PlayerState is hoisted to top level so it can be reset on episode/source changes
-    val playerState = remember { PlayerState() }
+    val playerState = viewModel.playerState
 
-    var lastSavedHistory by remember { mutableStateOf(actualLaunchData.history) }
-
-    // Reset all playback state when a new episode loads
     LaunchedEffect(actualLaunchData.history.episodeId) {
-        if (lastDurationSec > 0 && lastPositionSec > 0) {
-            val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${lastSavedHistory.parentId}.jpg"
-            File(screenshotPath).parentFile.mkdirs()
-            playerState.takeScreenshot(screenshotPath)
-
-            val updatedHistory = lastSavedHistory.copy(
-                position = lastPositionSec,
-                duration = lastDurationSec,
-                screenshotUrl = "file:///$screenshotPath",
-                updateTime = System.currentTimeMillis(),
-            )
-            viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
-        }
-        lastSavedHistory = actualLaunchData.history
-
-        lastPositionSec = actualLaunchData.startPositionMs / 1000L
-        lastDurationSec = actualLaunchData.history.duration
-        lastSavedPositionSec = actualLaunchData.startPositionMs / 1000L
         playerState.reset()
         com.lagradost.player.impl.proxy.LocalStreamProxyState.loadingStatus.value = null
     }
@@ -121,25 +96,6 @@ fun EmbeddedVideoPlayer(
         // and the user can manually select a different source.
         if (nextEpisodeError != null) {
             onError(nextEpisodeError.displayMessage)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            if (lastDurationSec > 0 && lastPositionSec > 0) {
-                val screenshotPath = "${PlatformPaths.appDataDir.absolutePath}/screenshots/history_${lastSavedHistory.parentId}.jpg"
-                File(screenshotPath).parentFile.mkdirs()
-                playerState.takeScreenshot(screenshotPath)
-
-                val updatedHistory = lastSavedHistory.copy(
-                    position = lastPositionSec,
-                    duration = lastDurationSec,
-                    screenshotUrl = "file:///$screenshotPath",
-                    updateTime = System.currentTimeMillis(),
-                )
-                viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
-            }
-            playerState.detachMpv()
         }
     }
 
@@ -328,8 +284,8 @@ fun EmbeddedVideoPlayer(
                         isExiting = isExiting,
                         startPositionMs = if (fallbackToBeginning) {
                             0L
-                        } else if (displayLinkIndex != 0 && lastPositionSec > 0) {
-                            lastPositionSec * 1000L
+                        } else if (displayLinkIndex != 0 && playerState.positionMs.value > 0) {
+                            playerState.positionMs.value
                         } else {
                             actualLaunchData.startPositionMs
                         },
@@ -387,23 +343,8 @@ fun EmbeddedVideoPlayer(
                             isProbingOverlay = false // Video is playing — dismiss the overlay
                         },
                         onPositionChange = { posMs, durMs ->
-                            val currentPosSec = posMs / 1000L
-                            val currentDurSec = durMs / 1000L
-                            lastPositionSec = currentPosSec
-                            lastDurationSec = currentDurSec
-
                             playerState.updatePositionFromPlayer(posMs)
                             playerState.updateDurationFromPlayer(durMs)
-
-                            if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
-                                lastSavedPositionSec = currentPosSec
-                                val updatedHistory = actualLaunchData.history.copy(
-                                    position = currentPosSec,
-                                    duration = currentDurSec,
-                                    updateTime = System.currentTimeMillis(),
-                                )
-                                viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
-                            }
                         },
                         onCloseRequest = {
                             onClose()

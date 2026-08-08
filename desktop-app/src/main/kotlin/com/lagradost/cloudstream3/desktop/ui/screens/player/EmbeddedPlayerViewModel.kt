@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
     initialState = PlayerUiState(),
 ) {
+    val playerState = PlayerState()
     private var loadLinksJob: Job? = null
     private var saveJob: Job? = null
     private var scrapeJob: Job? = null
@@ -36,11 +37,45 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
             updateState { copy(autoPlayEnabled = autoPlay) }
         }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            var lastSavedPositionSec = 0L
+            playerState.positionMs.collect { posMs ->
+                val currentPosSec = posMs / 1000L
+                if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
+                    lastSavedPositionSec = currentPosSec
+                    val currentData = uiState.value.launchData ?: return@collect
+                    val updatedHistory = currentData.history.copy(
+                        position = currentPosSec,
+                        duration = playerState.durationMs.value / 1000L,
+                        updateTime = System.currentTimeMillis()
+                    )
+                    savePosition(updatedHistory)
+                }
+            }
+        }
     }
 
     override fun dispose() {
+        val currentData = uiState.value.launchData
+        val currentDurSec = playerState.durationMs.value / 1000L
+        val currentPosSec = playerState.positionMs.value / 1000L
+        if (currentData != null && currentDurSec > 0 && currentPosSec > 0) {
+            val screenshotPath = "${com.lagradost.common.platform.PlatformPaths.appDataDir.absolutePath}/screenshots/history_${currentData.history.parentId}.jpg"
+            java.io.File(screenshotPath).parentFile.mkdirs()
+            playerState.takeScreenshot(screenshotPath)
+            
+            val updatedHistory = currentData.history.copy(
+                position = currentPosSec,
+                duration = currentDurSec,
+                screenshotUrl = "file:///$screenshotPath",
+                updateTime = System.currentTimeMillis()
+            )
+            DesktopDataStore.setLastWatched(updatedHistory)
+        }
+        playerState.detachMpv()
+        
         super.dispose()
-        // Re-enabled: Duktape handles interrupt fine on Windows
         loadLinksJob?.cancel()
         saveJob?.cancel()
     }
