@@ -229,6 +229,12 @@ object NetworkConfig {
             baseBuilder.addInterceptor(AutoRetryInterceptor(1))
         }
 
+        // Add DevNetworkInterceptor for DevStudio Network Inspector
+        val hasDevNetwork = baseBuilder.interceptors().any { it is DevNetworkInterceptor }
+        if (!hasDevNetwork) {
+            baseBuilder.addInterceptor(DevNetworkInterceptor())
+        }
+
         // Apply to main client
         app.baseClient = baseBuilder.build()
         // CRITICAL: Restore defaultHeaders that NiceHttp uses for ALL requests.

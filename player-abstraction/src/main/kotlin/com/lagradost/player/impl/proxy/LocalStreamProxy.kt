@@ -70,27 +70,8 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
     })
 }
 
-data class ProxyTrack(
-    val url: String,
-    val name: String,
-    val language: String,
-    val bitrate: Int? = null,
-)
-
-private val BW_REGEX = Regex("""BANDWIDTH=(\d+)""")
-private val RES_REGEX = Regex("""RESOLUTION=(\d+)x(\d+)""")
-private val URI_REGEX = Regex("""URI="([^"]+)"""")
-private val NAME_REGEX = Regex("""NAME="([^"]+)"""")
-private val LANG_REGEX = Regex("""LANGUAGE="([^"]+)"""")
-
-object LocalStreamProxyState {
-    val loadingStatus = MutableStateFlow<String?>(null)
-    val lazyAudioTracks = MutableStateFlow<List<ProxyTrack>>(emptyList())
-    val lazySubtitleTracks = MutableStateFlow<List<ProxyTrack>>(emptyList())
-    val lazyVideoTracks = MutableStateFlow<List<ProxyTrack>>(emptyList())
-}
-
 object LocalStreamProxy {
+    var tracksListener: ProxyTracksListener? = LocalStreamProxyState
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
     var port: Int = 0
         private set
@@ -158,8 +139,7 @@ object LocalStreamProxy {
         sessions[sessionId] = ProxySession(headers)
 
         // Clear previous session tracks to prevent ghost subtitles from showing in the UI for the new stream
-        LocalStreamProxyState.lazyAudioTracks.value = emptyList()
-        LocalStreamProxyState.lazySubtitleTracks.value = emptyList()
+        LocalStreamProxyState.reset()
 
         return sessionId
     }
@@ -221,7 +201,7 @@ object LocalStreamProxy {
                 val finalUrl = response.request.url.toString()
                 response.body?.close()
 
-                val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
+                val rewritten = HlsRewriter.rewriteM3u8(m3u8Content, finalUrl, sessionId, tracksListener)
                 rewritten.toByteArray(Charsets.UTF_8)
             } catch (e: Exception) {
                 AppLogger.e("Proxy:LocalStream", "Prefetch failed for $url", e)
@@ -516,7 +496,7 @@ object LocalStreamProxy {
                             call.respondBytesWriter(status = HttpStatusCode.OK) {
                                 writeFully("WEBVTT\n\n".toByteArray(Charsets.UTF_8))
                                 val lines = m3u8Content.lines()
-                                val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { resolveUrl(finalUrl, it.trim()) }
+                                val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { HlsRewriter.resolveUrl(finalUrl, it.trim()) }
 
                                 for (url in vttUrls) {
                                     val requestBuilder = okhttp3.Request.Builder().url(url)
@@ -560,7 +540,7 @@ object LocalStreamProxy {
                         }
                     }
 
-                    val rewritten = rewriteM3u8(m3u8Content, finalUrl, session, sessionId)
+                    val rewritten = HlsRewriter.rewriteM3u8(m3u8Content, finalUrl, sessionId, tracksListener)
 
                     val bytes = rewritten.toByteArray(Charsets.UTF_8)
 
@@ -637,7 +617,7 @@ object LocalStreamProxy {
                         var totalBytesRead = skipBytes
                         val buffer = ByteArray(65536)
                         // Clear loading popup since we are now streaming data directly to MPV!
-                        LocalStreamProxyState.loadingStatus.value = null
+                        tracksListener?.onLoadingComplete()
 
                         var isFirstChunk = (skipBytes == 0L)
 
@@ -784,287 +764,5 @@ object LocalStreamProxy {
         }
     }
 
-    private fun rewriteM3u8(content: String, baseUrl: String, session: ProxySession, sessionId: String): String {
-        val lines = content.split("\n")
-        val isMaster = content.contains("#EXT-X-STREAM-INF")
-
-        var nextLineIsVariantUrl = false
-
-        if (isMaster) {
-            val lazyAudios = mutableListOf<ProxyTrack>()
-            val lazySubs = mutableListOf<ProxyTrack>()
-            val lazyVideoTracks = mutableListOf<ProxyTrack>()
-            var hasKeptAudio = false
-
-            // Pass 1: Find best video variant and default audio variant
-            var maxScore = -1
-            var bestVariantUrl: String? = null
-            var currentVariantLine: String? = null
-            var bestAudioUrl: String? = null
-            var firstAudioUrl: String? = null
-
-            for (line in lines) {
-                val trim = line.trim()
-                if (trim.startsWith("#EXT-X-STREAM-INF")) {
-                    currentVariantLine = trim
-                } else if (currentVariantLine != null && !trim.startsWith("#")) {
-                    val bwMatch = BW_REGEX.find(currentVariantLine)
-                    val resMatch = RES_REGEX.find(currentVariantLine)
-                    val bw = bwMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    val res = resMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    val score = res * 1000000 + bw
-                    if (score > maxScore) {
-                        maxScore = score
-                        bestVariantUrl = resolveUrl(baseUrl, trim)
-                    }
-                    currentVariantLine = null
-                } else if (trim.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
-                    val uriMatch = URI_REGEX.find(trim)
-                    if (uriMatch != null) {
-                        val uri = uriMatch.groupValues[1]
-                        if (firstAudioUrl == null) firstAudioUrl = uri
-                        if (trim.contains("DEFAULT=YES", ignoreCase = true)) {
-                            bestAudioUrl = uri
-                        }
-                    }
-                }
-            }
-
-            if (bestAudioUrl == null) bestAudioUrl = firstAudioUrl
-
-            // Pass 2: Reconstruct playlist keeping only best video variant, ONE audio variant, and ALL subtitles
-            val rewritten = buildString {
-                var pendingVariantLine: String? = null
-
-                for (line in lines) {
-                    val trim = line.trim()
-                    if (trim.isEmpty()) continue
-
-                    if (trim.startsWith("#EXT-X-MEDIA:TYPE=SUBTITLES")) {
-                        // Strip ALL subtitles — FFmpeg aggressively probes every single one at startup!
-                        val name = NAME_REGEX.find(trim)?.groupValues?.get(1) ?: "Unknown Sub"
-                        val lang = LANG_REGEX.find(trim)?.groupValues?.get(1) ?: "unk"
-                        val uriMatch = URI_REGEX.find(trim)
-                        if (uriMatch != null) {
-                            val absolute = resolveUrl(baseUrl, uriMatch.groupValues[1])
-                            val proxied = buildProxyUrl(sessionId, absolute)
-                            lazySubs.add(ProxyTrack(proxied, name, lang))
-                        }
-                        continue
-                    }
-
-                    if (trim.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
-                        val name = NAME_REGEX.find(trim)?.groupValues?.get(1) ?: "Unknown Audio"
-                        val lang = LANG_REGEX.find(trim)?.groupValues?.get(1) ?: "unk"
-                        val uriMatch = URI_REGEX.find(trim)
-
-                        if (uriMatch != null) {
-                            val uri = uriMatch.groupValues[1]
-                            val absolute = resolveUrl(baseUrl, uri)
-                            val proxied = buildProxyUrl(sessionId, absolute)
-
-                            // Keep ALL audio variants in the proxy M3U8 so MPV can natively switch them via `aid`!
-                            val newLine = trim.replace(uriMatch.groupValues[0], "URI=\"$proxied\"")
-                            appendLine(newLine)
-                        } else {
-                            // If there is no URI, it's embedded in the video stream, keep it
-                            appendLine(trim)
-                        }
-                        continue
-                    }
-
-                    if (trim.startsWith("#")) {
-                        if (trim.contains("URI=\"")) {
-                            val uriRegex = Regex("""URI="([^"]+)"""")
-                            val newLine = trim.replace(uriRegex) { result ->
-                                val uri = result.groupValues[1]
-                                val absolute = resolveUrl(baseUrl, uri)
-                                val proxied = buildProxyUrl(sessionId, absolute)
-                                "URI=\"$proxied\""
-                            }
-                            appendLine(newLine)
-                        } else {
-                            if (trim.startsWith("#EXT-X-STREAM-INF")) {
-                                pendingVariantLine = trim
-                            } else {
-                                appendLine(trim)
-                            }
-                        }
-                    } else {
-                        // URL line
-                        if (pendingVariantLine != null) {
-                            val absolute = resolveUrl(baseUrl, trim)
-                            val proxied = buildProxyUrl(sessionId, absolute)
-
-                            // Keep ALL variants in the proxy M3U8 so MPV can natively and seamlessly switch them!
-                            // We do not add them to lazyVideoTracks, because native track switching via `vid` is much more optimized than `video-add`.
-                            appendLine(pendingVariantLine)
-                            appendLine(proxied)
-
-                            // Expose to Compose UI so we can use `hls-bitrate` property
-                            val bwMatch = BW_REGEX.find(pendingVariantLine!!)
-                            val resMatch = RES_REGEX.find(pendingVariantLine!!)
-                            val res = resMatch?.groupValues?.get(1) ?: "Unknown"
-                            val bw = bwMatch?.groupValues?.get(1)?.toIntOrNull()
-                            val bwLabel = if (bw != null) " ${bw / 1000}kbps" else ""
-                            val name = if (res != "Unknown") "${res}p$bwLabel" else "Variant$bwLabel"
-                            lazyVideoTracks.add(ProxyTrack(proxied, name, "eng", bw))
-                        } else {
-                            val absolute = resolveUrl(baseUrl, trim)
-                            val proxied = buildProxyUrl(sessionId, absolute, "stream")
-                            appendLine(proxied)
-                        }
-                        pendingVariantLine = null
-                    }
-                }
-            }
-
-            if (bestVariantUrl != null) {
-                prefetchM3u8(sessionId, resolveUrl(baseUrl, bestVariantUrl!!))
-            }
-
-            LocalStreamProxyState.lazyAudioTracks.value = lazyAudios
-            LocalStreamProxyState.lazySubtitleTracks.value = lazySubs
-            LocalStreamProxyState.lazyVideoTracks.value = lazyVideoTracks
-            LocalStreamProxyState.loadingStatus.value = null
-
-            return rewritten
-        }
-
-        // Process media (non-master) HLS playlists containing TS chunks.
-        val isExplicitLive = content.contains("PLAYLIST-TYPE:EVENT", ignoreCase = true) ||
-            content.contains("PLAYLIST-TYPE:LIVE", ignoreCase = true)
-        val hasEndList = content.contains("#EXT-X-ENDLIST", ignoreCase = true)
-        val hasPlaylistType = content.contains("#EXT-X-PLAYLIST-TYPE", ignoreCase = true)
-
-        val rewritten = buildString {
-            for (line in lines) {
-                val trim = line.trim()
-                if (trim.isEmpty()) continue
-
-                if (trim.startsWith("#")) {
-                    if (trim.contains("URI=\"")) {
-                        val uriRegex = Regex("""URI="([^"]+)"""")
-                        val newLine = trim.replace(uriRegex) { result ->
-                            val uri = result.groupValues[1]
-                            val absolute = resolveUrl(baseUrl, uri)
-                            val proxied = buildProxyUrl(sessionId, absolute)
-                            "URI=\"$proxied\""
-                        }
-                        appendLine(newLine)
-                    } else {
-                        appendLine(trim)
-                    }
-                } else {
-                    val absolute = resolveUrl(baseUrl, trim)
-                    // Proxy video segments through OkHttp to benefit from TLS connection pooling
-                    // and keep-alive, which FFmpeg natively struggles with on HTTPS streams.
-                    val proxied = buildProxyUrl(sessionId, absolute)
-                    appendLine(proxied)
-                }
-            }
-        }
-        return rewritten
-    }
-
-    private suspend fun flattenVtt(content: String, baseUrl: String, session: ProxySession, sessionId: String): String {
-        val lines = content.lines()
-        val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { resolveUrl(baseUrl, it.trim()) }
-
-        val vttSegments = mutableListOf<String>()
-
-        // Chunk to avoid flooding OkHttp's Dispatcher queue (max 5 per host),
-        // which would starve the main video stream and cause FFmpeg to drop connections!
-        for (chunk in vttUrls.chunked(3)) {
-            val batch = kotlinx.coroutines.coroutineScope {
-                chunk.map { url ->
-                    async(kotlinx.coroutines.Dispatchers.IO) {
-                        val requestBuilder = okhttp3.Request.Builder().url(url)
-                        session.headers.forEach { (k, v) ->
-                            if (!k.equals("Accept-Encoding", true) && !k.equals("Host", true)) {
-                                requestBuilder.header(k, v)
-                            }
-                        }
-                        var result = ""
-                        for (attempt in 1..3) {
-                            try {
-                                val response = proxyClient.newCall(requestBuilder.build()).await()
-                                result = response.body?.source()?.readUtf8() ?: ""
-                                response.body?.close()
-                                if (response.isSuccessful) break
-                            } catch (e: Exception) {
-                                // Retry
-                            }
-                        }
-                        result
-                    }
-                }.map { it.await() }
-            }
-            vttSegments.addAll(batch)
-        }
-
-        return buildString {
-            appendLine("WEBVTT")
-            appendLine()
-            for (segment in vttSegments) {
-                if (segment.isBlank()) continue
-                val segmentLines = segment.lines()
-                for (line in segmentLines) {
-                    val trimmed = line.trim()
-                    if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP")) continue
-                    appendLine(line)
-                }
-                appendLine()
-            }
-        }
-    }
-
-    internal fun resolveUrl(base: String, uri: String): String {
-        val rawResolved = if (uri.startsWith("http://", ignoreCase = true) || uri.startsWith("https://", ignoreCase = true)) {
-            uri
-        } else {
-            val baseUrl = base.toHttpUrlOrNull()
-            if (baseUrl != null) {
-                baseUrl.resolve(uri)?.toString()
-            } else {
-                try {
-                    URI(base).resolve(uri).toString()
-                } catch (e: Exception) {
-                    if (base.contains("/")) {
-                        base.substringBeforeLast('/') + "/" + uri
-                    } else {
-                        uri
-                    }
-                }
-            }
-        } ?: uri
-
-        val baseQuery = base.substringAfter('?', "")
-        if (baseQuery.isEmpty()) {
-            return rawResolved
-        }
-
-        // Only inherit query parameters if hosts match (or if one couldn't be parsed as an HttpUrl)
-        val baseHost = base.toHttpUrlOrNull()?.host
-        val resolvedHost = rawResolved.toHttpUrlOrNull()?.host
-        if (baseHost != null && resolvedHost != null && !baseHost.equals(resolvedHost, ignoreCase = true)) {
-            return rawResolved
-        }
-
-        val baseParams = baseQuery.split("&").filter { it.isNotEmpty() }
-        val existingQuery = rawResolved.substringAfter('?', "")
-        val existingKeys = if (existingQuery.isEmpty()) emptySet() else existingQuery.split("&").map { it.substringBefore('=') }.toSet()
-
-        val missingParams = baseParams.filter { param ->
-            val key = param.substringBefore('=')
-            key !in existingKeys
-        }
-
-        if (missingParams.isEmpty()) {
-            return rawResolved
-        }
-
-        val separator = if (rawResolved.contains("?")) "&" else "?"
-        return rawResolved + separator + missingParams.joinToString("&")
-    }
+    fun resolveUrl(base: String, uri: String): String = HlsRewriter.resolveUrl(base, uri)
 }

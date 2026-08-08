@@ -33,6 +33,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private var scrapeJob: Job? = null
 
     init {
+        PlayerDiagnosticsHolder.register(playerState)
+
         viewModelScope.launch(Dispatchers.IO) {
             val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
             updateState { copy(autoPlayEnabled = autoPlay) }
@@ -57,6 +59,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     override fun dispose() {
+        PlayerDiagnosticsHolder.unregister(playerState)
         val currentData = uiState.value.launchData
         val currentDurSec = playerState.durationMs.value / 1000L
         val currentPosSec = playerState.positionMs.value / 1000L
