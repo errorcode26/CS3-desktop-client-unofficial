@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -220,6 +221,7 @@ fun DetailsMetadata(
     onPhotosClick: () -> Unit = {},
     onCastClick: () -> Unit = {},
     onActorClick: (com.lagradost.cloudstream3.ActorData) -> Unit = {},
+    onTrailerClick: ((String) -> Unit)? = null,
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var isRightColumnHovered by remember { mutableStateOf(false) }
@@ -506,6 +508,28 @@ fun DetailsMetadata(
                         }
                     }
 
+                    val activeTrailerUrl = uiState?.enrichedTrailerUrl
+                        ?: uiState?.enrichedTrailers?.firstOrNull()?.url
+
+                    val trailerButton: (@Composable (Modifier) -> Unit)? = if (!activeTrailerUrl.isNullOrBlank() && onTrailerClick != null) {
+                        { mod ->
+                            IconButton(
+                                onClick = { onTrailerClick(activeTrailerUrl) },
+                                modifier = mod
+                                    .size(56.dp)
+                                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                                    .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Watch Trailer",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp),
+                                )
+                            }
+                        }
+                    } else null
+
                     if (isButtonsNarrow) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -519,6 +543,7 @@ fun DetailsMetadata(
                                     heroAction(Modifier.fillMaxWidth())
                                 }
                                 libraryButton(Modifier)
+                                trailerButton?.invoke(Modifier)
                             }
                             downloadAction?.invoke(Modifier.fillMaxWidth())
                         }
@@ -535,6 +560,7 @@ fun DetailsMetadata(
                                     heroAction(Modifier.fillMaxWidth())
                                 }
                                 libraryButton(Modifier)
+                                trailerButton?.invoke(Modifier)
                             }
                             downloadAction?.invoke(Modifier.fillMaxWidth())
                         }

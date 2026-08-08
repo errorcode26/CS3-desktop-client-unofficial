@@ -28,6 +28,7 @@ object HybridEnrichmentService {
         fetchCast: Boolean = true,
         onScreenshotsLoaded: (List<String>) -> Unit,
         onActorsLoaded: (List<com.lagradost.cloudstream3.ActorData>) -> Unit = {},
+        onTrailersLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) -> Unit = {},
         onMetadataLoaded: (
             tagline: String?,
             status: String?,
@@ -192,8 +193,9 @@ object HybridEnrichmentService {
                     if (loaded.posterUrl.isNullOrBlank() && cinemetaData.poster != null) {
                         loaded.posterUrl = cinemetaData.poster
                     }
-                    if (loaded.backgroundPosterUrl.isNullOrBlank() && cinemetaData.background != null) {
-                        loaded.backgroundPosterUrl = cinemetaData.background
+                    val cleanCinemetaBg = cinemetaData.background?.replace("t/p/original//", "t/p/original/")
+                    if (loaded.backgroundPosterUrl.isNullOrBlank() && cleanCinemetaBg != null) {
+                        loaded.backgroundPosterUrl = cleanCinemetaBg
                         AppLogger.i(TAG, "  ✓ Stage1: set backdrop from Cinemeta")
                     }
                     if (loaded.plot.isNullOrBlank() && cinemetaData.description != null) {
@@ -297,6 +299,7 @@ object HybridEnrichmentService {
                     fetchCast = fetchCast,
                     onScreenshotsLoaded = onScreenshotsLoaded,
                     onActorsLoaded = onActorsLoaded,
+                    onTrailersLoaded = onTrailersLoaded,
                     onMetadataLoaded = { tagline, status, studios, collectionName, collectionBg, seasonsCount, episodesCount, seasons, originalLang, releaseDate, country, collectionItems, budget, revenue, networks, year, duration, tags, actors ->
                         tmdbTagline = tagline
                         tmdbStatus = status
@@ -335,8 +338,9 @@ object HybridEnrichmentService {
                 if (loaded.posterUrl.isNullOrBlank() && cinemetaData.poster != null) {
                     loaded.posterUrl = cinemetaData.poster
                 }
-                if (loaded.backgroundPosterUrl.isNullOrBlank() && cinemetaData.background != null) {
-                    loaded.backgroundPosterUrl = cinemetaData.background
+                val cleanCinemetaBg = cinemetaData.background?.replace("t/p/original//", "t/p/original/")
+                if (loaded.backgroundPosterUrl.isNullOrBlank() && cleanCinemetaBg != null) {
+                    loaded.backgroundPosterUrl = cleanCinemetaBg
                 }
                 if (loaded.plot.isNullOrBlank() && cinemetaData.description != null) {
                     loaded.plot = cinemetaData.description

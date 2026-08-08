@@ -55,6 +55,8 @@ data class DetailsUiState(
     val enrichedDuration: Int? = null,
     val enrichedTags: List<String>? = null,
     val enrichedActors: List<ActorData>? = null,
+    val enrichedTrailers: List<TrailerData> = emptyList(),
+    val enrichedTrailerUrl: String? = null,
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val autoPlayEnabled: Boolean = true,
     val hasAutoPlayed: Boolean = false,

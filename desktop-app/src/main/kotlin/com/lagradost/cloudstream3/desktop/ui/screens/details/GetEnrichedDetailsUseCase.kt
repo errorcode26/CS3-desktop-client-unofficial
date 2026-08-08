@@ -15,6 +15,7 @@ sealed interface EnrichmentUpdate {
     data class BackdropLoaded(val url: String) : EnrichmentUpdate
     data class ScreenshotsLoaded(val urls: List<String>) : EnrichmentUpdate
     data class ActorsLoaded(val actors: List<com.lagradost.cloudstream3.ActorData>) : EnrichmentUpdate
+    data class TrailersLoaded(val trailers: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) : EnrichmentUpdate
     data class MetadataLoaded(
         val tagline: String?,
         val status: String?,
@@ -90,6 +91,9 @@ object GetEnrichedDetailsUseCase {
                 },
                 onActorsLoaded = { actors ->
                     trySend(EnrichmentUpdate.ActorsLoaded(actors))
+                },
+                onTrailersLoaded = { trailers ->
+                    trySend(EnrichmentUpdate.TrailersLoaded(trailers))
                 },
                 onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
                     trySend(

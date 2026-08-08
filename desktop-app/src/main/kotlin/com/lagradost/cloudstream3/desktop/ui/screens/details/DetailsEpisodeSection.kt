@@ -267,7 +267,8 @@ fun DetailsEpisodeSection(
                                         elevation = null,
                                         shape = RoundedCornerShape(8.dp),
                                     ) {
-                                        Text(if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
+                                        val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        Text(selectedMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
                                     }
@@ -441,22 +442,72 @@ fun DetailsEpisodeSection(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             if (seasons.isNotEmpty()) {
-                                Row(
-                                    modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    seasons.forEach { season ->
-                                        val isSelected = selectedSeason == season
-                                        Button(
-                                            onClick = { selectedSeason = season },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                            elevation = null,
-                                        ) {
-                                            Text(if (season == 0) "Specials" else "Season $season", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold)
+                                var seasonMenuExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    Button(
+                                        onClick = { seasonMenuExpanded = true },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurface,
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        elevation = null,
+                                        shape = RoundedCornerShape(8.dp),
+                                    ) {
+                                        val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        Text(selectedMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
+                                    }
+                                    DropdownMenu(
+                                        expanded = seasonMenuExpanded,
+                                        onDismissRequest = { seasonMenuExpanded = false },
+                                    ) {
+                                        seasons.forEach { season ->
+                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                    ) {
+                                                        if (meta?.posterUrl != null) {
+                                                            coil3.compose.AsyncImage(
+                                                                model = meta.posterUrl,
+                                                                contentDescription = null,
+                                                                modifier = Modifier
+                                                                    .width(40.dp)
+                                                                    .aspectRatio(2f / 3f)
+                                                                    .clip(RoundedCornerShape(4.dp)),
+                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                            )
+                                                        }
+                                                        Column {
+                                                            Text(
+                                                                text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
+                                                                style = MaterialTheme.typography.bodyLarge,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                            )
+                                                            if (meta?.episodeCount != null) {
+                                                                Text(
+                                                                    text = "${meta.episodeCount} episodes",
+                                                                    style = MaterialTheme.typography.bodySmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    selectedSeason = season
+                                                    seasonMenuExpanded = false
+                                                },
+                                                trailingIcon = if (selectedSeason == season) {
+                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
+                                                } else {
+                                                    null
+                                                },
+                                            )
                                         }
                                     }
                                 }

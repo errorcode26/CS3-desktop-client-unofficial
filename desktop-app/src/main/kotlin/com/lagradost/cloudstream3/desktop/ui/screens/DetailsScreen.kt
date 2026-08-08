@@ -287,6 +287,8 @@ fun DetailsContent(
 
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(true) }
+    var trailersExpanded by remember { mutableStateOf(true) }
+    var pendingExternalUrl by remember { mutableStateOf<String?>(null) }
     var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
 
     val isMovieLike = remember(data) {
@@ -360,6 +362,11 @@ fun DetailsContent(
                                 coroutineScope.launch { scrollState.animateScrollToItem(2) }
                             },
                             onActorClick = { actor -> selectedActor = actor },
+                            onTrailerClick = { url ->
+                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
+                                    pendingExternalUrl = it
+                                }
+                            },
                         )
 
                         val progress = remember(latestHistory) {
@@ -521,6 +528,24 @@ fun DetailsContent(
                 }
             }
 
+            val enrichedTrailers = uiState?.enrichedTrailers ?: emptyList()
+            if (enrichedTrailers.isNotEmpty()) {
+                item(key = "Trailers") {
+                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsTrailersSection(
+                            trailers = enrichedTrailers,
+                            trailersExpanded = trailersExpanded,
+                            onToggleExpand = { trailersExpanded = !trailersExpanded },
+                            onTrailerClick = { url ->
+                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
+                                    pendingExternalUrl = it
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+
             if (!screenshots.isNullOrEmpty()) {
                 item(key = "Screenshots") {
                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
@@ -616,6 +641,13 @@ fun DetailsContent(
                     val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
                     onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
                 },
+            )
+        }
+
+        if (pendingExternalUrl != null) {
+            com.lagradost.cloudstream3.desktop.utils.ExternalLinkConfirmationDialog(
+                url = pendingExternalUrl,
+                onDismiss = { pendingExternalUrl = null },
             )
         }
     }

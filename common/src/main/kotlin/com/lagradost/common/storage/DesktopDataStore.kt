@@ -438,4 +438,6 @@ object DesktopDataStore {
         setKey(UNREAD_UPDATES_KEY, hasUnread)
         pluginUpdatesFlow.value++
     }
+
+    const val PREF_ALLOW_EXTERNAL_BROWSER = "ALLOW_EXTERNAL_BROWSER"
 }
