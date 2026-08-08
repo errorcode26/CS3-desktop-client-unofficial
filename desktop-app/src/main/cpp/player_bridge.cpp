@@ -597,6 +597,13 @@ LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         FillRect((HDC)wParam, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
         return 1;
     }
+    if (msg == WM_PAINT) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        FillRect(hdc, &ps.rcPaint, (HBRUSH)GetStockObject(BLACK_BRUSH));
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
     if (msg == WM_SIZE) {
         if (g_containerHwnd) {
             int w = LOWORD(lParam);

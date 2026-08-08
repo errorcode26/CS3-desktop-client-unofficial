@@ -1,7 +1,11 @@
 # A PowerShell script to compile the JNI native bridge for CloudStream Desktop.
 # Requirements: MinGW-w64 (g++) in your PATH, and JAVA_HOME environment variable set.
 
-$DllOutput = "..\..\..\appResources\windows\jni\player_bridge.dll"
+$DllDir = "..\..\..\appResources\windows\jni"
+if (-not (Test-Path $DllDir)) {
+    New-Item -ItemType Directory -Force -Path $DllDir | Out-Null
+}
+$DllOutput = "$DllDir\player_bridge.dll"
 $Source = "player_bridge.cpp"
 $WebviewInclude = "webview2\build\native\include"
 

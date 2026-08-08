@@ -3,7 +3,10 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import com.lagradost.cloudstream3.*
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.util.Collections
 import java.util.LinkedHashMap
 
@@ -57,7 +60,7 @@ object DetailsRepository {
                 com.lagradost.common.logging.AppLogger.i("[DetailsRepo] TMDB link detected ($targetUrl). Searching active provider (${provider.name}) for: '$fallbackName'...")
                 val searchResults = SafePluginInvoker.invokeOrNull(
                     tag = "DetailsRepo:Search:${provider.name}",
-                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                    timeoutMs = 2500L,
                 ) { provider.search(fallbackName, 1)?.items }
 
                 val bestMatch = searchResults?.find { it.name.equals(fallbackName, ignoreCase = true) } ?: searchResults?.firstOrNull()
@@ -65,26 +68,38 @@ object DetailsRepository {
                     com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Found exact match on provider (${provider.name}): ${bestMatch.name} -> ${bestMatch.url}")
                     targetUrl = bestMatch.url
                 } else {
-                    val allApis = com.lagradost.cloudstream3.APIHolder.allProviders
-                    for (api in allApis) {
-                        if (api.name == provider.name || api.name == "TMDB") continue
-                        try {
-                            val altResults = SafePluginInvoker.invokeOrNull(
-                                tag = "DetailsRepo:Search:${api.name}",
-                                timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
-                            ) { api.search(fallbackName, 1)?.items }
+                    val candidateApis = com.lagradost.cloudstream3.APIHolder.allProviders
+                        .filter { it.name != provider.name && it.name != "TMDB" }
+                        .take(6)
 
-                            val altMatch = altResults?.find { it.name.equals(fallbackName, ignoreCase = true) } ?: altResults?.firstOrNull()
-                            if (altMatch != null && altMatch.url.isNotBlank() && !altMatch.url.contains("themoviedb.org")) {
-                                com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Found exact match on alternate provider (${api.name}): ${altMatch.name} -> ${altMatch.url}")
-                                targetProvider = api
-                                targetUrl = altMatch.url
-                                break
+                    if (candidateApis.isNotEmpty()) {
+                        coroutineScope {
+                            val matchDeferreds = candidateApis.map { api ->
+                                async(Dispatchers.IO) {
+                                    try {
+                                        val altResults = SafePluginInvoker.invokeOrNull(
+                                            tag = "DetailsRepo:Search:${api.name}",
+                                            timeoutMs = 2500L,
+                                        ) { api.search(fallbackName, 1)?.items }
+
+                                        val altMatch = altResults?.find { it.name.equals(fallbackName, ignoreCase = true) }
+                                            ?: altResults?.firstOrNull()
+                                        if (altMatch != null && altMatch.url.isNotBlank() && !altMatch.url.contains("themoviedb.org")) {
+                                            api to altMatch.url
+                                        } else null
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Throwable) {
+                                        null
+                                    }
+                                }
                             }
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
-                            // continue searching next provider
+                            val firstMatch = matchDeferreds.awaitAll().filterNotNull().firstOrNull()
+                            if (firstMatch != null) {
+                                com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Found match on candidate provider (${firstMatch.first.name}): -> ${firstMatch.second}")
+                                targetProvider = firstMatch.first
+                                targetUrl = firstMatch.second
+                            }
                         }
                     }
                 }

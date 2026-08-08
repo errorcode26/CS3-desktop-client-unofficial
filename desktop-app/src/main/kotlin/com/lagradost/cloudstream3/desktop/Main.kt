@@ -145,7 +145,7 @@ fun main(args: Array<String> = emptyArray()) {
                                 DefaultRootComponent(DefaultComponentContext(lifecycle))
                             }
 
-                            Box(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                                 CloudstreamApp(rootComponent = root)
 
                                 // In-app Docked Dev Studio Overlay
@@ -162,16 +162,7 @@ fun main(args: Array<String> = emptyArray()) {
                             }
                             AppUpdateDialog()
                         } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            }
+                            com.lagradost.cloudstream3.desktop.ui.components.AppStartupSplashScreen()
                         }
                     }
                 }

@@ -48,6 +48,7 @@ fun PosterCard(
     provider: MainAPI?,
     modifier: Modifier = Modifier,
     itemWidth: androidx.compose.ui.unit.Dp? = null,
+    aspectRatio: Float? = null,
     gridScale: String = AppearanceConfig.gridScale.value,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
@@ -55,10 +56,18 @@ fun PosterCard(
     val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
     val shape = RoundedCornerShape(posterCornerRadius.dp)
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
+
+    val effectiveAspectRatio = aspectRatio
+        ?: if (item.type == com.lagradost.cloudstream3.TvType.Live || item.posterHeaders?.containsKey("landscape") == true) {
+            16f / 9f
+        } else {
+            2f / 3f
+        }
+
     val width = itemWidth ?: when (gridScale) {
-        "Compact" -> 150.dp
-        "Large" -> 220.dp
-        else -> 190.dp
+        "Compact" -> if (effectiveAspectRatio > 1f) 220.dp else 150.dp
+        "Large" -> if (effectiveAspectRatio > 1f) 320.dp else 220.dp
+        else -> if (effectiveAspectRatio > 1f) 270.dp else 190.dp
     }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -111,7 +120,7 @@ fun PosterCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(2f / 3f),
+                    .aspectRatio(effectiveAspectRatio),
             ) {
                 if (imgUrl != null) {
                     // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint

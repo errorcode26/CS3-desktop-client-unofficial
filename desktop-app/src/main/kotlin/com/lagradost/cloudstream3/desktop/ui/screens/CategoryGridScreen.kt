@@ -29,12 +29,14 @@ fun ComposeCategoryGridScreen(
     title: String,
     items: List<SearchResponse>,
 ) {
-    val gridScale by AppearanceConfig.gridScale.collectAsState()
-    val minSize = when (gridScale) {
+    val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
+    val hasLandscapeItems = items.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
+    val baseMinSize = when (gridScale) {
         "Compact" -> 150.dp
         "Large" -> 220.dp
         else -> 190.dp
     }
+    val minSize = if (hasLandscapeItems) (baseMinSize * 1.45f) else baseMinSize
 
     Column(
         modifier = Modifier
@@ -60,6 +62,7 @@ fun ComposeCategoryGridScreen(
                 PosterCard(
                     item = item,
                     provider = provider,
+                    aspectRatio = if (hasLandscapeItems) 16f / 9f else null,
                     onClick = {
                         onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
                     },

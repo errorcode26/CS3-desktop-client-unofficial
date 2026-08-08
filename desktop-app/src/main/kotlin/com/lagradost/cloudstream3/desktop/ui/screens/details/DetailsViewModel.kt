@@ -33,6 +33,19 @@ class DetailsViewModel(
         enrichedLogoUrl = cachedResponse?.logoUrl,
         enrichedBackdropUrl = cachedResponse?.backgroundPosterUrl,
         isLoading = cachedResponse == null,
+        fakeData = if (cachedResponse == null && preloadedName != null) {
+            @Suppress("DEPRECATION_ERROR", "DEPRECATION")
+            MovieLoadResponse(
+                name = preloadedName,
+                url = url,
+                apiName = provider.name,
+                type = TvType.Movie,
+                dataUrl = url,
+                posterUrl = preloadedPoster,
+            ).apply {
+                this.backgroundPosterUrl = preloadedBg
+            }
+        } else null,
         autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
         isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
     ),
@@ -108,6 +121,7 @@ class DetailsViewModel(
                             copy(
                                 response = update.response,
                                 isLoading = false,
+                                fakeData = null,
                                 enrichedLogoUrl = update.response.logoUrl,
                                 enrichedBackdropUrl = update.response.backgroundPosterUrl,
                                 isEnriching = true,

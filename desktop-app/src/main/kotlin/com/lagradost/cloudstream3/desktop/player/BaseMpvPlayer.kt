@@ -612,13 +612,13 @@ fun BaseMpvPlayer(
             }
             var keyDispatcher: java.awt.KeyEventDispatcher? = null
 
-            // CRITICAL: Override paint/update to prevent AWT from clearing
-            // MPV's rendering surface. When Compose's SwingPanel triggers a
-            // repaint, the default Canvas.update() fills the component with
-            // the background color, causing a flash that interferes with MPV.
-            // MPV handles all rendering via the wid child window.
-            override fun paint(g: java.awt.Graphics?) { /* MPV renders via wid */ }
-            override fun update(g: java.awt.Graphics?) { /* Do NOT clear — MPV owns the surface */ }
+            override fun paint(g: java.awt.Graphics?) {
+                g?.color = java.awt.Color.BLACK
+                g?.fillRect(0, 0, width.coerceAtLeast(1), height.coerceAtLeast(1))
+            }
+            override fun update(g: java.awt.Graphics?) {
+                paint(g)
+            }
 
             override fun addNotify() {
                 super.addNotify()

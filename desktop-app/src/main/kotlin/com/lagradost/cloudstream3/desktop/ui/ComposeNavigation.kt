@@ -265,56 +265,19 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     // Context Menu Overlay (unblurred)
                     com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
 
-                    var showExitFade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-
                     // The Embedded Video Player Overlay
                     currentVideo?.let { launchData ->
                         com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
                             launchData = launchData,
-                            isExiting = showExitFade,
+                            isExiting = false,
                             onClose = {
-                                showExitFade = true
+                                currentVideo = null
                             },
                             onError = { err ->
                                 com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
                                 showErrorsDialog = true
                             },
                         )
-                    }
-
-                    val exitFadeAlpha by androidx.compose.animation.core.animateFloatAsState(
-                        targetValue = if (showExitFade) 1f else 0f,
-                        animationSpec = if (showExitFade) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(400, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
-                        label = "exitFadeAlpha",
-                    )
-
-                    if (exitFadeAlpha > 0f) {
-                        androidx.compose.foundation.layout.Box(
-                            modifier = androidx.compose.ui.Modifier
-                                .fillMaxSize()
-                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = exitFadeAlpha)),
-                        )
-                    }
-
-                    androidx.compose.runtime.LaunchedEffect(showExitFade) {
-                        if (showExitFade) {
-                            // Wait for the Compose UI to snap to black and the isExiting state to propagate
-                            // down to the player components so they can hide the AWT canvases BEFORE destruction.
-                            // We wait for 2 frames to guarantee the black box is physically painted on screen,
-                            // regardless of any JIT compilation pauses that might occur the first time.
-                            androidx.compose.runtime.withFrameNanos { }
-                            androidx.compose.runtime.withFrameNanos { }
-
-                            // Destroy the native player instantly (no white flash due to BLACK_BRUSH).
-                            // The heavy C++ teardown runs on a daemon thread in BaseMpvPlayer.
-                            currentVideo = null
-
-                            // Wait another 50ms just to ensure the native window is completely gone from the OS compositor
-                            kotlinx.coroutines.delay(50)
-
-                            // Trigger the smooth fade-out of the black box to reveal the Compose UI!
-                            showExitFade = false
-                        }
                     }
 
                     com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(

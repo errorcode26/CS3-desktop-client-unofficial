@@ -163,6 +163,9 @@ fun HomeCategorySection(
                             )
                         }
 
+                        val isHorizontalCategory = pageData.horizontalImages || section.list.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
+                        val categoryAspectRatio = if (isHorizontalCategory) 16f / 9f else 2f / 3f
+
                         val topPadding = if (isFirstRowOfFirstPage && !heroEnabled && !isHistoryVisible) 72.dp else 0.dp
 
                         BoxWithConstraints(
@@ -174,7 +177,7 @@ fun HomeCategorySection(
                             val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
                             val homeSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeSpacingDp.collectAsState()
 
-                            val baseWidth = posterWidthDp.dp
+                            val baseWidth = if (isHorizontalCategory) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
                             val spacingDp = homeSpacingDp.dp
 
                             // Subtract 20.dp (10.dp horizontal content padding) from availableWidth
@@ -213,6 +216,7 @@ fun HomeCategorySection(
                                         item = posterItem,
                                         provider = provider,
                                         itemWidth = optimalItemWidth,
+                                        aspectRatio = categoryAspectRatio,
                                         onClick = { onItemClick(provider, posterItem, null, false) },
                                         onPlayClick = { onItemClick(provider, posterItem, null, true) },
                                     )
@@ -221,27 +225,28 @@ fun HomeCategorySection(
                         }
                     }
                 }
-            } else {
-                val minHeight = if (isFirstPage) 350.dp else 150.dp
-                val topPadding = if (isFirstPage) 80.dp else 0.dp
-                Box(
+            } else if (errorMessage != null) {
+                val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
+                val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
+                val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+
+                androidx.compose.foundation.layout.Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(minHeight)
-                        .padding(top = topPadding)
-                        .pointerInput(Unit) {},
-                    contentAlignment = Alignment.Center,
+                        .padding(start = paddingStart + 10.dp, end = paddingEnd + 10.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            errorMessage ?: "Failed to load category.",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        androidx.compose.material3.OutlinedButton(onClick = { fetchPage() }) {
-                            Text("Retry")
-                        }
+                    Text(
+                        text = "${pageData.name}: $errorMessage",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    androidx.compose.material3.TextButton(
+                        onClick = { fetchPage() },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Text("Retry", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
