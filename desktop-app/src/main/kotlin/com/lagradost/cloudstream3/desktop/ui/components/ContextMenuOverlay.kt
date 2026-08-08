@@ -62,6 +62,15 @@ object GlobalContextMenuState {
         isActive = false
     }
 
+    fun clear() {
+        searchResponse = null
+        watchHistory = null
+        provider = null
+        onRemove = null
+        onDetailsClick = null
+        onPlayClick = null
+    }
+
     fun showForPoster(
         bounds: Rect,
         item: SearchResponse,
@@ -105,6 +114,12 @@ fun ContextMenuOverlay() {
     transitionState.targetState = state.isActive
 
     val isVisible = transitionState.currentState || transitionState.targetState
+
+    LaunchedEffect(transitionState.isIdle, transitionState.currentState) {
+        if (transitionState.isIdle && !transitionState.currentState) {
+            state.clear()
+        }
+    }
 
     if (isVisible) {
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
