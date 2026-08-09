@@ -85,7 +85,7 @@ object SubtitleExtractionService {
                     val tmp = File.createTempFile("sub", ".zip")
                     val res = com.lagradost.cloudstream3.app.get(fileUrl).okhttpResponse
                     val bytes = res.body.bytes()
-                    if (bytes != null) {
+                    if (bytes.isNotEmpty()) {
                         tmp.writeBytes(bytes)
                         tmp
                     } else {

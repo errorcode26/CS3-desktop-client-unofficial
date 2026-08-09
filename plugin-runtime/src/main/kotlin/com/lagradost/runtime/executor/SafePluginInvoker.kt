@@ -9,6 +9,20 @@ import kotlinx.coroutines.withTimeout
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
+sealed interface PluginCallResult<out T> {
+    data class Success<T>(val data: T, val latencyMs: Long) : PluginCallResult<T>
+    data class Timeout(val limitMs: Long, val elapsedMs: Long) : PluginCallResult<Nothing>
+    data class CircuitOpen(val provider: String, val reason: String) : PluginCallResult<Nothing>
+    data class Failure(val error: Throwable, val message: String, val elapsedMs: Long) : PluginCallResult<Nothing>
+
+    fun getOrNull(): T? = when (this) {
+        is Success -> data
+        else -> null
+    }
+
+    val isSuccess: Boolean get() = this is Success
+}
+
 /**
  * Safe execution boundary for CloudStream plugins and scrapers.
  * Guarantees isolation from UI threads, provides timeout protection with thread interruption,
@@ -23,6 +37,74 @@ object SafePluginInvoker {
     // on the TOTAL call, not an indicator of failure. Links may have already been delivered.
     const val TIMEOUT_SCRAPE_MS: Long = 60_000L
     const val TIMEOUT_DEFAULT_MS: Long = 30_000L
+
+    /**
+     * Executes a plugin operation with full typed diagnostic results.
+     */
+    suspend fun <T> invokeDetailed(
+        tag: String = "PluginCall",
+        providerName: String? = null,
+        timeoutMs: Long = TIMEOUT_DEFAULT_MS,
+        failureThreshold: Int = PluginCircuitBreaker.DEFAULT_FAILURE_THRESHOLD,
+        penalizeOnTimeout: Boolean = true,
+        block: suspend CoroutineScope.() -> T,
+    ): PluginCallResult<T> {
+        val startMs = System.currentTimeMillis()
+        val loggerTag = if (tag.startsWith("SafePluginInvoker:") || tag.startsWith("Plugin:")) tag else "Plugin:$tag"
+        val resolvedProvider = providerName ?: extractProviderName(tag)
+
+        if (resolvedProvider != null) {
+            val (isAllowed, reason) = PluginCircuitBreaker.isExecutionAllowed(resolvedProvider)
+            if (!isAllowed) {
+                AppLogger.w(loggerTag, "⚡ Fast-failing: $reason")
+                return PluginCallResult.CircuitOpen(resolvedProvider, reason ?: "Circuit OPEN")
+            }
+        }
+
+        val executingThread = AtomicReference<Thread?>(null)
+        return try {
+            val result = withContext(PluginDispatcher) {
+                executingThread.set(Thread.currentThread())
+                try {
+                    withTimeout(timeoutMs) {
+                        block()
+                    }
+                } finally {
+                    executingThread.set(null)
+                }
+            }
+            val elapsedMs = System.currentTimeMillis() - startMs
+            if (resolvedProvider != null) {
+                PluginCircuitBreaker.recordSuccess(resolvedProvider, elapsedMs)
+            }
+            PluginCallResult.Success(result, elapsedMs)
+        } catch (e: TimeoutCancellationException) {
+            executingThread.get()?.interrupt()
+            val elapsedMs = System.currentTimeMillis() - startMs
+            if (penalizeOnTimeout && resolvedProvider != null) {
+                PluginCircuitBreaker.recordFailure(
+                    providerName = resolvedProvider,
+                    reason = "Timeout after ${elapsedMs}ms",
+                    failureThreshold = failureThreshold,
+                )
+            }
+            PluginCallResult.Timeout(timeoutMs, elapsedMs)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            val elapsedMs = System.currentTimeMillis() - startMs
+            val reason = t.message ?: t.javaClass.simpleName
+            if (resolvedProvider != null) {
+                PluginCircuitBreaker.recordFailure(
+                    providerName = resolvedProvider,
+                    reason = reason,
+                    throwable = t,
+                    failureThreshold = failureThreshold,
+                )
+            }
+            PluginCallResult.Failure(t, reason, elapsedMs)
+        }
+    }
 
     /**
      * Executes a plugin operation on [PluginDispatcher] with timeout, thread interruption,

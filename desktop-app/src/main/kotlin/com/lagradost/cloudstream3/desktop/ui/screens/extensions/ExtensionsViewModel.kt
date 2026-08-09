@@ -46,8 +46,9 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 updateState { copy(syncGeneration = gen) }
             }
         }
-        // Immediately populate the Installed tab on ViewModel creation
+        // Immediately populate both the Catalog and Installed tabs from local cache (0ms instant render)
         viewModelScope.launch(Dispatchers.IO) {
+            loadPluginsFromManager()
             refreshInstalled()
         }
     }

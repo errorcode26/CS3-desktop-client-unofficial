@@ -99,7 +99,7 @@ object DiagnosticsRunner {
             .get()
             .build()
         val response = client.newCall(request).execute()
-        val body = response.body?.string()?.take(80) ?: ""
+        val body = response.body.string().take(80)
         response.close()
         "HTTP ${response.code} — ${body.take(60)}..."
     }
@@ -113,7 +113,7 @@ object DiagnosticsRunner {
             .build()
         val response = client.newCall(request).execute()
         val proto = response.protocol
-        val body = response.body?.string()?.take(80) ?: ""
+        val body = response.body.string().take(80)
         response.close()
         "Protocol: $proto — HTTP ${response.code} — ${body.take(40)}..."
     }
@@ -153,9 +153,7 @@ object DiagnosticsRunner {
             val metaApis = com.lagradost.cloudstream3.APIHolder.apis
                 .filter { api ->
                     val url = api.mainUrl
-                    url.startsWith("http") && !url.contains("*") &&
-                        // Skip pure extractor APIs — they have no search
-                        api !is ExtractorApi
+                    url.startsWith("http") && !url.contains("*")
                 }
                 .distinctBy { it.name }
                 .sortedBy { it.name }

@@ -120,4 +120,6 @@ fun initNetwork() {
             null
         }
     }
+
+    com.lagradost.cloudstream3.desktop.network.NetworkMonitor.initialize()
 }

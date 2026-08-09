@@ -84,6 +84,7 @@ data class AppStateUpdatePayload(
     val debugHasEver: Boolean = true,
     val debugPos: Double = 0.0,
     val interpolationEnabled: Boolean = false,
+    val autoPlayEnabled: Boolean = true,
 )
 
 data class ToastPayload(

@@ -11,32 +11,6 @@ import kotlinx.coroutines.launch
 import java.awt.event.*
 import java.io.File
 
-/**
- * Extract a string-typed value from a flat JSON object.
- * Handles: {"key":"value", ...}
- * More robust than substringAfter/Before which breaks if field order changes or
- * the value contains special characters.
- */
-private fun extractJsonString(json: String, key: String): String {
-    // Match "key":"<value>" — value stops at the next unescaped quote
-    val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
-    return regex.find(json)?.groupValues?.getOrNull(1) ?: ""
-}
-
-/**
- * Extract a value (string OR numeric) from a flat JSON object.
- * For string values ("value":"123") returns the inner string.
- * For numeric values ("value":123) returns the numeric literal as a string.
- */
-private fun extractJsonValue(json: String, key: String): String {
-    // Try string value first
-    val strResult = extractJsonString(json, key)
-    if (strResult.isNotEmpty()) return strResult
-    // Fall back to numeric/boolean value: "key": 123 or "key": true
-    val numRegex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*([0-9.eE+\\-]+|true|false|null)")
-    return numRegex.find(json)?.groupValues?.getOrNull(1) ?: ""
-}
-
 private val playerObjectMapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
 
 @Composable
@@ -220,6 +194,7 @@ fun ComposeNativeWebPlayer(
             val loadingTextJson = if (escapedLoadingText != null) "\"$escapedLoadingText\"" else "null"
 
             val interpolationEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION) ?: false
+            val autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
 
             val payload = AppStateUpdatePayload(
                 volume = vol,
@@ -230,6 +205,7 @@ fun ComposeNativeWebPlayer(
                 debugHasEver = true,
                 debugPos = 0.0,
                 interpolationEnabled = interpolationEnabled,
+                autoPlayEnabled = autoPlayEnabled,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -306,8 +282,9 @@ fun ComposeNativeWebPlayer(
                     val h = mpvHandle ?: return
                     if (type != "message") return
 
-                    val eventType = extractJsonString(value, "type")
-                    val eventValue = extractJsonValue(value, "value")
+                    val rootNode = try { playerObjectMapper.readTree(value) } catch (t: Throwable) { null }
+                    val eventType = rootNode?.get("type")?.asText() ?: ""
+                    val eventValue = rootNode?.get("value")?.let { if (it.isTextual) it.asText() else it.toString() } ?: ""
 
                     when (eventType) {
                         "ui_ready" -> {
@@ -317,7 +294,7 @@ fun ComposeNativeWebPlayer(
                             NativePlayerBridge.focusWebView()
                         }
                         "selectShader" -> {
-                            val shaderName = extractJsonString(value, "value")
+                            val shaderName = rootNode?.get("value")?.asText() ?: ""
                             playerState?.setShader(shaderName)
                         }
                         "searchSubtitles" -> {
@@ -417,6 +394,25 @@ fun ComposeNativeWebPlayer(
                             if (vol != null) {
                                 playerState?._volume?.value = vol.toFloat()
                             }
+                        }
+                        "setSpeed" -> {
+                            val sp = eventValue.toDoubleOrNull()
+                            if (sp != null) {
+                                playerState?.setSpeed(sp.toFloat())
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "speed", sp.toString())
+                            }
+                        }
+                        "setSubDelay" -> {
+                            val d = eventValue.toDoubleOrNull()
+                            if (d != null) {
+                                MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay $d")
+                            }
+                        }
+                        "cycleSubtitles" -> {
+                            MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
+                        }
+                        "toggleSubVisibility" -> {
+                            MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
                         }
                         "toggleFullscreen" -> {
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
@@ -587,6 +583,12 @@ fun ComposeNativeWebPlayer(
                                     MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "audio")
                                     MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "no")
                                 }
+                            }
+                        }
+                        "toggleAutoPlay" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY, enabled)
                             }
                         }
                         "loadNextEpisode", "nextEpisode" -> {

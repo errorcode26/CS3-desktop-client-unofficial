@@ -15,6 +15,7 @@ interface MpvLibrary : Library {
     fun mpv_set_property_string(ctx: Pointer, name: String, data: String): Int
     fun mpv_get_property(ctx: Pointer, name: String, format: Int, data: Pointer): Int
     fun mpv_command_string(ctx: Pointer, args: String): Int
+    fun mpv_command(ctx: Pointer, args: Array<String?>): Int
     fun mpv_observe_property(ctx: Pointer, reply_userdata: Long, name: String, format: Int): Int
     fun mpv_wait_event(ctx: Pointer, timeout: Double): Pointer?
     fun mpv_request_log_messages(ctx: Pointer, min_level: String): Int

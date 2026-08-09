@@ -21,15 +21,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
-import com.lagradost.cloudstream3.desktop.ui.components.UpdatesNotificationBell
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 // Removed DesktopUiState globally!
 val LocalSafeArea = staticCompositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
@@ -47,17 +49,6 @@ fun DesktopAppShell(
     content: @Composable () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-
-    val hasUnreadUpdates by DesktopDataStore.pluginUpdatesFlow
-        .map { DesktopDataStore.hasUnreadUpdates() }
-        .flowOn(kotlinx.coroutines.Dispatchers.IO)
-        .collectAsState(initial = false)
-
-    val updatesHistory by DesktopDataStore.pluginUpdatesFlow
-        .map { DesktopDataStore.getUpdatesHistory() }
-        .flowOn(kotlinx.coroutines.Dispatchers.IO)
-        .collectAsState(initial = emptyList())
-
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -290,7 +281,75 @@ fun DesktopAppShell(
                         isHome = title == "Home",
                         homeUiState = homeUiState,
                         homeActionDispatcher = homeActionDispatcher,
+                        onBack = onBack,
                     )
+                }
+
+                // ── Offline Network Banner ──────────────────────────────────
+                val isOnline by com.lagradost.cloudstream3.desktop.network.NetworkMonitor.isOnline.collectAsState()
+                val isCheckingNetwork by com.lagradost.cloudstream3.desktop.network.NetworkMonitor.isChecking.collectAsState()
+                val coroutineScope = rememberCoroutineScope()
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !isOnline,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { -it },
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { -it },
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 58.dp).zIndex(99f),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF2D1800).copy(alpha = 0.95f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.55f)),
+                        shadowElevation = 8.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.WifiOff,
+                                contentDescription = "Offline",
+                                tint = Color(0xFFFFB74D),
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Column {
+                                Text(
+                                    text = "No Internet Connection",
+                                    color = Color.White,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                )
+                                Text(
+                                    text = "You are currently offline. Extension sync and search may be unavailable.",
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    fontSize = 10.sp,
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            FilledTonalButton(
+                                onClick = {
+                                    coroutineScope.launch { com.lagradost.cloudstream3.desktop.network.NetworkMonitor.checkConnectivity() }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = Color(0xFFFF9800).copy(alpha = 0.25f),
+                                    contentColor = Color(0xFFFFE0B2),
+                                ),
+                            ) {
+                                if (isCheckingNetwork) {
+                                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = Color(0xFFFFE0B2))
+                                } else {
+                                    Icon(androidx.compose.material.icons.Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(13.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Retry", fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 SnackbarHost(
@@ -317,14 +376,6 @@ fun DesktopAppShell(
                     },
                 )
             }
-
-            // Updates Notification Bell (Always bottom left)
-            UpdatesNotificationBell(
-                modifier = Modifier.align(Alignment.BottomStart),
-                hasUnreadUpdates = hasUnreadUpdates,
-                updatesHistory = updatesHistory,
-                onMarkUpdatesRead = { DesktopDataStore.setUnreadUpdates(false) },
-            )
         }
     }
 }
@@ -362,14 +413,6 @@ private fun NavigationDock(
             onClick = onSearchClick,
         )
         DockItem(icon = PremiumIcons.Library, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY, selected = currentTitle == "Library", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Library) })
-        DockItem(
-            icon = PremiumIcons.Extensions,
-            label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.EXTENSIONS,
-            selected = currentTitle == "Extensions",
-            isHorizontal = isHorizontal,
-            indicatorAtTop = isTop,
-            onClick = { onNavigate(Config.Extensions(0)) },
-        )
         DockItem(icon = PremiumIcons.Settings, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS, selected = currentTitle == "Settings", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Settings) })
     }
 

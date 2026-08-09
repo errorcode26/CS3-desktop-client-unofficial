@@ -19,6 +19,9 @@ internal object PluginNetworkClient {
     internal val redirectClient by lazy {
         com.lagradost.cloudstream3.app.baseClient.newBuilder()
             .followRedirects(true)
+            .connectTimeout(java.time.Duration.ofSeconds(4))
+            .readTimeout(java.time.Duration.ofSeconds(6))
+            .callTimeout(java.time.Duration.ofSeconds(8))
             .build()
     }
 
@@ -26,6 +29,8 @@ internal object PluginNetworkClient {
     private val noRedirectClient by lazy {
         com.lagradost.cloudstream3.app.baseClient.newBuilder()
             .followRedirects(false)
+            .connectTimeout(java.time.Duration.ofSeconds(3))
+            .readTimeout(java.time.Duration.ofSeconds(4))
             .build()
     }
 

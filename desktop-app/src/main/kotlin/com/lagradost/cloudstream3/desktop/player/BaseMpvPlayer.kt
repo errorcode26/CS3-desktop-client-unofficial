@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
+import com.lagradost.cloudstream3.desktop.ui.components.PlayerShortcutsModal
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -42,6 +43,7 @@ fun BaseMpvPlayer(
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     var hasEverPlayed by remember { mutableStateOf(false) }
+    var showShortcutsModal by remember { mutableStateOf(false) }
     // Guards against false-positive onPlaybackReady after a stop()+loadfile sequence.
     // Set to true just before loadfile, cleared on MPV_EVENT_START_FILE.
     var waitingForTimePosReset by remember { mutableStateOf(false) }
@@ -52,6 +54,7 @@ fun BaseMpvPlayer(
     val currentOnPositionChange by rememberUpdatedState(onPositionChange)
     val currentOnCloseRequest by rememberUpdatedState(onCloseRequest)
     val currentOnFullscreenToggle by rememberUpdatedState(onFullscreenToggle)
+    val currentOnShowShortcuts: () -> Unit by rememberUpdatedState({ showShortcutsModal = true })
 
     LaunchedEffect(mpvHandle) {
         val h = mpvHandle
@@ -145,7 +148,8 @@ fun BaseMpvPlayer(
 
                                 // MPV_EVENT_FILE_LOADED (8) or MPV_EVENT_PLAYBACK_RESTART (21)
                                 8, 21 -> {
-                                    if (!hasEverPlayed && !waitingForTimePosReset) {
+                                    waitingForTimePosReset = false
+                                    if (!hasEverPlayed) {
                                         hasEverPlayed = true
                                         playbackStartedAt = System.currentTimeMillis()
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Playback active (MPV_EVENT_FILE_LOADED / RESTART)")
@@ -173,7 +177,9 @@ fun BaseMpvPlayer(
                                                         val newPos = prop.data!!.getDouble(0)
                                                         if (newPos >= 0.0) lastPos = newPos
 
-                                                        if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
+                                                        if (lastPos > 0.1) waitingForTimePosReset = false
+
+                                                        if (!hasEverPlayed && lastPos > 0.1) {
                                                             hasEverPlayed = true
                                                             playbackStartedAt = System.currentTimeMillis()
                                                             playerState?._isBuffering?.value = false
@@ -261,8 +267,9 @@ fun BaseMpvPlayer(
                             if (pollPos >= 0.0) lastPos = pollPos
 
                             if (pollPos >= 0.0) {
+                                if (lastPos > 0.1) waitingForTimePosReset = false
                                 // Trigger playback-ready if native events haven't done so yet
-                                if (!hasEverPlayed && lastPos > 0.1 && !waitingForTimePosReset) {
+                                if (!hasEverPlayed && lastPos > 0.1) {
                                     hasEverPlayed = true
                                     playbackStartedAt = System.currentTimeMillis()
                                     playerState?._isBuffering?.value = false
@@ -370,7 +377,7 @@ fun BaseMpvPlayer(
         val handle = mpvHandle ?: return@LaunchedEffect
         if (!title.isNullOrBlank()) {
             val lib = MpvLibrary.INSTANCE
-            val safeTitle = title ?: ""
+            val safeTitle = title
             lib.mpv_set_property_string(handle, "force-media-title", safeTitle)
             lib.mpv_set_property_string(handle, "title", safeTitle)
         }
@@ -547,7 +554,13 @@ fun BaseMpvPlayer(
         // NOTE: hasEverPlayed and waitingForTimePosReset are already reset at the top
         // of this LaunchedEffect.
 
-        lib.mpv_command_string(handle, "loadfile \"$safeUrl\"")
+        val cmdResult = try {
+            lib.mpv_command(handle, arrayOf("loadfile", safeUrl, "replace", null))
+        } catch (_: Throwable) { -1 }
+
+        if (cmdResult != 0) {
+            lib.mpv_command_string(handle, "loadfile \"$safeUrl\"")
+        }
 
         // Ensure the player is unpaused when loading a new link.
         // However, if resuming from a saved position, pause it so the UI can show a "Resume" dialog.
@@ -736,19 +749,32 @@ fun BaseMpvPlayer(
                     if (e.id == KeyEvent.KEY_PRESSED) {
                         mpvHandle?.let { h ->
                             val mpvKey = awtKeyToMpv(e)
-                            if (mpvKey?.contains("QUIT_OVERRIDE") == true) {
+                            if (mpvKey?.contains("QUIT_OVERRIDE") == true || e.keyCode == KeyEvent.VK_ESCAPE) {
                                 currentOnCloseRequest()
                             } else if (mpvKey != null) {
-                                when (mpvKey.lowercase()) {
-                                    "space" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
-                                    "left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
-                                    "right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
-                                    "up" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume 5")
-                                    "down" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume -5")
-                                    "m" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
-                                    "f" -> currentOnFullscreenToggle?.invoke()
-                                    else -> {
-                                        // MpvLibrary.INSTANCE.mpv_command_string(h, "keydown $mpvKey")
+                                val lower = mpvKey.lowercase()
+                                when {
+                                    lower == "space" || lower == "k" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
+                                    lower == "left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
+                                    lower == "right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
+                                    lower == "shift+left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -2")
+                                    lower == "shift+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 2")
+                                    lower == "ctrl+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 85")
+                                    lower == "up" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume 5")
+                                    lower == "down" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume -5")
+                                    lower == "m" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
+                                    lower == "+" || lower == "=" || lower == "]" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed 0.25")
+                                    lower == "-" || lower == "_" || lower == "[" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed -0.25")
+                                    lower == "bs" || lower == "backspace" -> MpvLibrary.INSTANCE.mpv_command_string(h, "set speed 1.0")
+                                    lower == "z" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay -0.1")
+                                    lower == "x" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay 0.1")
+                                    lower == "c" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
+                                    lower == "v" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
+                                    lower == "f" -> currentOnFullscreenToggle?.invoke()
+                                    lower == "?" || lower == "f1" || lower == "h" -> currentOnShowShortcuts()
+                                    lower.length == 1 && lower[0].isDigit() -> {
+                                        val pct = (lower[0] - '0') * 10
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek $pct absolute-percent")
                                     }
                                 }
                             }
@@ -820,6 +846,11 @@ fun BaseMpvPlayer(
             }
         }
     }
+
+    PlayerShortcutsModal(
+        show = showShortcutsModal,
+        onDismissRequest = { showShortcutsModal = false },
+    )
 
     videoRenderer(videoCanvas, mpvHandle)
 }

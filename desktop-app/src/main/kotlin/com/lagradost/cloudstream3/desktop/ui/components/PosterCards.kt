@@ -515,12 +515,11 @@ fun BoxScope.PosterBadges(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(6.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.Black.copy(alpha = 0.6f))
-                .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 4.dp, vertical = 2.dp),
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.Black.copy(alpha = 0.75f))
+                .padding(horizontal = 5.dp, vertical = 3.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
@@ -552,31 +551,31 @@ fun BoxScope.PosterBadges(
                 // Subs
                 val subCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed]
                 if (subCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true) {
-                    PosterBadge(text = if (subCount != null) "SUB $subCount" else "SUB", color = DesktopUi.Accent)
+                    PosterBadge(text = if (subCount != null) "SUB $subCount" else "SUB", textColor = DesktopUi.Accent)
                 }
                 // Dubs
                 val dubCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed]
                 if (dubCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true) {
-                    PosterBadge(text = if (dubCount != null) "DUB $dubCount" else "DUB", color = Color(0xFF9C27B0))
+                    PosterBadge(text = if (dubCount != null) "DUB $dubCount" else "DUB", textColor = Color(0xFFE040FB))
                 }
             }
         }
 
         // Bottom Right: Quality
         if (showQuality && item.quality != null) {
-            PosterBadge(text = item.quality!!.name, color = Color.White.copy(alpha = 0.3f), textColor = Color.White)
+            val qualityText = if (item.quality!!.name == "FourK") "4K" else item.quality!!.name
+            PosterBadge(text = qualityText, textColor = Color(0xFFEEEEEE))
         }
     }
 }
 
 @Composable
-private fun PosterBadge(text: String, color: Color, textColor: Color = Color.White) {
+private fun PosterBadge(text: String, textColor: Color) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
-            .background(color)
-            .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .background(Color.Black.copy(alpha = 0.75f))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Text(
             text = text.uppercase(),

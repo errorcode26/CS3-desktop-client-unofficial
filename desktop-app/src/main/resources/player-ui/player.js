@@ -27,6 +27,7 @@
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
     let isAppLoading = false; // Moved up to global scope
     let linksData = [];
+    let userDismissedWatchNext = false;
 
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
@@ -40,6 +41,7 @@
         // Reset all session-scoped JS state
         resumeHandled = false;
         userDismissedProbing = false;
+        userDismissedWatchNext = false;
         pendingResumeMs = 0;
         durationMs = 0;
         currentPosMs = 0;
@@ -59,6 +61,9 @@
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         if (videoEndedOvl) videoEndedOvl.style.display = 'none';
         if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; }
+
+        const wNextOvl = document.getElementById('watchNextPopup');
+        if (wNextOvl) wNextOvl.classList.remove('visible');
 
         resumeOverlay.style.display = 'none';
         loadingContainer.classList.remove('show');
@@ -207,6 +212,19 @@
     const seasonSelectWrap = document.getElementById('seasonSelectWrap');
     const seasonSelect     = document.getElementById('seasonSelect');
 
+    // Watch Next Elements
+    const watchNextPopup        = document.getElementById('watchNextPopup');
+    const watchNextCountdown    = document.getElementById('watchNextCountdown');
+    const closeWatchNextBtn     = document.getElementById('closeWatchNextBtn');
+    const watchNextThumb        = document.getElementById('watchNextThumb');
+    const watchNextEpMeta       = document.getElementById('watchNextEpMeta');
+    const watchNextTitle        = document.getElementById('watchNextTitle');
+    const watchNextDesc         = document.getElementById('watchNextDesc');
+    const watchNextProgressFill = document.getElementById('watchNextProgressFill');
+    const btnWatchNextPlay      = document.getElementById('btnWatchNextPlay');
+    const btnWatchNextDismiss   = document.getElementById('btnWatchNextDismiss');
+    const watchNextBody         = document.getElementById('watchNextBody');
+
     // Zone references
     const zoneLeft          = document.getElementById('zoneLeft');
     const zoneCenter        = document.getElementById('zoneCenter');
@@ -331,6 +349,8 @@
         closeAllPanels();
         if (!wasOpen) { el.classList.add('open'); isMenuOpen = true; }
     };
+    // Expose so inline onclick and context menu items can call it
+    window.togglePanel = togglePanel;
     panels.forEach(id => {
         const panel = document.getElementById(id);
         panel.addEventListener('click', e => e.stopPropagation());
@@ -569,6 +589,48 @@
         
         evaluateUIStates();
 
+        // Watch Next Popup Logic (Shows within last 25s of episode)
+        if (durationMs > 35000 && (durationMs - currentPosMs) <= 25000 && currentPosMs > 5000 && !userDismissedWatchNext) {
+            const activeIdx = (episodesData || []).findIndex(e => e.isActive);
+            const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
+            const pOverlay = document.getElementById('linkProbingOverlay');
+            const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+
+            if (nextEp && !isProbing && (!videoEndedOverlay || videoEndedOverlay.style.display !== 'flex')) {
+                if (watchNextPopup && !watchNextPopup.classList.contains('visible')) {
+                    watchNextPopup.classList.add('visible');
+                    if (watchNextThumb) watchNextThumb.src = nextEp.posterUrl || '';
+                    if (watchNextEpMeta) {
+                        watchNextEpMeta.innerText = (nextEp.season !== undefined && nextEp.season !== null)
+                            ? `S${nextEp.season}:E${nextEp.episode}`
+                            : `Episode ${nextEp.episode}`;
+                    }
+                    if (watchNextTitle) watchNextTitle.innerText = nextEp.title || ('Episode ' + nextEp.episode);
+                    if (watchNextDesc) watchNextDesc.innerText = nextEp.description || '';
+                }
+                const remainingSec = Math.max(0, Math.ceil((durationMs - currentPosMs) / 1000));
+                
+                if (window.autoPlayEnabled) {
+                    if (watchNextCountdown) watchNextCountdown.innerText = `in ${remainingSec}s`;
+                    if (watchNextProgressFill) {
+                        const progressPct = Math.max(0, Math.min(100, (remainingSec / 25) * 100));
+                        watchNextProgressFill.style.width = `${progressPct}%`;
+                    }
+                    if (remainingSec <= 1 || (globalIsLoading && remainingSec <= 3)) {
+                        userDismissedWatchNext = true;
+                        watchNextPopup.classList.remove('visible');
+                        triggerNextEpisode();
+                    }
+                } else {
+                    if (watchNextCountdown) watchNextCountdown.innerText = '';
+                    if (watchNextProgressFill) watchNextProgressFill.style.width = '0%';
+                }
+            } else if (watchNextPopup && watchNextPopup.classList.contains('visible')) {
+                watchNextPopup.classList.remove('visible');
+            }
+        } else if (watchNextPopup && watchNextPopup.classList.contains('visible')) {
+            watchNextPopup.classList.remove('visible');
+        }
 
         evaluateResumeOverlay();
     };
@@ -1209,10 +1271,6 @@
     const dismissProbingOverlay = (userInitiated = false) => {
         if (userInitiated) {
             userDismissedProbing = true;
-        } else if (window.sessionStartTime && (Date.now() - window.sessionStartTime < 1000)) {
-            // Ignore stale dismiss events from C++ that bleed over from the previous stream 
-            // during the first second of a new playback session.
-            return;
         }
         
         const pOverlay = document.getElementById('linkProbingOverlay');
@@ -1237,8 +1295,8 @@
         if (userInitiated) {
             finishDismissal();
         } else {
-            // Give content 300ms to fade, then crossfade the whole overlay
-            setTimeout(finishDismissal, 300);
+            // Give content 200ms to fade, then crossfade the whole overlay
+            setTimeout(finishDismissal, 200);
         }
     };
     // Expose globally so Kotlin can call via executeScript("window.__dismissProbingOverlay()")
@@ -1272,6 +1330,20 @@
             const btn = document.getElementById('btnToggleInterpolation');
             if (btn) {
                 if (interpolationEnabled) {
+                    btn.classList.add('active');
+                    btn.innerText = 'On';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Off';
+                }
+            }
+        }
+
+        if (s.autoPlayEnabled !== undefined) {
+            window.autoPlayEnabled = s.autoPlayEnabled === true;
+            const btn = document.getElementById('btnToggleAutoPlay');
+            if (btn) {
+                if (window.autoPlayEnabled) {
                     btn.classList.add('active');
                     btn.innerText = 'On';
                 } else {
@@ -1958,25 +2030,247 @@
     setupTabs('subsPanel');
     setupTabs('settingsPanel');
 
+    // ── Floating HUD Toast ──────────────────────────────────────────
+    let hudToastTimer = null;
+    window.showHudToast = (text) => {
+        const toast = document.getElementById('playerHudToast');
+        const textEl = document.getElementById('playerHudText');
+        if (!toast || !textEl) return;
+        textEl.innerText = text;
+        toast.classList.add('visible');
+        if (hudToastTimer) clearTimeout(hudToastTimer);
+        hudToastTimer = setTimeout(() => {
+            toast.classList.remove('visible');
+        }, 1600);
+    };
+
+    // ── Context Menu Logic ──────────────────────────────────────────
+    const ctxMenu = document.getElementById('contextMenuOverlay');
+    window.showContextMenu = (x, y) => {
+        if (!ctxMenu) return;
+        closeAllPanels();
+        const badge = document.getElementById('ctxSpeedBadge');
+        if (badge) badge.innerText = `${currentSpeed || 1}x`;
+
+        ctxMenu.style.display = 'block';
+        const rect = ctxMenu.getBoundingClientRect();
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+
+        const posX = (x + rect.width > winW) ? (winW - rect.width - 10) : x;
+        const posY = (y + rect.height > winH) ? (winH - rect.height - 10) : y;
+
+        ctxMenu.style.left = `${posX}px`;
+        ctxMenu.style.top = `${posY}px`;
+    };
+
+    window.closeContextMenu = () => {
+        if (ctxMenu) ctxMenu.style.display = 'none';
+    };
+
+    window.togglePlayFromContext = () => {
+        closeContextMenu();
+        send('togglePlay');
+    };
+
+    window.copyCurrentTimecode = () => {
+        closeContextMenu();
+        const timeStr = fmt(currentPosMs);
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(timeStr);
+            showHudToast(`Copied timecode: ${timeStr}`);
+        }
+    };
+
+    window.openShortcutsModal = () => {
+        closeContextMenu();
+        closeAllPanels();
+        const modal = document.getElementById('shortcutsModalOverlay');
+        if (modal) modal.style.display = 'flex';
+    };
+
+    window.closeShortcutsModal = (e) => {
+        const modal = document.getElementById('shortcutsModalOverlay');
+        if (modal) modal.style.display = 'none';
+    };
+
+    // Context Menu Event Listeners
+    document.addEventListener('contextmenu', e => {
+        if (e.target.closest('input,textarea,select')) return;
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY);
+    });
+
+    // Stop mousedown inside the menu from bubbling up so the outside-click dismiss works
+    ctxMenu.addEventListener('mousedown', e => e.stopPropagation());
+
+    // Dismiss when clicking anywhere outside the menu
+    document.addEventListener('mousedown', e => {
+        if (ctxMenu && ctxMenu.style.display === 'block' && !ctxMenu.contains(e.target)) {
+            closeContextMenu();
+        }
+    });
+
     // Keyboard Shortcuts
     // Prevent UI zooming
     document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
+    let currentSpeed = 1.0;
     document.addEventListener('keydown', e => {
         if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0')) { e.preventDefault(); return; }
         if (e.target.closest('input,textarea,[contenteditable]')) return;
-        if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
+        // Dismiss context menu first on any keypress
+        if (ctxMenu && ctxMenu.style.display === 'block') {
+            closeContextMenu();
+            if (e.key === 'Escape') return;
+        }
+
+        const shortcutsModal = document.getElementById('shortcutsModalOverlay');
+        if (shortcutsModal && shortcutsModal.style.display === 'flex') {
+            if (e.key === 'Escape') { closeShortcutsModal(); }
+            return;
+        }
+
+        // Percentage seek (0-9)
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
+            const pct = parseInt(e.key) * 0.1;
+            if (durationMs > 0) {
+                const targetMs = durationMs * pct;
+                send('seekTo', targetMs);
+                showHudToast(`Seek: ${Math.round(pct * 100)}% (${fmt(targetMs)})`);
+            }
+            return;
+        }
+
         switch (e.code) {
-            case 'Space': case 'KeyK': e.preventDefault(); send('togglePlay'); break;
-            case 'KeyF': send('toggleFullscreen'); break;
-            case 'KeyM': send('toggleMute'); break;
-            case 'KeyI': if (e.shiftKey) { e.preventDefault(); document.getElementById('btnToggleStats').click(); } break;
-            case 'ArrowLeft': case 'KeyJ': e.preventDefault(); doRelativeSeek(-10000); break;
-            case 'ArrowRight': case 'KeyL': e.preventDefault(); doRelativeSeek(10000); break;
-            case 'Escape': closeAllPanels(); break;
+            case 'Space': case 'KeyK':
+                e.preventDefault();
+                send('togglePlay');
+                break;
+            case 'KeyF':
+                send('toggleFullscreen');
+                break;
+            case 'KeyM':
+                send('toggleMute');
+                break;
+            case 'KeyI':
+                if (e.shiftKey) { e.preventDefault(); document.getElementById('btnToggleStats')?.click(); }
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                if (e.shiftKey) { doRelativeSeek(-2000); showHudToast('Seek -2s'); }
+                else { doRelativeSeek(-10000); showHudToast('Seek -10s'); }
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                if (e.ctrlKey) { doRelativeSeek(85000); showHudToast('Skipped Intro (+85s)'); }
+                else if (e.shiftKey) { doRelativeSeek(2000); showHudToast('Seek +2s'); }
+                else { doRelativeSeek(10000); showHudToast('Seek +10s'); }
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                currentVolume = Math.min(100, (currentVolume || 100) + 5);
+                send('setVolume', currentVolume);
+                showHudToast(`Volume: ${currentVolume}%`);
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                currentVolume = Math.max(0, (currentVolume || 100) - 5);
+                send('setVolume', currentVolume);
+                showHudToast(`Volume: ${currentVolume}%`);
+                break;
+            case 'Equal': case 'NumpadAdd': case 'BracketRight':
+                currentSpeed = Math.min(3.0, Math.round((currentSpeed + 0.25) * 100) / 100);
+                send('setSpeed', currentSpeed);
+                showHudToast(`Speed: ${currentSpeed}x`);
+                break;
+            case 'Minus': case 'NumpadSubtract': case 'BracketLeft':
+                currentSpeed = Math.max(0.25, Math.round((currentSpeed - 0.25) * 100) / 100);
+                send('setSpeed', currentSpeed);
+                showHudToast(`Speed: ${currentSpeed}x`);
+                break;
+            case 'Backspace':
+                currentSpeed = 1.0;
+                send('setSpeed', 1.0);
+                showHudToast('Speed: 1.0x (Normal)');
+                break;
+            case 'KeyZ':
+                subDelaySec = Math.round((subDelaySec - 0.1) * 10) / 10;
+                send('setSubDelay', -0.1);
+                showHudToast(`Sub Delay: ${subDelaySec > 0 ? '+' : ''}${Math.round(subDelaySec * 1000)}ms`);
+                break;
+            case 'KeyX':
+                subDelaySec = Math.round((subDelaySec + 0.1) * 10) / 10;
+                send('setSubDelay', 0.1);
+                showHudToast(`Sub Delay: ${subDelaySec > 0 ? '+' : ''}${Math.round(subDelaySec * 1000)}ms`);
+                break;
+            case 'KeyC':
+                send('cycleSubtitles');
+                showHudToast('Cycled Subtitle Track');
+                break;
+            case 'KeyV':
+                send('toggleSubVisibility');
+                showHudToast('Toggled Subtitles');
+                break;
+            case 'Slash': case 'F1': case 'KeyH':
+                if (e.key === '?' || e.code === 'F1' || e.code === 'KeyH') {
+                    openShortcutsModal();
+                }
+                break;
+            case 'Escape':
+                closeContextMenu();
+                closeShortcutsModal();
+                closeAllPanels();
+                break;
         }
     });
+
+    // Watch Next Event Handlers
+    if (btnWatchNextPlay) {
+        btnWatchNextPlay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (watchNextPopup) watchNextPopup.classList.remove('visible');
+            triggerNextEpisode();
+        });
+    }
+    if (watchNextBody) {
+        watchNextBody.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (watchNextPopup) watchNextPopup.classList.remove('visible');
+            triggerNextEpisode();
+        });
+    }
+    if (closeWatchNextBtn) {
+        closeWatchNextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userDismissedWatchNext = true;
+            if (watchNextPopup) watchNextPopup.classList.remove('visible');
+        });
+    }
+    if (btnWatchNextDismiss) {
+        btnWatchNextDismiss.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userDismissedWatchNext = true;
+            if (watchNextPopup) watchNextPopup.classList.remove('visible');
+        });
+    }
+
+    const btnToggleAutoPlay = document.getElementById('btnToggleAutoPlay');
+    if (btnToggleAutoPlay) {
+        btnToggleAutoPlay.addEventListener('click', () => {
+            window.autoPlayEnabled = !window.autoPlayEnabled;
+            if (window.autoPlayEnabled) {
+                btnToggleAutoPlay.classList.add('active');
+                btnToggleAutoPlay.innerText = 'On';
+            } else {
+                btnToggleAutoPlay.classList.remove('active');
+                btnToggleAutoPlay.innerText = 'Off';
+            }
+            send('toggleAutoPlay', String(window.autoPlayEnabled));
+        });
+    }
 
     // Video Ended Overlay Logic
     const videoEndedOverlay = document.getElementById('videoEndedOverlay');
@@ -1989,6 +2283,7 @@
     let currentEndCountdown = 5;
 
     window.showVideoEnded = (hasNextEpisode, autoPlayEnabled) => {
+        if (watchNextPopup) watchNextPopup.classList.remove('visible');
         closeAllPanels();
         document.getElementById('overlay').style.opacity = '0';
         videoEndedOverlay.style.display = 'flex';
@@ -1996,32 +2291,64 @@
         
         if (endCountdownTimer) clearInterval(endCountdownTimer);
         
+        const videoEndedNextCard = document.getElementById('videoEndedNextCard');
+        const videoEndedThumb = document.getElementById('videoEndedThumb');
+        const videoEndedNextEp = document.getElementById('videoEndedNextEp');
+        const videoEndedNextTitle = document.getElementById('videoEndedNextTitle');
+        const videoEndedNextDesc = document.getElementById('videoEndedNextDesc');
+        const btnNextEpisodeLabel = document.getElementById('btnNextEpisodeLabel');
+        const videoEndedHeaderTitle = document.getElementById('videoEndedHeaderTitle');
+
         if (hasNextEpisode) {
-            btnNextEpisode.style.display = 'block';
+            btnNextEpisode.style.display = 'flex';
+            const activeIdx = (episodesData || []).findIndex(e => e.isActive);
+            const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
+
+            if (nextEp) {
+                if (videoEndedNextCard) videoEndedNextCard.style.display = 'flex';
+                if (videoEndedThumb) videoEndedThumb.src = nextEp.posterUrl || '';
+                if (videoEndedNextEp) {
+                    videoEndedNextEp.innerText = (nextEp.season !== undefined && nextEp.season !== null)
+                        ? `S${nextEp.season}:E${nextEp.episode}`
+                        : `Episode ${nextEp.episode}`;
+                }
+                if (videoEndedNextTitle) videoEndedNextTitle.innerText = nextEp.title || ('Episode ' + nextEp.episode);
+                if (videoEndedNextDesc) videoEndedNextDesc.innerText = nextEp.description || '';
+            } else {
+                if (videoEndedNextCard) videoEndedNextCard.style.display = 'none';
+            }
             
             if (autoPlayEnabled) {
                 currentEndCountdown = 5;
-                btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
                 videoEndedSubtext.innerText = 'Playing next episode soon...';
                 
                 endCountdownTimer = setInterval(() => {
                     currentEndCountdown--;
                     if (currentEndCountdown <= 0) {
+                        clearInterval(endCountdownTimer);
                         triggerNextEpisode();
                     } else {
-                        btnNextEpisode.innerText = `Next Episode (${currentEndCountdown})`;
+                        if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
                     }
                 }, 1000);
             } else {
-                btnNextEpisode.innerText = `Next Episode`;
+                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode`;
                 videoEndedSubtext.innerText = 'Autoplay is disabled.';
             }
             
             btnNextEpisode.onclick = () => {
                 triggerNextEpisode();
             };
+            if (videoEndedNextCard) {
+                videoEndedNextCard.onclick = () => {
+                    triggerNextEpisode();
+                };
+            }
         } else {
             btnNextEpisode.style.display = 'none';
+            if (videoEndedNextCard) videoEndedNextCard.style.display = 'none';
+            if (videoEndedHeaderTitle) videoEndedHeaderTitle.innerText = 'Completed';
             videoEndedSubtext.innerText = 'All episodes watched.';
         }
         

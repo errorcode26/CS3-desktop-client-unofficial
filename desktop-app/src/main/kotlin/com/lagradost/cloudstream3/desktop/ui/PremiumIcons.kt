@@ -125,55 +125,39 @@ object PremiumIcons {
     }
 
     val Extensions: ImageVector by lazy {
-        featherBuilder("FeatherPackage")
+        featherBuilder("FeatherPuzzle")
             .path(
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {
-                moveTo(16.5f, 9.4f)
-                lineTo(7.5f, 4.21f)
-            }
-            .path(
-                stroke = strokeColor,
-                strokeLineWidth = strokeWidth,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            ) {
-                moveTo(21f, 16f)
-                verticalLineTo(8f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -1f, dy1 = -1.73f)
-                lineToRelative(-7f, -4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -2f, dy1 = 0f)
-                lineToRelative(-7f, 4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -1f, dy1 = 1.73f)
-                verticalLineTo(16f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 1f, dy1 = 1.73f)
-                lineToRelative(7f, 4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 2f, dy1 = 0f)
-                lineToRelative(7f, -4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 1f, dy1 = -1.73f)
+                moveTo(20.5f, 11f)
+                horizontalLineTo(19f)
+                verticalLineTo(7f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -2f, dy1 = -2f)
+                horizontalLineToRelative(-4f)
+                verticalLineTo(3.5f)
+                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -3f, dy1 = 0f)
+                verticalLineTo(5f)
+                horizontalLineTo(6f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -2f, dy1 = 2f)
+                verticalLineToRelative(4f)
+                horizontalLineTo(5.5f)
+                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = 0f, dy1 = 3f)
+                horizontalLineTo(4f)
+                verticalLineToRelative(4f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 2f, dy1 = 2f)
+                horizontalLineToRelative(4f)
+                verticalLineToRelative(1.5f)
+                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 3f, dy1 = 0f)
+                verticalLineTo(20f)
+                horizontalLineToRelative(4f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 2f, dy1 = -2f)
+                verticalLineToRelative(-4f)
+                horizontalLineToRelative(1.5f)
+                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 0f, dy1 = -3f)
                 close()
-            }
-            .path(
-                stroke = strokeColor,
-                strokeLineWidth = strokeWidth,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            ) {
-                moveTo(3.27f, 6.96f)
-                lineTo(12f, 12.01f)
-                lineTo(20.73f, 6.96f)
-            }
-            .path(
-                stroke = strokeColor,
-                strokeLineWidth = strokeWidth,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            ) {
-                moveTo(12f, 22.08f)
-                verticalLineTo(12f)
             }
             .build()
     }

@@ -235,6 +235,12 @@ object LocalStreamProxy {
             }
             val url = String(java.util.Base64.getUrlDecoder().decode(encodedUrl), Charsets.UTF_8)
             val requestBuilder = okhttp3.Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+                .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+            try {
+                val uri = java.net.URI(url)
+                requestBuilder.header("Referer", "${uri.scheme}://${uri.host}/")
+            } catch (_: Exception) {}
             val response = proxyClient.newCall(requestBuilder.build()).await()
             if (!response.isSuccessful) {
                 response.body?.close()
@@ -318,6 +324,23 @@ object LocalStreamProxy {
 
             if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
                 mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            }
+            if (mergedHeaders.keys.none { it.equals("Accept", ignoreCase = true) }) {
+                mergedHeaders["Accept"] = "*/*"
+            }
+            if (mergedHeaders.keys.none { it.equals("Accept-Language", ignoreCase = true) }) {
+                mergedHeaders["Accept-Language"] = "en-US,en;q=0.9"
+            }
+            if (mergedHeaders.keys.none { it.equals("Sec-Fetch-Mode", ignoreCase = true) }) {
+                mergedHeaders["Sec-Fetch-Mode"] = "no-cors"
+            }
+            if (mergedHeaders.keys.none { it.equals("Referer", ignoreCase = true) }) {
+                try {
+                    val uri = java.net.URI(url)
+                    val origin = "${uri.scheme}://${uri.host}"
+                    mergedHeaders["Referer"] = "$origin/"
+                    mergedHeaders["Origin"] = origin
+                } catch (_: Exception) {}
             }
 
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)

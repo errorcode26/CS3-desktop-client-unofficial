@@ -40,7 +40,9 @@ fun EmbeddedVideoPlayer(
         viewModel.effectFlow.collect { effect ->
             when (effect) {
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ShowToast -> {
-                    // Ignored for now or use a local toast
+                    com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.postMessage(
+                        "{\"type\":\"show_toast\",\"message\":\"${effect.message.replace("\"", "\\\"")}\"}"
+                    )
                 }
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ClosePlayer -> {
                     onClose()
@@ -54,7 +56,8 @@ fun EmbeddedVideoPlayer(
 
     val uiState by viewModel.uiState.collectAsState()
     val currentLaunchData = uiState.launchData
-    val isLoadingNextEpisode = uiState.isLoadingNextEpisode
+    val phase = uiState.phase
+    val isLoadingNextEpisode = phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping
     val nextEpisodeError = uiState.nextEpisodeError
     val nextEpisodeLinks = uiState.nextEpisodeLinks
     val targetEpisodeData = uiState.targetEpisodeData
@@ -62,7 +65,6 @@ fun EmbeddedVideoPlayer(
     if (currentLaunchData == null) return
 
     val actualLaunchData = currentLaunchData!!
-    val isScrapingLinks = uiState.isScrapingLinks
 
     var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var showSources by remember { mutableStateOf(false) }
@@ -76,14 +78,15 @@ fun EmbeddedVideoPlayer(
     val playerState = viewModel.playerState
 
     LaunchedEffect(actualLaunchData.history.episodeId) {
+        // isLoading is already reset to true by remember(episodeId) above
         playerState.reset()
         com.lagradost.player.impl.proxy.LocalStreamProxyState.loadingStatus.value = null
     }
 
     LaunchedEffect(nextEpisodeError) {
-        // Surface the error but do not auto-close — current playback may still be active
-        // and the user can manually select a different source.
+        // Surface the error and release local loading lock
         if (nextEpisodeError != null) {
+            isLoading = false
             onError(nextEpisodeError.displayMessage)
         }
     }
@@ -112,8 +115,8 @@ fun EmbeddedVideoPlayer(
                         .toMap()
 
                     // When ViewModel clears activeLink after all sources are exhausted, close.
-                    LaunchedEffect(activeLink, uiState.isScrapingLinks) {
-                        if (activeLink == null && !uiState.isScrapingLinks && !isLoadingNextEpisode && uiState.launchData != null) {
+                    LaunchedEffect(phase) {
+                        if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Idle && uiState.launchData != null) {
                             val hasEverHadLinks = actualLaunchData.links.isNotEmpty()
                             if (hasEverHadLinks && uiState.failedLinks.isNotEmpty()) {
                                 com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources exhausted. Closing.")
@@ -151,6 +154,11 @@ fun EmbeddedVideoPlayer(
                     val plot = targetEpisodeData?.description ?: actualLaunchData.loadResponse?.plot
                     val year = uiState.launchData?.loadResponse?.year
                     val tags = actualLaunchData.loadResponse?.tags
+                    // Always use the start position from launchData — it is the canonical
+                    // source of truth set by the ViewModel. Falling back to playerState.positionMs
+                    // causes the previous episode's position to bleed into the new episode seek.
+                    val computedStartPos = actualLaunchData.startPositionMs
+
                     ComposeNativeWebPlayer(
                         link = safeLink,
                         title = displayTitle,
@@ -160,18 +168,14 @@ fun EmbeddedVideoPlayer(
                         tags = tags,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
-                        startPositionMs = if (displayLinkIndex != 0 && playerState.positionMs.value > 0) {
-                            playerState.positionMs.value
-                        } else {
-                            actualLaunchData.startPositionMs
-                        },
+                        startPositionMs = computedStartPos,
                         shouldPauseForResume = false,
                         links = actualLaunchData.links,
                         currentLinkIndex = displayLinkIndex,
                         episodes = episodes,
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
-                        isProbing = !isExiting && uiState.isProbingOverlay,
+                        isProbing = !isExiting && phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing,
                         failedLinks = uiFailedLinks,
                         backdropUrl = backdropUrl,
                         logoUrl = logoUrl,
@@ -184,6 +188,7 @@ fun EmbeddedVideoPlayer(
                         onEpisodeChange = { epId ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onEpisodeChange triggered -> new episodeId: $epId")
                             playerState.pause()
+                            playerState.reset()
                             isLoading = true
                             val targetEp = episodes.find { it.data == epId }
                             if (targetEp != null) {
@@ -192,18 +197,20 @@ fun EmbeddedVideoPlayer(
                         },
                         onNextEpisode = {
                             playerState.pause()
+                            playerState.reset()
                             isLoading = true
                             viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
                         },
                         onReplayEpisode = {
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onReplayEpisode triggered")
                             playerState.pause()
+                            playerState.reset()
                             isLoading = true
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(currentEp))
                             } else {
-                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData))
+                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData.copy(startPositionMs = 0L)))
                             }
                         },
                         onPlaybackReady = {
@@ -222,14 +229,15 @@ fun EmbeddedVideoPlayer(
                             viewModel.onEvent(PlayerUiEvent.OnCancelScraping)
                         },
                         onFinished = {
+                            // Clear loading first so JS isAppLoading=false before showVideoEnded runs.
+                            isLoading = false
                             val hasNext = uiState.hasNextEpisode
-                            val isAutoPlay = uiState.autoPlayEnabled
-                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $isAutoPlay);")
+                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, window.autoPlayEnabled);")
                             viewModel.onEvent(PlayerUiEvent.OnPlaybackFinished)
                         },
                         onPlaybackError = { err ->
                             com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error — $err")
-                            val failedUrl = activeLink?.url
+                            val failedUrl = uiState.activeLink?.url
                             if (failedUrl != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnPlaybackError(failedUrl))
                             }

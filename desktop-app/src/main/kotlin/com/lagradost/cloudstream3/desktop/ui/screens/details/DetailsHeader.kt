@@ -364,14 +364,18 @@ fun DetailsMetadata(
                                 TvType.Movie -> "Movie"
                                 TvType.AnimeMovie -> "Anime Movie"
                                 TvType.OVA -> "OVA"
-                                else -> data.type?.name?.replace(Regex("(?i)tv"), "TV")
+                                TvType.Live -> "Live"
+                                TvType.Documentary -> "Documentary"
+                                TvType.Cartoon -> "Cartoon"
+                                TvType.AsianDrama -> "Asian Drama"
+                                else -> data.type.name
                             }
                             if (!typeStr.isNullOrBlank()) {
                                 Text(text = typeStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                             val finalDuration = uiState?.enrichedDuration ?: data.duration
                             finalDuration?.takeIf { it > 0 }?.let { dur ->
-                                val mins = if (dur > 1000) dur / 60 else dur // Handle seconds if provider gives seconds
+                                val mins = if (dur > 360) dur / 60 else dur
                                 val durationStr = if (mins >= 60) {
                                     val h = mins / 60
                                     val m = mins % 60
@@ -395,7 +399,7 @@ fun DetailsMetadata(
                     val finalTags = uiState?.enrichedTags ?: data.tags
                     if (!isLoading && !finalTags.isNullOrEmpty()) {
                         Text(
-                            text = finalTags?.take(6)?.joinToString(" • ") ?: "",
+                            text = finalTags.take(6).joinToString(" • "),
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -892,7 +896,7 @@ private fun ActorCard(
         }
         Spacer(modifier = Modifier.height(18.dp))
         Text(
-            mainName ?: "",
+            mainName,
             style = MaterialTheme.typography.titleMedium.copy(
                 shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
             ),

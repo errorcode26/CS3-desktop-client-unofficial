@@ -202,77 +202,144 @@ fun ComposeSearchScreen(
                                 )
                             }
                         }
+                    } // closes Plugin Selector Chip
 
-                        DropdownMenu(
-                            expanded = showProviderDropdown,
-                            onDismissRequest = { showProviderDropdown = false },
-                            modifier = Modifier.heightIn(max = 440.dp),
+                    // ── Provider Selection Modal ─────────────────────────────────
+                    var providerModalSearch by remember { mutableStateOf("") }
+                    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
+                        show = showProviderDropdown,
+                        onDismissRequest = { showProviderDropdown = false },
+                        modifier = Modifier.fillMaxWidth(0.65f).fillMaxHeight(0.75f),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            // Category chips to narrow the provider list
-                            val providerFilterCategories = listOf(
-                                TvType.Movie to "Movies",
-                                TvType.TvSeries to "Series",
-                                TvType.Anime to "Anime",
-                                TvType.Documentary to "Docs",
-                                TvType.Live to "Live",
-                            )
-                            CategoryFilterChips(
-                                categories = providerFilterCategories.map { it.second },
-                                selected = providerTypeFilter.mapNotNullTo(mutableSetOf()) { t ->
-                                    providerFilterCategories.firstOrNull { it.first == t }?.second
-                                },
-                                onToggle = { label ->
-                                    val tvType = providerFilterCategories.firstOrNull { it.second == label }?.first
-                                    if (tvType != null) {
-                                        providerTypeFilter = if (tvType in providerTypeFilter) {
-                                            providerTypeFilter - tvType
-                                        } else {
-                                            providerTypeFilter + tvType
-                                        }
-                                    }
-                                },
+                            // Header
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("All Plugins", fontWeight = FontWeight.SemiBold) },
-                                onClick = {
-                                    viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
-                                    showProviderDropdown = false
-                                },
-                            )
-                            HorizontalDivider()
-                            val visibleProviders = if (providerTypeFilter.isEmpty()) {
-                                uiState.providers
-                            } else {
-                                uiState.providers.filter { p ->
-                                    p.supportedTypes.any { it in providerTypeFilter }
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Select Provider",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = "Choose a dedicated provider or search across all installed plugins",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
-                            }
-                            visibleProviders.forEach { provider ->
-                                DropdownMenuItem(
-                                    text = { Text(provider.name) },
-                                    leadingIcon = {
-                                        val icon = pluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
-                                        if (icon != null) {
-                                            coil3.compose.AsyncImage(
-                                                model = icon,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(24.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
-                                            )
-                                        } else {
-                                            Spacer(modifier = Modifier.size(24.dp))
-                                        }
-                                    },
+
+                                FilledTonalButton(
                                     onClick = {
-                                        viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
-                                        viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name))
+                                        viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
                                         showProviderDropdown = false
                                     },
-                                )
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Text("All Plugins (Global)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                }
+                            }
+
+                            // Search input within modal
+                            OutlinedTextField(
+                                value = providerModalSearch,
+                                onValueChange = { providerModalSearch = it },
+                                placeholder = { Text("Filter providers...", fontSize = 13.sp) },
+                                singleLine = true,
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(10.dp),
+                            )
+
+                            // Provider Grid
+                            val matchingProviders = remember(uiState.providers, providerModalSearch, providerTypeFilter) {
+                                uiState.providers.filter { p ->
+                                    val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
+                                    val matchesType = providerTypeFilter.isEmpty() || p.supportedTypes.any { it in providerTypeFilter }
+                                    matchesQuery && matchesType
+                                }
+                            }
+
+                            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 180.dp),
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(matchingProviders.size, key = { matchingProviders[it].name }) { idx ->
+                                    val provider = matchingProviders[idx]
+                                    val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name
+                                    Surface(
+                                        onClick = {
+                                            viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
+                                            viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name))
+                                            showProviderDropdown = false
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                                        ),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            val icon = pluginIcons[provider.name] ?: fuzzyMatchIcon(provider.name)
+                                            if (icon != null) {
+                                                coil3.compose.AsyncImage(
+                                                    model = icon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(28.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
+                                                )
+                                            } else {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                    modifier = Modifier.size(28.dp),
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = provider.name.take(1).uppercase(),
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 12.sp,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = provider.name,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    text = provider.supportedTypes.take(2).joinToString { it.name },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
-                    } // closes inner Box
+                    }
                 } // closes Row
             } // closes outer Box
 

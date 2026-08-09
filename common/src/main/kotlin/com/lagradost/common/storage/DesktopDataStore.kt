@@ -211,19 +211,29 @@ object DesktopDataStore {
         }
     }
 
+    private var lastHistoryNotifyMs = 0L
+
+    fun notifyHistoryChanged(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (force || now - lastHistoryNotifyMs >= 1000L) {
+            lastHistoryNotifyMs = now
+            historyUpdates.value++
+        }
+    }
+
     fun clearAllWatchHistory() {
         DatabaseFactory.database.cloudstreamDBQueries.deleteAllWatchHistory()
-        historyUpdates.value++
+        notifyHistoryChanged(force = true)
     }
 
     fun removeWatchHistory(parentId: String) {
         DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(parentId)
-        historyUpdates.value++
+        notifyHistoryChanged(force = true)
     }
 
     fun removeEpisodeWatched(parentId: String, episodeId: String) {
         DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
-        historyUpdates.value++
+        notifyHistoryChanged(force = true)
     }
 
     fun removeMultipleEpisodesWatched(parentId: String, episodeIds: List<String>) {
@@ -233,7 +243,7 @@ object DesktopDataStore {
                 DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
             }
         }
-        historyUpdates.value++
+        notifyHistoryChanged(force = true)
     }
 
     fun watchHistoryId(
@@ -251,7 +261,7 @@ object DesktopDataStore {
         }
     }
 
-    fun setLastWatched(history: WatchHistory) {
+    fun setLastWatched(history: WatchHistory, forceNotify: Boolean = false) {
         val normalizedDuration = history.duration.coerceAtLeast(0)
         val normalizedPosition = if (normalizedDuration > 0) {
             history.position.coerceIn(0, normalizedDuration)
@@ -274,7 +284,7 @@ object DesktopDataStore {
             duration = normalizedDuration,
             updateTime = System.currentTimeMillis(),
         )
-        historyUpdates.value++
+        notifyHistoryChanged(force = forceNotify)
     }
 
     fun setMultipleLastWatched(histories: List<WatchHistory>) {
@@ -305,7 +315,7 @@ object DesktopDataStore {
                 )
             }
         }
-        historyUpdates.value++
+        notifyHistoryChanged(force = true)
     }
 
     fun getLastWatched(parentId: String): WatchHistory? {

@@ -107,7 +107,7 @@ object PlayerLinkHandler {
             val useProxy = when (kind) {
                 StreamKind.HLS -> true
                 StreamKind.DASH -> true // Route DASH through proxy for NativeMpdConverter translation to HLS
-                StreamKind.PROGRESSIVE -> url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
+                StreamKind.PROGRESSIVE -> false
             }
 
             var finalSessionId: String? = null

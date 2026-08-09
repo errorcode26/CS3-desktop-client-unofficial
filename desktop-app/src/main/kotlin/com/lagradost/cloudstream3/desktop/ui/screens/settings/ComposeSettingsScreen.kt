@@ -15,6 +15,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 enum class SettingsTab(val title: String) {
     ACCOUNTS("Accounts"),
+    EXTENSIONS("Extensions"),
     APPEARANCE("Appearance"),
     PLAYER("Playback Engine"),
     NETWORK("Network"),
@@ -43,21 +44,21 @@ fun ComposeSettingsScreen(
     var activeSubScreen by SettingsSession::activeSubScreen
 
     Row(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp),
     ) {
         // Left Pane: Sidebar Navigation
         Column(
             modifier = Modifier
-                .width(260.dp)
+                .width(230.dp)
                 .fillMaxHeight()
-                .padding(end = 24.dp),
+                .padding(end = 16.dp),
         ) {
             Text(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 32.dp, start = 8.dp),
+                modifier = Modifier.padding(bottom = 24.dp, start = 8.dp),
             )
 
             SettingsTab.values().forEach { tab ->
@@ -69,10 +70,10 @@ fun ComposeSettingsScreen(
                     },
                     shape = MaterialTheme.shapes.medium,
                     color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -88,8 +89,8 @@ fun ComposeSettingsScreen(
 
         // Vertical Divider
         VerticalDivider(
-            modifier = Modifier.fillMaxHeight().padding(vertical = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxHeight().padding(vertical = 12.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
         )
 
         // Right Pane: Content area
@@ -97,10 +98,10 @@ fun ComposeSettingsScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(start = 32.dp),
+                .padding(start = 24.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            Box(modifier = Modifier.widthIn(max = 1000.dp).fillMaxWidth()) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 val currentSubScreen = activeSubScreen
                 if (currentSubScreen != null) {
                     // Sub-screen mode: render dedicated editor with back header
@@ -142,6 +143,7 @@ fun ComposeSettingsScreen(
                     ) { tab ->
                         when (tab) {
                             SettingsTab.ACCOUNTS -> SettingsAccounts()
+                            SettingsTab.EXTENSIONS -> SettingsExtensions(onNavigate = onNavigate)
                             SettingsTab.APPEARANCE -> SettingsAppearance(
                                 onNavigateToSubScreen = { activeSubScreen = it },
                             )

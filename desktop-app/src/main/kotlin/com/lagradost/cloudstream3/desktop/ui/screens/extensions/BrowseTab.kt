@@ -1,13 +1,20 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -16,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
-import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
@@ -41,6 +50,8 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
     val pluginRequiringBypass = uiState.pluginRequiringBypass
     val pluginRequiringPermission = uiState.pluginRequiringPermission
 
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+
     val languages = remember(plugins) {
         listOf("All") + plugins.mapNotNull { it.second.language?.takeIf { l -> l.isNotBlank() } }.distinct().sorted()
     }
@@ -60,76 +71,132 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         }
     }
 
+    val filteredPlugins = remember(plugins, searchQuery, languageFilter, selectedCategories, repoFilter) {
+        plugins.filter {
+            val matchesSearch = it.second.name.contains(searchQuery, ignoreCase = true) ||
+                it.second.internalName.contains(searchQuery, ignoreCase = true)
+            val matchesLang = languageFilter == "All" || it.second.language == languageFilter
+            val matchesCat = selectedCategories.isEmpty() || it.second.tvTypes?.any { t -> t in selectedCategories } == true
+            val matchesRepo = repoFilter == "All" || it.first == repoFilter
+            matchesSearch && matchesLang && matchesCat && matchesRepo
+        }
+    }
+
+    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+    val extMinSize = (posterWidthDp * 1.65f).dp
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Row 1: Search Bar & Fetch Actions
+        // ── Modern Glassmorphic Search Toolbar ──────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search plugins...") },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            // High-End Custom Search Bar
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isLightMode) Color(0xFFF0F2F6) else Color.White.copy(alpha = 0.05f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.10f),
                 ),
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Button(
-                onClick = { viewModel.onEvent(ExtensionsUiEvent.OnFetchPlugins) },
-                enabled = !isFetching,
-                modifier = Modifier.height(52.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp),
             ) {
-                if (isFetching) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Fetch Repos")
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Search ${plugins.size} plugins by name, language, or provider...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    if (searchQuery.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        ) {
+                            Text(
+                                text = "${filteredPlugins.size} matches",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { searchQuery = "" },
+                        )
+                    }
                 }
             }
-        }
 
-        // Row 2: Clean Filter Bar
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+            // Language Filter Pill
             Box {
                 FilledTonalButton(
                     onClick = { showLangDropdown = true },
-                    modifier = Modifier.height(44.dp).widthIn(max = 180.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    modifier = Modifier.height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
                     if (languageFilter == "All") {
-                        Text("Language: All", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text("Lang: All", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            FlagImage(languageFilter, modifier = Modifier.padding(end = 6.dp))
-                            Text(languageFilter.uppercase(), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            FlagImage(languageFilter, modifier = Modifier.padding(end = 4.dp).size(14.dp))
+                            Text(languageFilter.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 AppDropdownMenu(expanded = showLangDropdown, onDismissRequest = { showLangDropdown = false }) {
                     languages.forEach { lang ->
                         DropdownMenuItem(
                             text = {
                                 if (lang == "All") {
-                                    Text("All Languages")
+                                    Text("All Languages", fontSize = 12.sp)
                                 } else {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        FlagImage(lang, modifier = Modifier.padding(end = 8.dp))
-                                        Text(lang.uppercase())
+                                        FlagImage(lang, modifier = Modifier.padding(end = 6.dp).size(14.dp))
+                                        Text(lang.uppercase(), fontSize = 12.sp)
                                     }
                                 }
                             },
@@ -142,48 +209,29 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
+            // Repository Filter Pill
             Box {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },
-                    modifier = Modifier.height(44.dp).widthIn(max = 200.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    modifier = Modifier.height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
                     Text(
                         if (repoFilter == "All") "Repo: All" else repoFilter,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 AppDropdownMenu(expanded = showRepoDropdown, onDismissRequest = { showRepoDropdown = false }) {
                     reposList.forEach { r ->
                         DropdownMenuItem(
                             text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (r != "All") {
-                                        val colorHash = kotlin.math.abs(r.hashCode())
-                                        val hue = (colorHash % 360).toFloat()
-                                        val avatarColor = androidx.compose.ui.graphics.Color.hsv(hue, 0.6f, 0.8f)
-                                        val initial = r.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(end = 8.dp)
-                                                .size(24.dp)
-                                                .clip(androidx.compose.foundation.shape.CircleShape)
-                                                .background(avatarColor),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                text = initial,
-                                                color = androidx.compose.ui.graphics.Color.White,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
-                                    Text(if (r == "All") "All Repos" else r, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                }
+                                Text(if (r == "All") "All Repositories" else r, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             },
                             onClick = {
                                 repoFilter = r
@@ -193,39 +241,79 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     }
                 }
             }
+
+            // Fetch Repos Action
+            FilledTonalButton(
+                onClick = { viewModel.onEvent(ExtensionsUiEvent.OnFetchPlugins) },
+                enabled = !isFetching,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(44.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+            ) {
+                if (isFetching) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Fetch", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
 
-        // Row 3: Multi-select category chips
+        // ── Sleek Category Filter Chips Row ─────────────────────────
         if (categories.isNotEmpty()) {
-            CategoryFilterChips(
-                categories = categories,
-                selected = selectedCategories,
-                onToggle = { cat ->
-                    selectedCategories = if (cat in selectedCategories) {
-                        selectedCategories - cat
-                    } else {
-                        selectedCategories + cat
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                item {
+                    val isAllSelected = selectedCategories.isEmpty()
+                    Surface(
+                        onClick = { selectedCategories = emptySet() },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isAllSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isAllSelected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        ),
+                    ) {
+                        Text(
+                            text = "All",
+                            color = if (isAllSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
                     }
-                },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-            )
+                }
+
+                items(categories) { category ->
+                    val isSelected = category in selectedCategories
+                    Surface(
+                        onClick = {
+                            selectedCategories = if (isSelected) selectedCategories - category else selectedCategories + category
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        ),
+                    ) {
+                        Text(
+                            text = category,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
         }
 
-        Text(statusText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val filteredPlugins = plugins.filter {
-            val matchesSearch = it.second.name.contains(searchQuery, ignoreCase = true) ||
-                it.second.internalName.contains(searchQuery, ignoreCase = true)
-            val matchesLang = languageFilter == "All" || it.second.language == languageFilter
-            val matchesCat = selectedCategories.isEmpty() || it.second.tvTypes?.any { t -> t in selectedCategories } == true
-            val matchesRepo = repoFilter == "All" || it.first == repoFilter
-            matchesSearch && matchesLang && matchesCat && matchesRepo
-        }
-
-        val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
-        val extMinSize = (posterWidthDp * 1.5f).dp
-
+        // ── Extension Cards Grid ────────────────────────────────────
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = extMinSize),
             modifier = Modifier.fillMaxSize(),
@@ -260,41 +348,39 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     installStatus = installStatus,
                     isInstalling = isInstalling,
                     onInstallClick = {
-                        isInstalling = true
-                        installStatus = "Installing..."
-                        viewModel.onEvent(
-                            ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { result ->
-                                isInstalling = false
-                                installStatus = result
-                            },
-                        )
-                    },
-                    onUninstallClick = {
-                        viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))
-                        installStatus = ""
+                        if (!isInstalling && !isPluginInstalled) {
+                            isInstalling = true
+                            installStatus = "Installing..."
+                            viewModel.onEvent(
+                                ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { err ->
+                                    isInstalling = false
+                                    installStatus = if (err.isEmpty()) "Installed" else "Failed: $err"
+                                },
+                            )
+                        }
                     },
                     description = plugin.description,
                     fileSize = plugin.fileSize,
-                    onRepoClick = { viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(repoName)) },
                 )
             }
         }
 
+        // ── Security & Permission Dialogs ───────────────────────────
         pluginRequiringBypass?.let { (bypassRepo, bypassPlugin) ->
             var isDialogInstalling by remember { mutableStateOf(false) }
             CloudstreamAlertDialog(
                 show = true,
                 onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
-                title = { Text("Advanced Bytecode Detected") },
+                title = { Text("Unverified Repository") },
                 text = {
                     if (isDialogInstalling) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(16.dp))
-                            Text("Installing, please wait (this may take a moment)...")
+                            Text("Installing, please wait...")
                         }
                     } else {
-                        Text("Advanced or unverified bytecode patterns were detected in ${bypassPlugin.name}.\n\nThis plugin uses reflection or APIs outside standard verified CloudStream templates. While this is common in complex or third-party plugins, our desktop runtime will continue to run it inside the secure sandbox.\n\nWould you like to trust and install this plugin?")
+                        Text("The repository '$bypassRepo' is not in the verified repository list.\n\nInstalling third-party extensions can pose security risks. Do you want to proceed?")
                     }
                 },
                 confirmButton = {
@@ -332,7 +418,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 text = {
                     if (isDialogInstalling) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(16.dp))
                             Text("Installing, please wait...")
                         }

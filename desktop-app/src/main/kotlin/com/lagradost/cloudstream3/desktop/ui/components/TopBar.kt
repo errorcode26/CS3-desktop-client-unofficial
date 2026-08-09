@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -19,6 +21,7 @@ fun TopBar(
     isHome: Boolean,
     homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
+    onBack: () -> Unit = {},
 ) {
     val bg = Color.Transparent
     Column(modifier = Modifier.fillMaxWidth().background(bg)) {
