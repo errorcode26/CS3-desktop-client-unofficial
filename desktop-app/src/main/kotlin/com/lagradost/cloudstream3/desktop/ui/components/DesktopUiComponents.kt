@@ -195,7 +195,7 @@ fun CategoryRowWithHeader(
     trailingHeaderExtra: @Composable (() -> Unit)? = null,
     // Padding applied to the LazyRow's content — lets it extend full-width while items
     // align with the constrained header above. PaddingValues.Absolute avoids RTL mirroring.
-    rowContentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 16.dp),
+    rowContentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 24.dp),
     headerPadding: PaddingValues = PaddingValues(start = 10.dp, top = 12.dp, bottom = 8.dp, end = 10.dp),
     itemSpacing: androidx.compose.ui.unit.Dp = 12.dp,
     content: LazyListScope.() -> Unit,

@@ -85,6 +85,26 @@ fun ComposeNativeWebPlayer(
     val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     val activeSubtitleOverrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
 
+    var hasAutoSelectedQuality by remember(link) { mutableStateOf(false) }
+
+    LaunchedEffect(proxyVideoTracks, link) {
+        if (!hasAutoSelectedQuality && proxyVideoTracks.isNotEmpty() && link?.quality != null && link.quality != com.lagradost.cloudstream3.utils.Qualities.Unknown.value) {
+            val targetRes = link.quality
+            // Try to find exact match first, fallback to closest resolution
+            val match = proxyVideoTracks.find { it.name.contains("${targetRes}p") }
+                ?: proxyVideoTracks.minByOrNull {
+                    val res = it.name.substringBefore("p").toIntOrNull() ?: Int.MAX_VALUE
+                    kotlin.math.abs(res - targetRes)
+                }
+            if (match != null) {
+                playerState?.loadLazyVideoTrack(
+                    com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(match.url, match.name, match.language, match.bitrate)
+                )
+            }
+            hasAutoSelectedQuality = true
+        }
+    }
+
     LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
         if (isUiReady) {
             val payload = PlayerUiSyncState(
@@ -125,7 +145,7 @@ fun ComposeNativeWebPlayer(
                 subTracks = subtitleTracks.map {
                     SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
-                videoTracks = videoTracks.map {
+                videoTracks = if (proxyVideoTracks.isNotEmpty()) emptyList() else videoTracks.map {
                     SubtitleTrackPayload(it.id, it.name, it.isSelected)
                 },
                 lazyAudioTracks = proxyAudioTracks.map {

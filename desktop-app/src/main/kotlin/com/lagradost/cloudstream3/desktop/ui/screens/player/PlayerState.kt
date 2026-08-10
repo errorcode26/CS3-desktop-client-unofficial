@@ -389,21 +389,20 @@ class PlayerState {
 
     fun loadLazyVideoTrack(track: LazyTrack) {
         mpvHandle?.let {
-            if (track.bitrate != null) {
-                // Native HLS bitrate switching (seamless!)
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "hls-bitrate", track.bitrate.toString())
+            val currentPos = _positionMs.value / 1000.0
+            // MPV's hls-bitrate property does NOT work dynamically at runtime with lavf!
+            // We must force a reload of the specific Media Playlist variant at the current timestamp.
+            try {
+                // Set the start time property directly; older libmpv versions fail to parse 
+                // it as a 4th argument in the loadfile command array.
+                MpvLibrary.INSTANCE.mpv_set_property_string(it, "start", currentPos.toString())
+                MpvLibrary.INSTANCE.mpv_command(
+                    it, 
+                    arrayOf("loadfile", track.url, "replace", null)
+                )
                 _activeLazyVideoTrackUrl.value = track.url
-            } else {
-                val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
-                val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
-                val safeLang = track.language.replace("\\", "\\\\").replace("\"", "\\\"")
-                // MPV command: video-add <url> select <title> <lang>
-                val cmd = "video-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
-                MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
-
-                val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
-                proxyState.lazyVideoTracks.value = proxyState.lazyVideoTracks.value.filter { t -> t.url != track.url }
-                _activeLazyVideoTrackUrl.value = track.url
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to switch video track: ${e.message}", e)
             }
         }
     }

@@ -262,14 +262,11 @@ object TmdbEnrichmentService {
                 var resolvedMatchId: Int? = null
                 var resolvedIsMovie: Boolean = loaded.type == com.lagradost.cloudstream3.TvType.Movie
 
-                // Fast path 1: Cinemeta already gave us the TMDB ID directly! (Zero extra HTTP calls)
-                if (directTmdbId != null) {
-                    resolvedMatchId = directTmdbId
-                    com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: direct TMDB ID → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
-                }
-
-                // Fast path 2: We have an IMDb ID — use /find/ for a zero-ambiguity lookup (fallback if directTmdbId is missing)
-                if (resolvedMatchId == null && directImdbId != null) {
+                // Fast path 1: We have an IMDb ID — use /find/ for zero-ambiguity type detection.
+                // This MUST run before directTmdbId so we get the correct movie/tv type from TMDB.
+                // (Cinemeta's directTmdbId doesn't carry type info — it relies on us knowing movie vs tv
+                // from the plugin, which is wrong when e.g. a plugin reports "Movie" for an anime series.)
+                if (directImdbId != null) {
                     TmdbRateLimiter.acquire()
                     val findUrl = "https://api.themoviedb.org/3/find/$directImdbId?api_key=$TMDB_API_KEY&external_source=imdb_id"
                     val findData = com.lagradost.cloudstream3.app.get(findUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
@@ -287,6 +284,14 @@ object TmdbEnrichmentService {
                         com.lagradost.common.logging.AppLogger.w("Enrichment", "  TMDB: IMDb find for $directImdbId returned nothing")
                     }
                 }
+
+                // Fast path 2: Cinemeta gave us a direct TMDB ID — use it only if IMDb /find/ failed.
+                // We avoid using this as the primary path because it doesn't carry type (movie vs tv).
+                if (resolvedMatchId == null && directTmdbId != null) {
+                    resolvedMatchId = directTmdbId
+                    com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: direct TMDB ID → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
+                }
+
 
                 if (resolvedMatchId == null) {
                     // Text search fallback — only reached when Cinemeta had no match

@@ -372,9 +372,10 @@ fun PluginUpdatesModal(
                                     modifier = Modifier.weight(1f),
                                 ) {
                                     // Plugin Icon
-                                    if (!update.iconUrl.isNullOrBlank()) {
+                                    val resolvedIcon = update.iconUrl?.replace("%size%", "32")
+                                    if (!resolvedIcon.isNullOrBlank()) {
                                         AsyncImage(
-                                            model = update.iconUrl,
+                                            model = resolvedIcon,
                                             contentDescription = update.pluginName,
                                             modifier = Modifier
                                                 .size(46.dp)

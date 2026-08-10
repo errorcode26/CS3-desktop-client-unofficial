@@ -434,7 +434,9 @@ fun BaseMpvPlayer(
                 // 30s lookahead is aggressive but won't overwhelm CDNs the way 60s did.
                 lib.mpv_set_property_string(handle, "cache-secs", "30")
                 lib.mpv_set_property_string(handle, "demuxer-readahead-secs", "30")
-                lib.mpv_set_property_string(handle, "cache-pause-wait", "3")
+                // Start playback instantly like hls.js instead of waiting for the cache to fill
+                lib.mpv_set_property_string(handle, "cache-pause-initial", "no")
+                lib.mpv_set_property_string(handle, "cache-pause-wait", "1")
 
                 // CRITICAL: Must use mpv_set_property_string here, NOT mpv_set_option_string!
                 // Options can only be set before mpv_initialize(). This runs after init,
@@ -455,8 +457,11 @@ fun BaseMpvPlayer(
 
                 // Force fast startup and flawless cache rewinding for proxied HLS streams
                 lib.mpv_set_property_string(handle, "stream-lavf-o", "seekable=1,icy=0")
-                lib.mpv_set_property_string(handle, "demuxer-lavf-probesize", "5242880") // 5 MB
-                lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "2") // 2 s
+                // 1MB probesize is a good balance: large enough to identify video/audio codec params,
+                // but small enough not to stall startup by reading entire segments.
+                lib.mpv_set_property_string(handle, "demuxer-lavf-probesize", "1048576") // 1 MB
+                // Don't waste time analyzing stream durations at startup
+                lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "0") // 0 s
             }
             PlayerLinkHandler.StreamKind.DASH -> {
                 // Build DASH lavf options. cenc_decryption_key MUST be standalone —

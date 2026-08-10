@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -164,18 +167,29 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
     val isHovered by interactionSource.collectIsHoveredAsState()
     val posterCornerRadius by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterRoundingDp.collectAsState()
     val shape = RoundedCornerShape(posterCornerRadius.dp)
+    val primary = MaterialTheme.colorScheme.primary
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .posterHoverEffect(shape)
-            .clip(shape)
-            .hoverable(interactionSource)
-            .clickable { onClick() },
-        shape = shape,
-        color = DesktopUi.SurfaceCard,
-        tonalElevation = 2.dp,
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (isHovered) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .background(primary.copy(alpha = 0.65f), shape)
+            )
+        }
+        Surface(
+            modifier = Modifier
+                .matchParentSize()
+                .posterHoverEffect(shape)
+                .clip(shape)
+                .hoverable(interactionSource)
+                .clickable { onClick() },
+            shape = shape,
+            color = DesktopUi.SurfaceCard,
+            tonalElevation = if (isHovered) 8.dp else 2.dp,
+            border = if (isHovered) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -313,5 +327,6 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                 }
             }
         }
+    }
     }
 }

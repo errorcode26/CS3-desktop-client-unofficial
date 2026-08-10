@@ -28,7 +28,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
-import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsExtensions
 import com.lagradost.common.storage.WatchHistory
 
 data class VideoLaunchData(
@@ -228,10 +228,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                         )
                                     }
                                     is RootComponent.Child.Extensions -> {
-                                        ComposeExtensionScreen(
-                                            onNavigate = { rootComponent.bringToFront(it) }, 
+                                        SettingsExtensions(
+                                            onNavigate = { rootComponent.bringToFront(it) },
                                             initialTab = child.component.initialTab,
-                                            viewModel = child.component.viewModel
                                         )
                                     }
                                     is RootComponent.Child.Library -> {

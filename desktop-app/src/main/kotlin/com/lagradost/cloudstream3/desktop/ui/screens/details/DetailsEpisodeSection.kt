@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -10,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -272,55 +275,110 @@ fun DetailsEpisodeSection(
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
                                     }
-                                    DropdownMenu(
-                                        expanded = seasonMenuExpanded,
-                                        onDismissRequest = { seasonMenuExpanded = false },
-                                    ) {
-                                        seasons.forEach { season ->
-                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                            DropdownMenuItem(
-                                                text = {
+                                    if (seasonMenuExpanded) {
+                                        androidx.compose.ui.window.Popup(
+                                            onDismissRequest = { seasonMenuExpanded = false },
+                                            properties = androidx.compose.ui.window.PopupProperties(focusable = true)
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                                                shadowElevation = 8.dp,
+                                                modifier = Modifier.padding(top = 8.dp).widthIn(max = 700.dp)
+                                            ) {
+                                                Column(modifier = Modifier.fillMaxWidth()) {
                                                     Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        if (meta?.posterUrl != null) {
-                                                            coil3.compose.AsyncImage(
-                                                                model = meta.posterUrl,
-                                                                contentDescription = null,
-                                                                modifier = Modifier
-                                                                    .width(40.dp)
-                                                                    .aspectRatio(2f / 3f)
-                                                                    .clip(RoundedCornerShape(4.dp)),
-                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                            )
+                                                        Text("Select Season", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                                        IconButton(onClick = { seasonMenuExpanded = false }) {
+                                                            Icon(Icons.Default.Clear, contentDescription = "Close")
                                                         }
-                                                        Column {
-                                                            Text(
-                                                                text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
-                                                                style = MaterialTheme.typography.bodyLarge,
-                                                                fontWeight = FontWeight.SemiBold,
-                                                            )
-                                                            if (meta?.episodeCount != null) {
-                                                                Text(
-                                                                    text = "${meta.episodeCount} episodes",
-                                                                    style = MaterialTheme.typography.bodySmall,
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                )
+                                                    }
+                                                    LazyRow(
+                                                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
+                                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                    ) {
+                                                        items(seasons) { season ->
+                                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                                            val isSelected = selectedSeason == season
+                                                            val fallbackThumbnail = (data as? TvSeriesLoadResponse)?.episodes?.find { it.season == season }?.posterUrl
+                                                            val posterUrl = meta?.posterUrl ?: fallbackThumbnail
+                                                            
+                                                            Card(
+                                                                onClick = { 
+                                                                    selectedSeason = season
+                                                                    seasonMenuExpanded = false
+                                                                },
+                                                                shape = RoundedCornerShape(8.dp),
+                                                                colors = CardDefaults.cardColors(
+                                                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent
+                                                                ),
+                                                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                                                modifier = Modifier.width(100.dp)
+                                                            ) {
+                                                                Column(modifier = Modifier.padding(8.dp)) {
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .fillMaxWidth()
+                                                                            .aspectRatio(2f / 3f)
+                                                                            .clip(RoundedCornerShape(6.dp)),
+                                                                        contentAlignment = Alignment.Center
+                                                                    ) {
+                                                                        if (posterUrl != null) {
+                                                                            coil3.compose.AsyncImage(
+                                                                                model = posterUrl,
+                                                                                contentDescription = null,
+                                                                                modifier = Modifier.fillMaxSize(),
+                                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                                            )
+                                                                        } else {
+                                                                            Box(
+                                                                                modifier = Modifier
+                                                                                    .fillMaxSize()
+                                                                                    .background(
+                                                                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                                                            listOf(
+                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                                                                            ),
+                                                                                        ),
+                                                                                    ),
+                                                                                contentAlignment = Alignment.Center,
+                                                                            ) {
+                                                                                Text(
+                                                                                    text = if (season == 0) "S" else "$season",
+                                                                                    style = MaterialTheme.typography.headlineMedium,
+                                                                                    fontWeight = FontWeight.Bold,
+                                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                                    Text(
+                                                                        text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
+                                                                        style = MaterialTheme.typography.bodyMedium,
+                                                                        fontWeight = FontWeight.SemiBold,
+                                                                        maxLines = 1,
+                                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                                    )
+                                                                    if (meta?.episodeCount != null) {
+                                                                        Text(
+                                                                            text = "${meta.episodeCount} eps",
+                                                                            style = MaterialTheme.typography.bodySmall,
+                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                },
-                                                onClick = {
-                                                    selectedSeason = season
-                                                    seasonMenuExpanded = false
-                                                },
-                                                trailingIcon = if (selectedSeason == season) {
-                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
-                                                } else {
-                                                    null
-                                                },
-                                            )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -459,55 +517,110 @@ fun DetailsEpisodeSection(
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
                                     }
-                                    DropdownMenu(
-                                        expanded = seasonMenuExpanded,
-                                        onDismissRequest = { seasonMenuExpanded = false },
-                                    ) {
-                                        seasons.forEach { season ->
-                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                            DropdownMenuItem(
-                                                text = {
+                                    if (seasonMenuExpanded) {
+                                        androidx.compose.ui.window.Popup(
+                                            onDismissRequest = { seasonMenuExpanded = false },
+                                            properties = androidx.compose.ui.window.PopupProperties(focusable = true)
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                                                shadowElevation = 8.dp,
+                                                modifier = Modifier.padding(top = 8.dp).widthIn(max = 700.dp)
+                                            ) {
+                                                Column(modifier = Modifier.fillMaxWidth()) {
                                                     Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        if (meta?.posterUrl != null) {
-                                                            coil3.compose.AsyncImage(
-                                                                model = meta.posterUrl,
-                                                                contentDescription = null,
-                                                                modifier = Modifier
-                                                                    .width(40.dp)
-                                                                    .aspectRatio(2f / 3f)
-                                                                    .clip(RoundedCornerShape(4.dp)),
-                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                            )
+                                                        Text("Select Season", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                                        IconButton(onClick = { seasonMenuExpanded = false }) {
+                                                            Icon(Icons.Default.Clear, contentDescription = "Close")
                                                         }
-                                                        Column {
-                                                            Text(
-                                                                text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
-                                                                style = MaterialTheme.typography.bodyLarge,
-                                                                fontWeight = FontWeight.SemiBold,
-                                                            )
-                                                            if (meta?.episodeCount != null) {
-                                                                Text(
-                                                                    text = "${meta.episodeCount} episodes",
-                                                                    style = MaterialTheme.typography.bodySmall,
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                )
+                                                    }
+                                                    LazyRow(
+                                                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
+                                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                                    ) {
+                                                        items(seasons) { season ->
+                                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                                            val isSelected = selectedSeason == season
+                                                            val fallbackThumbnail = (selectedDub?.let { (data as? AnimeLoadResponse)?.episodes?.get(it) } ?: emptyList()).find { it.season == season }?.posterUrl
+                                                            val posterUrl = meta?.posterUrl ?: fallbackThumbnail
+                                                            
+                                                            Card(
+                                                                onClick = { 
+                                                                    selectedSeason = season
+                                                                    seasonMenuExpanded = false
+                                                                },
+                                                                shape = RoundedCornerShape(8.dp),
+                                                                colors = CardDefaults.cardColors(
+                                                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent
+                                                                ),
+                                                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                                                modifier = Modifier.width(100.dp)
+                                                            ) {
+                                                                Column(modifier = Modifier.padding(8.dp)) {
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .fillMaxWidth()
+                                                                            .aspectRatio(2f / 3f)
+                                                                            .clip(RoundedCornerShape(6.dp)),
+                                                                        contentAlignment = Alignment.Center
+                                                                    ) {
+                                                                        if (posterUrl != null) {
+                                                                            coil3.compose.AsyncImage(
+                                                                                model = posterUrl,
+                                                                                contentDescription = null,
+                                                                                modifier = Modifier.fillMaxSize(),
+                                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                                            )
+                                                                        } else {
+                                                                            Box(
+                                                                                modifier = Modifier
+                                                                                    .fillMaxSize()
+                                                                                    .background(
+                                                                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                                                            listOf(
+                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                                                                            ),
+                                                                                        ),
+                                                                                    ),
+                                                                                contentAlignment = Alignment.Center,
+                                                                            ) {
+                                                                                Text(
+                                                                                    text = if (season == 0) "S" else "$season",
+                                                                                    style = MaterialTheme.typography.headlineMedium,
+                                                                                    fontWeight = FontWeight.Bold,
+                                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                                    Text(
+                                                                        text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
+                                                                        style = MaterialTheme.typography.bodyMedium,
+                                                                        fontWeight = FontWeight.SemiBold,
+                                                                        maxLines = 1,
+                                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                                    )
+                                                                    if (meta?.episodeCount != null) {
+                                                                        Text(
+                                                                            text = "${meta.episodeCount} eps",
+                                                                            style = MaterialTheme.typography.bodySmall,
+                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                },
-                                                onClick = {
-                                                    selectedSeason = season
-                                                    seasonMenuExpanded = false
-                                                },
-                                                trailingIcon = if (selectedSeason == season) {
-                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
-                                                } else {
-                                                    null
-                                                },
-                                            )
+                                                }
+                                            }
                                         }
                                     }
                                 }

@@ -7,8 +7,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,89 +33,49 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(12.dp),
+        // Compact inline add-repo bar
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    "Add Extension Repository",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "This app supports CloudStream extensions. Please enter a repository URL or short code below to add it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val isNarrow = maxWidth < 600.dp
-                    if (isNarrow) {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            OutlinedTextField(
-                                value = repoUrl,
-                                onValueChange = { repoUrl = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Example: english-repo or https://...") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                            )
-                            Button(
-                                onClick = {
-                                    if (repoUrl.isNotBlank()) {
-                                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
-                                        repoUrl = ""
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Add Repository")
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            OutlinedTextField(
-                                value = repoUrl,
-                                onValueChange = { repoUrl = it },
-                                modifier = Modifier.weight(1f),
-                                placeholder = { Text("Example: english-repo or https://...") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Button(
-                                onClick = {
-                                    if (repoUrl.isNotBlank()) {
-                                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
-                                        repoUrl = ""
-                                    }
-                                },
-                                modifier = Modifier.height(56.dp),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Add Repository")
-                            }
-                        }
+            OutlinedTextField(
+                value = repoUrl,
+                onValueChange = { repoUrl = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Repository URL or short code...") },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+            )
+            Button(
+                onClick = {
+                    if (repoUrl.isNotBlank()) {
+                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                        repoUrl = ""
                     }
-                }
+                },
+                modifier = Modifier.height(56.dp),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Add")
             }
         }
 
-        if (statusText.isNotEmpty()) {
-            Text(statusText, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(16.dp))
+        AnimatedVisibility(visible = statusText.isNotEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            ) {
+                Text(
+                    statusText,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                )
+            }
         }
 
         Text("Saved Repositories (${repos.size})", style = MaterialTheme.typography.titleMedium)
@@ -322,21 +284,32 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TextButton(
+                        OutlinedButton(
                             onClick = {
                                 viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
                                 selectedRepoForDetail = null
                                 viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
                             },
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
                         ) {
-                            Text("Remove Repository", color = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Remove")
                         }
-                        TextButton(onClick = {
-                            selectedRepoForDetail = null
-                            repoSearchQuery = ""
-                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                        }) {
-                            Text("Close")
+                        Button(
+                            onClick = {
+                                selectedRepoForDetail = null
+                                repoSearchQuery = ""
+                                viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
+                            },
+                        ) {
+                            Text("Done")
                         }
                     }
                 }
@@ -406,42 +379,34 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 )
                             }
                         }
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             var cardCopied by remember(repo.url) { mutableStateOf(false) }
-                            TextButton(
+                            IconButton(
                                 onClick = {
                                     val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
                                     val selection = java.awt.datatransfer.StringSelection(installUrl)
                                     java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
                                     cardCopied = true
                                 },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp),
                             ) {
                                 Icon(
                                     Icons.Default.ContentCopy,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(13.dp),
-                                    tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary,
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    if (cardCopied) "Copied!" else "Copy URL",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.primary,
+                                    contentDescription = "Copy URL",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            TextButton(
-                                onClick = {
-                                    viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp),
+                            IconButton(
+                                onClick = { viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url)) },
                             ) {
-                                Text("Remove", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remove",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                )
                             }
                         }
                     }

@@ -12,11 +12,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,11 +41,15 @@ import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.Extensi
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
-fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
+fun BrowseTab(
+    viewModel: ExtensionsViewModel,
+    syncGeneration: Int,
+    onNavigateToRepos: () -> Unit = {},
+) {
     var searchQuery by remember { mutableStateOf("") }
-    var languageFilter by remember { mutableStateOf("All") }
+    var selectedLanguages by remember { mutableStateOf(emptySet<String>()) }
     var selectedCategories by remember { mutableStateOf(emptySet<String>()) }
-    var repoFilter by remember { mutableStateOf("All") }
+    var selectedRepos by remember { mutableStateOf(emptySet<String>()) }
 
     val uiState by viewModel.uiState.collectAsState()
     val plugins = uiState.plugins
@@ -71,13 +79,13 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
         }
     }
 
-    val filteredPlugins = remember(plugins, searchQuery, languageFilter, selectedCategories, repoFilter) {
+    val filteredPlugins = remember(plugins, searchQuery, selectedLanguages, selectedCategories, selectedRepos) {
         plugins.filter {
             val matchesSearch = it.second.name.contains(searchQuery, ignoreCase = true) ||
                 it.second.internalName.contains(searchQuery, ignoreCase = true)
-            val matchesLang = languageFilter == "All" || it.second.language == languageFilter
+            val matchesLang = selectedLanguages.isEmpty() || it.second.language in selectedLanguages
             val matchesCat = selectedCategories.isEmpty() || it.second.tvTypes?.any { t -> t in selectedCategories } == true
-            val matchesRepo = repoFilter == "All" || it.first == repoFilter
+            val matchesRepo = selectedRepos.isEmpty() || it.first in selectedRepos
             matchesSearch && matchesLang && matchesCat && matchesRepo
         }
     }
@@ -168,7 +176,7 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                 }
             }
 
-            // Language Filter Pill
+            // Language Filter — multi-select
             Box {
                 FilledTonalButton(
                     onClick = { showLangDropdown = true },
@@ -176,40 +184,45 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    if (languageFilter == "All") {
-                        Text("Lang: All", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            FlagImage(languageFilter, modifier = Modifier.padding(end = 4.dp).size(14.dp))
-                            Text(languageFilter.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    when {
+                        selectedLanguages.isEmpty() -> Text("Lang: All", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        selectedLanguages.size == 1 -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            FlagImage(selectedLanguages.first(), modifier = Modifier.padding(end = 4.dp).size(14.dp))
+                            Text(selectedLanguages.first().uppercase(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
+                        else -> Text("${selectedLanguages.size} Languages", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 AppDropdownMenu(expanded = showLangDropdown, onDismissRequest = { showLangDropdown = false }) {
-                    languages.forEach { lang ->
+                    if (selectedLanguages.isNotEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("Clear", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) },
+                            onClick = { selectedLanguages = emptySet() },
+                        )
+                        HorizontalDivider()
+                    }
+                    languages.drop(1).forEach { lang ->
+                        val isSelected = lang in selectedLanguages
                         DropdownMenuItem(
                             text = {
-                                if (lang == "All") {
-                                    Text("All Languages", fontSize = 12.sp)
-                                } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        FlagImage(lang, modifier = Modifier.padding(end = 6.dp).size(14.dp))
-                                        Text(lang.uppercase(), fontSize = 12.sp)
-                                    }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = isSelected, onCheckedChange = null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    FlagImage(lang, modifier = Modifier.padding(end = 6.dp).size(14.dp))
+                                    Text(lang.uppercase(), fontSize = 12.sp)
                                 }
                             },
                             onClick = {
-                                languageFilter = lang
-                                showLangDropdown = false
+                                selectedLanguages = if (isSelected) selectedLanguages - lang else selectedLanguages + lang
                             },
                         )
                     }
                 }
             }
 
-            // Repository Filter Pill
+            // Repository Filter — multi-select
             Box {
                 FilledTonalButton(
                     onClick = { showRepoDropdown = true },
@@ -217,25 +230,35 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                 ) {
-                    Text(
-                        if (repoFilter == "All") "Repo: All" else repoFilter,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    val repoLabel = when {
+                        selectedRepos.isEmpty() -> "Repo: All"
+                        selectedRepos.size == 1 -> selectedRepos.first().take(14) + if (selectedRepos.first().length > 14) "…" else ""
+                        else -> "${selectedRepos.size} Repos"
+                    }
+                    Text(repoLabel, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 AppDropdownMenu(expanded = showRepoDropdown, onDismissRequest = { showRepoDropdown = false }) {
-                    reposList.forEach { r ->
+                    if (selectedRepos.isNotEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("Clear", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) },
+                            onClick = { selectedRepos = emptySet() },
+                        )
+                        HorizontalDivider()
+                    }
+                    reposList.drop(1).forEach { r ->
+                        val isSelected = r in selectedRepos
                         DropdownMenuItem(
                             text = {
-                                Text(if (r == "All") "All Repositories" else r, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = isSelected, onCheckedChange = null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(r, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             },
                             onClick = {
-                                repoFilter = r
-                                showRepoDropdown = false
+                                selectedRepos = if (isSelected) selectedRepos - r else selectedRepos + r
                             },
                         )
                     }
@@ -313,55 +336,227 @@ fun BrowseTab(viewModel: ExtensionsViewModel, syncGeneration: Int) {
             }
         }
 
-        // ── Extension Cards Grid ────────────────────────────────────
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = extMinSize),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(filteredPlugins, key = { "${it.first}-${it.second.internalName}" }) { (repoName, plugin) ->
-                val iconUrl = plugin.iconUrl
-                    ?: uiState.remotePluginIcons[plugin.internalName]
-                    ?: uiState.remotePluginIcons[plugin.name]
-
-                var isInstalling by remember { mutableStateOf(false) }
-                val isPluginInstalled = remember(plugin, syncGeneration) {
-                    val ext = uiState.extensionsDir
-                    val subDir = java.io.File(ext, repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
-                    java.io.File(subDir, "${plugin.internalName}.jar").exists()
-                }
-                var installStatus by remember(plugin, syncGeneration) {
-                    mutableStateOf(if (isPluginInstalled) "Installed" else "")
-                }
-
-                ExtensionCard(
-                    name = plugin.name,
-                    internalName = plugin.internalName,
-                    version = plugin.version,
-                    repoName = repoName,
-                    language = plugin.language,
-                    tvTypes = plugin.tvTypes,
-                    iconUrl = iconUrl,
-                    isInstalled = isPluginInstalled,
-                    installStatus = installStatus,
-                    isInstalling = isInstalling,
-                    onInstallClick = {
-                        if (!isInstalling && !isPluginInstalled) {
-                            isInstalling = true
-                            installStatus = "Installing..."
-                            viewModel.onEvent(
-                                ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { err ->
-                                    isInstalling = false
-                                    installStatus = if (err.isEmpty()) "Installed" else "Failed: $err"
-                                },
+        // ── Extension Cards Grid (or empty states) ──────────────────
+        when {
+            // No repos added yet — full onboarding CTA
+            plugins.isEmpty() && !isFetching -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Card(
+                        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Extension,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                             )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "No Extensions Yet",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "Extensions are installed from repositories. Add a repository first, then come back here to browse and install.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                            Spacer(Modifier.height(4.dp))
+                            // Step 1
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(30.dp),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            "1",
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                        )
+                                    }
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Add a Repository", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    Text(
+                                        "Repositories are curated collections of extensions",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Button(
+                                    onClick = onNavigateToRepos,
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                ) {
+                                    Text("Go to Repositories", fontSize = 12.sp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            // Step 2
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    modifier = Modifier.size(30.dp),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            "2",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp,
+                                        )
+                                    }
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Browse & Install Extensions",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "Come back here to search and install extensions",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
+                                }
+                            }
                         }
-                    },
-                    description = plugin.description,
-                    fileSize = plugin.fileSize,
-                )
+                    }
+                }
+            }
+
+            // Still fetching — show spinner instead of blank
+            plugins.isEmpty() && isFetching -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(40.dp), strokeWidth = 3.dp)
+                        Text(
+                            "Fetching extensions from repositories…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            }
+
+            // Filters returned nothing
+            filteredPlugins.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        )
+                        Text(
+                            "No extensions match your filters",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        TextButton(onClick = {
+                            selectedLanguages = emptySet()
+                            selectedCategories = emptySet()
+                            selectedRepos = emptySet()
+                            searchQuery = ""
+                        }) {
+                            Text("Clear all filters")
+                        }
+                    }
+                }
+            }
+
+            // Normal populated grid
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = extMinSize),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(filteredPlugins, key = { "${it.first}-${it.second.internalName}" }) { (repoName, plugin) ->
+                        val iconUrl = plugin.iconUrl
+                            ?: uiState.remotePluginIcons[plugin.internalName]
+                            ?: uiState.remotePluginIcons[plugin.name]
+
+                        var isInstalling by remember { mutableStateOf(false) }
+                        val isPluginInstalled = remember(plugin, syncGeneration) {
+                            val ext = uiState.extensionsDir
+                            val subDir = java.io.File(ext, repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+                            java.io.File(subDir, "${plugin.internalName}.jar").exists()
+                        }
+                        var installStatus by remember(plugin, syncGeneration) {
+                            mutableStateOf(if (isPluginInstalled) "Installed" else "")
+                        }
+
+                        ExtensionCard(
+                            name = plugin.name,
+                            internalName = plugin.internalName,
+                            version = plugin.version,
+                            repoName = repoName,
+                            language = plugin.language,
+                            tvTypes = plugin.tvTypes,
+                            iconUrl = iconUrl,
+                            isInstalled = isPluginInstalled,
+                            installStatus = installStatus,
+                            isInstalling = isInstalling,
+                            onInstallClick = {
+                                if (!isInstalling && !isPluginInstalled) {
+                                    isInstalling = true
+                                    installStatus = "Installing..."
+                                    viewModel.onEvent(
+                                        ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { err ->
+                                            isInstalling = false
+                                            installStatus = if (err.isEmpty()) "Installed" else "Failed: $err"
+                                        },
+                                    )
+                                }
+                            },
+                            description = plugin.description,
+                            fileSize = plugin.fileSize,
+                        )
+                    }
+                }
             }
         }
 

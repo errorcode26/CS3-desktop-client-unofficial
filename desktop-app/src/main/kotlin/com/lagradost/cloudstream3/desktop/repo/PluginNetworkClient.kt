@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.lagradost.cloudstream3.desktop.network.AutoRetryInterceptor
+import com.lagradost.cloudstream3.desktop.network.DevNetworkInterceptor
+import com.lagradost.cloudstream3.desktop.network.RateLimitInterceptor
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,21 +20,26 @@ internal object PluginNetworkClient {
 
     /** OkHttp client that follows redirects. Used for all content fetches. */
     internal val redirectClient by lazy {
-        com.lagradost.cloudstream3.app.baseClient.newBuilder()
+        val builder = com.lagradost.cloudstream3.app.baseClient.newBuilder()
             .followRedirects(true)
             .connectTimeout(java.time.Duration.ofSeconds(4))
             .readTimeout(java.time.Duration.ofSeconds(6))
-            .callTimeout(java.time.Duration.ofSeconds(8))
-            .build()
+            .callTimeout(java.time.Duration.ofSeconds(15))
+        // Strip scraper-only interceptors — repo fetches are static JSON, not scrapers.
+        // RateLimitInterceptor queues 20+ concurrent requests to the same host behind a
+        // 500ms/host lock, easily blowing the callTimeout before the request is even sent.
+        builder.interceptors().removeAll { it is RateLimitInterceptor || it is AutoRetryInterceptor || it is DevNetworkInterceptor }
+        builder.build()
     }
 
     /** OkHttp client that does NOT follow redirects. Used for short-link resolution. */
     private val noRedirectClient by lazy {
-        com.lagradost.cloudstream3.app.baseClient.newBuilder()
+        val builder = com.lagradost.cloudstream3.app.baseClient.newBuilder()
             .followRedirects(false)
             .connectTimeout(java.time.Duration.ofSeconds(3))
             .readTimeout(java.time.Duration.ofSeconds(4))
-            .build()
+        builder.interceptors().removeAll { it is RateLimitInterceptor || it is AutoRetryInterceptor || it is DevNetworkInterceptor }
+        builder.build()
     }
 
     /** Shared Jackson mapper — lenient, ignores unknown properties. */

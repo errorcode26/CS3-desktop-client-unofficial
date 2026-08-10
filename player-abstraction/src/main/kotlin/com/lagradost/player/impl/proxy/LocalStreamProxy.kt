@@ -325,23 +325,6 @@ object LocalStreamProxy {
             if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
                 mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
-            if (mergedHeaders.keys.none { it.equals("Accept", ignoreCase = true) }) {
-                mergedHeaders["Accept"] = "*/*"
-            }
-            if (mergedHeaders.keys.none { it.equals("Accept-Language", ignoreCase = true) }) {
-                mergedHeaders["Accept-Language"] = "en-US,en;q=0.9"
-            }
-            if (mergedHeaders.keys.none { it.equals("Sec-Fetch-Mode", ignoreCase = true) }) {
-                mergedHeaders["Sec-Fetch-Mode"] = "no-cors"
-            }
-            if (mergedHeaders.keys.none { it.equals("Referer", ignoreCase = true) }) {
-                try {
-                    val uri = java.net.URI(url)
-                    val origin = "${uri.scheme}://${uri.host}"
-                    mergedHeaders["Referer"] = "$origin/"
-                    mergedHeaders["Origin"] = origin
-                } catch (_: Exception) {}
-            }
 
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
             mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
@@ -363,8 +346,10 @@ object LocalStreamProxy {
                 }
             }
 
-            // If the request had a Range header and failed with 403, 400, 416 or 405 (method/range not allowed),
+            // If the request had a Range header and failed with 403, 400, 416, or 405 (method/range not allowed),
             // retry the request WITHOUT the Range header and let the proxy skip the bytes manually.
+            // NOTE: Do NOT include 500 here — CDNs that return 500 do so regardless of Range headers,
+            // so retrying without Range just wastes 3-4 extra seconds on a permanently dead segment.
             if (response != null && !response.isSuccessful && mergedHeaders.containsKey("Range")) {
                 val code = response.code
                 if (code == 403 || code == 400 || code == 416 || code == 405) {

@@ -23,6 +23,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -79,14 +81,24 @@ fun PosterCard(
     val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
 
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val primary = MaterialTheme.colorScheme.primary
 
     Column(modifier = modifier.width(width)) {
-        Surface(
-            modifier = Modifier
-                .width(width)
-                .posterHoverEffect(shape)
-                .clip(shape)
-                .hoverable(interactionSource)
+        Box {
+            if (isHovered) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                        .background(primary.copy(alpha = 0.65f), shape)
+                )
+            }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .posterHoverEffect(shape)
+                    .clip(shape)
+                    .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
                     bounds = Rect(
                         offset = coordinates.positionInWindow(),
@@ -225,6 +237,7 @@ fun PosterCard(
                 )
             } // end box
         } // end surface
+        } // end outer box
 
         if (posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -286,6 +299,7 @@ fun WatchHistoryCard(
     }
 
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val primary = MaterialTheme.colorScheme.primary
 
     Box(
         modifier = modifier
@@ -293,9 +307,22 @@ fun WatchHistoryCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(shape)
-            .hoverable(interactionSource)
-            .onGloballyPositioned { coordinates ->
+    ) {
+        if (isHovered) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .background(primary.copy(alpha = 0.65f), shape)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (isHovered) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
+                .clip(shape)
+                .hoverable(interactionSource)
+                .onGloballyPositioned { coordinates ->
                 bounds = Rect(
                     offset = coordinates.positionInWindow(),
                     size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
@@ -495,6 +522,7 @@ fun WatchHistoryCard(
                     .background(DesktopUi.Accent),
             )
         }
+    }
     }
 }
 

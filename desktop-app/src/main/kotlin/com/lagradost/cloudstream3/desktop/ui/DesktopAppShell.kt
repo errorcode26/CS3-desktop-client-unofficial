@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.asComposeShader
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,10 +122,10 @@ fun DesktopAppShell(
                                 val startColor = surfaceColor
 
                                 when (backgroundGradientType) {
-                                    "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                    "Radial" -> androidx.compose.ui.graphics.Brush.linearGradient(
                                         colors = listOf(startColor, endColor),
-                                        center = Offset(size.width / 2f, size.height / 2f),
-                                        radius = radius * 1.5f,
+                                        start = Offset(0f, 0f),
+                                        end = Offset(size.width, size.height * 1.2f)
                                     )
                                     "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
                                         colors = listOf(startColor, endColor),

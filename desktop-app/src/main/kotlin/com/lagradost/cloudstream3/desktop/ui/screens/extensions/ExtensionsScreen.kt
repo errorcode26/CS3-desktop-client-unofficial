@@ -72,12 +72,52 @@ fun ComposeExtensionScreen(
                     .fillMaxHeight()
                     .padding(end = 24.dp),
             ) {
+                var isSyncing by remember { mutableStateOf(false) }
+
                 Text(
                     text = "Extensions",
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 32.dp, start = 8.dp),
+                    modifier = Modifier.padding(bottom = 12.dp, start = 8.dp),
+                )
+                Button(
+                    onClick = {
+                        if (isSyncing) return@Button
+                        coroutineScope.launch(Dispatchers.IO) {
+                            isSyncing = true
+                            try {
+                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
+                            } catch (e: Exception) {
+                                // ignore
+                            } finally {
+                                isSyncing = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                ) {
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Syncing...")
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Sync All")
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(bottom = 12.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 )
 
                 tabs.forEachIndexed { index, title ->
@@ -102,35 +142,7 @@ fun ComposeExtensionScreen(
                     }
                 }
 
-                Spacer(Modifier.weight(1f))
 
-                var isSyncing by remember { mutableStateOf(false) }
-                Button(
-                    onClick = {
-                        if (isSyncing) return@Button
-                        coroutineScope.launch(Dispatchers.IO) {
-                            isSyncing = true
-                            try {
-                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
-                            } catch (e: Exception) {
-                                // ignore
-                            } finally {
-                                isSyncing = false
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
-                ) {
-                    if (isSyncing) {
-                        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Spacer(Modifier.width(8.dp))
-                    } else {
-                        Icon(androidx.compose.material.icons.Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text("Update All")
-                }
             }
 
             // Vertical Divider

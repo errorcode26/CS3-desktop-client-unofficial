@@ -28,7 +28,10 @@ data class HeroMeta(
     val type: com.lagradost.cloudstream3.TvType?,
     val contentRating: String?,
     val duration: Int?,
+    val cachedAtMs: Long = 0L,
 )
+
+private const val HERO_CACHE_TTL_MS = 24 * 60 * 60 * 1000L // 24 hours
 
 object HeroCache {
     private val cache = ConcurrentHashMap<String, HeroMeta>()
@@ -82,9 +85,14 @@ object HeroRepository {
         val cacheKey = "${provider?.name}_${item.url}"
         var existing = HeroCache.get(cacheKey)
         if (existing == null) {
-            existing = com.lagradost.common.storage.DesktopDataStore.getKey<HeroMeta>("herometa_$cacheKey")
-            if (existing != null) {
+            val persisted = com.lagradost.common.storage.DesktopDataStore.getKey<HeroMeta>("herometa_$cacheKey")
+            // Discard stale entries so corrected enrichment logic takes effect after the TTL
+            if (persisted != null && (System.currentTimeMillis() - persisted.cachedAtMs) < HERO_CACHE_TTL_MS) {
+                existing = persisted
                 HeroCache.put(cacheKey, existing)
+            } else if (persisted != null) {
+                // Expired — remove from disk so it gets re-fetched
+                com.lagradost.common.storage.DesktopDataStore.removeKey("herometa_$cacheKey")
             }
         }
 
@@ -136,7 +144,7 @@ object HeroRepository {
                     val plot = dummy.plot?.take(200)
                     val score = dummy.score?.toString()
 
-                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration)
+                    val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration, cachedAtMs = System.currentTimeMillis())
                     AppLogger.i("Enrichment", "[HERO] RESULT | title='$title' | backdrop=${backdropUrl != null} | logo=${logoUrl != null} | tags=$tags | score=$score")
                     HeroCache.put(cacheKey, meta)
                     com.lagradost.common.storage.DesktopDataStore.setKey("herometa_$cacheKey", meta)

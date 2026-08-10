@@ -43,6 +43,7 @@ import java.util.*
 @Composable
 fun SettingsExtensions(
     onNavigate: (Config) -> Unit = {},
+    initialTab: Int = 0,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { ExtensionsViewModel() }
@@ -54,8 +55,8 @@ fun SettingsExtensions(
         .flowOn(Dispatchers.IO)
         .collectAsState(initial = emptyList())
 
-    var selectedSubTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Browse Catalog", "Installed Plugins", "Update History", "Repositories & Sources")
+    var selectedSubTab by remember { mutableStateOf(initialTab.coerceIn(0, 3)) }
+    val tabs = listOf("Browse Catalog", "Installed Plugins", "Repositories & Sources", "Update History")
 
     var isUpdatingAll by remember { mutableStateOf(false) }
     var updateStatusMessage by remember { mutableStateOf<String?>(null) }
@@ -104,39 +105,77 @@ fun SettingsExtensions(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Sub-Tabs Switcher
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (isLightMode) Color(0xFFE8EAF0) else Color(0xFF1E202A),
-                modifier = Modifier.height(38.dp),
+            // Left: Tab switcher + Update All grouped together
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(
-                    modifier = Modifier.padding(3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isLightMode) Color(0xFFE8EAF0) else Color(0xFF1E202A),
+                    modifier = Modifier.height(38.dp),
                 ) {
-                    tabs.forEachIndexed { index, title ->
-                        val isSelected = selectedSubTab == index
-                        Surface(
-                            onClick = { selectedSubTab = index },
-                            shape = RoundedCornerShape(7.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        ) {
-                            Text(
-                                text = title,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            )
+                    Row(
+                        modifier = Modifier.padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedSubTab == index
+                            Surface(
+                                onClick = { selectedSubTab = index },
+                                shape = RoundedCornerShape(7.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                ) {
+                                    Text(
+                                        text = title,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                        fontSize = 12.sp,
+                                    )
+                                    // Installed count badge
+                                    if (index == 1 && uiState.installedPlugins.isNotEmpty()) {
+                                        Spacer(Modifier.width(5.dp))
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        ) {
+                                            Text(
+                                                text = "${uiState.installedPlugins.size}",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                            )
+                                        }
+                                    }
+                                    // Update history count badge
+                                    if (index == 3 && updatesHistory.isNotEmpty()) {
+                                        Spacer(Modifier.width(5.dp))
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
+                                        ) {
+                                            Text(
+                                                text = "${updatesHistory.size}",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Right Action Controls
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Update All Button
+                // Update All — contextually next to tabs, not floating on the far right
                 FilledTonalButton(
                     onClick = {
                         if (!isUpdatingAll) {
@@ -183,37 +222,37 @@ fun SettingsExtensions(
                         Text("Update All", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
+            }
 
-                // Stats Pill
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
-                    modifier = Modifier.height(38.dp),
+            // Right: Stats pill only
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                modifier = Modifier.height(38.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "${uiState.plugins.size} Available",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "•",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                        Text(
-                            text = "${uiState.installedPlugins.size} Installed",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    Text(
+                        text = "${uiState.plugins.size} Available",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "•",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    Text(
+                        text = "${uiState.installedPlugins.size} Installed",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
@@ -221,10 +260,19 @@ fun SettingsExtensions(
         // ── Tab Content ─────────────────────────────────────────────
         Box(modifier = Modifier.fillMaxSize()) {
             when (selectedSubTab) {
-                0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
-                2 -> {
-                    // Update History Tab Content
+                0 -> BrowseTab(
+                    viewModel = viewModel,
+                    syncGeneration = syncGen,
+                    onNavigateToRepos = { selectedSubTab = 2 }
+                )
+                1 -> InstalledTab(
+                    viewModel = viewModel,
+                    syncGeneration = syncGen,
+                    onNavigateToBrowse = { selectedSubTab = 0 }
+                )
+                2 -> RepositoriesTab(viewModel = viewModel)
+                3 -> {
+                    // Update History
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -493,7 +541,7 @@ fun SettingsExtensions(
                         }
                     }
                 }
-                3 -> RepositoriesTab(viewModel = viewModel)
+
             }
         }
     }

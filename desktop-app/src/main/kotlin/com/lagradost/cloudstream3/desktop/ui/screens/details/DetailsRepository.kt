@@ -49,7 +49,25 @@ object EnrichedDetailsCache {
 }
 
 object DetailsRepository {
+    private val inflightMutexes = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
+
     suspend fun fetchRaw(provider: com.lagradost.cloudstream3.MainAPI, url: String, fallbackName: String? = null): LoadResponse? {
+        DetailsCache.get(url)?.let { return it }
+
+        val mutex = inflightMutexes.getOrPut(url) { kotlinx.coroutines.sync.Mutex() }
+        mutex.lock()
+        try {
+            // Check cache again after acquiring lock
+            DetailsCache.get(url)?.let { return it }
+            
+            return doFetchRaw(provider, url, fallbackName)
+        } finally {
+            mutex.unlock()
+            inflightMutexes.remove(url, mutex)
+        }
+    }
+
+    private suspend fun doFetchRaw(provider: com.lagradost.cloudstream3.MainAPI, url: String, fallbackName: String? = null): LoadResponse? {
         DetailsCache.get(url)?.let { return it }
 
         var targetProvider = provider
