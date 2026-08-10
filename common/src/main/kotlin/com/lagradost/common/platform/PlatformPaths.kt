@@ -28,6 +28,16 @@ object PlatformPaths {
 
     /** The base application data directory, OS-aware. */
     val appDataDir: File by lazy {
+        val customDirProp = System.getProperty("cloudstream.data.dir")
+        if (!customDirProp.isNullOrBlank()) {
+            return@lazy File(customDirProp).also { it.mkdirs() }
+        }
+
+        val userDir = System.getProperty("user.dir")
+        if (File(userDir, "portable.txt").exists()) {
+            return@lazy File(userDir, "CloudStreamData").also { it.mkdirs() }
+        }
+
         val basePath =
             when (currentOS) {
                 OS.WINDOWS -> {

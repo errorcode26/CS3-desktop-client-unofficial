@@ -77,11 +77,16 @@ fun DetailsBackdrop(
             .haze(state = hazeState),
     ) {
         val currentPhase = enrichmentPhase
-        val isFallback = data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
 
         val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
         val screenshots = uiState?.screenshots ?: emptyList()
         var currentScreenshotIndex by remember { mutableStateOf(-1) }
+
+        val isFallback = remember(data, currentScreenshotIndex, screenshots, uiState) {
+            if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) return@remember false
+            if (!uiState?.enrichedBackdropUrl.isNullOrBlank()) return@remember false
+            data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
+        }
 
         LaunchedEffect(screensaverEnabled, screenshots) {
             if (screensaverEnabled && screenshots.isNotEmpty()) {
@@ -96,10 +101,17 @@ fun DetailsBackdrop(
         }
 
         val baseBgUrl = remember(data, currentPhase, uiState) {
+            // Always prefer enriched TMDB backdrop
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
-                ?: data.backgroundPosterUrl?.takeIf { it.isNotBlank() }
-                ?: data.posterUrl?.takeIf { it.isNotBlank() }
-                ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: provider.fixUrlNull(data.posterUrl)
+                // Only fall back to the provider's (potentially CF-protected) URL AFTER enrichment
+                // finishes. If we fall back mid-enrichment we trigger a CF storm for an image
+                // we'll crossfade away in 2 seconds anyway.
+                ?: if (uiState?.isEnriching == false) {
+                    data.backgroundPosterUrl?.takeIf { it.isNotBlank() }
+                        ?: data.posterUrl?.takeIf { it.isNotBlank() }
+                        ?: provider.fixUrlNull(data.backgroundPosterUrl)
+                        ?: provider.fixUrlNull(data.posterUrl)
+                } else null
         }
 
         val bgUrl = if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) {
@@ -517,19 +529,23 @@ fun DetailsMetadata(
 
                     val trailerButton: (@Composable (Modifier) -> Unit)? = if (!activeTrailerUrl.isNullOrBlank() && onTrailerClick != null) {
                         { mod ->
-                            IconButton(
+                            OutlinedButton(
                                 onClick = { onTrailerClick(activeTrailerUrl) },
-                                modifier = mod
-                                    .size(56.dp)
-                                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
-                                    .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+                                modifier = mod.height(56.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.35f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.18f),
+                                    contentColor = Color.White
+                                )
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Watch Trailer",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(26.dp),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Trailer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                         }
                     } else null

@@ -263,6 +263,7 @@ fun WatchHistoryCard(
     history: WatchHistory,
     provider: MainAPI?,
     modifier: Modifier = Modifier.width(380.dp).height(380.dp * 9f / 16f),
+    isContextMenuEnabled: Boolean = true,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
@@ -328,12 +329,12 @@ fun WatchHistoryCard(
                     size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                 )
             }
-            .pointerInput(Unit) {
+            .pointerInput(isContextMenuEnabled) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
                         if (event.type == PointerEventType.Release) {
-                            if (event.button == PointerButton.Secondary) {
+                            if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
                                 GlobalContextMenuState.showForWatchHistory(
                                     bounds = bounds,
                                     history = history,

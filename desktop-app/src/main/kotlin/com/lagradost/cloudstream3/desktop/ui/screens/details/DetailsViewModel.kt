@@ -147,6 +147,12 @@ class DetailsViewModel(
                     is EnrichmentUpdate.TrailersLoaded -> {
                         updateState { copy(enrichedTrailers = update.trailers, enrichedTrailerUrl = update.trailers.firstOrNull()?.url) }
                     }
+                    is EnrichmentUpdate.ReviewsLoaded -> {
+                        updateState { copy(enrichedReviews = update.reviews) }
+                    }
+                    is EnrichmentUpdate.EpisodeThumbnailsEnriched -> {
+                        updateState { copy(episodeThumbnailVersion = episodeThumbnailVersion + 1) }
+                    }
                     is EnrichmentUpdate.MetadataLoaded -> {
                         updateState {
                             copy(

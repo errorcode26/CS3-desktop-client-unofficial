@@ -48,6 +48,7 @@ fun EpisodeCard(
     data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean = false,
+    thumbnailVersion: Int = 0,
     modifier: Modifier = Modifier,
     enableDownloadButtons: Boolean = false,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
@@ -58,6 +59,9 @@ fun EpisodeCard(
     var isHovered by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
 
+    // thumbnailVersion is intentionally read here so Compose re-evaluates epImg when episode
+    // thumbnails are enriched in-place (plain field mutations don't trigger recompose otherwise).
+    @Suppress("UNUSED_EXPRESSION") thumbnailVersion
     val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
     val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
 
@@ -350,7 +354,7 @@ fun EpisodeCard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 120.dp, bottom = 22.dp), // Safe buffer to prevent overlap with bottom-right pills
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -399,38 +403,39 @@ fun EpisodeCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
             )
-        }
 
-        // Bottom-Right: Duration / Time Left pill and Release Date
-        if (releaseDate != null || durationText != null) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 22.dp, end = 16.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (releaseDate != null) {
-                    Text(
-                        text = releaseDate,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                if (durationText != null) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.8f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
+            if (releaseDate != null || durationText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (releaseDate != null) {
                         Text(
-                            text = durationText,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
+                            text = releaseDate,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.SemiBold,
                         )
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+
+                    if (durationText != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.Black.copy(alpha = 0.8f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = durationText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }

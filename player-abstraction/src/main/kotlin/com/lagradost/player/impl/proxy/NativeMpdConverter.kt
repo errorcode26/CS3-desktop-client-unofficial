@@ -64,6 +64,7 @@ class NativeMpdConverter {
         sessionId: String,
         mpdUrl: String,
         clearKey: String? = null,
+        tracksListener: ProxyTracksListener? = null
     ): String {
         val doc = parseXml(mpdContent)
         val mpd = doc.documentElement
@@ -119,6 +120,8 @@ class NativeMpdConverter {
 
         if (audioTracks.isNotEmpty()) sb.appendLine()
 
+        val lazyVideoTracks = mutableListOf<ProxyTrack>()
+
         // 2. Find Video Tracks
         for (i in 0 until adaptationSets.length) {
             val adapt = adaptationSets.item(i) as Element
@@ -154,15 +157,23 @@ class NativeMpdConverter {
                     if (codecs.isNotBlank()) attrs.add("""CODECS="$codecs"""")
                     if (audioTracks.isNotEmpty()) attrs.add("""AUDIO="audio"""")
 
+                    val name = if (!h.isNullOrBlank()) "${h}p" else "Variant ${bw}kbps"
+                    val bwInt = bw.toIntOrNull()
+
                     val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
                     var variantUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
                     if (clearKey != null) variantUrl += "&ck=$clearKey"
+
+                    lazyVideoTracks.add(ProxyTrack(variantUrl, name, "eng", bwInt))
 
                     sb.appendLine("#EXT-X-STREAM-INF:${attrs.joinToString(",")}")
                     sb.appendLine(variantUrl)
                 }
             }
         }
+        
+        tracksListener?.onTracksDiscovered(emptyList(), emptyList(), lazyVideoTracks)
+        
         return sb.toString()
     }
 

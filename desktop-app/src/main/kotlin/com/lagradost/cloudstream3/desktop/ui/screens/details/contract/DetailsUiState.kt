@@ -21,6 +21,15 @@ data class SeasonMetadata(
     val posterUrl: String?,
 )
 
+data class ReviewData(
+    val author: String,
+    val content: String,
+    val rating: Double?,
+    val avatarUrl: String?,
+    val createdAt: String?,
+    val url: String?,
+)
+
 data class DetailsUiState(
     val preloadedName: String? = null,
     val response: LoadResponse? = null,
@@ -55,6 +64,7 @@ data class DetailsUiState(
     val enrichedDuration: Int? = null,
     val enrichedTags: List<String>? = null,
     val enrichedActors: List<ActorData>? = null,
+    val enrichedReviews: List<ReviewData> = emptyList(),
     val enrichedTrailers: List<TrailerData> = emptyList(),
     val enrichedTrailerUrl: String? = null,
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
@@ -63,4 +73,7 @@ data class DetailsUiState(
     val isInitialized: Boolean = false,
     val backupSeasonHistory: Map<String, WatchHistory> = emptyMap(),
     val isEpisodesStackedView: Boolean = false,
+    // Bumped each time episode thumbnail URLs are mutated in-place by enrichment.
+    // Compose observes this to trigger recomposition of episode cards.
+    val episodeThumbnailVersion: Int = 0,
 ) : UiState

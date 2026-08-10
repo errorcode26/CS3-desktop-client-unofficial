@@ -439,6 +439,9 @@ fun ComposeNativeWebPlayer(
                                 currentOnFullscreenToggle?.invoke()
                             }
                         }
+                        "focusWebView" -> {
+                            NativePlayerBridge.focusWebView()
+                        }
                         "exitPlayer" -> {
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnCloseRequest()

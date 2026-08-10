@@ -1868,8 +1868,8 @@
         // Master visibility control for the main player UI
         const mainOverlay = document.getElementById('overlay');
         if (mainOverlay) {
-            if (isProbing || isAppLoading) {
-                // Hide controls during probing or loading to prevent bleeding/flashing.
+            if (isProbing) {
+                // Hide controls during probing to prevent bleeding/flashing.
                 // 350ms buffer timer prevents jarring flashes if loading is ultra-fast.
                 if (!window.hideMainUiTimer && !mainOverlay.classList.contains('hide-main-ui')) {
                     window.hideMainUiTimer = setTimeout(() => {

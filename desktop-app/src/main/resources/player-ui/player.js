@@ -55,7 +55,7 @@
         // The probing screen should ALWAYS act as the loading screen for new sessions.
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
-        if (pOverlay)  { pOverlay.classList.remove('dismissing'); }
+        if (pOverlay)  { pOverlay.classList.add('active'); pOverlay.classList.remove('dismissing'); }
         if (pContent)  { pContent.classList.remove('dismissing'); }
 
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
@@ -85,7 +85,7 @@
 
     function evaluateResumeOverlay() {
         const pOverlay = document.getElementById('linkProbingOverlay');
-        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+        const isProbing = pOverlay && pOverlay.classList.contains('active');
 
         const shouldShow = pendingResumeMs > 0 && !resumeHandled && !isProbing && !isAppLoading;
 
@@ -118,15 +118,15 @@
 
     function evaluateUIStates() {
         const pOverlay = document.getElementById('linkProbingOverlay');
-        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+        const isProbing = pOverlay && pOverlay.classList.contains('active');
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
         
         // Master visibility control for the main player UI
         const mainOverlay = document.getElementById('overlay');
         if (mainOverlay) {
-            if (isProbing || isAppLoading) {
-                // Hide controls during probing or loading to prevent bleeding/flashing.
+            if (isProbing) {
+                // Hide controls during probing to prevent bleeding/flashing.
                 // 350ms buffer timer prevents jarring flashes if loading is ultra-fast.
                 if (!window.hideMainUiTimer && !mainOverlay.classList.contains('hide-main-ui')) {
                     window.hideMainUiTimer = setTimeout(() => {
@@ -310,7 +310,7 @@
             lastMouseY = e.clientY;
         }
         const pOverlay = document.getElementById('linkProbingOverlay');
-        const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+        const isProbing = pOverlay && pOverlay.classList.contains('active');
         if (resumeOverlay.style.display === 'flex' || (isProbing && !userDismissedProbing)) {
             clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls');
@@ -332,7 +332,23 @@
         }
     };
     document.addEventListener('mousemove', showControls);
-    document.addEventListener('click', showControls);
+    document.addEventListener('click', e => {
+        // Blur active element so buttons don't retain focus when UI hides
+        if (!e.target.closest('input,textarea,[contenteditable]') && document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        // Force OS focus back to WebView in case it was lost to the native window
+        send('focusWebView');
+        showControls(e);
+    });
+    
+    // Double click to toggle fullscreen
+    document.addEventListener('dblclick', e => {
+        // Ignore if clicking on interactive UI elements like buttons or bars
+        if (e.target.closest('.top-bar, .bottom-bar, .panel, .probing-btn, .modal, #linkProbingList')) return;
+        send('toggleFullscreen');
+    });
+    
     document.addEventListener('keydown', showControls);
 
     // Panel Management
@@ -594,7 +610,7 @@
             const activeIdx = (episodesData || []).findIndex(e => e.isActive);
             const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
             const pOverlay = document.getElementById('linkProbingOverlay');
-            const isProbing = pOverlay && !pOverlay.classList.contains('dismissing');
+            const isProbing = pOverlay && pOverlay.classList.contains('active');
 
             if (nextEp && !isProbing && (!videoEndedOverlay || videoEndedOverlay.style.display !== 'flex')) {
                 if (watchNextPopup && !watchNextPopup.classList.contains('visible')) {
@@ -606,7 +622,7 @@
                             : `Episode ${nextEp.episode}`;
                     }
                     if (watchNextTitle) watchNextTitle.innerText = nextEp.title || ('Episode ' + nextEp.episode);
-                    if (watchNextDesc) watchNextDesc.innerText = nextEp.description || '';
+                    if (watchNextDesc) watchNextDesc.innerText = (nextEp.description || '').replace(/\|\|DATE:.*?\|\|/g, '').trim();
                 }
                 const remainingSec = Math.max(0, Math.ceil((durationMs - currentPosMs) / 1000));
                 
@@ -746,20 +762,25 @@
 
     const handleMetadataUpdate = (meta) => {
         // 1. Session & State Reset
-        // Detect a genuinely new playback session (new title OR new episode OR new link set)
+        // Detect a genuinely new playback session (new title OR new episode).
+        // IMPORTANT: currentLinkIndex changes are NOT a new session — they happen
+        // during error recovery (trying next source) within the same episode.
         const activeEp = (meta.episodes || []).find(e => e.isActive);
         const activeId = activeEp ? activeEp.id : '';
         if (meta.title) {
             const isNewSession = currentTitle !== meta.title
-                || currentEpisodeId !== activeId
-                || (meta.currentLinkIndex !== undefined && currentLinkIndex !== meta.currentLinkIndex);
+                || currentEpisodeId !== activeId;
 
             if (isNewSession) {
                 // *** Atomically reset ALL state so stale timers/overlays can't race ***
                 hardResetAllOverlays();
                 currentTitle = meta.title;
                 currentEpisodeId = activeId;
-                if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
+            }
+            // Always track the link index, but it doesn't trigger a session reset.
+            if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
+
+            if (isNewSession) {
 
                 // Immediately pre-fill the probing screen with the NEW episode's data
                 // so there is zero window where old/stale data is visible on screen.
@@ -837,7 +858,8 @@
         }
 
         if (meta.plot || (activeEpInfo && activeEpInfo.description)) {
-            pausePlot.innerText = (activeEpInfo && activeEpInfo.description) ? activeEpInfo.description : meta.plot;
+            const rawPlot = (activeEpInfo && activeEpInfo.description) ? activeEpInfo.description : meta.plot;
+            pausePlot.innerText = rawPlot.replace(/\|\|DATE:.*?\|\|/g, '').trim();
             pausePlot.style.display = '-webkit-box';
         } else {
             pausePlot.style.display = 'none';
@@ -872,10 +894,15 @@
         const pStatus = document.getElementById('linkProbingStatus');
 
         if (meta.isProbing === true && !userDismissedProbing) {
-            if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
-            clearTimeout(hideTimer);
-            document.body.classList.remove('hidden-controls');
-            pOverlay.classList.remove('dismissing');
+            // Only re-show the overlay if it isn't already mid-dismiss or dismissed.
+            // Without this guard, rapid metadata_updates can yank the overlay back
+            // on screen after onPlaybackReady already dismissed it.
+            if (!pOverlay.classList.contains('dismissing')) {
+                if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
+                clearTimeout(hideTimer);
+                document.body.classList.remove('hidden-controls');
+                pOverlay.classList.add('active');
+            }
             
             const resumeOvl = document.getElementById('resumeOverlay');
             if (resumeOvl) resumeOvl.style.display = 'none';
@@ -1269,9 +1296,9 @@
     };
 
     const dismissProbingOverlay = (userInitiated = false) => {
-        if (userInitiated) {
-            userDismissedProbing = true;
-        }
+        // Once dismissed (by user click OR by onPlaybackReady), it stays dismissed
+        // for the entire session. Only hardResetAllOverlays() on a new episode can bring it back.
+        userDismissedProbing = true;
         
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
@@ -1281,8 +1308,12 @@
         if (pContent) pContent.classList.add('dismissing');
         
         const finishDismissal = () => {
-            pOverlay.classList.remove('active');
+            // Add .dismissing while .active is still on so CSS transition
+            // animates from opacity:1 → opacity:0. Remove .active after one frame.
             pOverlay.classList.add('dismissing');
+            requestAnimationFrame(() => {
+                pOverlay.classList.remove('active');
+            });
             
             const resumeOvl = document.getElementById('resumeOverlay');
             if (resumeOvl) resumeOvl.style.display = '';
@@ -1323,6 +1354,11 @@
         }
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
             document.getElementById('loadingStatus').innerText = s.loadingStatusText;
+            const pStatus = document.getElementById('linkProbingStatus');
+            const pOverlay = document.getElementById('linkProbingOverlay');
+            if (pStatus && pOverlay && pOverlay.classList.contains('active')) {
+                pStatus.innerText = s.loadingStatusText;
+            }
         }
 
         if (s.interpolationEnabled !== undefined) {
@@ -2313,7 +2349,7 @@
                         : `Episode ${nextEp.episode}`;
                 }
                 if (videoEndedNextTitle) videoEndedNextTitle.innerText = nextEp.title || ('Episode ' + nextEp.episode);
-                if (videoEndedNextDesc) videoEndedNextDesc.innerText = nextEp.description || '';
+                if (videoEndedNextDesc) videoEndedNextDesc.innerText = (nextEp.description || '').replace(/\|\|DATE:.*?\|\|/g, '').trim();
             } else {
                 if (videoEndedNextCard) videoEndedNextCard.style.display = 'none';
             }

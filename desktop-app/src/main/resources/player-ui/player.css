@@ -851,10 +851,12 @@
             transition: none;
         }
         /* Active: probing is live. No transition needed — appear immediately. */
-        #linkProbingOverlay:not(.dismissing) {
+        #linkProbingOverlay.active {
             opacity: 1; pointer-events: auto;
         }
-        /* Dismissing: slow cinematic fade-out as MPV first frame fades in */
+        /* Dismissing: slow cinematic fade-out. Higher specificity than .active so
+           the element can have both classes during the transition period. */
+        #linkProbingOverlay.active.dismissing,
         #linkProbingOverlay.dismissing {
             opacity: 0; pointer-events: none;
             transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);

@@ -156,8 +156,11 @@ fun EmbeddedVideoPlayer(
                     val tags = actualLaunchData.loadResponse?.tags
                     // Always use the start position from launchData — it is the canonical
                     // source of truth set by the ViewModel. Falling back to playerState.positionMs
-                    // causes the previous episode's position to bleed into the new episode seek.
                     val computedStartPos = actualLaunchData.startPositionMs
+                    val isMidStreamSwitch = phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && !phase.isInitial
+                    val displayLoadingStatus = if (isMidStreamSwitch) {
+                        if ((phase as com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing).isRetry) "Reconnecting..." else "Trying next source..."
+                    } else null
 
                     ComposeNativeWebPlayer(
                         link = safeLink,
@@ -175,7 +178,8 @@ fun EmbeddedVideoPlayer(
                         episodes = episodes,
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
-                        isProbing = !isExiting && phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing,
+                        loadingStatusText = displayLoadingStatus,
+                        isProbing = !isExiting && phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial,
                         failedLinks = uiFailedLinks,
                         backdropUrl = backdropUrl,
                         logoUrl = logoUrl,

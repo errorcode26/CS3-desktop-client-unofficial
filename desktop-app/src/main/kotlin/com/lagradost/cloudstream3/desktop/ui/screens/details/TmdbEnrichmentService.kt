@@ -135,6 +135,7 @@ object TmdbEnrichmentService {
         onScreenshotsLoaded: (List<String>) -> Unit,
         onActorsLoaded: (List<com.lagradost.cloudstream3.ActorData>) -> Unit = {},
         onTrailersLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) -> Unit = {},
+        onReviewsLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData>) -> Unit = {},
         onMetadataLoaded: (
             tagline: String?,
             status: String?,
@@ -157,6 +158,7 @@ object TmdbEnrichmentService {
             actors: List<com.lagradost.cloudstream3.ActorData>?,
         ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
+        onEpisodeThumbnailsEnriched: () -> Unit = {},
         // When Cinemeta already resolved the TMDB ID, we can skip text search entirely.
         directTmdbId: Int? = null,
         directImdbId: String? = null,
@@ -337,7 +339,7 @@ object TmdbEnrichmentService {
                         val targetSeasons = neededSeasons.filter { it in 1..25 }.take(6)
                         val seasonsAppend = if (!isMovie && targetSeasons.isNotEmpty()) ",${targetSeasons.joinToString(",") { "season/$it" }}" else ""
                         // Use a broad language param initially; we refine it after fetching the detail response.
-                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=$TMDB_API_KEY&append_to_response=images,credits,recommendations,translations,videos$seasonsAppend&language=en-US&include_image_language=en,en-US,null"
+                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=$TMDB_API_KEY&append_to_response=images,credits,recommendations,translations,videos,reviews$seasonsAppend&language=en-US&include_image_language=en,en-US,null"
 
                         val tmdbData = com.lagradost.cloudstream3.app.get(tmdbUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
                         if (tmdbData != null) {
@@ -484,7 +486,7 @@ object TmdbEnrichmentService {
                             val posterPath = tmdbData.get("poster_path")?.asText()
 
                             withContext(Dispatchers.Main.immediate) {
-                                if (bgPath != null && bgPath != "null") {
+                                if (bgPath != null && bgPath != "null" && (overwrite || loaded.backgroundPosterUrl.isNullOrBlank())) {
                                     loaded.backgroundPosterUrl = tmdbImageUrl(bgPath, "original")
                                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: set backdrop from backdrop_path")
                                 } else if (posterPath != null && posterPath != "null" && loaded.backgroundPosterUrl.isNullOrBlank()) {
@@ -704,8 +706,11 @@ object TmdbEnrichmentService {
                                         if (episodesNode != null && episodesNode.isArray) {
                                             val epNode = episodesNode.find { it.get("episode_number")?.asInt() == ep.episode }
                                             if (epNode != null) {
+                                                // Only fill if still missing after Cinemeta — no overwrites
                                                 val epPosterPath = epNode.get("still_path")?.asText()
-                                                if (epPosterPath != null && epPosterPath != "null" && (ep.posterUrl.isNullOrBlank() || overwrite)) {
+                                                val epIsMissingOrBad = ep.posterUrl.isNullOrBlank() ||
+                                                    ep.posterUrl?.contains("imgbb") == true
+                                                if (epPosterPath != null && epPosterPath != "null" && epIsMissingOrBad) {
                                                     ep.posterUrl = tmdbImageUrl(epPosterPath, "original")
                                                 }
                                                 val epOverview = epNode.get("overview")?.asText()
@@ -714,7 +719,8 @@ object TmdbEnrichmentService {
                                                 }
                                                 val epReleaseDate = epNode.get("air_date")?.asText()
                                                 if (!epReleaseDate.isNullOrBlank() && epReleaseDate != "null") {
-                                                    ep.description = "||DATE:$epReleaseDate||" + (ep.description ?: "")
+                                                    val cleanDesc = (ep.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
+                                                    ep.description = "||DATE:$epReleaseDate||" + cleanDesc
                                                 }
                                                 val epName = epNode.get("name")?.asText()
                                                 if (!epName.isNullOrBlank() && epName != "null") {
@@ -733,6 +739,8 @@ object TmdbEnrichmentService {
                                     }
                                 }
                             }
+                            // Signal episode thumbnails were mutated
+                            onEpisodeThumbnailsEnriched()
 
                             val logosNode = tmdbData.get("images")?.get("logos")
                             if (logosNode != null && logosNode.isArray && logosNode.size() > 0) {
@@ -758,11 +766,11 @@ object TmdbEnrichmentService {
                                     val logoUrl = tmdbImageUrl(bestLogoPath, sizeParam)
                                     withContext(Dispatchers.Main.immediate) {
                                         if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
-                                            loaded.logoUrl = logoUrl
+                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
                                         } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                                            loaded.logoUrl = logoUrl
+                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
                                         } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                                            loaded.logoUrl = logoUrl
+                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
                                         }
                                     }
                                 }
@@ -831,6 +839,43 @@ object TmdbEnrichmentService {
                                         )
                                         .take(10)
                                     onTrailersLoaded(sortedTrailers)
+                                }
+                            }
+
+                            val reviewsNode = tmdbData.get("reviews")?.get("results")
+                            if (reviewsNode != null && reviewsNode.isArray && reviewsNode.size() > 0) {
+                                val parsedReviews = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData>()
+                                for (r in reviewsNode) {
+                                    val author = r.get("author")?.asText() ?: continue
+                                    val content = r.get("content")?.asText() ?: continue
+                                    val url = r.get("url")?.asText()
+                                    val createdAt = r.get("created_at")?.asText()
+                                    
+                                    val authorDetails = r.get("author_details")
+                                    val rating = authorDetails?.get("rating")?.asDouble()
+                                    var avatarPath = authorDetails?.get("avatar_path")?.asText()
+                                    
+                                    val avatarUrl = if (!avatarPath.isNullOrBlank()) {
+                                        if (avatarPath.startsWith("/https")) {
+                                            avatarPath.removePrefix("/")
+                                        } else {
+                                            tmdbImageUrl(avatarPath, "w200")
+                                        }
+                                    } else null
+
+                                    parsedReviews.add(
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData(
+                                            author = author,
+                                            content = content,
+                                            rating = rating,
+                                            avatarUrl = avatarUrl,
+                                            createdAt = createdAt,
+                                            url = url,
+                                        )
+                                    )
+                                }
+                                if (parsedReviews.isNotEmpty()) {
+                                    onReviewsLoaded(parsedReviews.sortedByDescending { it.rating ?: 0.0 })
                                 }
                             }
                         }

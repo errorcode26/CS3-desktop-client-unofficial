@@ -171,6 +171,7 @@ fun ContextMenuOverlay() {
                                 history = state.watchHistory!!,
                                 provider = state.provider,
                                 modifier = Modifier.fillMaxSize(),
+                                isContextMenuEnabled = false,
                                 onRemove = {
                                     state.dismiss()
                                     state.onRemove?.invoke()

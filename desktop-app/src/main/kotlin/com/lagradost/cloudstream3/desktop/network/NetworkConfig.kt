@@ -168,13 +168,14 @@ object NetworkConfig {
         val providerIndex = DesktopDataStore.getKey<Int>(PREF_DOH_PROVIDER) ?: 0
         val provider = DohProvider.values().getOrNull(providerIndex) ?: DohProvider.NONE
 
+        val cookieJar = DesktopCookieJar()
         val baseBuilder = app.baseClient.newBuilder()
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            .cookieJar(DesktopCookieJar())
+            .cookieJar(cookieJar)
 
         // Apply DoH Provider
         when (provider) {
@@ -191,7 +192,7 @@ object NetworkConfig {
         // Apply CloudflareKiller interceptor only if not already present
         val hasCloudflareKiller = baseBuilder.interceptors().any { it is CloudflareKiller }
         if (!hasCloudflareKiller) {
-            baseBuilder.addInterceptor(CloudflareKiller())
+            baseBuilder.addInterceptor(CloudflareKiller(cookieJar))
         }
 
         // CRITICAL: Strip all IPv6 addresses from DNS responses.

@@ -79,6 +79,7 @@ object LocalStreamProxy {
     data class ProxySession(
         val headers: Map<String, String>,
         val masterCache: java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<ByteArray>> = java.util.concurrent.ConcurrentHashMap(),
+        val mpdCache: java.util.concurrent.ConcurrentHashMap<String, String> = java.util.concurrent.ConcurrentHashMap(),
     )
 
     // Capped LRU cache to prevent memory leaks from abandoned video sessions
@@ -297,6 +298,16 @@ object LocalStreamProxy {
                 }
             }
 
+            if (action == "dash" && rep != null) {
+                val cachedMpd = session.mpdCache[url]
+                if (cachedMpd != null) {
+                    val m3u8 = NativeMpdConverter().convertMediaPlaylist(cachedMpd, rep, port, sessionId, url, clearKey)
+                    call.response.header("Content-Type", "application/vnd.apple.mpegurl")
+                    call.respondBytes(m3u8.toByteArray(Charsets.UTF_8), status = HttpStatusCode.OK)
+                    return
+                }
+            }
+
             val mergedHeaders = session.headers.toMutableMap()
 
             val keysToRemove = mergedHeaders.keys.filter {
@@ -445,8 +456,9 @@ object LocalStreamProxy {
                     response.body?.source()?.readUtf8() ?: ""
                 }
                 response.body?.close()
+                session.mpdCache[url] = mpdContent
                 val m3u8 = if (rep == null) {
-                    NativeMpdConverter().convertMasterPlaylist(mpdContent, port, sessionId, url, clearKey)
+                    NativeMpdConverter().convertMasterPlaylist(mpdContent, port, sessionId, url, clearKey, tracksListener)
                 } else {
                     NativeMpdConverter().convertMediaPlaylist(mpdContent, rep, port, sessionId, url, clearKey)
                 }

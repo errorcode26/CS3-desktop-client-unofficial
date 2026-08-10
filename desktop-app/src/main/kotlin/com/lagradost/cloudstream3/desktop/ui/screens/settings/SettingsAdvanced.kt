@@ -281,30 +281,7 @@ fun SettingsAdvanced() {
             }
         }
 
-        SettingsGroupCard(title = "Privacy & External Links") {
-            var allowExternalBrowser by remember {
-                mutableStateOf(
-                    com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
-                        com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER,
-                    ) ?: true,
-                )
-            }
 
-            SettingsToggleItem(
-                label = "Allow Opening External Links",
-                subtitle = "Allow CloudStream to open official trailers and external web links directly in your default system browser.",
-                checked = allowExternalBrowser,
-                onCheckedChange = { enabled ->
-                    allowExternalBrowser = enabled
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        com.lagradost.common.storage.DesktopDataStore.setKey(
-                            com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER,
-                            enabled,
-                        )
-                    }
-                },
-            )
-        }
 
         SettingsGroupCard(title = "Danger Zone") {
             var showResetDialog by remember { mutableStateOf(false) }

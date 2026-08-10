@@ -588,6 +588,16 @@ fun DetailsContent(
                 }
             }
 
+            if (uiState?.enrichedReviews?.isNotEmpty() == true) {
+                item(key = "Reviews") {
+                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsReviewsSection(
+                            reviews = uiState.enrichedReviews,
+                        )
+                    }
+                }
+            }
+
             item(key = "Spacer") {
                 Spacer(modifier = Modifier.height(96.dp))
             }

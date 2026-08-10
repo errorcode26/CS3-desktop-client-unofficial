@@ -35,6 +35,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
 
+    private val linkRetries = mutableMapOf<String, Int>()
+    private val MAX_RETRIES = 2
+
     init {
         PlayerDiagnosticsHolder.register(playerState)
 
@@ -145,7 +148,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         // Timeout job is ONLY scheduled when we enter Probing phase.
         if (phase is PlayerPhase.Probing) {
             val isNewProbing = uiState.value.phase !is PlayerPhase.Probing || 
-                               (uiState.value.phase as? PlayerPhase.Probing)?.link?.url != phase.link.url
+                               (uiState.value.phase as? PlayerPhase.Probing)?.link?.url != phase.link.url ||
+                               phase.isRetry
             if (isNewProbing) {
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
@@ -220,15 +224,37 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun handlePlaybackError(failedUrl: String) {
-        AppLogger.e("EmbeddedPlayerViewModel", "Playback error on: $failedUrl")
-        val newFailed = uiState.value.failedLinks + failedUrl
-        val links = uiState.value.nextEpisodeLinks.ifEmpty { uiState.value.launchData?.links ?: emptyList() }
-        val startPos = uiState.value.launchData?.startPositionMs ?: 0L
+        val currentState = uiState.value
+        val retries = linkRetries.getOrDefault(failedUrl, 0)
+        
+        if (retries < MAX_RETRIES) {
+            linkRetries[failedUrl] = retries + 1
+            AppLogger.w("EmbeddedPlayerViewModel", "Stream error. Retrying same link (${retries + 1}/$MAX_RETRIES): $failedUrl")
+            
+            val currentLink = currentState.launchData?.links?.find { it.url == failedUrl }
+            if (currentLink != null) {
+                val currentPos = playerState.positionMs.value
+                val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
+                updateState {
+                    copy(launchData = launchData?.copy(startPositionMs = startPos))
+                }
+                updatePhase(PlayerPhase.Probing(currentLink, currentState.isScrapingLinks, isInitial = false, isRetry = true), currentState.failedLinks)
+                return
+            }
+        }
+
+        AppLogger.e("EmbeddedPlayerViewModel", "Playback error exhausted retries on: $failedUrl")
+        val newFailed = currentState.failedLinks + failedUrl
+        val links = currentState.nextEpisodeLinks.ifEmpty { currentState.launchData?.links ?: emptyList() }
+        val currentPos = playerState.positionMs.value
+        val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
         val next = pickBestActiveLink(links, newFailed, startPos)
         
-        val currentState = uiState.value
         if (next != null) {
-            updatePhase(PlayerPhase.Probing(next, currentState.isScrapingLinks), newFailed)
+            updateState {
+                copy(launchData = launchData?.copy(startPositionMs = startPos))
+            }
+            updatePhase(PlayerPhase.Probing(next, currentState.isScrapingLinks, isInitial = false), newFailed)
         } else if (currentState.isScrapingLinks) {
             // Still scraping, just wait.
             updatePhase(PlayerPhase.Scraping, newFailed)
@@ -242,9 +268,16 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun handleLinkChange(url: String) {
-        val link = uiState.value.launchData?.links?.find { it.url == url }
+        linkRetries.clear()
+        val currentState = uiState.value
+        val link = currentState.launchData?.links?.find { it.url == url }
         if (link != null) {
-            updatePhase(PlayerPhase.Probing(link, uiState.value.isScrapingLinks), emptySet())
+            val currentPos = playerState.positionMs.value
+            val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
+            updateState {
+                copy(launchData = launchData?.copy(startPositionMs = startPos))
+            }
+            updatePhase(PlayerPhase.Probing(link, currentState.isScrapingLinks, isInitial = false), emptySet())
         }
     }
 
@@ -303,6 +336,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun init(initialData: VideoLaunchData) {
+        linkRetries.clear()
         if (uiState.value.launchData == null) {
             val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
             val adjustedData = if (isFinished) {
@@ -383,6 +417,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun loadEpisode(episode: Episode) {
+        linkRetries.clear()
         val currentData = uiState.value.launchData ?: return
 
         countdownJob?.cancel()
@@ -427,6 +462,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun playLoadedEpisode() {
+        linkRetries.clear()
         val currentData = uiState.value.launchData ?: return
         val epData = uiState.value.targetEpisodeData ?: return
         val currentLinks = uiState.value.nextEpisodeLinks
@@ -486,6 +522,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun loadNextEpisode() {
+        linkRetries.clear()
         val episodes = uiState.value.episodes
         val currentData = uiState.value.launchData ?: return
         val currentEpId = currentData.history.episodeId
@@ -525,6 +562,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     private fun loadPrevEpisode() {
+        linkRetries.clear()
         val episodes = uiState.value.episodes
         val currentData = uiState.value.launchData ?: return
         val currentEpId = currentData.history.episodeId

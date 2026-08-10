@@ -29,6 +29,7 @@ object HybridEnrichmentService {
         onScreenshotsLoaded: (List<String>) -> Unit,
         onActorsLoaded: (List<com.lagradost.cloudstream3.ActorData>) -> Unit = {},
         onTrailersLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) -> Unit = {},
+        onReviewsLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData>) -> Unit = {},
         onMetadataLoaded: (
             tagline: String?,
             status: String?,
@@ -51,6 +52,7 @@ object HybridEnrichmentService {
             actors: List<com.lagradost.cloudstream3.ActorData>?,
         ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
+        onEpisodeThumbnailsEnriched: () -> Unit = {},
     ) {
         withContext(Dispatchers.IO) {
             val type = if (loaded.type == com.lagradost.cloudstream3.TvType.Movie) "movie" else "series"
@@ -230,9 +232,14 @@ object HybridEnrichmentService {
                                 }
                                 if (cinemetaEp.released != null) {
                                     val releaseDateIso = cinemetaEp.released.take(10) // Format: "YYYY-MM-DD"
-                                    ep.description = "||DATE:$releaseDateIso||" + (ep.description ?: "")
+                                    val cleanDesc = (ep.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
+                                    ep.description = "||DATE:$releaseDateIso||" + cleanDesc
                                 }
-                                if (ep.posterUrl.isNullOrBlank() && !cinemetaEp.thumbnail.isNullOrBlank()) {
+                                // Cinemeta fills gaps. A blank URL or a known CF-protected
+                                // provider URL (e.g. imgbb.zip) both count as "missing".
+                                val isMissingOrBadUrl = ep.posterUrl.isNullOrBlank() ||
+                                    ep.posterUrl?.contains("imgbb") == true
+                                if (isMissingOrBadUrl && !cinemetaEp.thumbnail.isNullOrBlank()) {
                                     ep.posterUrl = cinemetaEp.thumbnail
                                 }
                                 if (cinemetaEp.imdbRating != null && ep.score == null) {
@@ -244,6 +251,8 @@ object HybridEnrichmentService {
                             }
                         }
                     }
+                    // Signal that ep.posterUrl fields were mutated — triggers Compose recompose
+                    onEpisodeThumbnailsEnriched()
                 }
 
                 // Fire Stage 1 metadata to the UI for instant loading
@@ -300,6 +309,7 @@ object HybridEnrichmentService {
                     onScreenshotsLoaded = onScreenshotsLoaded,
                     onActorsLoaded = onActorsLoaded,
                     onTrailersLoaded = onTrailersLoaded,
+                    onReviewsLoaded = onReviewsLoaded,
                     onMetadataLoaded = { tagline, status, studios, collectionName, collectionBg, seasonsCount, episodesCount, seasons, originalLang, releaseDate, country, collectionItems, budget, revenue, networks, year, duration, tags, actors ->
                         tmdbTagline = tagline
                         tmdbStatus = status
@@ -325,6 +335,9 @@ object HybridEnrichmentService {
                     directTmdbId = directTmdbId,
                     directImdbId = directImdbId,
                     overwrite = false,
+                    onEpisodeThumbnailsEnriched = {
+                        onEpisodeThumbnailsEnriched()
+                    },
                 )
                 AppLogger.i(TAG, "  ✓ Stage2: TMDB done | bg=${loaded.backgroundPosterUrl != null} | logo=${loaded.logoUrl != null}")
             } catch (e: kotlinx.coroutines.CancellationException) {

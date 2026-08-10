@@ -16,6 +16,7 @@ sealed interface EnrichmentUpdate {
     data class ScreenshotsLoaded(val urls: List<String>) : EnrichmentUpdate
     data class ActorsLoaded(val actors: List<com.lagradost.cloudstream3.ActorData>) : EnrichmentUpdate
     data class TrailersLoaded(val trailers: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) : EnrichmentUpdate
+    data class ReviewsLoaded(val reviews: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData>) : EnrichmentUpdate
     data class MetadataLoaded(
         val tagline: String?,
         val status: String?,
@@ -37,6 +38,7 @@ sealed interface EnrichmentUpdate {
         val tags: List<String>?,
         val actors: List<com.lagradost.cloudstream3.ActorData>?,
     ) : EnrichmentUpdate
+    data object EpisodeThumbnailsEnriched : EnrichmentUpdate
     data object FullyEnriched : EnrichmentUpdate
     data class Error(val message: String) : EnrichmentUpdate
 }
@@ -95,7 +97,13 @@ object GetEnrichedDetailsUseCase {
                 onTrailersLoaded = { trailers ->
                     trySend(EnrichmentUpdate.TrailersLoaded(trailers))
                 },
-                onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
+                onReviewsLoaded = { reviews ->
+                    trySend(EnrichmentUpdate.ReviewsLoaded(reviews))
+                },
+                onEpisodeThumbnailsEnriched = {
+                        trySend(EnrichmentUpdate.EpisodeThumbnailsEnriched)
+                    },
+                    onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
                     trySend(
                         EnrichmentUpdate.MetadataLoaded(
                             tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,

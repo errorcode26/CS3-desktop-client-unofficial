@@ -170,10 +170,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
             .sortedByDescending { it.updateTime }
             .distinctBy { it.parentId }
-            .filter {
-                val percentage = if (it.duration > 0) (it.position.toFloat() / it.duration) else 0f
-                percentage < 0.90f
-            }
         updateState { copy(historyList = newHistory) }
         prefetchTopHistory(newHistory.take(3))
     }

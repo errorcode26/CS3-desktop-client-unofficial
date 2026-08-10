@@ -31,6 +31,8 @@ sealed class PlayerPhase {
     data class Probing(
         val link: ExtractorLink,
         val stillScraping: Boolean,
+        val isInitial: Boolean = true,
+        val isRetry: Boolean = false,
     ) : PlayerPhase()
 
     /**

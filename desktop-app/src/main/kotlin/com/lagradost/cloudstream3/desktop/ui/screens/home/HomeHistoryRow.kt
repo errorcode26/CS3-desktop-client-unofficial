@@ -32,66 +32,77 @@ fun HomeHistoryRow(
     onViewAllClick: () -> Unit,
     onItemClick: (MainAPI, WatchHistory) -> Unit,
 ) {
-    if (historyList.isEmpty()) return
-
-    var showClearConfirmDialog by remember { mutableStateOf(false) }
-
-    CloudstreamAlertDialog(
-        show = showClearConfirmDialog,
-        onDismissRequest = { showClearConfirmDialog = false },
-        title = { Text("Clear Watch History?") },
-        text = { Text("This will permanently remove all your watch history. You won't be able to resume anything from here.") },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    showClearConfirmDialog = false
-                    onClearHistory()
-                },
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) { Text("Clear All") }
-        },
-        dismissButton = {
-            TextButton(onClick = { showClearConfirmDialog = false }) { Text("Cancel") }
-        },
-    )
-
-    val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
-    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
-    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
-
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
+    val displayList = remember(historyList) { historyList.ifEmpty { emptyList() } } // We'll hold previous state
+    val lastNonEmptyList = remember { mutableStateOf(historyList) }
+    if (historyList.isNotEmpty()) {
+        lastNonEmptyList.value = historyList
+    }
+    
+    androidx.compose.animation.AnimatedVisibility(
+        visible = historyList.isNotEmpty(),
+        enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
     ) {
-        CategoryRowWithHeader(
-            title = "Continue Watching",
-            itemCount = historyList.size,
-            onViewAll = onViewAllClick,
-            trailingHeaderExtra = {
-                TextButton(onClick = { showClearConfirmDialog = true }) {
-                    Text("Clear History", color = DesktopUi.TextMuted)
-                }
-            },
-        ) {
-            items(historyList.size, key = { index -> historyList[index].parentId }) { index ->
-                val history = historyList[index]
-                val provider = providers.find { it.name == history.apiName }
-                WatchHistoryCard(
-                    modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
-                    history = history,
-                    provider = provider,
-                    onRemove = { onRemoveHistoryItem(history.parentId) },
+        var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+        CloudstreamAlertDialog(
+            show = showClearConfirmDialog,
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text("Clear Watch History?") },
+            text = { Text("This will permanently remove all your watch history. You won't be able to resume anything from here.") },
+            confirmButton = {
+                TextButton(
                     onClick = {
-                        if (provider != null) {
-                            onItemClick(provider, history)
-                        }
+                        showClearConfirmDialog = false
+                        onClearHistory()
                     },
-                    onPlayClick = {
-                        // For watch history, onClick already resumes playback.
-                        if (provider != null) {
-                            onItemClick(provider, history)
-                        }
-                    },
-                )
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Clear All") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) { Text("Cancel") }
+            },
+        )
+
+        val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
+        val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
+        val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
+        ) {
+            val currentList = lastNonEmptyList.value
+            CategoryRowWithHeader(
+                title = "Continue Watching",
+                itemCount = currentList.size,
+                onViewAll = onViewAllClick,
+                trailingHeaderExtra = {
+                    TextButton(onClick = { showClearConfirmDialog = true }) {
+                        Text("Clear History", color = DesktopUi.TextMuted)
+                    }
+                },
+            ) {
+                items(currentList.size, key = { index -> currentList[index].parentId }) { index ->
+                    val history = currentList[index]
+                    val provider = providers.find { it.name == history.apiName }
+                    WatchHistoryCard(
+                        modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
+                        history = history,
+                        provider = provider,
+                        onRemove = { onRemoveHistoryItem(history.parentId) },
+                        onClick = {
+                            if (provider != null) {
+                                onItemClick(provider, history)
+                            }
+                        },
+                        onPlayClick = {
+                            // For watch history, onClick already resumes playback.
+                            if (provider != null) {
+                                onItemClick(provider, history)
+                            }
+                        },
+                    )
+                }
             }
         }
     }

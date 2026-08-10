@@ -16,8 +16,16 @@ fun initSecurity() {
         DesktopErrorReporter.report("Unhandled exception in ${thread.name}", throwable)
     }
 
+    // Conscrypt security provider (BoringSSL - matches Chrome JA3 TLS fingerprint)
+    try {
+        java.security.Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+        AppLogger.i("Registered Conscrypt Security Provider (BoringSSL)")
+    } catch (e: Exception) {
+        AppLogger.e("Failed to register Conscrypt: ${e.message}")
+    }
+
     // BouncyCastle security provider
-    java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 1)
+    java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 2)
     AppLogger.i("Registered BouncyCastle Security Provider")
 
     // Pre-initialize DataStore
