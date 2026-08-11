@@ -20,6 +20,7 @@ fun SettingsUpdates() {
     val coroutineScope = rememberCoroutineScope()
     val latestRelease by AppUpdater.latestRelease.collectAsState()
     var isChecking by remember { mutableStateOf(false) }
+    var showCheckedFeedback by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Card(
@@ -71,7 +72,7 @@ fun SettingsUpdates() {
                     }
                 } else {
                     Text(
-                        text = "You are on the latest version.",
+                        text = if (showCheckedFeedback) "Checked! You are on the latest version." else "You are on the latest version.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -84,9 +85,13 @@ fun SettingsUpdates() {
                 Button(
                     onClick = {
                         isChecking = true
+                        showCheckedFeedback = false
                         coroutineScope.launch {
                             AppUpdater.checkForUpdates(force = true)
                             isChecking = false
+                            if (AppUpdater.latestRelease.value == null) {
+                                showCheckedFeedback = true
+                            }
                         }
                     },
                     enabled = !isChecking,

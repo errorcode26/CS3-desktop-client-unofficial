@@ -22,6 +22,20 @@ import kotlinx.coroutines.delay
 import java.awt.Desktop
 import java.net.URI
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 @Composable
 fun launchPeriodicPluginUpdater() {
     LaunchedEffect(Unit) {
@@ -31,40 +45,146 @@ fun launchPeriodicPluginUpdater() {
         }
     }
 }
-
 @Composable
 fun AppUpdateDialog() {
     val latestRelease by AppUpdater.latestRelease.collectAsState()
     val release = latestRelease ?: return
     var showUpdateDialog by remember { mutableStateOf(true) }
 
-    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+    CloudstreamCustomDialog(
         show = showUpdateDialog,
         onDismissRequest = { showUpdateDialog = false },
-        title = { Text("Update Available: v${release.tag_name.removePrefix("v")}", style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column {
-                Text("A new version of CloudStream Desktop is available!", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(release.body ?: "", style = MaterialTheme.typography.bodySmall, maxLines = 10)
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                try {
-                    Desktop.getDesktop().browse(URI(release.html_url))
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
+        modifier = Modifier.fillMaxWidth(0.5f).fillMaxHeight(0.75f)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 }
-                showUpdateDialog = false
-            }) {
-                Text("Download")
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        "Update Available",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = LocalContentColor.current
+                    )
+                    Text(
+                        "Version v${release.tag_name.removePrefix("v")}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LocalContentColor.current.copy(alpha = 0.7f)
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = { showUpdateDialog = false }) {
-                Text("Ignore")
+            
+            HorizontalDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), color = LocalContentColor.current.copy(alpha = 0.1f))
+            
+            // Body / Changelog
+            val changelogText = release.body ?: "No changelog provided."
+            val lines = changelogText.lines()
+            
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Text(
+                        "What's New",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                items(lines) { line ->
+                    if (line.isBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                    } else if (line.startsWith("#")) {
+                        val headerText = line.trimStart('#').trim()
+                        Text(
+                            text = headerText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = LocalContentColor.current,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        )
+                    } else {
+                        Text(
+                            text = parseBasicMarkdown(line),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LocalContentColor.current.copy(alpha = 0.9f)
+                        )
+                    }
+                }
             }
-        },
-    )
+
+            HorizontalDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), color = LocalContentColor.current.copy(alpha = 0.1f))
+
+            // Footer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { showUpdateDialog = false }) {
+                    Text("Ignore")
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Button(onClick = {
+                    try {
+                        Desktop.getDesktop().browse(URI(release.html_url))
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
+                    }
+                    showUpdateDialog = false
+                }) {
+                    Text("Download Update")
+                }
+            }
+        }
+    }
+}
+
+fun parseBasicMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
+    return buildAnnotatedString {
+        var currentIndex = 0
+        val boldRegex = "\\*\\*(.*?)\\*\\*".toRegex()
+        val matches = boldRegex.findAll(text)
+        
+        for (match in matches) {
+            // Append text before bold
+            append(text.substring(currentIndex, match.range.first))
+            // Append bold text
+            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                append(match.groupValues[1])
+            }
+            currentIndex = match.range.last + 1
+        }
+        // Append remaining text
+        if (currentIndex < text.length) {
+            append(text.substring(currentIndex))
+        }
+    }
 }
