@@ -111,17 +111,16 @@ object PlayerLinkHandler {
                 StreamKind.PROGRESSIVE -> false
             }
 
-            var finalSessionId: String? = null
+            val finalSessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
+            
             val finalUrl = if (useProxy) {
-                val sessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
-                finalSessionId = sessionId
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(sessionId, url)
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(finalSessionId, url)
                 }
                 if (kind == StreamKind.DASH) {
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url, action = "dash", clearKey = clearKeyHex)
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url, action = "dash", clearKey = clearKeyHex)
                 } else {
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, url)
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url)
                 }
             } else {
                 url

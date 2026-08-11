@@ -132,6 +132,8 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
                 fullscreen = true,
                 x = 0, y = 0, width = 0, height = 0
             )
+            // Install PiP-only subclass to block WM_DPICHANGED on monitor drag
+            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setPipSubclass(hwnd, true)
             
             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
             val hwndTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-1L))
@@ -141,6 +143,8 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
                 hWin, hwndTopMost, x, y, w, h_size, 0x0040
             )
         } else {
+            // Remove PiP subclass before restoring fullscreen state
+            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setPipSubclass(hwnd, false)
             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
                 hwnd = hwnd,
                 fullscreen = false,

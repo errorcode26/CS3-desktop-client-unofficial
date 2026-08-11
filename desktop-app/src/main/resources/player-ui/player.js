@@ -2513,6 +2513,23 @@
         });
     }
 
+    const pipRewindBtn = document.getElementById('pipRewindBtn');
+    const pipForwardBtn = document.getElementById('pipForwardBtn');
+    if (pipRewindBtn) {
+        pipRewindBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            doRelativeSeek(-10000);
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        });
+    }
+    if (pipForwardBtn) {
+        pipForwardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            doRelativeSeek(10000);
+            triggerActionFeedback(SVGS.forward10, 'right');
+        });
+    }
+
     // Listen for state updates to sync the play/pause button icon in PiP overlay
     const pipPlayIcon = document.getElementById('pipPlayIcon');
     const pipPauseIcon = document.getElementById('pipPauseIcon');

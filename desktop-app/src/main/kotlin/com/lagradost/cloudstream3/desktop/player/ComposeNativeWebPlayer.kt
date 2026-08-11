@@ -375,7 +375,8 @@ fun ComposeNativeWebPlayer(
                                         if (!persistentSubtitles.contains(safeUrl)) {
                                             persistentSubtitles.add(safeUrl)
                                         }
-                                        MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$safeUrl\"")
+                                        val escapedSub = safeUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$escapedSub\"")
 
                                         val toastJson = playerObjectMapper.writeValueAsString(
                                             mapOf("type" to "show_toast", "message" to "Successfully extracted and loaded subtitle"),

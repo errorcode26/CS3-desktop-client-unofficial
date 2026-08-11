@@ -8,6 +8,7 @@
 #include <fstream>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <unordered_map>
 #include <initguid.h>
@@ -423,6 +424,13 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
         case WM_TIMER: {
+            if (wParam == 0x4E52) {
+                KillTimer(hwnd, 0x4E52);
+                if (g_webviewController && g_webviewReady) {
+                    g_webviewController->put_IsVisible(TRUE);
+                }
+                return 0;
+            }
             if (wParam == 0x4E51) {
                 std::lock_guard<std::mutex> lock(g_mpvMutex);
                 if (g_webviewReady && g_webview && g_mpvHandle) {
@@ -566,7 +574,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
                 return 0;
             }
-            // Relayout timer (500ms).
+            // Relayout timer
             // Re-reads GetClientRect on the host every tick so the container always
             // covers the full physical-pixel host area — fixes white gaps on resize.
             if (g_hostHwnd && g_containerHwnd) {
@@ -574,12 +582,17 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (GetClientRect(g_hostHwnd, &clientRect)) {
                     int w = std::max(1, (int)(clientRect.right  - clientRect.left));
                     int h = std::max(1, (int)(clientRect.bottom - clientRect.top));
-                    SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, w, h,
-                                 SWP_SHOWWINDOW | SWP_NOACTIVATE);
-                    if (g_webviewController) {
-                        RECT bounds = {0, 0, (LONG)w, (LONG)h};
-                        g_webviewController->put_Bounds(bounds);
-                        if (g_webviewReady) g_webviewController->put_IsVisible(TRUE);
+                    
+                    static int lastW = 0, lastH = 0;
+                    if (w != lastW || h != lastH) {
+                        lastW = w;
+                        lastH = h;
+                        SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, w, h,
+                                     SWP_SHOWWINDOW | SWP_NOACTIVATE);
+                        if (g_webviewController) {
+                            RECT bounds = {0, 0, (LONG)w, (LONG)h};
+                            g_webviewController->put_Bounds(bounds);
+                        }
                     }
                 }
             }
@@ -591,27 +604,28 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 WNDPROC g_originalTopLevelWndProc = nullptr;
 LRESULT CALLBACK TopLevelSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (msg == WM_SIZE) {
-        int w = LOWORD(lParam);
-        int h = HIWORD(lParam);
-        if (g_containerHwnd) {
-            SetWindowPos(g_containerHwnd, nullptr, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
-            if (g_webviewController) {
-                RECT bounds = {0, 0, w, h};
-                g_webviewController->put_Bounds(bounds);
-            }
-        }
-    }
-    // Block WM_DPICHANGED so AWT doesn't forcibly maximize the PiP window when dragged to a new monitor
+    // Block WM_DPICHANGED so AWT doesn't forcibly resize the PiP window on monitor change.
+    // Preserve current window dimensions instead of using the OS-suggested rect.
     if (msg == 0x02E0) { // WM_DPICHANGED
-        // We can dynamically update the window size here if we want to scale it based on DPI,
-        // but returning 0 blocks Java AWT from destroying our PiP bounds.
-        RECT* prcNewWindow = (RECT*)lParam;
-        SetWindowPos(hwnd, nullptr, prcNewWindow->left, prcNewWindow->top,
-                     prcNewWindow->right - prcNewWindow->left,
-                     prcNewWindow->bottom - prcNewWindow->top,
+        RECT currentRect;
+        GetWindowRect(hwnd, &currentRect);
+        // Keep the same pixel size, just let the OS reposition if needed
+        RECT* prcSuggested = (RECT*)lParam;
+        SetWindowPos(hwnd, nullptr, prcSuggested->left, prcSuggested->top,
+                     currentRect.right - currentRect.left,
+                     currentRect.bottom - currentRect.top,
                      SWP_NOZORDER | SWP_NOACTIVATE);
         return 0;
+    }
+    if (msg == 0x0231) { // WM_ENTERSIZEMOVE
+        if (g_webviewController && g_webviewReady) {
+            g_webviewController->put_IsVisible(FALSE);
+        }
+    }
+    if (msg == 0x0232) { // WM_EXITSIZEMOVE
+        if (g_webviewController && g_webviewReady) {
+            g_webviewController->put_IsVisible(TRUE);
+        }
     }
     if (g_originalTopLevelWndProc) {
         return CallWindowProc(g_originalTopLevelWndProc, hwnd, msg, wParam, lParam);
@@ -1006,10 +1020,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)s_blackBrush);
 
     if (fullscreen == JNI_TRUE) {
-        if (!g_originalTopLevelWndProc) {
-            g_originalTopLevelWndProc = (WNDPROC)SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)TopLevelSubclassProc);
-        }
-        
         // Only save state if not already stored for this HWND
         {
             std::lock_guard<std::mutex> lock(g_fullscreenMutex);
@@ -1055,11 +1065,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
             SWP_FRAMECHANGED | SWP_NOOWNERZORDER | SWP_NOACTIVATE
         );
     } else {
-        if (g_originalTopLevelWndProc) {
-            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)g_originalTopLevelWndProc);
-            g_originalTopLevelWndProc = nullptr;
-        }
-        
         // Retrieve saved state
         WindowFullscreenState state;
         bool hasState = false;
@@ -1187,7 +1192,16 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         if (g_webviewController) {
             RECT bounds = {0, 0, (LONG)physW, (LONG)physH};
             g_webviewController->put_Bounds(bounds);
-            g_webviewController->put_IsVisible(TRUE);
+            
+            // Hide the webview during rapid resizing to prevent extreme lag
+            if (g_webviewReady) {
+                g_webviewController->put_IsVisible(FALSE);
+            }
+            
+            // Use a 100ms debounce timer to turn the UI back on once resizing stops
+            if (g_messageHwnd) {
+                SetTimer(g_messageHwnd, 0x4E52, 100, nullptr);
+            }
         }
     });
 }
@@ -1319,6 +1333,27 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_shutdownWebView2Warmup(JNIEnv* env, jobject thiz) {
     stopWebView2Warmup();
+}
+
+// setPipSubclass — installs/removes the PiP-only top-level window subclass.
+// Separate from setFullscreen so regular fullscreen doesn't get the PiP hook.
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setPipSubclass(
+    JNIEnv* env, jobject thiz,
+    jlong hwndPtr, jboolean enable)
+{
+    HWND hwnd = (HWND)(intptr_t)hwndPtr;
+    if (!hwnd || !IsWindow(hwnd)) return;
+
+    if (enable == JNI_TRUE) {
+        if (!g_originalTopLevelWndProc) {
+            g_originalTopLevelWndProc = (WNDPROC)SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)TopLevelSubclassProc);
+        }
+    } else {
+        if (g_originalTopLevelWndProc) {
+            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)g_originalTopLevelWndProc);
+            g_originalTopLevelWndProc = nullptr;
+        }
+    }
 }
 
 } // extern "C"

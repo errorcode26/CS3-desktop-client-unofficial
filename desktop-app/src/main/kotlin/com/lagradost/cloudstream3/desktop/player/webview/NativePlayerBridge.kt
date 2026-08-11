@@ -48,6 +48,13 @@ object NativePlayerBridge {
     external fun setFullscreen(hwnd: Long, fullscreen: Boolean, x: Int, y: Int, width: Int, height: Int)
 
     /**
+     * Installs/removes the PiP-only top-level window subclass that blocks
+     * WM_DPICHANGED to prevent AWT from resizing the PiP window on monitor change.
+     */
+    @JvmStatic
+    external fun setPipSubclass(hwnd: Long, enable: Boolean)
+
+    /**
      * Applies DWM window chrome: dark mode title bar and optional caption/border/text colours.
      * No-op on Windows versions that don't support these DWM attributes.
      */
