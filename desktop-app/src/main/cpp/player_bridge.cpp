@@ -589,6 +589,36 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+WNDPROC g_originalTopLevelWndProc = nullptr;
+LRESULT CALLBACK TopLevelSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_SIZE) {
+        int w = LOWORD(lParam);
+        int h = HIWORD(lParam);
+        if (g_containerHwnd) {
+            SetWindowPos(g_containerHwnd, nullptr, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+            if (g_webviewController) {
+                RECT bounds = {0, 0, w, h};
+                g_webviewController->put_Bounds(bounds);
+            }
+        }
+    }
+    // Block WM_DPICHANGED so AWT doesn't forcibly maximize the PiP window when dragged to a new monitor
+    if (msg == 0x02E0) { // WM_DPICHANGED
+        // We can dynamically update the window size here if we want to scale it based on DPI,
+        // but returning 0 blocks Java AWT from destroying our PiP bounds.
+        RECT* prcNewWindow = (RECT*)lParam;
+        SetWindowPos(hwnd, nullptr, prcNewWindow->left, prcNewWindow->top,
+                     prcNewWindow->right - prcNewWindow->left,
+                     prcNewWindow->bottom - prcNewWindow->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        return 0;
+    }
+    if (g_originalTopLevelWndProc) {
+        return CallWindowProc(g_originalTopLevelWndProc, hwnd, msg, wParam, lParam);
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
 WNDPROC g_originalHostWndProc = nullptr;
 LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (msg == WM_ERASEBKGND) {
@@ -603,6 +633,7 @@ LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         FillRect(hdc, &ps.rcPaint, (HBRUSH)GetStockObject(BLACK_BRUSH));
         EndPaint(hwnd, &ps);
         return 0;
+
     }
     if (msg == WM_SIZE) {
         if (g_containerHwnd) {
@@ -975,6 +1006,10 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)s_blackBrush);
 
     if (fullscreen == JNI_TRUE) {
+        if (!g_originalTopLevelWndProc) {
+            g_originalTopLevelWndProc = (WNDPROC)SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)TopLevelSubclassProc);
+        }
+        
         // Only save state if not already stored for this HWND
         {
             std::lock_guard<std::mutex> lock(g_fullscreenMutex);
@@ -1020,6 +1055,11 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
             SWP_FRAMECHANGED | SWP_NOOWNERZORDER | SWP_NOACTIVATE
         );
     } else {
+        if (g_originalTopLevelWndProc) {
+            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)g_originalTopLevelWndProc);
+            g_originalTopLevelWndProc = nullptr;
+        }
+        
         // Retrieve saved state
         WindowFullscreenState state;
         bool hasState = false;

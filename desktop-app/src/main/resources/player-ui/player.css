@@ -1608,3 +1608,19 @@
             transform: translateY(-1px);
         }
 
+/* ── PiP Mode Specifics ───────────────────────────────────────────── */
+body.is-pip #overlay { display: none !important; }
+body.is-pip #videoEndedOverlay { display: none !important; }
+body.is-pip #watchNextPopup { display: none !important; }
+body.is-pip .panel { display: none !important; }
+body.is-pip #subSearchOverlay { display: none !important; }
+
+body.is-pip #pipOverlay { display: block !important; }
+
+body.is-pip {
+    cursor: default !important; /* ensure cursor is always visible in PiP */
+}
+
+#pipOverlay:hover .pip-controls {
+    opacity: 1 !important;
+}

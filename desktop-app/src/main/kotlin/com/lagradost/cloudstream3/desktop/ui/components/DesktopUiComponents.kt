@@ -125,13 +125,26 @@ fun AppDropdownMenu(
     offset: androidx.compose.ui.unit.DpOffset = androidx.compose.ui.unit.DpOffset(0.dp, 0.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier.heightIn(max = 400.dp).widthIn(max = 350.dp),
-        offset = offset,
-        content = content,
+    val appThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.appThemeBackground.collectAsState()
+    val isAmoled = appThemeBackground == "Pure Black"
+
+    val currentColorScheme = MaterialTheme.colorScheme
+    val amoledColorScheme = currentColorScheme.copy(
+        surface = if (isAmoled) Color(0xFF101010) else currentColorScheme.surface
     )
+
+    MaterialTheme(colorScheme = amoledColorScheme) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismissRequest,
+            modifier = modifier
+                .heightIn(max = 400.dp)
+                .widthIn(max = 350.dp)
+                .then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)) else Modifier),
+            offset = offset,
+            content = content,
+        )
+    }
 }
 
 object DesktopUi {

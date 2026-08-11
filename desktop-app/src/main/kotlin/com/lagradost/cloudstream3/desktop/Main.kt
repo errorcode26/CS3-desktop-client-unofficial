@@ -96,6 +96,8 @@ fun main(args: Array<String> = emptyArray()) {
         val isDevOpen by DevStudioState.isOpen.collectAsState()
         val isDevDetached by DevStudioState.isDetachedWindow.collectAsState()
 
+        val isPipMode by com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.collectAsState()
+
         Window(
             onCloseRequest = ::exitApplication,
             title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
@@ -103,13 +105,18 @@ fun main(args: Array<String> = emptyArray()) {
             icon = painterResource("app_icon_small.png"),
             onKeyEvent = fullscreenHelper.onKeyEvent,
         ) {
-            window.minimumSize = java.awt.Dimension(800, 600)
+            LaunchedEffect(isPipMode) {
+                com.lagradost.cloudstream3.desktop.init.setNativePipMode(window, isPipMode)
+            }
+
+            window.minimumSize = if (isPipMode) java.awt.Dimension(200, 150) else java.awt.Dimension(800, 600)
             fullscreenHelper.attachToWindow(window)
             setupWindowBackgroundAndListeners(fullscreenHelper.controller)
 
             CompositionLocalProvider(
                 com.lagradost.cloudstream3.desktop.ui.LocalWindowState provides state,
                 LocalFullscreenController provides fullscreenHelper.controller,
+                com.lagradost.cloudstream3.desktop.ui.LocalComposeWindow provides window,
             ) {
                 var isAppReady by remember { mutableStateOf(false) }
 

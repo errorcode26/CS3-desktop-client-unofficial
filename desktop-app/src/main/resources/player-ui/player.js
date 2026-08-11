@@ -1753,6 +1753,8 @@
     document.getElementById('probingCloseBtn').addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
 
     fullscreenBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleFullscreen'); });
+    const pipBtn = document.getElementById('pipBtn');
+    if (pipBtn) pipBtn.addEventListener('click', e => { e.stopPropagation(); send('togglePip'); });
     backBtn.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     muteBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleMute'); });
     document.getElementById('skipBackwardBtn').addEventListener('click', e => {
@@ -2483,6 +2485,66 @@
         if (e.target === videoEndedOverlay) {
             // Keep it open
         }
+    });
+
+
+    // ── PiP Mode UI Logic ────────────────────────────────────────────────
+    window.setPipUi = (active) => {
+        if (active) {
+            document.body.classList.add('is-pip');
+        } else {
+            document.body.classList.remove('is-pip');
+        }
+    };
+
+    // PiP overlay button listeners
+    const pipPlayPauseBtn = document.getElementById('pipPlayPauseBtn');
+    const pipRestoreBtn = document.getElementById('pipRestoreBtn');
+    if (pipPlayPauseBtn) {
+        pipPlayPauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            send('togglePlay');
+        });
+    }
+    if (pipRestoreBtn) {
+        pipRestoreBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            send('togglePip'); // Restores normal mode
+        });
+    }
+
+    // Listen for state updates to sync the play/pause button icon in PiP overlay
+    const pipPlayIcon = document.getElementById('pipPlayIcon');
+    const pipPauseIcon = document.getElementById('pipPauseIcon');
+    setInterval(() => {
+        if (pipPlayIcon && pipPauseIcon) {
+            if (globalIsPlaying) {
+                pipPlayIcon.style.display = 'none';
+                pipPauseIcon.style.display = 'block';
+            } else {
+                pipPlayIcon.style.display = 'block';
+                pipPauseIcon.style.display = 'none';
+            }
+        }
+    }, 500);
+
+    // ── Window Dragging via IPC ──────────────────────────────────────────
+    const pipOverlay = document.getElementById('pipOverlay');
+    if (pipOverlay) {
+        pipOverlay.addEventListener('mousedown', (e) => {
+            // Do not start drag if clicking on a button or an edge
+            if (e.target.closest('button')) return;
+            if (e.target.closest('.pip-resize-edge')) return;
+            // Tell the backend to natively start dragging the window
+            send('startWindowDrag');
+        });
+    }
+
+    document.querySelectorAll('.pip-resize-edge').forEach(edge => {
+        edge.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            send('startWindowResize', edge.getAttribute('data-edge'));
+        });
     });
 
     // Ready

@@ -13,6 +13,15 @@ interface Kernel32 : com.sun.jna.Library {
     }
 }
 
+interface ExtUser32 : com.sun.jna.Library {
+    fun ReleaseCapture(): Boolean
+    companion object {
+        val INSTANCE: ExtUser32 by lazy {
+            com.sun.jna.Native.load("user32", ExtUser32::class.java) as ExtUser32
+        }
+    }
+}
+
 fun initWindowsEnvironment() {
     if (System.getProperty("os.name").lowercase().contains("win")) {
         try {
@@ -97,5 +106,53 @@ fun setWindowsDarkMode(window: java.awt.Window) {
         )
     } catch (e: Throwable) {
         com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "setWindowsDarkMode failed", e)
+    }
+}
+
+private var prePipBounds: java.awt.Rectangle? = null
+
+fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
+    if (!System.getProperty("os.name").lowercase().contains("win")) return
+    if (!window.isDisplayable) return
+    try {
+        val hwnd = com.sun.jna.Native.getComponentID(window)
+        if (enable) {
+            val bounds = window.graphicsConfiguration.bounds
+            val scaleX = window.graphicsConfiguration.defaultTransform.scaleX
+            val scaleY = window.graphicsConfiguration.defaultTransform.scaleY
+            
+            val w = (400 * scaleX).toInt()
+            val h_size = (225 * scaleY).toInt()
+            val x = bounds.x + bounds.width - w - (20 * scaleX).toInt()
+            val y = bounds.y + bounds.height - h_size - (40 * scaleY).toInt()
+            
+            // Safely strip borders using C++ bridge
+            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
+                hwnd = hwnd,
+                fullscreen = true,
+                x = 0, y = 0, width = 0, height = 0
+            )
+            
+            val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
+            val hwndTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-1L))
+            
+            // SWP_NOZORDER is 0x0004, SWP_SHOWWINDOW is 0x0040
+            com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
+                hWin, hwndTopMost, x, y, w, h_size, 0x0040
+            )
+        } else {
+            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
+                hwnd = hwnd,
+                fullscreen = false,
+                x = 0, y = 0, width = 0, height = 0
+            )
+            val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
+            val hwndNoTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-2L))
+            com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
+                hWin, hwndNoTopMost, 0, 0, 0, 0, 0x0003
+            )
+        }
+    } catch (e: Throwable) {
+        com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "setNativePipMode failed", e)
     }
 }

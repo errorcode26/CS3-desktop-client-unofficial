@@ -52,6 +52,7 @@ fun ComposeNativeWebPlayer(
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    val window = com.lagradost.cloudstream3.desktop.ui.LocalComposeWindow.current
 
     val primaryColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
     val accentColorHex = remember(primaryColor) {
@@ -442,6 +443,46 @@ fun ComposeNativeWebPlayer(
                         }
                         "toggleSubVisibility" -> {
                             MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
+                        }
+                        "togglePip" -> {
+                            com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
+                            val isPip = com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
+                            NativePlayerBridge.executeScript("if(window.setPipUi) window.setPipUi($isPip);")
+                        }
+                        "startWindowDrag" -> {
+                            val hwnd = com.sun.jna.Native.getComponentID(window)
+                            val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
+                            // 0x0112 is WM_SYSCOMMAND, 0xF012 is SC_MOVE | HTCAPTION
+                            com.lagradost.cloudstream3.desktop.init.ExtUser32.INSTANCE.ReleaseCapture()
+                            com.sun.jna.platform.win32.User32.INSTANCE.PostMessage(
+                                hWin, 0x0112, 
+                                com.sun.jna.platform.win32.WinDef.WPARAM(0xF012), 
+                                com.sun.jna.platform.win32.WinDef.LPARAM(0)
+                            )
+                        }
+                        "startWindowResize" -> {
+                            val hwnd = com.sun.jna.Native.getComponentID(window)
+                            val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
+                            com.lagradost.cloudstream3.desktop.init.ExtUser32.INSTANCE.ReleaseCapture()
+                            
+                            val hitTest = when (eventValue) {
+                                "left" -> 1 // WMSZ_LEFT
+                                "right" -> 2 // WMSZ_RIGHT
+                                "top" -> 3 // WMSZ_TOP
+                                "top-left" -> 4 // WMSZ_TOPLEFT
+                                "top-right" -> 5 // WMSZ_TOPRIGHT
+                                "bottom" -> 6 // WMSZ_BOTTOM
+                                "bottom-left" -> 7 // WMSZ_BOTTOMLEFT
+                                "bottom-right" -> 8 // WMSZ_BOTTOMRIGHT
+                                else -> 8
+                            }
+                            
+                            // SC_SIZE is 0xF000.
+                            com.sun.jna.platform.win32.User32.INSTANCE.PostMessage(
+                                hWin, 0x0112, 
+                                com.sun.jna.platform.win32.WinDef.WPARAM((0xF000 + hitTest).toLong()), 
+                                com.sun.jna.platform.win32.WinDef.LPARAM(0)
+                            )
                         }
                         "toggleFullscreen" -> {
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
