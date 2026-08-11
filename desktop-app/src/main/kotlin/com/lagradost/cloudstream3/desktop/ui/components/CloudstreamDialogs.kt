@@ -87,7 +87,7 @@ fun CloudstreamAlertDialog(
             ) {
                 AlertDialog(
                     onDismissRequest = onDismissRequest,
-                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+                    containerColor = if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface,
                     modifier = modifier.then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                     title = title,
                     text = text,
@@ -142,7 +142,7 @@ fun CloudstreamCustomDialog(
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+                    color = if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface,
                     modifier = modifier.then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                 ) {
                     content()

@@ -510,7 +510,7 @@
             display: flex; z-index: 5; pointer-events: auto;
         }
         .click-zone {
-            flex: 1; height: 100%; cursor: pointer;
+            flex: 1; height: 100%;
             -webkit-tap-highlight-color: transparent;
         }
         /* ── Action Feedback ─────────────────────────────────────────────── */

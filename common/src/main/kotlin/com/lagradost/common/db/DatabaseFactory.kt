@@ -22,6 +22,12 @@ object DatabaseFactory {
         }
 
         try {
+            driver.execute(null, "ALTER TABLE Bookmarks ADD COLUMN dateAdded INTEGER DEFAULT 0;", 0)
+        } catch (e: Exception) {
+            // Column already exists or other error, safe to ignore for migrations
+        }
+
+        try {
             driver.execute(null, "ALTER TABLE WatchHistory ADD COLUMN episodeThumbnailUrl TEXT;", 0)
         } catch (e: Exception) {
             // Column already exists or other error, safe to ignore for migrations

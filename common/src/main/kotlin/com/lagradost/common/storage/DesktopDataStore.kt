@@ -27,6 +27,7 @@ data class DesktopBookmark(
     val apiName: String,
     val posterUrl: String?,
     val watchType: Int = 0,
+    val dateAdded: Long = System.currentTimeMillis(),
 )
 
 data class WatchHistory(
@@ -79,7 +80,7 @@ object DesktopDataStore {
                                 try {
                                     val bookmarks: List<DesktopBookmark> = mapper.readValue(jsonStr, object : TypeReference<List<DesktopBookmark>>() {})
                                     bookmarks.forEach { b ->
-                                        db.cloudstreamDBQueries.insertBookmark(b.id, b.name, b.url, b.apiName, b.posterUrl, b.watchType.toLong())
+                                        db.cloudstreamDBQueries.insertBookmark(b.id, b.name, b.url, b.apiName, b.posterUrl, b.watchType.toLong(), b.dateAdded)
                                     }
                                 } catch (e: Exception) {
                                     AppLogger.e("Failed to migrate bookmarks", e)
@@ -168,7 +169,7 @@ object DesktopDataStore {
 
     fun getBookmarks(): List<DesktopBookmark> {
         return DatabaseFactory.database.cloudstreamDBQueries.selectAllBookmarks().executeAsList().map {
-            DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0)
+            DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0, it.dateAdded ?: 0L)
         }
     }
 
@@ -180,6 +181,7 @@ object DesktopDataStore {
             bookmark.apiName,
             bookmark.posterUrl,
             bookmark.watchType.toLong(),
+            bookmark.dateAdded,
         )
     }
 
@@ -282,7 +284,7 @@ object DesktopDataStore {
             season = history.season?.toLong(),
             position = normalizedPosition,
             duration = normalizedDuration,
-            updateTime = System.currentTimeMillis(),
+            updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
         )
         notifyHistoryChanged(force = forceNotify)
     }
@@ -311,7 +313,7 @@ object DesktopDataStore {
                     season = history.season?.toLong(),
                     position = normalizedPosition,
                     duration = normalizedDuration,
-                    updateTime = System.currentTimeMillis(),
+                    updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
                 )
             }
         }

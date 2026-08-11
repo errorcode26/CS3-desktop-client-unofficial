@@ -5,7 +5,8 @@ enum class LogLevel(val priority: Int, val shortLabel: String) {
     DEBUG(3, "D"),
     INFO(4, "I"),
     WARN(5, "W"),
-    ERROR(6, "E");
+    ERROR(6, "E"),
+    ;
 
     fun isAtLeast(minLevel: LogLevel): Boolean = this.priority >= minLevel.priority
 }

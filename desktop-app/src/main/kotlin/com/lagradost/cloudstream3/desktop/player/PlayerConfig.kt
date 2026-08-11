@@ -5,6 +5,12 @@ import com.sun.jna.Pointer
 
 object PlayerConfig {
     const val PREF_HWDEC = "player_hwdec"
+    const val PREF_AUDIO_NORMALIZATION = "player_audio_normalization"
+    const val PREF_AUDIO_NORM_STRENGTH = "player_audio_norm_strength"
+    const val PREF_AUDIO_VOLUME_MAX = "player_audio_volume_max"
+    const val PREF_AUDIO_SPATIAL = "player_audio_spatial"
+    const val PREF_AUDIO_EQ_PRESET = "player_audio_eq_preset"
+    const val PREF_AUDIO_DELAY = "player_audio_delay"
     const val PREF_SUB_SIZE = "player_sub_size"
     const val PREF_SUB_COLOR = "player_sub_color"
     const val PREF_SUB_BG = "player_sub_bg"

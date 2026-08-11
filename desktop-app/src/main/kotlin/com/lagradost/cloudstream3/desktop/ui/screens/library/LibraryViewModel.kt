@@ -8,6 +8,8 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiE
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
+import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import kotlinx.coroutines.launch
 
@@ -19,11 +21,13 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
             BookmarksRepository.bookmarksFlow.collect { bookmarksMap ->
                 val allList = bookmarksMap.values.toList()
                 updateState {
-                    val currentTab = selectedTab
+                    val availableProvs = allList.map { it.apiName }.distinct().sorted()
+                    val newSelectedProv = if (selectedProvider in availableProvs) selectedProvider else null
                     copy(
                         bookmarks = allList,
-                        filteredBookmarks = allList.filter { it.watchType == currentTab.id },
-                    )
+                        availableProviders = availableProvs,
+                        selectedProvider = newSelectedProv,
+                    ).applyFilters()
                 }
             }
         }
@@ -40,15 +44,36 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
             is LibraryUiEvent.OnBookmarkClick -> handleBookmarkClick(event.apiName, event.url)
             is LibraryUiEvent.OnDeleteBookmark -> deleteBookmark(event.bookmarkId)
             is LibraryUiEvent.OnDismissError -> dismissError()
+            is LibraryUiEvent.OnSearchQueryChange -> updateState { copy(searchQuery = event.query).applyFilters() }
+            is LibraryUiEvent.OnSortOptionChange -> updateState { copy(sortOption = event.sortOption).applyFilters() }
+            is LibraryUiEvent.OnProviderFilterChange -> updateState { copy(selectedProvider = event.provider).applyFilters() }
         }
+    }
+
+    private fun LibraryUiState.applyFilters(): LibraryUiState {
+        var result = bookmarks.filter { it.watchType == selectedTab.id }
+        
+        if (selectedProvider != null) {
+            result = result.filter { it.apiName == selectedProvider }
+        }
+        
+        if (searchQuery.isNotBlank()) {
+            result = result.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+        
+        result = when (sortOption) {
+            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
+            SortOption.DATE_ADDED_ASC -> result.sortedBy { it.dateAdded }
+            SortOption.ALPHA_ASC -> result.sortedBy { it.name.lowercase() }
+            SortOption.ALPHA_DESC -> result.sortedByDescending { it.name.lowercase() }
+        }
+        
+        return copy(filteredBookmarks = result)
     }
 
     private fun selectTab(tab: DesktopWatchType) {
         updateState {
-            copy(
-                selectedTab = tab,
-                filteredBookmarks = bookmarks.filter { it.watchType == tab.id },
-            )
+            copy(selectedTab = tab).applyFilters()
         }
     }
 

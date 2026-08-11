@@ -270,6 +270,15 @@ fun ComposeNativeWebPlayer(
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "wid", childHwnd.toString())
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "vo", "gpu")
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "gpu-api", "d3d11")
+
+            val delaySec = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY) ?: 0f
+            MpvLibrary.INSTANCE.mpv_set_option_string(handle, "audio-delay", delaySec.toString())
+
+            kotlinx.coroutines.runBlocking { updateAudioFilters(handle) }
+            val audioMax = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX) ?: false
+            if (audioMax) {
+                MpvLibrary.INSTANCE.mpv_set_option_string(handle, "volume-max", "200")
+            }
         },
         onPostInitialize = { handle ->
             val webView2DataDir = File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
@@ -608,6 +617,46 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
+                        "setAudioNormalization" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION, enabled)
+                                updateAudioFilters(h)
+                            }
+                        }
+                        "setAudioNormStrength" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH, eventValue)
+                                updateAudioFilters(h)
+                            }
+                        }
+                        "setAudioSpatial" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL, enabled)
+                                updateAudioFilters(h)
+                            }
+                        }
+                        "setAudioEqPreset" -> {
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET, eventValue)
+                                updateAudioFilters(h)
+                            }
+                        }
+                        "setAudioVolumeMax" -> {
+                            val enabled = eventValue.toBoolean()
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX, enabled)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "volume-max", if (enabled) "200" else "100")
+                            }
+                        }
+                        "setAudioDelay" -> {
+                            val delaySec = eventValue.toFloatOrNull() ?: 0f
+                            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY, delaySec)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "audio-delay", delaySec.toString())
+                            }
+                        }
                         "toggleAutoPlay" -> {
                             val enabled = eventValue.toBoolean()
                             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -690,4 +739,34 @@ fun ComposeNativeWebPlayer(
             )
         },
     )
+}
+
+private suspend fun updateAudioFilters(h: com.sun.jna.Pointer?) {
+    if (h == null) return
+    val filters = mutableListOf<String>()
+
+    val audioNorm = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
+    if (audioNorm) {
+        val strength = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH) ?: "Medium"
+        val params = when (strength) {
+            "Low" -> "f=500:g=31:p=0.9:m=5"
+            "Aggressive" -> "f=150:g=15:p=0.5:m=30" // Heavy compression for action scenes
+            else -> "f=250:g=31:p=0.8:m=10" // Medium
+        }
+        filters.add("lavfi=[dynaudnorm=$params]")
+    }
+
+    val spatialAudio = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL) ?: false
+    if (spatialAudio) {
+        filters.add("lavfi=[extrastereo=m=2.5]")
+    }
+
+    val eqPreset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET) ?: "Flat"
+    when (eqPreset) {
+        "Bass Boost" -> filters.add("lavfi=[bass=g=10:f=100]")
+        "Vocal Boost" -> filters.add("lavfi=[equalizer=f=1000:w=500:g=7]")
+        "Cinematic" -> filters.add("lavfi=[bass=g=5:f=80,treble=g=5:f=10000]")
+    }
+
+    com.lagradost.cloudstream3.desktop.player.MpvLibrary.INSTANCE.mpv_set_property_string(h, "af", filters.joinToString(","))
 }

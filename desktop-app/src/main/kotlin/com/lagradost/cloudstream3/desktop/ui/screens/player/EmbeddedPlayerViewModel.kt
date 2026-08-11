@@ -36,7 +36,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private var countdownJob: Job? = null
 
     private val linkRetries = mutableMapOf<String, Int>()
-    private val MAX_RETRIES = 2
+    companion object {
+        private const val MAX_RETRIES = 2
+    }
 
     init {
         PlayerDiagnosticsHolder.register(playerState)

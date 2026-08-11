@@ -74,9 +74,9 @@ object LogBuffer {
             if (!pluginFilter.isNullOrBlank() && entry.pluginName != pluginFilter) return@filter false
             if (!cleanQuery.isNullOrBlank()) {
                 val matches = entry.tag.lowercase().contains(cleanQuery) ||
-                        entry.message.lowercase().contains(cleanQuery) ||
-                        entry.threadName.lowercase().contains(cleanQuery) ||
-                        (entry.throwable?.message?.lowercase()?.contains(cleanQuery) == true)
+                    entry.message.lowercase().contains(cleanQuery) ||
+                    entry.threadName.lowercase().contains(cleanQuery) ||
+                    (entry.throwable?.message?.lowercase()?.contains(cleanQuery) == true)
                 if (!matches) return@filter false
             }
             true

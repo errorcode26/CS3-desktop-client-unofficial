@@ -60,7 +60,8 @@ object PlayerLinkHandler {
             if (url.isBlank()) {
                 return Result.failure(IllegalArgumentException("Stream URL is empty."))
             }
-            if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
+            val isLocalPath = url.startsWith("file://", ignoreCase = true) || (url.length >= 2 && url[1] == ':') || url.startsWith("/")
+            if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true) && !isLocalPath) {
                 return Result.failure(IllegalArgumentException("Unsupported stream URL scheme: ${url.take(12)}..."))
             }
 

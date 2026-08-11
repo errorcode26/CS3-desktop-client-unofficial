@@ -342,13 +342,6 @@
         showControls(e);
     });
     
-    // Double click to toggle fullscreen
-    document.addEventListener('dblclick', e => {
-        // Ignore if clicking on interactive UI elements like buttons or bars
-        if (e.target.closest('.top-bar, .bottom-bar, .panel, .probing-btn, .modal, #linkProbingList')) return;
-        send('toggleFullscreen');
-    });
-    
     document.addEventListener('keydown', showControls);
 
     // Panel Management
@@ -1703,8 +1696,7 @@
                 doRelativeSeek(10000);
                 triggerActionFeedback(SVGS.forward10, 'right');
             } else if (zoneName === 'center') {
-                send('togglePlay');
-                triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
+                send('toggleFullscreen');
             }
         }
     };
@@ -2184,6 +2176,7 @@
             case 'Space': case 'KeyK':
                 e.preventDefault();
                 send('togglePlay');
+                triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
                 break;
             case 'KeyF':
                 send('toggleFullscreen');
@@ -2197,13 +2190,13 @@
             case 'ArrowLeft':
                 e.preventDefault();
                 if (e.shiftKey) { doRelativeSeek(-2000); showHudToast('Seek -2s'); }
-                else { doRelativeSeek(-10000); showHudToast('Seek -10s'); }
+                else { doRelativeSeek(-10000); triggerActionFeedback(SVGS.rewind10, 'left'); }
                 break;
             case 'ArrowRight':
                 e.preventDefault();
                 if (e.ctrlKey) { doRelativeSeek(85000); showHudToast('Skipped Intro (+85s)'); }
                 else if (e.shiftKey) { doRelativeSeek(2000); showHudToast('Seek +2s'); }
-                else { doRelativeSeek(10000); showHudToast('Seek +10s'); }
+                else { doRelativeSeek(10000); triggerActionFeedback(SVGS.forward10, 'right'); }
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -2305,6 +2298,87 @@
                 btnToggleAutoPlay.innerText = 'Off';
             }
             send('toggleAutoPlay', String(window.autoPlayEnabled));
+        });
+    }
+
+    const btnToggleAudioNorm = document.getElementById('btnToggleAudioNorm');
+    if (btnToggleAudioNorm) {
+        let isAudioNormOn = false;
+        btnToggleAudioNorm.addEventListener('click', () => {
+            isAudioNormOn = !isAudioNormOn;
+            if (isAudioNormOn) {
+                btnToggleAudioNorm.classList.add('active');
+                btnToggleAudioNorm.innerText = 'On';
+            } else {
+                btnToggleAudioNorm.classList.remove('active');
+                btnToggleAudioNorm.innerText = 'Off';
+            }
+            send('setAudioNormalization', String(isAudioNormOn));
+        });
+    }
+
+    const audioNormChips = document.querySelectorAll('#audioNormChips .chip');
+    audioNormChips.forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioNormChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            send('setAudioNormStrength', chip.getAttribute('data-val'));
+        });
+    });
+
+    const audioEqChips = document.querySelectorAll('#audioEqChips .chip');
+    audioEqChips.forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioEqChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            send('setAudioEqPreset', chip.getAttribute('data-val'));
+        });
+    });
+
+    const btnToggleAudioSpatial = document.getElementById('btnToggleAudioSpatial');
+    if (btnToggleAudioSpatial) {
+        let isAudioSpatialOn = false;
+        btnToggleAudioSpatial.addEventListener('click', () => {
+            isAudioSpatialOn = !isAudioSpatialOn;
+            if (isAudioSpatialOn) {
+                btnToggleAudioSpatial.classList.add('active');
+                btnToggleAudioSpatial.innerText = 'On';
+            } else {
+                btnToggleAudioSpatial.classList.remove('active');
+                btnToggleAudioSpatial.innerText = 'Off';
+            }
+            send('setAudioSpatial', String(isAudioSpatialOn));
+        });
+    }
+
+    const audioDelaySlider = document.getElementById('audioDelaySlider');
+    const audioDelayVal = document.getElementById('audioDelayVal');
+    if (audioDelaySlider && audioDelayVal) {
+        audioDelaySlider.addEventListener('input', (e) => {
+            e.stopPropagation();
+            const val = parseFloat(audioDelaySlider.value).toFixed(2);
+            audioDelayVal.innerText = val + 's';
+        });
+        audioDelaySlider.addEventListener('change', (e) => {
+            e.stopPropagation();
+            send('setAudioDelay', audioDelaySlider.value);
+        });
+    }
+    const btnToggleVolumeMax = document.getElementById('btnToggleVolumeMax');
+    if (btnToggleVolumeMax) {
+        let isVolumeMaxOn = false;
+        btnToggleVolumeMax.addEventListener('click', () => {
+            isVolumeMaxOn = !isVolumeMaxOn;
+            if (isVolumeMaxOn) {
+                btnToggleVolumeMax.classList.add('active');
+                btnToggleVolumeMax.innerText = 'On';
+            } else {
+                btnToggleVolumeMax.classList.remove('active');
+                btnToggleVolumeMax.innerText = 'Off';
+            }
+            send('setAudioVolumeMax', String(isVolumeMaxOn));
         });
     }
 

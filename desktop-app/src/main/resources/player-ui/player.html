@@ -452,6 +452,7 @@
         </div>
         <div class="settings-tab-header">
             <button class="settings-tab-btn active" data-tab-target="set-video">Video</button>
+            <button class="settings-tab-btn" data-tab-target="set-audio">Audio</button>
             <button class="settings-tab-btn" data-tab-target="set-shaders">Shaders</button>
         </div>
     </div>
@@ -484,6 +485,49 @@
         </div>
 
 
+
+        <!-- Tab 2: Audio -->
+        <div class="settings-tab-content" id="set-audio">
+            <div class="settings-section" style="border-bottom: none;">
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Volume Normalization</span>
+                    <button class="chip" id="btnToggleAudioNorm" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; margin-top: 4px;">Boosts dialogue and compresses loud explosions</div>
+                
+                <div class="settings-label" style="margin-top: 12px;">Normalization Strength</div>
+                <div class="chip-row" id="audioNormChips">
+                    <div class="chip" data-val="Low">Low</div>
+                    <div class="chip active" data-val="Medium">Medium</div>
+                    <div class="chip" data-val="Aggressive">Aggressive</div>
+                </div>
+                <div class="settings-label" style="margin-top: 16px;">Equalizer Profile</div>
+                <div class="chip-row" id="audioEqChips">
+                    <div class="chip active" data-val="Flat">Flat</div>
+                    <div class="chip" data-val="Bass Boost">Bass</div>
+                    <div class="chip" data-val="Vocal Boost">Vocal</div>
+                    <div class="chip" data-val="Cinematic">Cinema</div>
+                </div>
+
+                <div class="style-row" style="margin-top: 20px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Spatial Audio</span>
+                    <button class="chip" id="btnToggleAudioSpatial" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px; margin-top: 4px;">Immersive 3D surround sound</div>
+
+                <div class="style-row" style="margin-top: 16px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Audio Sync (Delay)</span>
+                    <span id="audioDelayVal" style="font-size: 12px; font-weight: bold;">0.00s</span>
+                </div>
+                <input type="range" id="audioDelaySlider" class="slider" min="-1" max="1" step="0.05" value="0" style="width: 100%; margin-top: 8px;">
+
+                <div class="style-row" style="margin-top: 20px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Volume Overdrive</span>
+                    <button class="chip" id="btnToggleVolumeMax" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px; margin-top: 4px;">Increase maximum volume limit to 200%</div>
+            </div>
+        </div>
 
         <!-- Tab 3: Shaders -->
         <div class="settings-tab-content" id="set-shaders">

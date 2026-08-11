@@ -163,8 +163,9 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     private fun updateHistory() {
         val newHistory = DesktopDataStore.getAllWatchHistory()
             .filter {
-                // Either it's a partially watched episode
-                (it.duration >= 30L && (it.position * 100 / it.duration) > 1L) ||
+                val isCompleted = com.lagradost.player.impl.PlayerLinkHandler.isCompleted(it.position, it.duration)
+                // Either it's a partially watched episode (not completed)
+                (!isCompleted && it.duration >= 30L && (it.position * 100 / it.duration) > 1L) ||
                     // OR it's a queued "Next Episode" (position = 0, duration = 0)
                     (it.duration == 0L && it.position == 0L)
             }

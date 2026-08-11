@@ -18,12 +18,13 @@ subprojects {
         configure<com.diffplug.gradle.spotless.SpotlessExtension> {
             kotlin {
                 target("**/*.kt")
-                targetExclude("build/**/*.kt")
+                targetExclude("build/**/*.kt", "**/bin/**/*.kt", "bin/**/*.kt")
                 ktlint().editorConfigOverride(mapOf(
                     "ktlint_standard_filename" to "disabled",
                     "ktlint_standard_value-parameter-comment" to "disabled",
                     "max_line_length" to "off",
                     "ktlint_standard_max-line-length" to "disabled",
+                    "ktlint_standard_property-naming" to "disabled",
                     "ktlint_standard_no-wildcard-imports" to "disabled",
                     "ktlint_standard_function-naming" to "disabled",
                     "ktlint_standard_value-argument-comment" to "disabled"

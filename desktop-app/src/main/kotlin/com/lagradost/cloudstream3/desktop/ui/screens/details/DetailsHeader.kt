@@ -491,7 +491,7 @@ fun DetailsMetadata(
                                         onClick = {
                                             val newBookmark = DesktopBookmark(
                                                 id = bookmarkId,
-                                                name = data.name,
+                                                name = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: "",
                                                 url = data.url,
                                                 apiName = provider.name,
                                                 posterUrl = data.posterUrl,

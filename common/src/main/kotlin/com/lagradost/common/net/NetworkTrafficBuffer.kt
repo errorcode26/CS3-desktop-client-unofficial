@@ -67,13 +67,15 @@ object NetworkTrafficBuffer {
         error: String? = null,
     ) {
         val original = activeRequests.remove(id)
-        val updated = (original ?: NetworkRequestEntry(
-            id = id,
-            method = "GET",
-            url = "",
-            host = "",
-            path = "",
-        )).copy(
+        val updated = (
+            original ?: NetworkRequestEntry(
+                id = id,
+                method = "GET",
+                url = "",
+                host = "",
+                path = "",
+            )
+            ).copy(
             statusCode = statusCode,
             statusMessage = statusMessage,
             durationMs = durationMs,
@@ -127,11 +129,11 @@ object NetworkTrafficBuffer {
             if (!methodFilter.isNullOrBlank() && !entry.method.equals(methodFilter, ignoreCase = true)) return@filter false
             if (!cleanQuery.isNullOrBlank()) {
                 val matches = entry.url.lowercase().contains(cleanQuery) ||
-                        entry.host.lowercase().contains(cleanQuery) ||
-                        entry.path.lowercase().contains(cleanQuery) ||
-                        entry.statusCode.toString().contains(cleanQuery) ||
-                        entry.method.lowercase().contains(cleanQuery) ||
-                        (entry.error?.lowercase()?.contains(cleanQuery) == true)
+                    entry.host.lowercase().contains(cleanQuery) ||
+                    entry.path.lowercase().contains(cleanQuery) ||
+                    entry.statusCode.toString().contains(cleanQuery) ||
+                    entry.method.lowercase().contains(cleanQuery) ||
+                    (entry.error?.lowercase()?.contains(cleanQuery) == true)
                 if (!matches) return@filter false
             }
             true
