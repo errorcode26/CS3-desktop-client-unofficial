@@ -3,6 +3,12 @@ package com.lagradost.runtime.loader
 class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean = false) : ClassLoader(parent) {
     private val ghostCache = java.util.concurrent.ConcurrentHashMap<String, Class<*>>()
 
+    companion object {
+        init {
+            registerAsParallelCapable()
+        }
+    }
+
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
         // Enforce Default Deny (Whitelist-Only) security policy
         val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
@@ -24,7 +30,9 @@ class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean 
         }
     }
 
-    private fun generateGhostStub(name: String): Class<*> {
+    private fun generateGhostStub(name: String): Class<*> = synchronized(getClassLoadingLock(name)) {
+        val loaded = findLoadedClass(name)
+        if (loaded != null) return loaded
         ghostCache[name]?.let { return it }
 
         println("[GhostStub] Dynamically generated stub for missing Android API: $name")
@@ -100,7 +108,15 @@ class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean 
         cw.visitEnd()
 
         val bytecode = cw.toByteArray()
-        val clazz = defineClass(name, bytecode, 0, bytecode.size)
+        val clazz = try {
+            defineClass(name, bytecode, 0, bytecode.size)
+        } catch (e: LinkageError) {
+            findLoadedClass(name) ?: ghostCache[name] ?: try {
+                Class.forName(name, false, this)
+            } catch (_: Throwable) {
+                throw e
+            }
+        }
         ghostCache[name] = clazz
         return clazz
     }

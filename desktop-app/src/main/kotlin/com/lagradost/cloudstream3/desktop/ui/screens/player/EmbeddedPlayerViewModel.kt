@@ -50,23 +50,73 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         viewModelScope.launch(Dispatchers.IO) {
             var lastSavedPositionSec = 0L
+
             playerState.positionMs.collect { posMs ->
                 val currentPosSec = posMs / 1000L
+                val durSec = playerState.durationMs.value / 1000L
+                val isPaused = playerState.isPaused.value
+                val currentData = uiState.value.launchData
+
                 if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
                     lastSavedPositionSec = currentPosSec
-                    val currentData = uiState.value.launchData ?: return@collect
-                    val updatedHistory = currentData.history.copy(
-                        position = currentPosSec,
-                        duration = playerState.durationMs.value / 1000L,
-                        updateTime = System.currentTimeMillis()
-                    )
-                    savePosition(updatedHistory)
+                    if (currentData != null) {
+                        val updatedHistory = currentData.history.copy(
+                            position = currentPosSec,
+                            duration = durSec,
+                            updateTime = System.currentTimeMillis()
+                        )
+                        savePosition(updatedHistory)
+                    }
                 }
+
+                if (currentData != null) {
+                    val title = currentData.title ?: currentData.history.showName ?: "Media"
+                    val season = currentData.history.season
+                    val episode = currentData.history.episode
+                    val episodeInfo = when {
+                        season != null && episode != null -> "S${season} • E${episode}"
+                        episode != null -> "Episode $episode"
+                        else -> null
+                    }
+                    com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
+                        title = title,
+                        episodeInfo = episodeInfo,
+                        positionSeconds = currentPosSec,
+                        durationSeconds = durSec,
+                        isPaused = isPaused,
+                        posterUrl = currentData.history.posterUrl,
+                    )
+                }
+            }
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            playerState.isPaused.collect { isPaused ->
+                val currentData = uiState.value.launchData ?: return@collect
+                val currentPosSec = playerState.positionMs.value / 1000L
+                val durSec = playerState.durationMs.value / 1000L
+                val title = currentData.title ?: currentData.history.showName ?: "Media"
+                val season = currentData.history.season
+                val episode = currentData.history.episode
+                val episodeInfo = when {
+                    season != null && episode != null -> "S${season} • E${episode}"
+                    episode != null -> "Episode $episode"
+                    else -> null
+                }
+                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
+                    title = title,
+                    episodeInfo = episodeInfo,
+                    positionSeconds = currentPosSec,
+                    durationSeconds = durSec,
+                    isPaused = isPaused,
+                    posterUrl = currentData.history.posterUrl,
+                )
             }
         }
     }
 
     override fun dispose() {
+        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onPlayerStopped()
         PlayerDiagnosticsHolder.unregister(playerState)
         val currentData = uiState.value.launchData
         val currentDurSec = playerState.durationMs.value / 1000L

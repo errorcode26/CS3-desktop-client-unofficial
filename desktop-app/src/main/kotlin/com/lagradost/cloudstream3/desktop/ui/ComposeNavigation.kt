@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -164,8 +165,23 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Library -> "Library"
                             is RootComponent.Child.Settings -> "Settings"
                             is RootComponent.Child.CategoryGrid -> activeInstance.component.title
-                            is RootComponent.Child.Details -> null
+                            is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
                         }
+
+                        LaunchedEffect(activeInstance, currentVideo) {
+                            if (currentVideo == null && title != null) {
+                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
+                            }
+                        }
+                        
+                        val fullscreenController = LocalFullscreenController.current
+                        val isFullscreen = fullscreenController?.isFullscreen == true
+                        LaunchedEffect(isFullscreen, currentVideo) {
+                            if (currentVideo != null) {
+                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateFullscreen(isFullscreen)
+                            }
+                        }
+                        
                         val applySafePadding = when (activeInstance) {
                             is RootComponent.Child.Details -> false // Details manually pads itself
                             is RootComponent.Child.Home -> false // Home needs full-bleed for Hero

@@ -143,6 +143,109 @@ fun SettingsAccounts() {
                 }
             }
         }
+
+        SettingsGroupCard(title = "Discord Rich Presence") {
+            var discordRpcEnabled by remember {
+                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_ENABLED) ?: false)
+            }
+            var showTitle by remember {
+                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_TITLE) ?: true)
+            }
+            var showProgress by remember {
+                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_PROGRESS) ?: true)
+            }
+            var showBrowsing by remember {
+                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_BROWSING) ?: true)
+            }
+            var customAppId by remember {
+                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_CUSTOM_APP_ID) ?: "")
+            }
+
+            SettingsToggleItem(
+                label = "Enable Discord Rich Presence",
+                subtitle = "Display your current playback and browsing status on your Discord profile.",
+                checked = discordRpcEnabled,
+                onCheckedChange = { enabled ->
+                    discordRpcEnabled = enabled
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_ENABLED, enabled)
+                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
+                    }
+                },
+            )
+
+            if (discordRpcEnabled) {
+                SettingsToggleItem(
+                    label = "Show Media & Episode Titles",
+                    subtitle = "Display the specific movie, series name, and episode number.",
+                    checked = showTitle,
+                    onCheckedChange = { show ->
+                        showTitle = show
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_TITLE, show)
+                            com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
+                        }
+                    },
+                )
+
+                SettingsToggleItem(
+                    label = "Show Playback Progress Bar",
+                    subtitle = "Display a live countdown progress bar on Discord while playing video.",
+                    checked = showProgress,
+                    onCheckedChange = { show ->
+                        showProgress = show
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_PROGRESS, show)
+                            com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
+                        }
+                    },
+                )
+
+                SettingsToggleItem(
+                    label = "Show Browsing Activity",
+                    subtitle = "Display when browsing menus and catalogs when video is not playing.",
+                    checked = showBrowsing,
+                    onCheckedChange = { show ->
+                        showBrowsing = show
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_BROWSING, show)
+                            com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
+                        }
+                    },
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Custom Discord Application ID",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Optional. Set your own Discord Developer App ID to customize the displayed application title.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = customAppId,
+                        onValueChange = { newId ->
+                            customAppId = newId
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(
+                                    com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_CUSTOM_APP_ID,
+                                    newId.trim().ifEmpty { null },
+                                )
+                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
+                            }
+                        },
+                        placeholder = { Text(com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.DEFAULT_CLIENT_ID) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+            }
+        }
     }
 
     if (selectedApiForLogin != null) {

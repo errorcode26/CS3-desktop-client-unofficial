@@ -26,14 +26,33 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassLoader(urls, parent) {
 
+    companion object {
+        init {
+            registerAsParallelCapable()
+        }
+    }
+
     override fun findClass(name: String): Class<*> {
-        val path = name.replace('.', '/') + ".class"
-        val url = findResource(path) ?: throw ClassNotFoundException(name)
-        val conn = url.openConnection()
-        conn.useCaches = false
-        val bytes = conn.getInputStream().use { it.readBytes() }
-        val patched = applyCompatPatches(bytes)
-        return defineClass(name, patched, 0, patched.size)
+        synchronized(getClassLoadingLock(name)) {
+            val loaded = findLoadedClass(name)
+            if (loaded != null) return loaded
+
+            return try {
+                val path = name.replace('.', '/') + ".class"
+                val url = findResource(path) ?: throw ClassNotFoundException(name)
+                val conn = url.openConnection()
+                conn.useCaches = false
+                val bytes = conn.getInputStream().use { it.readBytes() }
+                val patched = applyCompatPatches(bytes)
+                defineClass(name, patched, 0, patched.size)
+            } catch (e: LinkageError) {
+                findLoadedClass(name) ?: try {
+                    Class.forName(name, false, this)
+                } catch (_: Throwable) {
+                    throw e
+                }
+            }
+        }
     }
 
     private fun applyCompatPatches(bytes: ByteArray): ByteArray {

@@ -78,6 +78,10 @@ fun main(args: Array<String> = emptyArray()) {
 
     ShaderManager.extractBundledShaders()
     com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.preloadAsync()
+    com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.init()
+    Runtime.getRuntime().addShutdownHook(Thread {
+        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
+    })
 
     application {
         initCoil()
