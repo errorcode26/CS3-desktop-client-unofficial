@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.syncproviders.AccountManager
@@ -30,60 +32,30 @@ fun SettingsAccounts() {
     ) {
         SettingsGroupCard(title = "Accounts & Integrations") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccountManager.allApis.forEach { api ->
-                    val accounts = cachedAccounts[api.idPrefix] ?: emptyArray()
-                    val currentAccount = accounts.firstOrNull()
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column {
-                            Text(api.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
-
-                            if (currentAccount != null) {
-                                if (isApiKeyOnly) {
-                                    Text("API Key Active", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                } else {
-                                    Text("Logged in as ${currentAccount.user.name}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                }
-                            } else {
-                                if (isApiKeyOnly) {
-                                    Text("No API Key", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                } else {
-                                    Text("Not logged in", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                                }
-                            }
-                        }
-
-                        if (currentAccount != null) {
-                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
-                            Button(
-                                onClick = {
-                                    AccountManager.updateAccounts(api.idPrefix, emptyArray())
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            ) {
-                                Text(if (isApiKeyOnly) "Remove Key" else "Logout")
-                            }
-                        } else if (api.requiresLogin) {
-                            val isApiKeyOnly = api.inAppLoginRequirement?.let { it.apiKey && !it.username && !it.password && !it.email && !it.server } == true
-                            Button(
-                                onClick = {
-                                    if (api.hasInApp) {
-                                        selectedApiForLogin = api
-                                    } else {
-                                        com.lagradost.common.logging.AppLogger.w("${api.name} login not supported on Desktop yet (missing hasInApp)")
-                                    }
-                                },
-                            ) {
-                                Text(if (api.hasInApp) (if (isApiKeyOnly) "Add Key" else "Login") else "Not Supported")
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Info,
+                        contentDescription = "Info",
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Trackers Are Not Supported Yet",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "External tracker and sync logins (MAL, AniList, Simkl) are currently disabled for the Desktop Client.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
                 }
 
                 // TMDB Custom API Key
@@ -91,7 +63,7 @@ fun SettingsAccounts() {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("The Movie Database (TMDB)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("If TMDB stops working in the future, this is an optional key in case the default key fails or gets rate limited.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("This app comes with a default TMDB API key. If it stops working, please add your own API key here.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(onClick = { showTmdbDialog = true }) {
                         Text("Configure Key")
@@ -157,9 +129,6 @@ fun SettingsAccounts() {
             var showBrowsing by remember {
                 mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_RPC_SHOW_BROWSING) ?: true)
             }
-            var customAppId by remember {
-                mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_CUSTOM_APP_ID) ?: "")
-            }
 
             SettingsToggleItem(
                 label = "Enable Discord Rich Presence",
@@ -213,37 +182,6 @@ fun SettingsAccounts() {
                         }
                     },
                 )
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Custom Discord Application ID",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "Optional. Set your own Discord Developer App ID to customize the displayed application title.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = customAppId,
-                        onValueChange = { newId ->
-                            customAppId = newId
-                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(
-                                    com.lagradost.common.storage.DesktopDataStore.PREF_DISCORD_CUSTOM_APP_ID,
-                                    newId.trim().ifEmpty { null },
-                                )
-                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onSettingsChanged()
-                            }
-                        },
-                        placeholder = { Text(com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.DEFAULT_CLIENT_ID) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                }
             }
         }
     }
