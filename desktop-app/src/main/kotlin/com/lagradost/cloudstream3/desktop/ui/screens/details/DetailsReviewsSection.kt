@@ -50,19 +50,25 @@ fun DetailsReviewsSection(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
         )
-        LazyRow(
-            state = scrollState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                detectHorizontalDragGestures { change, dragAmount ->
-                    change.consume()
-                    scrollState.dispatchRawDelta(-dragAmount)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val maxCardWidth = minOf(400.dp, maxWidth - 48.dp)
+            LazyRow(
+                state = scrollState,
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, dragAmount ->
+                        change.consume()
+                        scrollState.dispatchRawDelta(-dragAmount)
+                    }
+                },
+            ) {
+                items(reviews) { review ->
+                    ReviewCard(
+                        review = review,
+                        modifier = Modifier.width(maxCardWidth),
+                    )
                 }
-            },
-        ) {
-            items(reviews) { review ->
-                ReviewCard(review)
             }
         }
 
@@ -86,12 +92,11 @@ fun DetailsReviewsSection(
 }
 
 @Composable
-fun ReviewCard(review: ReviewData) {
+fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier
-            .width(400.dp)
+        modifier = modifier
             .animateContentSize()
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),

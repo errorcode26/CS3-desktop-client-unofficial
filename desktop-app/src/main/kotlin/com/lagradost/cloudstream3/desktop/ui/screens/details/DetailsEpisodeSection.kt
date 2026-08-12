@@ -826,36 +826,39 @@ private fun RenderEpisodesSection(
             }
         }
     } else {
-        LazyRow(
-            state = episodesScrollState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                detectHorizontalDragGestures { change: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
-                    change.consume()
-                    episodesScrollState.dispatchRawDelta(-dragAmount)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val maxCardWidth = minOf(500.dp, maxWidth - 48.dp) // 24.dp padding on each side
+            LazyRow(
+                state = episodesScrollState,
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
+                    detectHorizontalDragGestures { change: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                        change.consume()
+                        episodesScrollState.dispatchRawDelta(-dragAmount)
+                    }
+                },
+            ) {
+                items(allFilteredEpisodes) { ep ->
+                    val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
+                    val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
+                    EpisodeCard(
+                        ep = ep,
+                        isLatest = isLatest,
+                        history = history,
+                        provider = provider,
+                        data = data,
+                        uiState = uiState,
+                        isAntiSpoiler = isAntiSpoiler,
+                        thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                        modifier = Modifier.width(maxCardWidth),
+                        enableDownloadButtons = enableDownloadButtons,
+                        onPlay = onPlay,
+                        onDownload = onDownload,
+                        onToggleWatched = onToggleWatched,
+                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                    )
                 }
-            },
-        ) {
-            items(allFilteredEpisodes) { ep ->
-                val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
-                val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
-                EpisodeCard(
-                    ep = ep,
-                    isLatest = isLatest,
-                    history = history,
-                    provider = provider,
-                    data = data,
-                    uiState = uiState,
-                    isAntiSpoiler = isAntiSpoiler,
-                    thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
-                    modifier = Modifier.width(500.dp),
-                    enableDownloadButtons = enableDownloadButtons,
-                    onPlay = onPlay,
-                    onDownload = onDownload,
-                    onToggleWatched = onToggleWatched,
-                    onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                )
             }
         }
     }

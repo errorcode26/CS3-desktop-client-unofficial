@@ -183,7 +183,7 @@ fun SettingsExtensions(
                             updateStatusMessage = null
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val newUpdates = DesktopRepositoryManager.autoUpdatePlugins()
+                                    val newUpdates = DesktopRepositoryManager.autoUpdatePlugins(force = true)
                                     if (newUpdates.isNotEmpty()) {
                                         DesktopDataStore.addUpdateHistory(newUpdates)
                                         updateStatusMessage = "Updated ${newUpdates.size} plugins!"

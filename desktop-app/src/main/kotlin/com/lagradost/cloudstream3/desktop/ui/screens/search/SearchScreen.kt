@@ -91,7 +91,7 @@ fun ComposeSearchScreen(
             Box(modifier = Modifier.fillMaxWidth()) {
                 // Search Bar (Mathematically perfectly centered on screen)
                 Surface(
-                    modifier = Modifier.width(500.dp).align(Alignment.Center),
+                    modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth().align(Alignment.Center),
                     color = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp),
                     shape = RoundedCornerShape(24.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),

@@ -417,11 +417,11 @@ object DesktopRepositoryManager {
     private val lastAutoUpdateTime = AtomicLong(0L)
     private val autoUpdateCooldown = 15 * 60 * 1000L
 
-    suspend fun autoUpdatePlugins(): List<com.lagradost.common.storage.PluginUpdateRecord> = withContext(Dispatchers.IO) {
+    suspend fun autoUpdatePlugins(force: Boolean = false): List<com.lagradost.common.storage.PluginUpdateRecord> = withContext(Dispatchers.IO) {
         autoUpdateMutex.withLock {
             val now = System.currentTimeMillis()
             val last = lastAutoUpdateTime.get()
-            if (now - last < autoUpdateCooldown) return@withContext emptyList()
+            if (!force && now - last < autoUpdateCooldown) return@withContext emptyList()
             lastAutoUpdateTime.set(now)
 
             val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()

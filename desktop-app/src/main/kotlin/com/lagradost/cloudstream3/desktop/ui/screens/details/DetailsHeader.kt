@@ -555,15 +555,13 @@ fun DetailsMetadata(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
+                            heroAction(Modifier.fillMaxWidth())
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    heroAction(Modifier.fillMaxWidth())
-                                }
                                 libraryButton(Modifier)
-                                trailerButton?.invoke(Modifier)
+                                trailerButton?.invoke(Modifier.weight(1f))
                             }
                             downloadAction?.invoke(Modifier.fillMaxWidth())
                         }
