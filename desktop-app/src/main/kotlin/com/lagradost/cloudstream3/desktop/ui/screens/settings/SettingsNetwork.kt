@@ -32,7 +32,7 @@ fun SettingsNetwork() {
     }
 
     var allowExternalBrowser by remember {
-        mutableStateOf(DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER) ?: true)
+        mutableStateOf(DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER) ?: false)
     }
 
     var useIsolatedBrowser by remember {

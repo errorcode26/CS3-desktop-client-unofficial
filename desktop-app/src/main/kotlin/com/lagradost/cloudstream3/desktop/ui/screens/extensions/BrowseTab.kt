@@ -547,7 +547,7 @@ fun BrowseTab(
                                     viewModel.onEvent(
                                         ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { err ->
                                             isInstalling = false
-                                            installStatus = if (err.isEmpty()) "Installed" else "Failed: $err"
+                                            installStatus = if (err == "Installed" || err.isEmpty()) "Installed" else "Failed: $err"
                                         },
                                     )
                                 }

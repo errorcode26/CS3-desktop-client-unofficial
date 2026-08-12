@@ -53,6 +53,12 @@ fun HomeManagementDialog(
     CloudstreamCustomDialog(
         show = show,
         onDismissRequest = {
+            if (!isAdvancedMode && activeProviders.size > 1) {
+                val topProvider = activeProviders.firstOrNull() ?: allProviders.firstOrNull()?.name
+                if (topProvider != null) {
+                    onSetSingleProvider(topProvider)
+                }
+            }
             catalogProvider = null
             onDismissRequest()
         },
@@ -91,7 +97,18 @@ fun HomeManagementDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Enable Multi-Provider Feed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Switch(checked = isAdvancedMode, onCheckedChange = { isAdvancedMode = it })
+                        Switch(
+                            checked = isAdvancedMode,
+                            onCheckedChange = { enabled ->
+                                isAdvancedMode = enabled
+                                if (!enabled) {
+                                    val topProvider = activeProviders.firstOrNull() ?: allProviders.firstOrNull()?.name
+                                    if (topProvider != null) {
+                                        onSetSingleProvider(topProvider)
+                                    }
+                                }
+                            },
+                        )
                     }
                 }
             }
@@ -335,6 +352,12 @@ fun HomeManagementDialog(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
                 Button(onClick = {
+                    if (!isAdvancedMode && activeProviders.size > 1) {
+                        val topProvider = activeProviders.firstOrNull() ?: allProviders.firstOrNull()?.name
+                        if (topProvider != null) {
+                            onSetSingleProvider(topProvider)
+                        }
+                    }
                     catalogProvider = null
                     onDismissRequest()
                 }) {

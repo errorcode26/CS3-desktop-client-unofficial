@@ -25,6 +25,12 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 
 configurations.all {
     exclude(group = "org.slf4j", module = "slf4j-simple")
+    // Override the library module's strict constraint — desktop-app is pure JVM
+    // and needs a newer jackson version to handle Kotlin 2.x @Metadata in plugins.
+    resolutionStrategy.force("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-core:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-annotations:2.18.3")
 }
 
 dependencies {
@@ -52,7 +58,7 @@ dependencies {
 
     // JSON
     implementation("com.google.code.gson:gson:2.11.0") // Required for plugins using JsonParser.parseString (matches Android app)
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
     implementation(kotlin("reflect")) // Required for Jackson to deserialize plugin Kotlin data classes
     implementation("org.json:json:20240303") // Required for plugins using org.json (natively included on Android)
 

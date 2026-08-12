@@ -31,6 +31,23 @@ object ExtensionLoader {
     // Map class loader to class names loaded from its jar
     val classLoaderToClassNames: MutableMap<ClassLoader, Set<String>> = java.util.concurrent.ConcurrentHashMap()
 
+    /**
+     * Creates a classloader that searches all registered plugin classloaders before
+     * delegating to [fallback]. Used to fix kotlin-reflect resolution failures when
+     * Jackson deserializes plugin-defined inner classes across classloader boundaries.
+     */
+    fun createCompositeClassLoader(fallback: ClassLoader): ClassLoader {
+        val pluginLoaders = classLoaders.keys.toList()
+        return object : ClassLoader(fallback) {
+            override fun loadClass(name: String, resolve: Boolean): Class<*> {
+                for (loader in pluginLoaders) {
+                    try { return loader.loadClass(name) } catch (_: ClassNotFoundException) {}
+                }
+                return super.loadClass(name, resolve)
+            }
+        }
+    }
+
     fun getCallingPluginName(): String? {
         try {
             val walker = java.lang.StackWalker.getInstance(java.lang.StackWalker.Option.RETAIN_CLASS_REFERENCE)

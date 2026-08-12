@@ -53,6 +53,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
 
@@ -122,13 +123,28 @@ fun main(args: Array<String> = emptyArray()) {
 
                 LaunchedEffect(Unit) {
                     launch(Dispatchers.IO) {
-                        initProxy()
+                        val proxyJob = async { initProxy() }
+                        
+                        // Strict dependency: Security (DataStore, Conscrypt) must init first
                         initSecurity()
-                        initNetwork()
-                        initProviders()
+                        
+                        // Network and Providers can initialize simultaneously
+                        val networkJob = async { initNetwork() }
+                        val providersJob = async { initProviders() }
+                        
+                        networkJob.await()
+                        providersJob.await()
+                        
+                        // Plugins require network and providers to be ready
                         initPlugins()
-                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize()
-                        com.lagradost.cloudstream3.APIHolder.initAll()
+                        
+                        // API and Repository init can run simultaneously
+                        val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
+                        val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
+                        
+                        repoJob.await()
+                        apiJob.await()
+                        proxyJob.await()
                     }.join()
 
                     isAppReady = true

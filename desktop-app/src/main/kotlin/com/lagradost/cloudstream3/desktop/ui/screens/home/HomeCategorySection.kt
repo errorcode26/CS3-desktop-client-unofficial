@@ -25,8 +25,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 
-private val categoryCache = java.util.concurrent.ConcurrentHashMap<String, HomePageResponse>()
-private val categoryMutex = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
+object HomeCategorySectionCache {
+    val categoryCache = java.util.concurrent.ConcurrentHashMap<String, HomePageResponse>()
+    val categoryMutex = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
+    fun clear() {
+        categoryCache.clear()
+        categoryMutex.clear()
+    }
+}
+private val categoryCache get() = HomeCategorySectionCache.categoryCache
+private val categoryMutex get() = HomeCategorySectionCache.categoryMutex
 
 @Composable
 fun HomeCategorySection(

@@ -217,11 +217,12 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     }
 
     fun reloadProvider() {
+        com.lagradost.cloudstream3.desktop.ui.screens.home.HomeCategorySectionCache.clear()
         val current = uiState.value.activeProviders
         if (current.isNotEmpty()) {
             viewModelScope.launch {
                 updateState { copy(activeProviders = emptyList()) }
-                kotlinx.coroutines.delay(10)
+                kotlinx.coroutines.delay(50)
                 updateState { copy(activeProviders = current) }
             }
         }

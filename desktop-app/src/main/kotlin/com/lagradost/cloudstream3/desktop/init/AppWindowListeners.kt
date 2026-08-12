@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
@@ -75,6 +76,12 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
                 true
             } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && controller.isFullscreen) {
                 toggleFunc()
+                true
+            } else if (keyEvent.key == Key.F5 && keyEvent.type == KeyEventType.KeyDown) {
+                com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
+                true
+            } else if (keyEvent.isCtrlPressed && keyEvent.key == Key.R && keyEvent.type == KeyEventType.KeyDown) {
+                com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
                 true
             } else {
                 false

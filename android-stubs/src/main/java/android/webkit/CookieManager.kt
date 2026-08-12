@@ -20,6 +20,8 @@ class CookieManager {
 
     fun setAcceptCookie(accept: Boolean) {}
 
+    fun setAcceptThirdPartyCookies(webView: android.webkit.WebView, accept: Boolean) {}
+
     fun setCookie(url: String, value: String) {
         setCookieHandler?.invoke(url, value)
     }

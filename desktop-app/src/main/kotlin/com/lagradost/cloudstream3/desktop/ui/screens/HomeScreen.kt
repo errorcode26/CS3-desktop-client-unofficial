@@ -36,6 +36,13 @@ fun ComposeHomeScreen(
 
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
 
+    DisposableEffect(viewModel) {
+        val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.register {
+            viewModel.onEvent(HomeUiEvent.OnProviderRefresh)
+        }
+        onDispose { unregister() }
+    }
+
     var currentHeroImageUrl by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {

@@ -2,6 +2,13 @@ plugins {
     kotlin("jvm")
 }
 
+configurations.all {
+    resolutionStrategy.force("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-core:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-annotations:2.18.3")
+}
+
 dependencies {
     // Needs access to stubs to pass to plugins
     implementation(project(":android-stubs"))
@@ -19,7 +26,7 @@ dependencies {
     implementation("de.femtopedia.dex2jar:dex-tools:2.4.35")
 
     // JSON for manifest parsing
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
 
     // ASM Bytecode Manipulation for Static Verification
     implementation("org.ow2.asm:asm:9.6")

@@ -62,8 +62,11 @@ object SafePluginInvoker {
         }
 
         val executingThread = AtomicReference<Thread?>(null)
+        val compositeClassLoader = com.lagradost.runtime.loader.ExtensionLoader.createCompositeClassLoader(
+            Thread.currentThread().contextClassLoader
+        )
         return try {
-            val result = withContext(PluginDispatcher) {
+            val result = withContext(PluginDispatcher + PluginClassLoaderElement(compositeClassLoader)) {
                 executingThread.set(Thread.currentThread())
                 try {
                     withTimeout(timeoutMs) {
@@ -142,9 +145,12 @@ object SafePluginInvoker {
 
         AppLogger.d(loggerTag, "Starting execution (timeout: ${timeoutMs}ms)")
         val executingThread = AtomicReference<Thread?>(null)
+        val compositeClassLoader = com.lagradost.runtime.loader.ExtensionLoader.createCompositeClassLoader(
+            Thread.currentThread().contextClassLoader
+        )
 
         return try {
-            val result = withContext(PluginDispatcher) {
+            val result = withContext(PluginDispatcher + PluginClassLoaderElement(compositeClassLoader)) {
                 executingThread.set(Thread.currentThread())
                 try {
                     withTimeout(timeoutMs) {
