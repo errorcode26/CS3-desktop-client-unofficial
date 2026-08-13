@@ -77,6 +77,7 @@ fun main(args: Array<String> = emptyArray()) {
     }
 
     ShaderManager.extractBundledShaders()
+    com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.extractBundledFonts()
     com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.preloadAsync()
     com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.init()
     Runtime.getRuntime().addShutdownHook(Thread {

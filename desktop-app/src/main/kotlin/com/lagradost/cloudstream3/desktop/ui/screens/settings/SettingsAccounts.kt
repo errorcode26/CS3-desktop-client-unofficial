@@ -30,7 +30,7 @@ fun SettingsAccounts() {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        SettingsGroupCard(title = "Accounts & Integrations") {
+        SettingsGroupCard(title = "Trackers & Integrations") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),

@@ -27,6 +27,12 @@
         <button id="pipRestoreBtn" class="icon-btn" title="Back to full screen" style="position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%;">
             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
         </button>
+        <div style="position: absolute; bottom: 10px; left: 10%; right: 10%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; pointer-events: none;">
+            <div id="pipProgressFill" style="width: 0%; height: 100%; background: white; border-radius: 2px; transition: width 0.1s linear;"></div>
+        </div>
+        <div style="position: absolute; right: 10px; top: 25%; bottom: 25%; width: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; pointer-events: none;">
+            <div id="pipVolumeFill" style="position: absolute; bottom: 0; left: 0; right: 0; height: 100%; background: white; border-radius: 2px; transition: height 0.1s;"></div>
+        </div>
     </div>
     <div class="pip-resize-edge" data-edge="top" style="position: absolute; top: 0; left: 8px; right: 8px; height: 8px; cursor: n-resize; z-index: 30;"></div>
     <div class="pip-resize-edge" data-edge="bottom" style="position: absolute; bottom: 0; left: 8px; right: 8px; height: 8px; cursor: s-resize; z-index: 30;"></div>
@@ -510,6 +516,10 @@
                     <span>Auto Next Episode</span>
                     <button class="chip active" id="btnToggleAutoPlay" style="padding: 4px 14px; min-width: 60px;">On</button>
                 </div>
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Show End Time</span>
+                    <button class="chip active" id="btnToggleEndTime" style="padding: 4px 14px; min-width: 60px;">On</button>
+                </div>
             </div>
         </div>
 
@@ -722,12 +732,30 @@
 
 
 
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <button class="back-btn" id="backBtn">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        </button>
-        <span id="titleDisplay" class="player-title">CloudStream Player</span>
+    <!-- Top Bar Area -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none; z-index: var(--z-player-controls);">
+        
+        <div class="top-bar" style="pointer-events: auto;">
+            <button class="back-btn" id="backBtn">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <span id="titleDisplay" class="player-title">CloudStream Player</span>
+        </div>
+
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); margin-top: 10px; pointer-events: none; z-index: var(--z-player-controls);">
+            <div id="endTimeContainer" class="top-bar-center" style="pointer-events: auto; padding: 8px 16px; background: rgba(15, 15, 15, 0.45); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50px; display: none; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <span id="endTimeDisplay" style="color: rgba(255, 255, 255, 0.85); font-size: 14px; font-weight: 600;"></span>
+            </div>
+        </div>
+
+        <div class="top-bar-right" style="pointer-events: auto; padding: 10px 14px; background: rgba(15, 15, 15, 0.45); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50px; display: inline-flex; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-right: 24px; margin-top: 10px; z-index: var(--z-player-controls);">
+            <button id="pipBtn" class="icon-btn" title="Picture in Picture">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <rect x="12" y="14" width="7" height="5" rx="1" ry="1"></rect>
+                </svg>
+            </button>
+        </div>
     </div>
 
     <!-- Bottom Bar -->
@@ -818,15 +846,9 @@
                 </button>
                 <!-- Settings -->
                 <button id="settingsBtn" class="icon-btn" title="Settings">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" d="M2 12c0-.865.11-1.703.316-2.504A3 3 0 0 0 4.99 4.867a9.99 9.99 0 0 1 4.335-2.505a3 3 0 0 0 5.348 0a9.99 9.99 0 0 1 4.335 2.505a3 3 0 0 0 2.675 4.63a10.036 10.036 0 0 1 0 5.007a3 3 0 0 0-2.675 4.629a9.99 9.99 0 0 1-4.335 2.505a3 3 0 0 0-5.348 0a9.99 9.99 0 0 1-4.335-2.505a3 3 0 0 0-2.675-4.63A10.056 10.056 0 0 1 2 12zm4.804 3c.63 1.091.81 2.346.564 3.524c.408.29.842.541 1.297.75A4.993 4.993 0 0 1 12 18c1.26 0 2.438.471 3.335 1.274c.455-.209.889-.46 1.297-.75A4.993 4.993 0 0 1 17.196 15a4.993 4.993 0 0 1 2.77-2.25a8.126 8.126 0 0 0 0-1.5A4.993 4.993 0 0 1 17.195 9a4.993 4.993 0 0 1-.564-3.524a7.989 7.989 0 0 0-1.297-.75A4.993 4.993 0 0 1 12 6a4.993 4.993 0 0 1-3.335-1.274a7.99 7.99 0 0 0-1.297.75A4.993 4.993 0 0 1 6.804 9a4.993 4.993 0 0 1-2.77 2.25a8.126 8.126 0 0 0 0 1.5A4.993 4.993 0 0 1 6.805 15zM12 15a3 3 0 1 1 0-6a3 3 0 0 1 0 6zm0-2a1 1 0 1 0 0-2a1 1 0 0 0 0 2z"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </button>
-                <!-- PiP -->
-                <button id="pipBtn" class="icon-btn" title="Picture in Picture">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <rect x="12" y="14" width="7" height="5" rx="1" ry="1"></rect>
-                    </svg>
-                </button>
+
                 <!-- Fullscreen -->
                 <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 5a2 2 0 0 1 2-2h7v2H2v4H0V5Zm22 0h-7V3h7a2 2 0 0 1 2 2v4h-2V5ZM2 15v4h7v2H2a2 2 0 0 1-2-2v-4h2Zm20 4v-4h2v4a2 2 0 0 1-2 2h-7v-2h7Z" fill="currentColor"></path></svg>

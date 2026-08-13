@@ -52,6 +52,7 @@ fun PosterCard(
     itemWidth: androidx.compose.ui.unit.Dp? = null,
     aspectRatio: Float? = null,
     gridScale: String = AppearanceConfig.gridScale.value,
+    isHoverEnabled: Boolean = true,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
 ) {
@@ -73,7 +74,8 @@ fun PosterCard(
     }
 
     val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isHoveredRaw by interactionSource.collectIsHoveredAsState()
+    val isHovered = isHoveredRaw && isHoverEnabled
 
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
     val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
@@ -96,7 +98,7 @@ fun PosterCard(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .posterHoverEffect(shape)
+                    .then(if (isHoverEnabled) Modifier.posterHoverEffect(shape) else Modifier)
                     .clip(shape)
                     .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->

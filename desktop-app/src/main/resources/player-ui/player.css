@@ -40,16 +40,20 @@
             opacity: 0 !important;
             pointer-events: none !important;
         }
+        .top-bar, .bottom-bar, .top-bar-right, .top-bar-center { transition: opacity 0.4s ease, transform 0.4s ease; }
         .hidden-controls .top-bar,
+        .hidden-controls .top-bar-right,
+        .hidden-controls .top-bar-center,
         .hidden-controls .bottom-bar { opacity: 0; pointer-events: none; }
 
-        .hidden-controls .top-bar { transform: translateY(-20px) scale(0.98); }
-        .hidden-controls .bottom-bar { transform: translateY(20px) scale(0.98); }
+        .hidden-controls .top-bar, .hidden-controls .top-bar-right, .hidden-controls .top-bar-center { transform: translateY(-20px) scale(0.98); opacity: 0; }
+        .hidden-controls .bottom-bar { transform: translateY(20px) scale(0.98); opacity: 0; }
         body.hidden-controls, body.hidden-controls * { cursor: none !important; }
 
         /* ── Top Bar Pill ────────────────────────────────────────────────── */
         .top-bar {
             position: relative; z-index: var(--z-player-controls);
+            margin-top: 10px; margin-left: 24px;
             padding: 10px 24px 10px 14px;
             background: rgba(15, 15, 15, 0.45);
             backdrop-filter: blur(24px);
@@ -1816,6 +1820,15 @@ body.is-pip #pipOverlay { display: block !important; }
 
 body.is-pip {
     cursor: default !important; /* ensure cursor is always visible in PiP */
+}
+
+body.is-pip #volumeOsd {
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.6);
+}
+
+body.is-pip #volumeOsd.show {
+    transform: translate(-50%, -50%) scale(0.7);
 }
 
 #pipOverlay:hover .pip-controls {

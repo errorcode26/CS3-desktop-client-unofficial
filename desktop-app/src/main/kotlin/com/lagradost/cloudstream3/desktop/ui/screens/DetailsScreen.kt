@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -214,10 +215,10 @@ fun ComposeDetailsScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .padding(top = 24.dp)
+                            .align(Alignment.CenterVertically)
                             .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
                             .clickable { if (isPanelOpen) viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) else viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(activeLinkData)) }
-                            .padding(16.dp),
+                            .padding(horizontal = 12.dp, vertical = 32.dp), // Taller hit area for easier clicking in the middle
                     ) {
                         Icon(
                             if (isPanelOpen) Icons.Default.Close else Icons.Default.Menu,
@@ -297,7 +298,9 @@ fun DetailsContent(
             (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val viewportHeight = maxHeight
+        val viewportWidth = maxWidth
         DetailsBackdrop(
             provider = provider,
             data = data,
@@ -343,8 +346,10 @@ fun DetailsContent(
             ),
         ) {
             item(key = "HeroAndTabs") {
-                Column(modifier = Modifier.fillMaxWidth().fillParentMaxHeight(1f)) {
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = viewportHeight),
+                    contentAlignment = Alignment.BottomStart
+                ) {
                         DetailsMetadata(
                             provider = provider,
                             data = data,
@@ -381,6 +386,27 @@ fun DetailsContent(
                             }
                         }
 
+                        val remainingSecondsForEnd = remember(latestHistory, data, progress) {
+                            if (latestHistory != null && latestHistory.duration > 0) {
+                                if (progress > 0f && progress < 1f) {
+                                    latestHistory.duration - latestHistory.position
+                                } else {
+                                    latestHistory.duration
+                                }
+                            } else if ((data as? com.lagradost.cloudstream3.MovieLoadResponse)?.duration != null) {
+                                (data as com.lagradost.cloudstream3.MovieLoadResponse).duration?.toLong()?.times(60L)
+                            } else null
+                        }
+
+                        val endTimeStr = remember(remainingSecondsForEnd) {
+                            remainingSecondsForEnd?.let { secs ->
+                                val calendar = java.util.Calendar.getInstance()
+                                calendar.add(java.util.Calendar.SECOND, secs.toInt())
+                                val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                                "Ends at ${formatter.format(calendar.time)}"
+                            }
+                        }
+
                         val progressInfo = remember(latestHistory, progress) {
                             if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
                                 val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
@@ -414,14 +440,14 @@ fun DetailsContent(
                             }
                         }
 
-                        if (progressInfo != null && progress > 0f) {
+                        if (progressInfo != null || endTimeStr != null) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
                                     .padding(
-                                        start = if (maxWidth < 1100.dp) 24.dp else 64.dp,
-                                        end = if (maxWidth < 1100.dp) 24.dp else 64.dp,
+                                        start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
+                                        end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
                                         bottom = 64.dp,
                                     ),
                                 contentAlignment = Alignment.Center,
@@ -430,47 +456,68 @@ fun DetailsContent(
                                     modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = progressLabel,
-                                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
-                                            color = Color.White.copy(alpha = 0.75f),
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                        Text(
-                                            text = progressInfo,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp)
-                                            .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
-                                            .clip(RoundedCornerShape(2.5.dp))
-                                            .background(Color.White.copy(alpha = 0.25f))
-                                            .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(2.5.dp)),
-                                    ) {
+                                    if (progressInfo != null && progress > 0f && progress < 1f) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = progressLabel,
+                                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
+                                                color = Color.White.copy(alpha = 0.75f),
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                            Text(
+                                                text = progressInfo,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxWidth(progress)
-                                                .fillMaxHeight()
+                                                .fillMaxWidth()
+                                                .height(5.dp)
+                                                .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
                                                 .clip(RoundedCornerShape(2.5.dp))
-                                                .background(Color.White),
-                                        )
+                                                .background(Color.White.copy(alpha = 0.25f))
+                                                .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(2.5.dp)),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(progress)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(2.5.dp))
+                                                    .background(Color.White),
+                                            )
+                                        }
+                                    }
+
+                                    if (endTimeStr != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.CenterHorizontally)
+                                                .padding(top = 4.dp)
+                                                .clip(RoundedCornerShape(100.dp))
+                                                .background(Color.Black.copy(alpha = 0.35f))
+                                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = endTimeStr,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+                                                color = Color.White.copy(alpha = 0.9f),
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
             if (!isMovieLike) {
                 item(key = "Episodes") {

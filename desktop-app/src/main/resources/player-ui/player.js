@@ -434,6 +434,8 @@
     const updateVolumeTrack = (val) => {
         const pct = (val / 200) * 100;
         volumeBar.style.setProperty('--vol-pct', pct + '%');
+        const pipVolFill = document.getElementById('pipVolumeFill');
+        if (pipVolFill) pipVolFill.style.height = pct + '%';
     };
     updateVolumeTrack(100); // Initialize
 
@@ -541,6 +543,8 @@
                     pct = Math.max(0, Math.min(100, pct));
                     seekFill.style.width = `${pct}%`;
                     seekBar.value = pct * 10;
+                    const pipProg = document.getElementById('pipProgressFill');
+                    if (pipProg) pipProg.style.width = `${pct}%`;
                     
                     if (typeof s.bufferMs === 'number') {
                         let bufPct = (s.bufferMs / durationMs) * 100;
@@ -557,6 +561,8 @@
                 pct = Math.max(0, Math.min(100, pct));
                 seekFill.style.width = `${pct}%`;
                 seekBar.value = pct * 10;
+                const pipProg = document.getElementById('pipProgressFill');
+                if (pipProg) pipProg.style.width = `${pct}%`;
                 
                 if (typeof s.bufferMs === 'number') {
                     let bufPct = (s.bufferMs / durationMs) * 100;
@@ -566,6 +572,33 @@
             }
         }
         timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        
+        // Update End Time Clock
+        const endTimeDisplay = document.getElementById('endTimeDisplay');
+        const endTimeContainer = document.getElementById('endTimeContainer');
+        const showEndTime = document.getElementById('btnToggleEndTime')?.classList.contains('active') ?? true;
+        
+        if (endTimeDisplay && endTimeContainer) {
+            if (showEndTime && durationMs > 0 && currentPosMs < durationMs && globalIsPlaying) {
+                let currentSpeedStr = document.getElementById('speedBtn')?.innerText.replace('×', '') || "1";
+                let currentSpeed = parseFloat(currentSpeedStr) || 1.0;
+                
+                // If the hold-speed hud is active, override with the displayed speed
+                const holdSpeedHud = document.getElementById('holdSpeedHud');
+                if (holdSpeedHud && holdSpeedHud.classList.contains('show')) {
+                    const hudText = document.getElementById('holdSpeedHudText')?.innerText || "";
+                    if (hudText.includes('0.5x')) currentSpeed = 0.5;
+                    else if (hudText.includes('2x')) currentSpeed = 2.0;
+                }
+                
+                let msLeft = (durationMs - currentPosMs) / currentSpeed;
+                let endStr = new Date(Date.now() + msLeft).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                endTimeDisplay.innerText = `Ends at ${endStr}`;
+                endTimeContainer.style.display = 'inline-flex';
+            } else {
+                endTimeContainer.style.display = 'none';
+            }
+        }
         
         const wasPlaying = globalIsPlaying;
         if (s.isPlaying !== undefined) {
@@ -812,7 +845,17 @@
                     pBackdrop.dataset.lastSrc = '';
                 }
             }
-            titleDisplay.innerText = meta.title;
+              let niceTitle = meta.title;
+            if (niceTitle) {
+                const parts = niceTitle.split(' - ');
+                // If it looks like "Show Name - S1E1 - Show Name", drop the repeated end part.
+                if (parts.length >= 3 && parts[0].trim() === parts[parts.length - 1].trim()) {
+                    parts.pop();
+                    niceTitle = parts.join(' - ');
+                }
+            }
+            titleDisplay.innerText = niceTitle || "CloudStream Player";
+            document.title = meta.title;
             document.getElementById('resumeTitle').innerText = meta.title;
         }
 
@@ -2300,6 +2343,22 @@
                 btnToggleAutoPlay.innerText = 'Off';
             }
             send('toggleAutoPlay', String(window.autoPlayEnabled));
+        });
+    }
+
+    const btnToggleEndTime = document.getElementById('btnToggleEndTime');
+    if (btnToggleEndTime) {
+        btnToggleEndTime.addEventListener('click', () => {
+            const isActive = btnToggleEndTime.classList.contains('active');
+            if (isActive) {
+                btnToggleEndTime.classList.remove('active');
+                btnToggleEndTime.innerText = 'Off';
+            } else {
+                btnToggleEndTime.classList.add('active');
+                btnToggleEndTime.innerText = 'On';
+            }
+            // Trigger UI update
+            handleStateUpdate({});
         });
     }
 

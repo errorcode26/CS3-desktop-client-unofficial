@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 
 enum class SettingsTab(val title: String) {
-    ACCOUNTS("Accounts"),
+    TRACKERS("Trackers"),
     EXTENSIONS("Extensions"),
     APPEARANCE("Appearance"),
     PLAYER("Playback Engine"),
@@ -31,7 +31,7 @@ enum class SettingsSubScreen(val title: String) {
 }
 
 object SettingsSession {
-    var selectedTab by mutableStateOf(SettingsTab.ACCOUNTS)
+    var selectedTab by mutableStateOf(SettingsTab.TRACKERS)
     var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
 }
 
@@ -142,7 +142,7 @@ fun ComposeSettingsScreen(
                         label = "settings_crossfade",
                     ) { tab ->
                         when (tab) {
-                            SettingsTab.ACCOUNTS -> SettingsAccounts()
+                            SettingsTab.TRACKERS -> SettingsAccounts()
                             SettingsTab.EXTENSIONS -> SettingsExtensions(onNavigate = onNavigate)
                             SettingsTab.APPEARANCE -> SettingsAppearance(
                                 onNavigateToSubScreen = { activeSubScreen = it },

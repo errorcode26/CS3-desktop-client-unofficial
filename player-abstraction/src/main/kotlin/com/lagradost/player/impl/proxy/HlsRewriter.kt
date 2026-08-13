@@ -115,12 +115,21 @@ object HlsRewriter {
                             bestAudioUrl = uri
                         }
                     }
+                    // Track the default audio group-id for Pass 2 filtering
                 }
             }
 
             if (bestAudioUrl == null) bestAudioUrl = firstAudioUrl
 
-            // Pass 2: Reconstruct playlist keeping only best video variant, ONE audio variant, and ALL subtitles
+            // Extract the GROUP-ID of the best audio so we can match it in Pass 2
+            val bestAudioGroupId: String? = if (bestAudioUrl != null) {
+                lines.firstOrNull { l ->
+                    l.trim().startsWith("#EXT-X-MEDIA:TYPE=AUDIO") &&
+                        URI_REGEX.find(l)?.groupValues?.get(1) == bestAudioUrl
+                }?.let { Regex("""GROUP-ID="([^"]+)"""").find(it)?.groupValues?.get(1) }
+            } else null
+
+            // Pass 2: Reconstruct playlist keeping only best video variant, DEFAULT audio variant, and ALL subtitles as lazy
             val rewritten = buildString {
                 var pendingVariantLine: String? = null
 
@@ -151,11 +160,21 @@ object HlsRewriter {
                             val absolute = resolveUrl(baseUrl, uri)
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
 
-                            // Keep ALL audio variants in the proxy M3U8 so MPV can natively switch them via `aid`!
-                            val newLine = trim.replace(uriMatch.groupValues[0], "URI=\"$proxied\"")
-                            appendLine(newLine)
+                            val isDefault = trim.contains("DEFAULT=YES", ignoreCase = true) ||
+                                (bestAudioGroupId != null &&
+                                    Regex("""GROUP-ID="([^"]+)"""").find(trim)?.groupValues?.get(1) == bestAudioGroupId &&
+                                    uri == bestAudioUrl)
+
+                            if (isDefault) {
+                                // Only embed the DEFAULT audio track in the manifest so MPV starts instantly.
+                                val newLine = trim.replace(uriMatch.groupValues[0], "URI=\"$proxied\"")
+                                appendLine(newLine)
+                            } else {
+                                // Defer all other audio tracks — MPV would probe every one before starting otherwise.
+                                lazyAudios.add(ProxyTrack(proxied, name, lang))
+                            }
                         } else {
-                            // If there is no URI, it's embedded in the video stream, keep it
+                            // Embedded audio (no URI) — keep it in the manifest as-is
                             appendLine(trim)
                         }
                         continue

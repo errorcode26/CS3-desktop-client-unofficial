@@ -327,6 +327,20 @@ fun EpisodeCard(
         val releaseDate = dateMatch?.groupValues?.get(1)
         val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
         val hasDesc = cleanDesc.isNotBlank()
+        
+        val remainingSeconds = if (history != null && history.duration > 0) {
+            if (progress > 0f && progress < 1f) history.duration - history.position else history.duration
+        } else if (epRunTime != null) {
+            if (epRunTime > 1000) epRunTime.toLong() else epRunTime.toLong() * 60L
+        } else null
+
+        val endTimeText = remainingSeconds?.let { secs ->
+            val calendar = java.util.Calendar.getInstance()
+            calendar.add(java.util.Calendar.SECOND, secs.toInt())
+            val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            "Ends at ${formatter.format(calendar.time)}"
+        }
+
         // Calculate duration text
         val durationText = if (history != null && history.duration > 0) {
             if (progress > 0f && progress < 1f) {
@@ -422,19 +436,36 @@ fun EpisodeCard(
                         Spacer(modifier = Modifier.width(1.dp))
                     }
 
-                    if (durationText != null) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = 0.8f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        ) {
-                            Text(
-                                text = durationText,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                            )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (endTimeText != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = endTimeText,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                        if (durationText != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.8f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = durationText,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                     }
                 }
