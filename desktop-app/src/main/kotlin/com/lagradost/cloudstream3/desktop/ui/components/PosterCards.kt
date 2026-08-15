@@ -17,14 +17,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -81,18 +81,19 @@ fun PosterCard(
     val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
     val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
     val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
+    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
 
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
 
     Column(modifier = modifier.width(width)) {
         Box {
-            if (isHovered) {
+            if (isHovered && posterHoverGlowEnabled) {
                 Box(
                     modifier = Modifier
                         .matchParentSize()
                         .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                        .background(primary.copy(alpha = 0.65f), shape)
+                        .background(primary.copy(alpha = 0.65f), shape),
                 )
             }
             Surface(
@@ -101,144 +102,144 @@ fun PosterCard(
                     .then(if (isHoverEnabled) Modifier.posterHoverEffect(shape) else Modifier)
                     .clip(shape)
                     .hoverable(interactionSource)
-                .onGloballyPositioned { coordinates ->
-                    bounds = Rect(
-                        offset = coordinates.positionInWindow(),
-                        size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
-                    )
-                }
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Release) {
-                                if (event.button == PointerButton.Secondary) {
-                                    GlobalContextMenuState.showForPoster(
-                                        bounds = bounds,
-                                        item = item,
-                                        provider = provider,
-                                        onClick = onClick,
-                                        onPlayClick = onPlayClick,
-                                    )
-                                } else if (event.button == PointerButton.Primary) {
-                                    onClick()
+                    .onGloballyPositioned { coordinates ->
+                        bounds = Rect(
+                            offset = coordinates.positionInWindow(),
+                            size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.type == PointerEventType.Release) {
+                                    if (event.button == PointerButton.Secondary) {
+                                        GlobalContextMenuState.showForPoster(
+                                            bounds = bounds,
+                                            item = item,
+                                            provider = provider,
+                                            onClick = onClick,
+                                            onPlayClick = onPlayClick,
+                                        )
+                                    } else if (event.button == PointerButton.Primary) {
+                                        onClick()
+                                    }
                                 }
                             }
                         }
-                    }
-                },
-            shape = shape,
-            color = DesktopUi.SurfaceCard,
-            tonalElevation = 2.dp,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(effectiveAspectRatio),
+                    },
+                shape = shape,
+                color = DesktopUi.SurfaceCard,
+                tonalElevation = 2.dp,
             ) {
-                if (imgUrl != null) {
-                    // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
-                    AsyncImage(
-                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                            .data(imgUrl)
-                            .build(),
-                        contentDescription = item.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    // No image placeholder
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(DesktopUi.SurfaceElevated),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            item.name.take(2).uppercase(),
-                            color = DesktopUi.Accent,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(effectiveAspectRatio),
+                ) {
+                    if (imgUrl != null) {
+                        // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
+                        AsyncImage(
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(imgUrl)
+                                .build(),
+                            contentDescription = item.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
                         )
-                    }
-                }
-
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isHovered,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
-                ) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
-                }
-
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isHovered,
-                    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) +
-                        androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                    exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) +
-                        androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
-                    modifier = Modifier.align(Alignment.Center),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp).padding(start = 2.dp),
-                        )
-                    }
-                }
-
-                // Gradient at the bottom with the title
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isHovered && posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0f to Color.Transparent,
-                                        0.35f to Color.Black.copy(alpha = 0.7f),
-                                        1f to Color.Black.copy(alpha = 0.92f),
-                                    ),
-                                ),
-                            )
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                    ) {
-                        Column {
+                    } else {
+                        // No image placeholder
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(DesktopUi.SurfaceElevated),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                text = item.name,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
-                                lineHeight = 16.sp,
+                                item.name.take(2).uppercase(),
+                                color = DesktopUi.Accent,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
-                }
 
-                PosterBadges(
-                    item = item,
-                    showRating = showPosterRating,
-                    showQuality = showPosterQuality,
-                    showLanguage = showPosterLanguage,
-                )
-            } // end box
-        } // end surface
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isHovered,
+                        enter = androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.fadeOut(),
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isHovered,
+                        enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)) +
+                            androidx.compose.animation.scaleIn(initialScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                        exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)) +
+                            androidx.compose.animation.scaleOut(targetScale = 0.8f, animationSpec = androidx.compose.animation.core.tween(200)),
+                        modifier = Modifier.align(Alignment.Center),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .border(1.dp, Color.White.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp).padding(start = 2.dp),
+                            )
+                        }
+                    }
+
+                    // Gradient at the bottom with the title
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isHovered && posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        enter = androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.fadeOut(),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0f to Color.Transparent,
+                                            0.35f to Color.Black.copy(alpha = 0.7f),
+                                            1f to Color.Black.copy(alpha = 0.92f),
+                                        ),
+                                    ),
+                                )
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                        ) {
+                            Column {
+                                Text(
+                                    text = item.name,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                        }
+                    }
+
+                    PosterBadges(
+                        item = item,
+                        showRating = showPosterRating,
+                        showQuality = showPosterQuality,
+                        showLanguage = showPosterLanguage,
+                    )
+                } // end box
+            } // end surface
         } // end outer box
 
         if (posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW) {
@@ -271,6 +272,8 @@ fun WatchHistoryCard(
     onPlayClick: (() -> Unit)? = null,
 ) {
     val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
+    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val shape = RoundedCornerShape(posterCornerRadius.dp)
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -309,14 +312,14 @@ fun WatchHistoryCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-            }
+            },
     ) {
-        if (isHovered) {
+        if (isHovered && posterHoverGlowEnabled) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .background(primary.copy(alpha = 0.65f), shape)
+                    .background(primary.copy(alpha = 0.65f), shape),
             )
         }
         Box(
@@ -326,206 +329,206 @@ fun WatchHistoryCard(
                 .clip(shape)
                 .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
-                bounds = Rect(
-                    offset = coordinates.positionInWindow(),
-                    size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
-                )
-            }
-            .pointerInput(isContextMenuEnabled) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.type == PointerEventType.Release) {
-                            if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
-                                GlobalContextMenuState.showForWatchHistory(
-                                    bounds = bounds,
-                                    history = history,
-                                    provider = provider,
-                                    onRemove = onRemove,
-                                    onClick = onClick,
-                                    onPlayClick = onPlayClick,
-                                )
-                            } else if (event.button == PointerButton.Primary) {
-                                onClick()
+                    bounds = Rect(
+                        offset = coordinates.positionInWindow(),
+                        size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
+                    )
+                }
+                .pointerInput(isContextMenuEnabled) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Release) {
+                                if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
+                                    GlobalContextMenuState.showForWatchHistory(
+                                        bounds = bounds,
+                                        history = history,
+                                        provider = provider,
+                                        onRemove = onRemove,
+                                        onClick = onClick,
+                                        onPlayClick = onPlayClick,
+                                    )
+                                } else if (event.button == PointerButton.Primary) {
+                                    onClick()
+                                }
                             }
                         }
                     }
-                }
-            },
-    ) {
-        val imgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
-            ?: history.screenshotUrl
-            ?: provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
+                },
+        ) {
+            val imgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
+                ?: history.screenshotUrl
+                ?: provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
 
-        // Full-bleed background image
-        if (imgUrl != null) {
-            AsyncImage(
-                model = imgUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Box(modifier = Modifier.fillMaxSize().background(DesktopUi.SurfaceElevated))
-        }
+            // Full-bleed background image
+            if (imgUrl != null) {
+                AsyncImage(
+                    model = imgUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)))
+            }
 
-        // Dark gradient scrim
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0.0f to Color.Transparent,
-                    0.5f to Color.Black.copy(alpha = 0.25f),
-                    1.0f to Color.Black.copy(alpha = 0.95f),
+            // Dark gradient scrim
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        0.5f to Color.Black.copy(alpha = 0.25f),
+                        1.0f to Color.Black.copy(alpha = 0.95f),
+                    ),
                 ),
-            ),
-        )
+            )
 
-        AnimatedVisibility(
-            visible = isHovered,
-            enter = androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.fadeOut(),
-        ) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
-        }
+            AnimatedVisibility(
+                visible = isHovered,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+            ) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+            }
 
-        // Play button overlay on hover
-        AnimatedVisibility(
-            visible = isHovered,
-            modifier = Modifier.align(Alignment.Center),
-            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)),
-            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
-        ) {
+            // Play button overlay on hover
+            AnimatedVisibility(
+                visible = isHovered,
+                modifier = Modifier.align(Alignment.Center),
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)),
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                        .border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+            }
+
+            // Top-left badges (Provider and Episode)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp),
+            ) {
+                if (provider != null) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = provider.name.uppercase(),
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                            style = androidx.compose.ui.text.TextStyle(
+                                lineHeight = 9.sp,
+                                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                                ),
+                            ),
+                        )
+                    }
+                }
+                if (seText.isNotBlank()) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = seText.uppercase(),
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                            style = androidx.compose.ui.text.TextStyle(
+                                lineHeight = 9.sp,
+                                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                                ),
+                            ),
+                        )
+                    }
+                }
+            }
+
+            // Bottom content: Title and time left
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    text = history.showName,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                )
+
+                val timeLeftText = if (progress >= 1f) {
+                    "Completed"
+                } else if (history.duration > 0) {
+                    val leftSeconds = history.duration - history.position
+                    val leftMins = leftSeconds / 60L
+                    if (leftMins > 0) "${leftMins}m left" else "<1m left"
+                } else {
+                    "${(progress * 100).toInt()}%"
+                }
+
+                Text(
+                    text = timeLeftText,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            // Floating progress bar with padding
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(Color.White.copy(alpha = 0.25f), CircleShape)
-                    .border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape),
-                contentAlignment = Alignment.Center,
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .height(4.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                    .background(Color.Black.copy(alpha = 0.5f)),
             ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .background(DesktopUi.Accent),
                 )
             }
         }
-
-        // Top-left badges (Provider and Episode)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp),
-        ) {
-            if (provider != null) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        text = provider.name.uppercase(),
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        style = androidx.compose.ui.text.TextStyle(
-                            lineHeight = 9.sp,
-                            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-                                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
-                            ),
-                        ),
-                    )
-                }
-            }
-            if (seText.isNotBlank()) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        text = seText.uppercase(),
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        style = androidx.compose.ui.text.TextStyle(
-                            lineHeight = 9.sp,
-                            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-                                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
-                            ),
-                        ),
-                    )
-                }
-            }
-        }
-
-        // Bottom content: Title and time left
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Text(
-                text = history.showName,
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(end = 8.dp),
-            )
-
-            val timeLeftText = if (progress >= 1f) {
-                "Completed"
-            } else if (history.duration > 0) {
-                val leftSeconds = history.duration - history.position
-                val leftMins = leftSeconds / 60L
-                if (leftMins > 0) "${leftMins}m left" else "<1m left"
-            } else {
-                "${(progress * 100).toInt()}%"
-            }
-
-            Text(
-                text = timeLeftText,
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-
-        // Floating progress bar with padding
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .height(4.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
-                .background(Color.Black.copy(alpha = 0.5f)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .fillMaxHeight()
-                    .background(DesktopUi.Accent),
-            )
-        }
-    }
     }
 }
 

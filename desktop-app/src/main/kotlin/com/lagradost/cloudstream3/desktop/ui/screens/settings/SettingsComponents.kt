@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,12 +11,73 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiState
+import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.delay
+
+val LocalSettingsScrollState = compositionLocalOf<ScrollState?> { null }
+val LocalScrollContainerCoordinates = compositionLocalOf<LayoutCoordinates?> { null }
+
+fun Modifier.highlightAndScrollIfRequested(label: String): Modifier = composed {
+    val isHighlighted = SettingsSession.highlightedSetting == label
+    val scrollState = LocalSettingsScrollState.current
+    val containerCoords = LocalScrollContainerCoordinates.current
+    val scope = rememberCoroutineScope()
+    var hasScrolled by remember { mutableStateOf(false) }
+
+    var myCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    LaunchedEffect(isHighlighted, myCoords, containerCoords, scrollState) {
+        if (isHighlighted && !hasScrolled && myCoords != null && containerCoords != null && scrollState != null) {
+            hasScrolled = true
+
+            // Wait a tiny bit just in case animations are still snapping into place
+            delay(150)
+
+            try {
+                // localBoundingBoxOf gives us coordinates of this item relative to the scroll container's current visible viewport.
+                // We add the current scroll value to get the absolute pixel offset from the very top of the scrollable content.
+                val bounds = containerCoords.localBoundingBoxOf(myCoords!!)
+                val targetY = (bounds.top + scrollState.value).toInt()
+
+                // Add a small padding to the top so it's not flush with the very edge
+                val finalY = (targetY - 16).coerceAtLeast(0)
+
+                scrollState.animateScrollTo(finalY)
+            } catch (e: Exception) {
+                // Ignore layout detached exceptions
+            }
+
+            delay(1500)
+            if (SettingsSession.highlightedSetting == label) {
+                SettingsSession.highlightedSetting = null
+            }
+        }
+    }
+
+    // Reset hasScrolled if the highlight changes away
+    LaunchedEffect(isHighlighted) {
+        if (!isHighlighted) {
+            hasScrolled = false
+        }
+    }
+
+    this
+        .onGloballyPositioned { myCoords = it }
+        .then(
+            if (isHighlighted) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(8.dp)) else Modifier,
+        )
+}
 
 @Composable
 fun SettingsGroupCard(
@@ -22,7 +85,9 @@ fun SettingsGroupCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
+
+    Column(modifier = modifier.fillMaxWidth().highlightAndScrollIfRequested(title)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -32,8 +97,9 @@ fun SettingsGroupCard(
         )
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = DesktopUi.SurfaceElevated,
-            shadowElevation = 4.dp.applyShadowMultiplier(),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -56,7 +122,7 @@ fun SettingsToggleItem(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().highlightAndScrollIfRequested(label).padding(vertical = 4.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -97,7 +163,7 @@ fun <T> SettingsDropdownItem(
     var expanded by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().highlightAndScrollIfRequested(label).padding(vertical = 4.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -145,7 +211,7 @@ fun SettingsSliderItem(
     steps: Int = 0,
     onValueChange: (Float) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().highlightAndScrollIfRequested(label).padding(vertical = 4.dp, horizontal = 4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -190,7 +256,7 @@ fun SettingsChipGroupItem(
     selectedValue: String,
     onSelectionChanged: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().highlightAndScrollIfRequested(label).padding(vertical = 4.dp, horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             Text(
                 text = label,
@@ -237,8 +303,9 @@ fun SettingsNavigationItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .highlightAndScrollIfRequested(label)
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -260,6 +327,169 @@ fun SettingsNavigationItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// ── Smart MVI Wrappers ─────────────────────────────────────────────────────────────
+
+@Composable
+fun MviSettingsToggle(
+    key: String,
+    label: String,
+    subtitle: String? = null,
+    uiState: SettingsUiState,
+    onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: Boolean = false,
+) {
+    val initialValue = remember(key) { DesktopDataStore.getKey<Boolean>(key) ?: defaultValue }
+    val checked = uiState.booleanSettings[key] ?: initialValue
+
+    SettingsToggleItem(
+        label = label,
+        subtitle = subtitle,
+        checked = checked,
+        onCheckedChange = { newValue ->
+            onEvent(SettingsUiEvent.OnUpdateBoolean(key, newValue))
+        },
+    )
+}
+
+@Composable
+inline fun <reified T> MviSettingsDropdown(
+    key: String,
+    label: String,
+    subtitle: String? = null,
+    options: List<Pair<T, String>>,
+    uiState: SettingsUiState,
+    crossinline onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: T,
+) {
+    val initialValue = remember(key) { DesktopDataStore.getKey<T>(key) ?: defaultValue }
+
+    // We dynamically map the value type from the UiState
+    val currentValue = when (defaultValue) {
+        is String -> (uiState.stringSettings[key] ?: initialValue) as T
+        is Boolean -> (uiState.booleanSettings[key] ?: initialValue) as T
+        is Int -> (uiState.intSettings[key] ?: initialValue) as T
+        is Float -> (uiState.floatSettings[key] ?: initialValue) as T
+        else -> initialValue
+    }
+
+    SettingsDropdownItem(
+        label = label,
+        subtitle = subtitle,
+        options = options,
+        currentValue = currentValue,
+        onSelectionChanged = { newValue ->
+            when (newValue) {
+                is String -> onEvent(SettingsUiEvent.OnUpdateString(key, newValue))
+                is Boolean -> onEvent(SettingsUiEvent.OnUpdateBoolean(key, newValue))
+                is Int -> onEvent(SettingsUiEvent.OnUpdateInt(key, newValue))
+                is Float -> onEvent(SettingsUiEvent.OnUpdateFloat(key, newValue))
+            }
+        },
+    )
+}
+
+@Composable
+fun MviSettingsSlider(
+    key: String,
+    label: String,
+    subtitle: String? = null,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
+    uiState: SettingsUiState,
+    onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: Float,
+) {
+    val initialValue = remember(key) { DesktopDataStore.getKey<Float>(key) ?: defaultValue }
+    val value = uiState.floatSettings[key] ?: initialValue
+
+    SettingsSliderItem(
+        label = label,
+        subtitle = subtitle,
+        value = value,
+        valueRange = valueRange,
+        steps = steps,
+        onValueChange = { newValue ->
+            onEvent(SettingsUiEvent.OnUpdateFloat(key, newValue))
+        },
+    )
+}
+
+@Composable
+fun MviSettingsChipGroup(
+    key: String,
+    label: String,
+    subtitle: String? = null,
+    options: List<Pair<String, String>>,
+    uiState: SettingsUiState,
+    onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: String,
+) {
+    val initialValue = remember(key) { DesktopDataStore.getKey<String>(key) ?: defaultValue }
+    val selectedValue = uiState.stringSettings[key] ?: initialValue
+
+    SettingsChipGroupItem(
+        label = label,
+        subtitle = subtitle,
+        options = options,
+        selectedValue = selectedValue,
+        onSelectionChanged = { newValue ->
+            onEvent(SettingsUiEvent.OnUpdateString(key, newValue))
+        },
+    )
+}
+
+@Composable
+fun SettingsNavigationRow(
+    title: String,
+    subtitle: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .highlightAndScrollIfRequested(title)
+            .clickable { onClick() }
+            .padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 16.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+            )
+            if (subtitle != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Navigate to $title",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

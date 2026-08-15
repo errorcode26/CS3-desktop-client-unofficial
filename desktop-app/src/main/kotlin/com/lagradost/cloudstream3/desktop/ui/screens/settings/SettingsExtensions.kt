@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.settings
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -259,278 +258,286 @@ fun SettingsExtensions(
 
         // ── Tab Content ─────────────────────────────────────────────
         Box(modifier = Modifier.fillMaxSize()) {
-            when (selectedSubTab) {
-                0 -> BrowseTab(
-                    viewModel = viewModel,
-                    syncGeneration = syncGen,
-                    onNavigateToRepos = { selectedSubTab = 2 }
-                )
-                1 -> InstalledTab(
-                    viewModel = viewModel,
-                    syncGeneration = syncGen,
-                    onNavigateToBrowse = { selectedSubTab = 0 }
-                )
-                2 -> RepositoriesTab(viewModel = viewModel)
-                3 -> {
-                    // Update History
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        if (updatesHistory.isNotEmpty()) {
-                            OutlinedTextField(
-                                value = updateSearchQuery,
-                                onValueChange = { updateSearchQuery = it },
-                                placeholder = {
-                                    Text(
-                                        "Filter update history by name or version...",
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                },
-                                trailingIcon = {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.padding(end = 8.dp),
-                                    ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            androidx.compose.animation.Crossfade(
+                targetState = selectedSubTab,
+                animationSpec = androidx.compose.animation.core.tween(200),
+                label = "extensions_crossfade",
+            ) { tab ->
+                when (tab) {
+                    0 -> BrowseTab(
+                        viewModel = viewModel,
+                        syncGeneration = syncGen,
+                        onNavigateToRepos = { selectedSubTab = 2 },
+                    )
+                    1 -> InstalledTab(
+                        viewModel = viewModel,
+                        syncGeneration = syncGen,
+                        onNavigateToBrowse = { selectedSubTab = 0 },
+                    )
+                    2 -> RepositoriesTab(viewModel = viewModel)
+                    3 -> {
+                        // Update History
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            if (updatesHistory.isNotEmpty()) {
+                                OutlinedTextField(
+                                    value = updateSearchQuery,
+                                    onValueChange = { updateSearchQuery = it },
+                                    placeholder = {
+                                        Text(
+                                            "Filter update history by name or version...",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.padding(end = 8.dp),
                                         ) {
-                                            Text(
-                                                text = "${filteredUpdateHistory.size} of ${updatesHistory.size} logged",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                            )
-                                        }
-                                        if (updateSearchQuery.isNotEmpty()) {
-                                            IconButton(onClick = { updateSearchQuery = "" }, modifier = Modifier.size(24.dp)) {
-                                                Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            ) {
+                                                Text(
+                                                    text = "${filteredUpdateHistory.size} of ${updatesHistory.size} logged",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                )
+                                            }
+                                            if (updateSearchQuery.isNotEmpty()) {
+                                                IconButton(onClick = { updateSearchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                                                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                                }
                                             }
                                         }
-                                    }
-                                },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = if (isLightMode) Color.White else Color.White.copy(alpha = 0.05f),
-                                    focusedContainerColor = if (isLightMode) Color.White else Color.White.copy(alpha = 0.08f),
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        }
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = if (isLightMode) Color.White else Color.White.copy(alpha = 0.05f),
+                                        focusedContainerColor = if (isLightMode) Color.White else Color.White.copy(alpha = 0.08f),
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            }
 
-                        if (updatesHistory.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                            if (updatesHistory.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), CircleShape),
-                                        contentAlignment = Alignment.Center,
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
                                     ) {
-                                        Icon(
-                                            Icons.Outlined.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(34.dp),
+                                        Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), CircleShape),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.CheckCircle,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(34.dp),
+                                            )
+                                        }
+                                        Text(
+                                            text = "All plugins up to date",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            text = "When repositories sync and download newer versions, logs will appear here.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    Text(
-                                        text = "All plugins up to date",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        text = "When repositories sync and download newer versions, logs will appear here.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
                                 }
-                            }
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = unifiedGridMinSize),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                contentPadding = PaddingValues(bottom = 16.dp),
-                            ) {
-                                items(filteredUpdateHistory, key = { "${it.pluginName}_${it.version}_${it.timestamp}" }) { update ->
-                                    val date = remember(update.timestamp) { Date(update.timestamp) }
-                                    val timeString = remember(date) {
-                                        SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(date)
-                                    }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(minSize = unifiedGridMinSize),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(bottom = 16.dp),
+                                ) {
+                                    items(filteredUpdateHistory, key = { "${it.pluginName}_${it.version}_${it.timestamp}" }) { update ->
+                                        val date = remember(update.timestamp) { Date(update.timestamp) }
+                                        val timeString = remember(date) {
+                                            SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(date)
+                                        }
 
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                        ),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                                        ),
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
+
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),
+                                            ),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                            ),
                                         ) {
-                                            // Top Row: Avatar + Name + Version + Status
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp),
                                             ) {
-                                                val iconUrl = update.iconUrl
-                                                if (!iconUrl.isNullOrBlank() && !DesktopRepositoryManager.isIconFailed(iconUrl)) {
-                                                    AsyncImage(
-                                                        model = iconUrl,
-                                                        contentDescription = update.pluginName,
-                                                        modifier = Modifier
-                                                            .size(52.dp)
-                                                            .clip(RoundedCornerShape(14.dp)),
-                                                    )
-                                                } else {
-                                                    PluginPlaceholderAvatar(
-                                                        name = update.pluginName,
-                                                        internalName = update.pluginName,
-                                                    )
-                                                }
-
-                                                Spacer(modifier = Modifier.width(12.dp))
-
-                                                Column(
-                                                    modifier = Modifier.weight(1f),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                // Top Row: Avatar + Name + Version + Status
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
                                                 ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    val iconUrl = update.iconUrl
+                                                    if (!iconUrl.isNullOrBlank() && !DesktopRepositoryManager.isIconFailed(iconUrl)) {
+                                                        AsyncImage(
+                                                            model = iconUrl,
+                                                            contentDescription = update.pluginName,
+                                                            modifier = Modifier
+                                                                .size(52.dp)
+                                                                .clip(RoundedCornerShape(14.dp)),
+                                                        )
+                                                    } else {
+                                                        PluginPlaceholderAvatar(
+                                                            name = update.pluginName,
+                                                            internalName = update.pluginName,
+                                                        )
+                                                    }
+
+                                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                                    Column(
+                                                        modifier = Modifier.weight(1f),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp),
                                                     ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                        ) {
+                                                            Text(
+                                                                text = update.pluginName,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                            )
+
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                                                border = androidx.compose.foundation.BorderStroke(
+                                                                    1.dp,
+                                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                                                ),
+                                                            ) {
+                                                                Text(
+                                                                    text = "v${update.version}",
+                                                                    color = MaterialTheme.colorScheme.primary,
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.SemiBold,
+                                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                                )
+                                                            }
+                                                        }
+
                                                         Text(
-                                                            text = update.pluginName,
-                                                            style = MaterialTheme.typography.titleMedium,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            text = "Auto-updated via repository sync",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
                                                         )
-
-                                                        Surface(
-                                                            shape = RoundedCornerShape(6.dp),
-                                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                                            border = androidx.compose.foundation.BorderStroke(
-                                                                1.dp,
-                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                                            ),
-                                                        ) {
-                                                            Text(
-                                                                text = "v${update.version}",
-                                                                color = MaterialTheme.colorScheme.primary,
-                                                                fontSize = 11.sp,
-                                                                fontWeight = FontWeight.SemiBold,
-                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                            )
-                                                        }
                                                     }
-
-                                                    Text(
-                                                        text = "Auto-updated via repository sync",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                    )
                                                 }
-                                            }
 
-                                            HorizontalDivider(
-                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                                                thickness = 1.dp,
-                                            )
+                                                HorizontalDivider(
+                                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                                    thickness = 1.dp,
+                                                )
 
-                                            // Bottom Row: Timestamp + Installed Pill
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                            ) {
+                                                // Bottom Row: Timestamp + Installed Pill
                                                 Row(
+                                                    modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                ) {
-                                                    Icon(
-                                                        Icons.Outlined.Schedule,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(13.dp),
-                                                    )
-                                                    Text(
-                                                        text = timeString,
-                                                        fontSize = 11.sp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        fontWeight = FontWeight.Medium,
-                                                    )
-                                                }
-
-                                                Surface(
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    color = Color(0xFF4CAF50).copy(alpha = 0.14f),
-                                                    border = androidx.compose.foundation.BorderStroke(
-                                                        1.dp,
-                                                        Color(0xFF4CAF50).copy(alpha = 0.35f),
-                                                    ),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
                                                 ) {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                     ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(5.dp)
-                                                                .clip(CircleShape)
-                                                                .background(Color(0xFF4CAF50)),
+                                                        Icon(
+                                                            Icons.Outlined.Schedule,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(13.dp),
                                                         )
                                                         Text(
-                                                            text = "Installed",
-                                                            color = Color(0xFF4CAF50),
+                                                            text = timeString,
                                                             fontSize = 11.sp,
-                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontWeight = FontWeight.Medium,
                                                         )
+                                                    }
+
+                                                    Surface(
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        color = Color(0xFF4CAF50).copy(alpha = 0.14f),
+                                                        border = androidx.compose.foundation.BorderStroke(
+                                                            1.dp,
+                                                            Color(0xFF4CAF50).copy(alpha = 0.35f),
+                                                        ),
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        ) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(5.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(Color(0xFF4CAF50)),
+                                                            )
+                                                            Text(
+                                                                text = "Installed",
+                                                                color = Color(0xFF4CAF50),
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -541,7 +548,6 @@ fun SettingsExtensions(
                         }
                     }
                 }
-
             }
         }
     }

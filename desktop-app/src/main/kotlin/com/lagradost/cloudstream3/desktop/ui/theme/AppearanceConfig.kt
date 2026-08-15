@@ -17,6 +17,18 @@ enum class PosterTitlePosition {
     }
 }
 
+enum class ContinueWatchingStyle {
+    THUMBNAIL,
+    PREMIUM,
+    ;
+
+    companion object {
+        fun fromString(value: String?): ContinueWatchingStyle {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: THUMBNAIL
+        }
+    }
+}
+
 enum class ClockDisplayMode {
     HIDDEN,
     TIME_ONLY,
@@ -42,8 +54,11 @@ object AppearanceConfig {
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
     private const val PREF_HERO_AUTO_SLIDE_DELAY = "pref_hero_auto_slide_delay"
+    private const val PREF_CONTINUE_WATCHING_STYLE = "pref_continue_watching_style"
+    private const val PREF_POSTER_HOVER_GLOW_ENABLED = "pref_poster_hover_glow_enabled"
     private const val PREF_POSTER_TITLE_POSITION = "pref_poster_title_position"
     private const val PREF_HOME_SPACING_DP = "pref_home_spacing_dp"
+    private const val PREF_HOME_VERTICAL_SPACING_DP = "pref_home_vertical_spacing_dp"
     private const val PREF_POSTER_WIDTH = "pref_poster_width"
     private const val PREF_POSTER_ROUNDING = "pref_poster_rounding"
     private const val PREF_CUSTOM_THEME_ACCENT = "pref_custom_theme_accent"
@@ -76,6 +91,7 @@ object AppearanceConfig {
     private const val PREF_BG_IMAGE_TINT_COLOR = "pref_bg_image_tint_color"
     private const val PREF_BG_IMAGE_TINT_ALPHA = "pref_bg_image_tint_alpha"
     private const val PREF_ANTI_SPOILER_ENABLED = "pref_anti_spoiler_enabled"
+    private const val PREF_UI_CARD_OPACITY = "pref_ui_card_opacity"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
@@ -90,8 +106,11 @@ object AppearanceConfig {
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
     val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
     val heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
+    val continueWatchingStyle = MutableStateFlow(ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE)))
+    val posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
     val posterTitlePosition = MutableStateFlow(PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION)))
     val homeSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12)
+    val homeVerticalSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_VERTICAL_SPACING_DP) ?: 0)
     val posterWidthDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190)
     val posterRoundingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12)
     val customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF")
@@ -126,6 +145,8 @@ object AppearanceConfig {
     val backgroundImageTintEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_TINT_ENABLED) ?: false)
     val backgroundImageTintColor = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_TINT_COLOR) ?: "#7C6BFF")
     val backgroundImageTintAlpha = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_TINT_ALPHA) ?: 0.3f)
+
+    val uiCardOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_UI_CARD_OPACITY) ?: 0.4f)
 
     private val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
     val customPresets = MutableStateFlow(
@@ -224,6 +245,11 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_HOME_SPACING_DP, dp)
     }
 
+    fun setHomeVerticalSpacingDp(dp: Int) {
+        homeVerticalSpacingDp.value = dp
+        DesktopDataStore.setKey(PREF_HOME_VERTICAL_SPACING_DP, dp)
+    }
+
     fun setPosterWidthDp(width: Int) {
         posterWidthDp.value = width
         DesktopDataStore.setKey(PREF_POSTER_WIDTH, width)
@@ -252,6 +278,16 @@ object AppearanceConfig {
     fun setHeroEnabled(enabled: Boolean) {
         heroEnabled.value = enabled
         DesktopDataStore.setKey(PREF_HERO_ENABLED, enabled)
+    }
+
+    fun setContinueWatchingStyle(style: ContinueWatchingStyle) {
+        continueWatchingStyle.value = style
+        DesktopDataStore.setKey(PREF_CONTINUE_WATCHING_STYLE, style.name)
+    }
+
+    fun setPosterHoverGlowEnabled(enabled: Boolean) {
+        posterHoverGlowEnabled.value = enabled
+        DesktopDataStore.setKey(PREF_POSTER_HOVER_GLOW_ENABLED, enabled)
     }
 
     fun setPosterTitlePosition(position: PosterTitlePosition) {
@@ -382,6 +418,11 @@ object AppearanceConfig {
     fun setBackgroundImageTintAlpha(alpha: Float) {
         backgroundImageTintAlpha.value = alpha
         DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ALPHA, alpha)
+    }
+
+    fun setUiCardOpacity(opacity: Float) {
+        uiCardOpacity.value = opacity
+        DesktopDataStore.setKey(PREF_UI_CARD_OPACITY, opacity)
     }
 
     fun saveCustomPreset(preset: ThemePreset) {

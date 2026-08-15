@@ -11,6 +11,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -25,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,52 +38,76 @@ import com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets
 import com.lagradost.cloudstream3.desktop.ui.theme.ThemePreset
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.lagradost.cloudstream3.newMovieSearchResponse
+import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.SearchQuality
+import com.lagradost.common.storage.WatchHistory
+
+fun getAppearanceSubScreenForSetting(setting: String?): SettingsSubScreen {
+    if (setting == null) return SettingsSubScreen.APPEARANCE_THEME
+
+    val layoutSettings = setOf(
+        "Dock Position", "Home Page Spacing", "Enable Hero Slider", "Hero Auto-Slide Delay", "Hero Background Blur", "Poster Title Position", "Poster Width", "Poster Corner Radius", "Show Rating / Score", "Show Quality (HD / 4K)", "Show Language (Sub / Dub)",
+    )
+
+    val effectsSettings = setOf(
+        "Ambient Glow",
+        "Clock & Date",
+        "Display Mode",
+        "Enable Text Shadows",
+        "Enable UI Element Shadows",
+        "Background Wallpaper",
+    )
+
+    return when {
+        layoutSettings.contains(setting) -> SettingsSubScreen.APPEARANCE_LAYOUT
+        effectsSettings.contains(setting) -> SettingsSubScreen.APPEARANCE_EFFECTS
+        else -> SettingsSubScreen.APPEARANCE_THEME
+    }
+}
 
 @Composable
 fun SettingsAppearance(
     onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
 ) {
+    SettingsGroupCard(title = "Appearance Configuration") {
+        SettingsNavigationRow(
+            title = "Theme & Typography",
+            subtitle = "Colors, presets, fonts, and dark mode",
+            icon = Icons.Default.Palette,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_THEME) },
+        )
+        SettingsNavigationRow(
+            title = "Display & Layout",
+            subtitle = "Grid layout, item sizes, and poster badges",
+            icon = Icons.Default.Dashboard,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_LAYOUT) },
+        )
+        SettingsNavigationRow(
+            title = "Effects & Clock",
+            subtitle = "Cinematic glow, wallpaper, and time formatting",
+            icon = Icons.Default.Wallpaper,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_EFFECTS) },
+        )
+    }
+}
+
+@Composable
+fun SettingsAppearanceThemeScreen() {
     val themeAccent by AppearanceConfig.themeAccent.collectAsState()
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-    val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
-    val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
-    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
-    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
-    val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
-    val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
-    val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
-    val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
-    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
-    val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
-    val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
-    val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
-    val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
-    val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
     val appPresetTheme by AppearanceConfig.appPresetTheme.collectAsState()
     val customPresets by AppearanceConfig.customPresets.collectAsState()
     val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
     val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
     val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
-    val clockMode by AppearanceConfig.clockMode.collectAsState()
-    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
-    val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
-    val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
-    val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
-    val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
-    val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
-    val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
-    val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
-    val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
-    val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
-    val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
-    val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
     val scope = rememberCoroutineScope()
 
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var newPresetName by remember { mutableStateOf("") }
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
     val accentColors = listOf(
         "Purple" to Color(0xFF7C6BFF),
@@ -89,74 +118,153 @@ fun SettingsAppearance(
         "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(AppearanceConfig.customThemeAccent.value, Color(0xFF7C6BFF)),
     )
 
-    Column(
-        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
     ) {
-        SettingsGroupCard(title = "Theme Presets") {
-            val allPresets = BuiltInPresets.presets.filter { it.isLightMode == isLightMode } + customPresets
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                allPresets.forEach { preset ->
-                    val isSelected = appPresetTheme == preset.id
-                    Column(
-                        modifier = Modifier.width(120.dp).clickable { AppearanceConfig.applyPreset(preset) },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp, 60.dp)
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                )
-                                .background(com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(if (preset.appThemeBackground == "Custom") preset.customAppThemeBackground else "#0C0C16", Color.Black)),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsGroupCard(title = "Theme Presets") {
+                val allPresets = BuiltInPresets.presets.filter { it.isLightMode == isLightMode } + customPresets
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    allPresets.forEach { preset ->
+                        val isSelected = appPresetTheme == preset.id
+                        Column(
+                            modifier = Modifier.width(120.dp).clickable { AppearanceConfig.applyPreset(preset) },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (!preset.isBuiltIn) {
-                                Icon(
-                                    imageVector = Icons.Filled.Delete,
-                                    contentDescription = "Delete",
-                                    tint = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .size(16.dp)
-                                        .clickable { AppearanceConfig.deleteCustomPreset(preset.id) },
-                                )
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp, 60.dp)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                    )
+                                    .background(com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(if (preset.appThemeBackground == "Custom") preset.customAppThemeBackground else "#0C0C16", Color.Black)),
+                            ) {
+                                if (!preset.isBuiltIn) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = "Delete",
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp)
+                                            .size(16.dp)
+                                            .clickable { AppearanceConfig.deleteCustomPreset(preset.id) },
+                                    )
+                                }
                             }
+                            Text(preset.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Text(preset.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
-        }
 
-        SettingsGroupCard(title = "Theme & Colors") {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    accentColors.forEach { (name, color) ->
-                        val isSelected = themeAccent == name
+            SettingsGroupCard(title = "Theme & Colors") {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Theme Color", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        accentColors.forEach { (name, color) ->
+                            val isSelected = themeAccent == name
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { AppearanceConfig.setThemeAccent(name) },
+                            ) {
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                            .align(Alignment.Center),
+                                    )
+                                } else if (name == "Custom") {
+                                    Icon(
+                                        imageVector = Icons.Filled.Edit,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(16.dp).align(Alignment.Center),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (themeAccent == "Custom") {
+                        val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+                        CustomColorPickerUI(
+                            colorHex = customThemeAccent,
+                            onColorChanged = { AppearanceConfig.setCustomThemeAccent(it) },
+                        )
+                    }
+                }
+
+                val backgroundColors = listOf(
+                    "Navy" to (if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
+                    "Midnight Blue" to (if (isLightMode) Color(0xFFE0E7FF) else Color(0xFF0B1120)),
+                    "Slate Grey" to (if (isLightMode) Color(0xFFF1F5F9) else Color(0xFF18181B)),
+                    "Mocha" to (if (isLightMode) Color(0xFFF5F5F4) else Color(0xFF1E1815)),
+                    "Forest" to (if (isLightMode) Color(0xFFF0FDF4) else Color(0xFF0F1714)),
+                    "Deep Purple" to (if (isLightMode) Color(0xFFFAF5FF) else Color(0xFF130C1C)),
+                    "Pure Black" to (if (isLightMode) Color(0xFFFFFFFF) else Color(0xFF000000)),
+                    "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(AppearanceConfig.customAppThemeBackground.value, if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
+                )
+
+                Text(
+                    text = "Background Theme",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp),
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    backgroundColors.forEach { (name, color) ->
+                        val isSelected = appThemeBackground == name
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(32.dp)
                                 .clip(CircleShape)
                                 .background(color)
-                                .clickable { AppearanceConfig.setThemeAccent(name) },
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                    shape = CircleShape,
+                                )
+                                .clickable { AppearanceConfig.setAppThemeBackground(name) },
+                            contentAlignment = Alignment.Center,
                         ) {
                             if (isSelected) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White)
-                                        .align(Alignment.Center),
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             } else if (name == "Custom") {
                                 Icon(
@@ -170,620 +278,134 @@ fun SettingsAppearance(
                     }
                 }
 
-                if (themeAccent == "Custom") {
-                    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+                if (appThemeBackground == "Custom") {
+                    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
                     CustomColorPickerUI(
-                        colorHex = customThemeAccent,
-                        onColorChanged = { AppearanceConfig.setCustomThemeAccent(it) },
+                        colorHex = customAppThemeBackground,
+                        onColorChanged = { AppearanceConfig.setCustomAppThemeBackground(it) },
                     )
                 }
-            }
 
-            val backgroundColors = listOf(
-                "Navy" to (if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
-                "Midnight Blue" to (if (isLightMode) Color(0xFFE0E7FF) else Color(0xFF0B1120)),
-                "Slate Grey" to (if (isLightMode) Color(0xFFF1F5F9) else Color(0xFF18181B)),
-                "Mocha" to (if (isLightMode) Color(0xFFF5F5F4) else Color(0xFF1E1815)),
-                "Forest" to (if (isLightMode) Color(0xFFF0FDF4) else Color(0xFF0F1714)),
-                "Deep Purple" to (if (isLightMode) Color(0xFFFAF5FF) else Color(0xFF130C1C)),
-                "Pure Black" to (if (isLightMode) Color(0xFFFFFFFF) else Color(0xFF000000)),
-                "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(AppearanceConfig.customAppThemeBackground.value, if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
-            )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            Text(
-                text = "Background Theme",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp),
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                backgroundColors.forEach { (name, color) ->
-                    val isSelected = appThemeBackground == name
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .border(
-                                width = if (isSelected) 3.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                shape = CircleShape,
-                            )
-                            .clickable { AppearanceConfig.setAppThemeBackground(name) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        } else if (name == "Custom") {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(16.dp).align(Alignment.Center),
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (appThemeBackground == "Custom") {
-                val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
-                CustomColorPickerUI(
-                    colorHex = customAppThemeBackground,
-                    onColorChanged = { AppearanceConfig.setCustomAppThemeBackground(it) },
+                SettingsToggleItem(
+                    label = "Light Theme",
+                    subtitle = "Use a bright white interface",
+                    checked = isLightMode,
+                    onCheckedChange = { AppearanceConfig.setLightMode(it) },
                 )
-            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Light Theme",
-                subtitle = "Use a bright white interface",
-                checked = isLightMode,
-                onCheckedChange = { AppearanceConfig.setLightMode(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Background Gradients",
-                subtitle = "Enable rich depth and color grading on the background",
-                checked = backgroundGradientEnabled,
-                onCheckedChange = { AppearanceConfig.setBackgroundGradientEnabled(it) },
-            )
-
-            if (backgroundGradientEnabled) {
-                SettingsDropdownItem(
-                    label = "Gradient Type",
-                    subtitle = "Choose between radial glows or smooth linear sweeps",
-                    options = listOf("Radial" to "Radial", "Linear" to "Linear"),
-                    currentValue = backgroundGradientType,
-                    onSelectionChanged = { AppearanceConfig.setBackgroundGradientType(it) },
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsSliderItem(
-                    label = "Gradient Intensity",
-                    subtitle = "Adjust how strong the gradient blends",
-                    value = backgroundGradientIntensity,
-                    onValueChange = { AppearanceConfig.setBackgroundGradientIntensity(it) },
+                    label = "Card Translucency",
+                    subtitle = "Adjust the opacity of glassmorphic elements",
+                    value = uiCardOpacity,
+                    onValueChange = { AppearanceConfig.setUiCardOpacity(it) },
                     valueRange = 0.0f..1.0f,
                 )
-            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            Button(
-                onClick = { showSavePresetDialog = true },
-                modifier = Modifier.align(Alignment.End).padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save Current as Preset")
-            }
-        }
+                SettingsToggleItem(
+                    label = "Background Gradients",
+                    subtitle = "Enable rich depth and color grading on the background",
+                    checked = backgroundGradientEnabled,
+                    onCheckedChange = { AppearanceConfig.setBackgroundGradientEnabled(it) },
+                )
 
-        SettingsGroupCard(title = "Typography") {
-            var customFonts by remember { mutableStateOf(com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()) }
-            val coroutineScope = rememberCoroutineScope()
-            SettingsDropdownItem(
-                label = "App Font",
-                subtitle = "Choose the font used throughout the app",
-                options = com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it },
-                currentValue = selectedFont,
-                onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
-            )
-            if (customFonts.isNotEmpty()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                    Text("Installed Custom Fonts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 4.dp))
-                    customFonts.forEach { fontName ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(fontName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            IconButton(onClick = {
-                                val f = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getFontFile(fontName)
-                                if (f != null && f.delete()) {
-                                    customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
-                                }
-                            }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete Font", tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    }
+                if (backgroundGradientEnabled) {
+                    SettingsDropdownItem(
+                        label = "Gradient Type",
+                        subtitle = "Choose between radial glows or smooth linear sweeps",
+                        options = listOf("Radial" to "Radial", "Linear" to "Linear"),
+                        currentValue = backgroundGradientType,
+                        onSelectionChanged = { AppearanceConfig.setBackgroundGradientType(it) },
+                    )
+
+                    SettingsSliderItem(
+                        label = "Gradient Intensity",
+                        subtitle = "Adjust how strong the gradient blends",
+                        value = backgroundGradientIntensity,
+                        onValueChange = { AppearanceConfig.setBackgroundGradientIntensity(it) },
+                        valueRange = 0.0f..1.0f,
+                    )
                 }
-            }
 
-            Button(
-                onClick = {
-                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Font File", java.awt.FileDialog.LOAD)
-                            dialog.file = "*.ttf;*.otf"
-                            dialog.isVisible = true
-                            if (dialog.directory != null && dialog.file != null) {
-                                val srcFile = java.io.File(dialog.directory, dialog.file)
-                                val dstFile = java.io.File(com.lagradost.common.platform.PlatformPaths.fontsDir, srcFile.name)
-                                com.lagradost.common.platform.PlatformPaths.fontsDir.mkdirs()
-                                srcFile.copyTo(dstFile, overwrite = true)
-                                // Update state
-                                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            com.lagradost.common.logging.AppLogger.e("Font install error", e)
-                        }
-                    }
-                },
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
-            ) {
-                Text("Install Custom Font")
-            }
-        }
-
-        SettingsGroupCard(title = "Depth & Shadows") {
-            val elementShadowsEnabled by AppearanceConfig.elementShadowsEnabled.collectAsState()
-            val elementShadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
-            val textDropShadowEnabled by AppearanceConfig.textDropShadowEnabled.collectAsState()
-            val textDropShadowBlur by AppearanceConfig.textDropShadowBlur.collectAsState()
-
-            SettingsToggleItem(
-                label = "Enable UI Element Shadows",
-                subtitle = "Applies a physical drop shadow behind posters, episodes, and cards",
-                checked = elementShadowsEnabled,
-                onCheckedChange = { AppearanceConfig.setElementShadowsEnabled(it) },
-            )
-
-            if (elementShadowsEnabled) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                SettingsSliderItem(
-                    label = "UI Shadow Intensity",
-                    subtitle = "Adjust how deep or heavy the element shadows are",
-                    value = elementShadowMultiplier,
-                    valueRange = 0.0f..3.0f,
-                    steps = 29,
-                    onValueChange = { AppearanceConfig.setElementShadowMultiplier(it) },
-                )
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Enable Text Shadows",
-                subtitle = "Applies a subtle drop shadow to text over images to improve readability",
-                checked = textDropShadowEnabled,
-                onCheckedChange = { AppearanceConfig.setTextDropShadowEnabled(it) },
-            )
-
-            if (textDropShadowEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Shadow Blur Radius",
-                    subtitle = "Adjust how soft and spread out the text shadow is",
-                    value = textDropShadowBlur,
-                    valueRange = 0.5f..20f,
-                    steps = 39,
-                    onValueChange = { AppearanceConfig.setTextDropShadowBlur(it) },
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Real-time Preview
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                        .background(
-                            androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = listOf(Color(0xFFE0E0E0), Color(0xFFA0A0A0)),
-                            ),
-                        ),
-                    contentAlignment = Alignment.Center,
+                Button(
+                    onClick = { showSavePresetDialog = true },
+                    modifier = Modifier.align(Alignment.End).padding(top = 8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
                 ) {
-                    val shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow()
-                    Text(
-                        text = "Real-time Shadow Preview",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            shadow = shadow,
-                        ),
-                    )
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save Current as Preset")
                 }
             }
-        }
 
-        SettingsGroupCard(title = "Cinematic Aesthetics") {
-            SettingsToggleItem(
-                label = "Ambient Glow",
-                subtitle = "Adds a subtle, theme-colored gradient background",
-                checked = ambientGlowEnabled,
-                onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) },
-            )
-
-            if (ambientGlowEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Intensity",
-                    subtitle = "Adjust how bright the background ambient glow is",
-                    value = ambientGlowIntensity,
-                    valueRange = 0.0f..0.5f,
-                    steps = 100,
-                    onValueChange = { AppearanceConfig.setAmbientGlowIntensity(it) },
+            SettingsGroupCard(title = "Typography") {
+                var customFonts by remember { mutableStateOf(com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()) }
+                val coroutineScope = rememberCoroutineScope()
+                SettingsDropdownItem(
+                    label = "App Font",
+                    subtitle = "Choose the font used throughout the app",
+                    options = com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it },
+                    currentValue = selectedFont,
+                    onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
                 )
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("Position", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf("Center", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right").forEach { pos ->
-                            val isSelected = ambientGlowPositions.contains(pos)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { AppearanceConfig.toggleAmbientGlowPosition(pos) },
-                                label = { Text(pos) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                    enabled = true,
-                                    selected = isSelected,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Hero Background Blur",
-                subtitle = "Apply a frosted glass blur to the hero section background",
-                checked = heroBackgroundBlurEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
-            )
-        }
-
-        SettingsGroupCard(title = "Display & Layout") {
-            SettingsToggleItem(
-                label = "Enable Hero Slider",
-                subtitle = "Show the large featured hero slider on the home page",
-                checked = heroEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroEnabled(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsDropdownItem(
-                label = "Hero Auto-Slide Delay",
-                subtitle = "Time before the home page hero section automatically switches to the next item",
-                options = listOf(
-                    5 to "5 Seconds",
-                    10 to "10 Seconds",
-                    15 to "15 Seconds",
-                    30 to "30 Seconds",
-                    60 to "60 Seconds",
-                ),
-                currentValue = autoSlideDelay,
-                onSelectionChanged = { AppearanceConfig.setHeroAutoSlideDelaySeconds(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsDropdownItem(
-                label = "Dock Position",
-                subtitle = "Choose where the main navigation dock is placed",
-                options = listOf(
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT to "Left",
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP to "Top",
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM to "Bottom",
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT to "Right",
-                ),
-                currentValue = dockPosition,
-                onSelectionChanged = { AppearanceConfig.setDockPosition(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsNavigationItem(
-                label = "Poster Layout Editor",
-                subtitle = "Customize poster sizes, spacing, corner radius, and titles",
-                onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) },
-            )
-        }
-
-        SettingsGroupCard(title = "Poster Badges") {
-            SettingsToggleItem(
-                label = "Show Rating / Score",
-                subtitle = "Display a small star rating on posters if available",
-                checked = showPosterRating,
-                onCheckedChange = { AppearanceConfig.setShowPosterRating(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Show Quality (HD / 4K)",
-                subtitle = "Display the video quality tag on the bottom right of posters",
-                checked = showPosterQuality,
-                onCheckedChange = { AppearanceConfig.setShowPosterQuality(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Show Language (Sub / Dub)",
-                subtitle = "Display the subtitle and dub episode counts on posters",
-                checked = showPosterLanguage,
-                onCheckedChange = { AppearanceConfig.setShowPosterLanguage(it) },
-            )
-        }
-
-        SettingsGroupCard("Background Wallpaper") {
-            // Filename preview
-            val fileName = if (bgImagePath.isNotEmpty()) java.io.File(bgImagePath).name else "No image selected"
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Wallpaper Image",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = fileName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                try {
-                                    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Wallpaper", java.awt.FileDialog.LOAD)
-                                    dialog.file = "*.jpg;*.jpeg;*.png;*.webp;*.bmp"
-                                    dialog.isVisible = true
-                                    if (dialog.directory != null && dialog.file != null) {
-                                        val path = java.io.File(dialog.directory, dialog.file).absolutePath
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            AppearanceConfig.setBackgroundImagePath(path)
-                                        }
+                if (customFonts.isNotEmpty()) {
+                    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                        Text("Installed Custom Fonts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 4.dp))
+                        customFonts.forEach { fontName ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(fontName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                IconButton(onClick = {
+                                    val f = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getFontFile(fontName)
+                                    if (f != null && f.delete()) {
+                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
                                     }
-                                } catch (e: Exception) {
-                                    com.lagradost.common.logging.AppLogger.e("Wallpaper picker error", e)
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete Font", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
-                        },
-                    ) {
-                        Text("Choose Image")
-                    }
-                    if (bgImagePath.isNotEmpty()) {
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    AppearanceConfig.clearBackgroundImage()
-                                }
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                        ) {
-                            Text("Remove")
                         }
                     }
                 }
-            }
 
-            if (bgImagePath.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Blur Radius",
-                    subtitle = "How blurred the background image is (0 = sharp, 50 = heavy blur)",
-                    value = bgImageBlur,
-                    valueRange = 0f..50f,
-                    steps = 49,
-                    onValueChange = { AppearanceConfig.setBackgroundImageBlur(it) },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Brightness",
-                    subtitle = "How bright the wallpaper shows through (0% = black, 100% = full image)",
-                    value = bgImageBrightness,
-                    valueRange = 0f..1f,
-                    steps = 99,
-                    onValueChange = { AppearanceConfig.setBackgroundImageBrightness(it) },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Opacity",
-                    subtitle = "Overall image transparency — blends wallpaper against your theme background color",
-                    value = bgImageOpacity,
-                    valueRange = 0f..1f,
-                    steps = 99,
-                    onValueChange = { AppearanceConfig.setBackgroundImageOpacity(it) },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsSliderItem(
-                    label = "Saturation",
-                    subtitle = "Color intensity of the image (0% = full grayscale, 100% = original colors)",
-                    value = bgImageSaturation,
-                    valueRange = 0f..1f,
-                    steps = 99,
-                    onValueChange = { AppearanceConfig.setBackgroundImageSaturation(it) },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsToggleItem(
-                    label = "Vignette",
-                    subtitle = "Dark fade from the edges inward for a cinematic look",
-                    checked = bgImageVignetteEnabled,
-                    onCheckedChange = { AppearanceConfig.setBackgroundImageVignetteEnabled(it) },
-                )
-
-                if (bgImageVignetteEnabled) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    SettingsSliderItem(
-                        label = "Vignette Intensity",
-                        subtitle = "How dark and strong the edge vignette is",
-                        value = bgImageVignetteIntensity,
-                        valueRange = 0f..1f,
-                        steps = 99,
-                        onValueChange = { AppearanceConfig.setBackgroundImageVignetteIntensity(it) },
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                SettingsToggleItem(
-                    label = "Color Tint",
-                    subtitle = "Overlay a custom color on top of the wallpaper (great for matching your accent)",
-                    checked = bgImageTintEnabled,
-                    onCheckedChange = { AppearanceConfig.setBackgroundImageTintEnabled(it) },
-                )
-
-                if (bgImageTintEnabled) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    CustomColorPickerUI(
-                        colorHex = bgImageTintColor,
-                        onColorChanged = { AppearanceConfig.setBackgroundImageTintColor(it) },
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    SettingsSliderItem(
-                        label = "Tint Strength",
-                        subtitle = "How strongly the tint color is applied over the image",
-                        value = bgImageTintAlpha,
-                        valueRange = 0f..0.95f,
-                        steps = 93,
-                        onValueChange = { AppearanceConfig.setBackgroundImageTintAlpha(it) },
-                    )
+                Button(
+                    onClick = {
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Font File", java.awt.FileDialog.LOAD)
+                                dialog.file = "*.ttf;*.otf"
+                                dialog.isVisible = true
+                                if (dialog.directory != null && dialog.file != null) {
+                                    val srcFile = java.io.File(dialog.directory, dialog.file)
+                                    val dstFile = java.io.File(com.lagradost.common.platform.PlatformPaths.fontsDir, srcFile.name)
+                                    com.lagradost.common.platform.PlatformPaths.fontsDir.mkdirs()
+                                    srcFile.copyTo(dstFile, overwrite = true)
+                                    // Update state
+                                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                com.lagradost.common.logging.AppLogger.e("Font install error", e)
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
+                ) {
+                    Text("Install Custom Font")
                 }
             }
         }
-
-        SettingsGroupCard("Clock & Date") {
-            SettingsDropdownItem(
-                label = "Display Mode",
-                subtitle = "What to show in the top-left of the main menu",
-                options = listOf(
-                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.HIDDEN to "Hidden",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY to "Time Only",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY to "Date Only",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH to "Time & Date",
-                ),
-                currentValue = clockMode,
-                onSelectionChanged = { AppearanceConfig.setClockMode(it) },
-            )
-
-            if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY ||
-                clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
-            ) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                SettingsDropdownItem(
-                    label = "Time Format",
-                    subtitle = "Pattern used to format the clock",
-                    options = listOf(
-                        "HH:mm" to "24h  (14:30)",
-                        "HH:mm:ss" to "24h + seconds  (14:30:00)",
-                        "hh:mm a" to "12h  (02:30 PM)",
-                        "h:mm a" to "12h short  (2:30 PM)",
-                    ),
-                    currentValue = clockTimeFormat,
-                    onSelectionChanged = { AppearanceConfig.setClockTimeFormat(it) },
-                )
-            }
-
-            if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY ||
-                clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
-            ) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                SettingsDropdownItem(
-                    label = "Date Format",
-                    subtitle = "Pattern used to format the date",
-                    options = listOf(
-                        "EEE, dd MMM" to "Fri, 01 Aug",
-                        "EEEE, MMMM d" to "Friday, August 1",
-                        "dd/MM/yyyy" to "01/08/2026",
-                        "MM/dd/yyyy" to "08/01/2026",
-                        "MMM d, yyyy" to "Aug 1, 2026",
-                        "dd-MM-yyyy" to "01-08-2026",
-                    ),
-                    currentValue = clockDateFormat,
-                    onSelectionChanged = { AppearanceConfig.setClockDateFormat(it) },
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showSavePresetDialog) {
@@ -798,8 +420,9 @@ fun SettingsAppearance(
                     OutlinedTextField(
                         value = newPresetName,
                         onValueChange = { newPresetName = it },
-                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("e.g. My Dark Theme") },
                     )
                 }
             },
@@ -827,10 +450,514 @@ fun SettingsAppearance(
                     Text("Save")
                 }
             },
+            dismissButton = {
+                TextButton(onClick = { showSavePresetDialog = false }) { Text("Cancel") }
+            },
         )
     }
 }
 
+@Composable
+fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit) {
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
+    val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
+    val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
+    val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
+    val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
+    val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
+    val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
+    val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsGroupCard(title = "Display & Layout") {
+                SettingsToggleItem(
+                    label = "Enable Hero Slider",
+                    subtitle = "Show the large featured hero slider on the home page",
+                    checked = heroEnabled,
+                    onCheckedChange = { AppearanceConfig.setHeroEnabled(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Hero Background Blur",
+                    subtitle = "Apply a frosted glass blur to the hero section background",
+                    checked = heroBackgroundBlurEnabled,
+                    onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsDropdownItem(
+                    label = "Hero Auto-Slide Delay",
+                    subtitle = "Time before the home page hero section automatically switches to the next item",
+                    options = listOf(
+                        5 to "5 Seconds",
+                        10 to "10 Seconds",
+                        15 to "15 Seconds",
+                        30 to "30 Seconds",
+                        60 to "60 Seconds",
+                    ),
+                    currentValue = autoSlideDelay,
+                    onSelectionChanged = { AppearanceConfig.setHeroAutoSlideDelaySeconds(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsDropdownItem(
+                    label = "Dock Position",
+                    subtitle = "Choose where the main navigation dock is placed",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT to "Left",
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP to "Top",
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM to "Bottom",
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT to "Right",
+                    ),
+                    currentValue = dockPosition,
+                    onSelectionChanged = { AppearanceConfig.setDockPosition(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsNavigationItem(
+                    label = "Poster Layout Editor",
+                    subtitle = "Customize poster sizes, spacing, corner radius, and titles",
+                    onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) },
+                )
+            }
+
+            SettingsGroupCard(title = "Poster Badges") {
+                SettingsToggleItem(
+                    label = "Show Rating / Score",
+                    subtitle = "Display a small star rating on posters if available",
+                    checked = showPosterRating,
+                    onCheckedChange = { AppearanceConfig.setShowPosterRating(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Show Quality (HD / 4K)",
+                    subtitle = "Display the video quality tag on the bottom right of posters",
+                    checked = showPosterQuality,
+                    onCheckedChange = { AppearanceConfig.setShowPosterQuality(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Show Language (Sub / Dub)",
+                    subtitle = "Display the subtitle and dub episode counts on posters",
+                    checked = showPosterLanguage,
+                    onCheckedChange = { AppearanceConfig.setShowPosterLanguage(it) },
+                )
+            }
+
+            SettingsGroupCard(title = "Depth & Shadows") {
+                val elementShadowsEnabled by AppearanceConfig.elementShadowsEnabled.collectAsState()
+                val elementShadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
+                val textDropShadowEnabled by AppearanceConfig.textDropShadowEnabled.collectAsState()
+                val textDropShadowBlur by AppearanceConfig.textDropShadowBlur.collectAsState()
+
+                SettingsToggleItem(
+                    label = "Enable UI Element Shadows",
+                    subtitle = "Applies a physical drop shadow behind posters, episodes, and cards",
+                    checked = elementShadowsEnabled,
+                    onCheckedChange = { AppearanceConfig.setElementShadowsEnabled(it) },
+                )
+
+                if (elementShadowsEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "UI Shadow Intensity",
+                        subtitle = "Adjust how deep or heavy the element shadows are",
+                        value = elementShadowMultiplier,
+                        valueRange = 0.0f..3.0f,
+                        steps = 29,
+                        onValueChange = { AppearanceConfig.setElementShadowMultiplier(it) },
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Enable Text Shadows",
+                    subtitle = "Applies a subtle drop shadow to text over images to improve readability",
+                    checked = textDropShadowEnabled,
+                    onCheckedChange = { AppearanceConfig.setTextDropShadowEnabled(it) },
+                )
+
+                if (textDropShadowEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Shadow Blur Radius",
+                        subtitle = "Adjust how soft and spread out the text shadow is",
+                        value = textDropShadowBlur,
+                        valueRange = 0.5f..20f,
+                        steps = 39,
+                        onValueChange = { AppearanceConfig.setTextDropShadowBlur(it) },
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Real-time Preview
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .background(
+                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(Color(0xFFE0E0E0), Color(0xFFA0A0A0)),
+                                ),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow()
+                        Text(
+                            text = "Real-time Shadow Preview",
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                shadow = shadow,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsAppearanceEffectsScreen() {
+    val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
+    val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+    val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+    val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
+    val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
+    val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
+    val clockMode by AppearanceConfig.clockMode.collectAsState()
+    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
+    val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
+    val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
+    val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
+    val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
+    val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
+    val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
+    val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
+    val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
+    val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
+    val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
+    val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsGroupCard(title = "Cinematic Aesthetics") {
+                SettingsToggleItem(
+                    label = "Ambient Glow",
+                    subtitle = "Adds a subtle, theme-colored gradient background",
+                    checked = ambientGlowEnabled,
+                    onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) },
+                )
+
+                if (ambientGlowEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Intensity",
+                        subtitle = "Adjust how bright the background ambient glow is",
+                        value = ambientGlowIntensity,
+                        valueRange = 0.0f..0.5f,
+                        steps = 100,
+                        onValueChange = { AppearanceConfig.setAmbientGlowIntensity(it) },
+                    )
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Position", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf("Center", "Top", "Bottom", "Left", "Right", "Top Left", "Top Right", "Bottom Left", "Bottom Right").forEach { pos ->
+                                val isSelected = ambientGlowPositions.contains(pos)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { AppearanceConfig.toggleAmbientGlowPosition(pos) },
+                                    label = { Text(pos) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                        enabled = true,
+                                        selected = isSelected,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsGroupCard("Background Wallpaper") {
+                // Filename preview
+                val fileName = if (bgImagePath.isNotEmpty()) java.io.File(bgImagePath).name else "No image selected"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Wallpaper Image",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = fileName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    try {
+                                        val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Wallpaper", java.awt.FileDialog.LOAD)
+                                        dialog.file = "*.jpg;*.jpeg;*.png;*.webp;*.bmp"
+                                        dialog.isVisible = true
+                                        if (dialog.directory != null && dialog.file != null) {
+                                            val path = java.io.File(dialog.directory, dialog.file).absolutePath
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                AppearanceConfig.setBackgroundImagePath(path)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        com.lagradost.common.logging.AppLogger.e("Wallpaper picker error", e)
+                                    }
+                                }
+                            },
+                        ) {
+                            Text("Choose Image")
+                        }
+                        if (bgImagePath.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        AppearanceConfig.clearBackgroundImage()
+                                    }
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            ) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+
+                if (bgImagePath.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Blur Radius",
+                        subtitle = "How blurred the background image is (0 = sharp, 50 = heavy blur)",
+                        value = bgImageBlur,
+                        valueRange = 0f..50f,
+                        steps = 49,
+                        onValueChange = { AppearanceConfig.setBackgroundImageBlur(it) },
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Brightness",
+                        subtitle = "How bright the wallpaper shows through (0% = black, 100% = full image)",
+                        value = bgImageBrightness,
+                        valueRange = 0f..1f,
+                        steps = 99,
+                        onValueChange = { AppearanceConfig.setBackgroundImageBrightness(it) },
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Opacity",
+                        subtitle = "Overall image transparency — blends wallpaper against your theme background color",
+                        value = bgImageOpacity,
+                        valueRange = 0f..1f,
+                        steps = 99,
+                        onValueChange = { AppearanceConfig.setBackgroundImageOpacity(it) },
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsSliderItem(
+                        label = "Saturation",
+                        subtitle = "Color intensity of the image (0% = full grayscale, 100% = original colors)",
+                        value = bgImageSaturation,
+                        valueRange = 0f..1f,
+                        steps = 99,
+                        onValueChange = { AppearanceConfig.setBackgroundImageSaturation(it) },
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsToggleItem(
+                        label = "Vignette",
+                        subtitle = "Dark fade from the edges inward for a cinematic look",
+                        checked = bgImageVignetteEnabled,
+                        onCheckedChange = { AppearanceConfig.setBackgroundImageVignetteEnabled(it) },
+                    )
+
+                    if (bgImageVignetteEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        SettingsSliderItem(
+                            label = "Vignette Intensity",
+                            subtitle = "How dark and strong the edge vignette is",
+                            value = bgImageVignetteIntensity,
+                            valueRange = 0f..1f,
+                            steps = 99,
+                            onValueChange = { AppearanceConfig.setBackgroundImageVignetteIntensity(it) },
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsToggleItem(
+                        label = "Color Tint",
+                        subtitle = "Overlay a custom color on top of the wallpaper (great for matching your accent)",
+                        checked = bgImageTintEnabled,
+                        onCheckedChange = { AppearanceConfig.setBackgroundImageTintEnabled(it) },
+                    )
+
+                    if (bgImageTintEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        CustomColorPickerUI(
+                            colorHex = bgImageTintColor,
+                            onColorChanged = { AppearanceConfig.setBackgroundImageTintColor(it) },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        SettingsSliderItem(
+                            label = "Tint Strength",
+                            subtitle = "How strongly the tint color is applied over the image",
+                            value = bgImageTintAlpha,
+                            valueRange = 0f..0.95f,
+                            steps = 93,
+                            onValueChange = { AppearanceConfig.setBackgroundImageTintAlpha(it) },
+                        )
+                    }
+                }
+            }
+
+            SettingsGroupCard("Clock & Date") {
+                SettingsDropdownItem(
+                    label = "Display Mode",
+                    subtitle = "What to show in the top-left of the main menu",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.HIDDEN to "Hidden",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY to "Time Only",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY to "Date Only",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH to "Time & Date",
+                    ),
+                    currentValue = clockMode,
+                    onSelectionChanged = { AppearanceConfig.setClockMode(it) },
+                )
+
+                if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY ||
+                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    SettingsDropdownItem(
+                        label = "Time Format",
+                        subtitle = "Pattern used to format the clock",
+                        options = listOf(
+                            "HH:mm" to "24h  (14:30)",
+                            "HH:mm:ss" to "24h + seconds  (14:30:00)",
+                            "hh:mm a" to "12h  (02:30 PM)",
+                            "h:mm a" to "12h short  (2:30 PM)",
+                        ),
+                        currentValue = clockTimeFormat,
+                        onSelectionChanged = { AppearanceConfig.setClockTimeFormat(it) },
+                    )
+                }
+
+                if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.DATE_ONLY ||
+                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    SettingsDropdownItem(
+                        label = "Date Format",
+                        subtitle = "Pattern used to format the date",
+                        options = listOf(
+                            "EEE, dd MMM" to "Fri, 01 Aug",
+                            "EEEE, MMMM d" to "Friday, August 1",
+                            "dd/MM/yyyy" to "01/08/2026",
+                            "MM/dd/yyyy" to "08/01/2026",
+                            "MMM d, yyyy" to "Aug 1, 2026",
+                            "dd-MM-yyyy" to "01-08-2026",
+                        ),
+                        currentValue = clockDateFormat,
+                        onSelectionChanged = { AppearanceConfig.setClockDateFormat(it) },
+                    )
+                }
+            }
+        }
+    }
+}
 fun colorToHsv(color: Color): FloatArray {
     val r = color.red
     val g = color.green
@@ -1053,8 +1180,71 @@ fun CustomColorPickerUI(colorHex: String, onColorChanged: (String) -> Unit) {
 fun SettingsPosterEditorScreen() {
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
     val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
+    val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
     val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
+    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+
+    // Mock API for generating SearchResponses
+    val mockApi = remember {
+        object : com.lagradost.cloudstream3.MainAPI() {
+            override var mainUrl = "mock"
+            override var name = "Cinemeta"
+            override val hasMainPage = true
+        }
+    }
+
+    // Mock Data using real TMDB posters for a realistic preview
+    val mockHistory = remember {
+        com.lagradost.common.storage.WatchHistory(
+            parentId = "mock_history",
+            showName = "House of the Dragon",
+            showUrl = "dummy",
+            apiName = "Cinemeta",
+            posterUrl = "https://image.tmdb.org/t/p/w500/1X4h40fcB4WWUmIBK0auT4zRBAV.jpg",
+            episodeThumbnailUrl = null,
+            screenshotUrl = null,
+            episode = 1,
+            season = 2,
+            episodeId = "dummy_ep",
+            position = 1800,
+            duration = 3600
+        )
+    }
+
+    var mockPosters by remember { mutableStateOf<List<com.lagradost.cloudstream3.SearchResponse>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val data = com.lagradost.cloudstream3.app.get("https://v3-cinemeta.strem.io/catalog/movie/top.json")
+                    .parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                
+                val metas = data?.get("metas")
+                if (metas != null && metas.isArray) {
+                    val posters = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
+                    for (node in metas) {
+                        val name = node.get("name")?.asText() ?: continue
+                        val posterUrl = node.get("poster")?.asText()
+                        posters.add(
+                            mockApi.newMovieSearchResponse(name, "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                                this.posterUrl = posterUrl
+                                this.quality = com.lagradost.cloudstream3.SearchQuality.HD
+                            }
+                        )
+                        if (posters.size >= 15) break
+                    }
+                    mockPosters = posters
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -1063,115 +1253,190 @@ fun SettingsPosterEditorScreen() {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                .height(450.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 .padding(16.dp),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.TopStart,
         ) {
-            val animatedWidth by androidx.compose.animation.core.animateDpAsState(
-                targetValue = posterWidthDp.dp,
-                animationSpec = androidx.compose.animation.core.tween(300),
-            )
-
-            val animatedSpacing by androidx.compose.animation.core.animateDpAsState(
-                targetValue = homeSpacingDp.dp,
-                animationSpec = androidx.compose.animation.core.tween(300),
-            )
-            val animatedRadius by androidx.compose.animation.core.animateDpAsState(
-                targetValue = posterRoundingDp.dp,
-                animationSpec = androidx.compose.animation.core.tween(300),
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp)
             ) {
-                repeat(4) { index ->
-                    Surface(
-                        modifier = Modifier
-                            .width(animatedWidth)
-                            .aspectRatio(2f / 3f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(animatedRadius),
-                        color = if (index == 0) com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.8f) else com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.AccentSoft,
-                        border = androidx.compose.foundation.BorderStroke(
-                            width = 1.dp,
-                            color = com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent.copy(alpha = 0.3f),
-                        ),
+                Text(
+                    text = "Continue Watching",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                val animatedSpacing by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = homeSpacingDp.dp,
+                    animationSpec = androidx.compose.animation.core.tween(300),
+                )
+                val animatedWidth by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = posterWidthDp.dp,
+                    animationSpec = androidx.compose.animation.core.tween(300),
+                )
+                
+                // Row 1: Continue Watching
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
+                ) {
+                    item {
+                        if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide(
+                                modifier = Modifier.width(animatedWidth * 2.2f).height(animatedWidth * 1.5f),
+                                history = mockHistory,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        } else {
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard(
+                                modifier = Modifier.width(animatedWidth * 2.0f).height((animatedWidth * 2.0f) * 9f / 16f),
+                                history = mockHistory,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Trending Movies",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent)
+                    }
+                } else {
+                    // Row 2: Standard Posters
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            if (index == 0) {
-                                Icon(
-                                    imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(48.dp),
-                                )
-                            }
+                        items(mockPosters.size) { index ->
+                            com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
+                                item = mockPosters[index],
+                                provider = mockApi,
+                                gridScale = "Normal",
+                                itemWidth = animatedWidth, // IMPORTANT: Apply width scaling!
+                                onClick = {},
+                                onPlayClick = {}
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Scrollable Controls Below
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(top = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+        // Scrollable Controls Below (Bottom)
+        val scrollState = rememberScrollState()
+        var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+        CompositionLocalProvider(
+            LocalSettingsScrollState provides scrollState,
+            LocalScrollContainerCoordinates provides containerCoordinates,
         ) {
-            SettingsGroupCard(title = "Poster Properties") {
-                SettingsDropdownItem(
-                    label = "Poster Title Position",
-                    subtitle = "Choose where the title is displayed on posters",
-                    options = listOf(
-                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Inside on Hover",
-                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below Poster",
-                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
-                    ),
-                    currentValue = posterTitlePosition,
-                    onSelectionChanged = { AppearanceConfig.setPosterTitlePosition(it) },
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onGloballyPositioned { containerCoordinates = it }
+                    .verticalScroll(scrollState)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                SettingsGroupCard(title = "Poster Properties") {
+                    SettingsDropdownItem(
+                        label = "Continue Watching Style",
+                        subtitle = "Choose the layout for items in the Continue Watching row",
+                        options = listOf(
+                            com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic Thumbnail",
+                            com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Premium Wide Card",
+                        ),
+                        currentValue = continueWatchingStyle,
+                        onSelectionChanged = { AppearanceConfig.setContinueWatchingStyle(it) },
+                    )
+                    SettingsDropdownItem(
+                        label = "Poster Title Position",
+                        subtitle = "Choose where the title is displayed on posters",
+                        options = listOf(
+                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Inside on Hover",
+                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below Poster",
+                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
+                        ),
+                        currentValue = posterTitlePosition,
+                        onSelectionChanged = { AppearanceConfig.setPosterTitlePosition(it) },
+                    )
+                    SettingsToggleItem(
+                        label = "Hover Ambient Glow",
+                        subtitle = "Displays a soft colorful glow behind posters when hovering",
+                        checked = posterHoverGlowEnabled,
+                        onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) },
+                    )
+                }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+                SettingsGroupCard(title = "Size & Spacing") {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
 
-                SettingsSliderItem(
-                    label = "Poster Width",
-                    subtitle = "Adjust the size of posters on the home screen",
-                    value = posterWidthDp.toFloat(),
-                    valueRange = 100f..250f,
-                    steps = 29, // 5dp steps: (250-100)/5 - 1 = 29
-                    onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
-                )
+                    SettingsSliderItem(
+                        label = "Poster Width",
+                        subtitle = "Adjust the size of posters on the home screen",
+                        value = posterWidthDp.toFloat(),
+                        valueRange = 100f..250f,
+                        steps = 29, // 5dp steps: (250-100)/5 - 1 = 29
+                        onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
+                    )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
 
-                SettingsSliderItem(
-                    label = "Home Page Spacing",
-                    subtitle = "Adjust the spacing between items on the home page",
-                    value = homeSpacingDp.toFloat(),
-                    valueRange = 0f..32f,
-                    steps = 15, // 2dp steps
-                    onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
-                )
+                    SettingsSliderItem(
+                        label = "Home Page Spacing",
+                        subtitle = "Adjust the horizontal spacing between items on the home page",
+                        value = homeSpacingDp.toFloat(),
+                        valueRange = 0f..32f,
+                        steps = 15, // 2dp steps
+                        onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
+                    )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
 
-                SettingsSliderItem(
-                    label = "Poster Corner Radius",
-                    subtitle = "Adjust how rounded the posters are",
-                    value = posterRoundingDp.toFloat(),
-                    valueRange = 0f..24f,
-                    steps = 23,
-                    onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
-                )
+                    SettingsSliderItem(
+                        label = "Home Page Vertical Spacing",
+                        subtitle = "Adjust the vertical spacing between categories on the home page",
+                        value = homeVerticalSpacingDp.toFloat(),
+                        valueRange = 0f..64f,
+                        steps = 31, // 2dp steps
+                        onValueChange = { AppearanceConfig.setHomeVerticalSpacingDp(it.toInt()) },
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+
+                    SettingsSliderItem(
+                        label = "Poster Corner Radius",
+                        subtitle = "Adjust how rounded the posters are",
+                        value = posterRoundingDp.toFloat(),
+                        valueRange = 0f..24f,
+                        steps = 23,
+                        onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
