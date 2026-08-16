@@ -157,6 +157,7 @@ object TmdbEnrichmentService {
             tags: List<String>?,
             actors: List<com.lagradost.cloudstream3.ActorData>?,
         ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+        onRatingsLoaded: (imdb: Double?, tmdb: Double?, anilist: Double?) -> Unit = { _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
         onEpisodeThumbnailsEnriched: () -> Unit = {},
         // When Cinemeta already resolved the TMDB ID, we can skip text search entirely.
@@ -293,7 +294,6 @@ object TmdbEnrichmentService {
                     resolvedMatchId = directTmdbId
                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: direct TMDB ID → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
                 }
-
 
                 if (resolvedMatchId == null) {
                     // Text search fallback — only reached when Cinemeta had no match
@@ -520,8 +520,11 @@ object TmdbEnrichmentService {
                                 }
 
                                 val voteAverage = tmdbData.get("vote_average")?.asDouble()
-                                if (voteAverage != null && loaded.score == null) {
-                                    loaded.score = com.lagradost.cloudstream3.Score.from10(voteAverage)
+                                if (voteAverage != null) {
+                                    if (loaded.score == null) {
+                                        loaded.score = com.lagradost.cloudstream3.Score.from10(voteAverage)
+                                    }
+                                    onRatingsLoaded(null, voteAverage, null)
                                 }
 
                                 val runtime = tmdbData.get("runtime")?.asInt()
@@ -835,7 +838,7 @@ object TmdbEnrichmentService {
                                         .sortedWith(
                                             compareByDescending<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData> { it.isOfficial }
                                                 .thenByDescending { it.name.contains("Trailer", ignoreCase = true) }
-                                                .thenByDescending { it.name.contains("Teaser", ignoreCase = true) }
+                                                .thenByDescending { it.name.contains("Teaser", ignoreCase = true) },
                                         )
                                         .take(10)
                                     onTrailersLoaded(sortedTrailers)
@@ -850,18 +853,20 @@ object TmdbEnrichmentService {
                                     val content = r.get("content")?.asText() ?: continue
                                     val url = r.get("url")?.asText()
                                     val createdAt = r.get("created_at")?.asText()
-                                    
+
                                     val authorDetails = r.get("author_details")
                                     val rating = authorDetails?.get("rating")?.asDouble()
                                     var avatarPath = authorDetails?.get("avatar_path")?.asText()
-                                    
+
                                     val avatarUrl = if (!avatarPath.isNullOrBlank()) {
                                         if (avatarPath.startsWith("/https")) {
                                             avatarPath.removePrefix("/")
                                         } else {
                                             tmdbImageUrl(avatarPath, "w200")
                                         }
-                                    } else null
+                                    } else {
+                                        null
+                                    }
 
                                     parsedReviews.add(
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ReviewData(
@@ -871,7 +876,7 @@ object TmdbEnrichmentService {
                                             avatarUrl = avatarUrl,
                                             createdAt = createdAt,
                                             url = url,
-                                        )
+                                        ),
                                     )
                                 }
                                 if (parsedReviews.isNotEmpty()) {

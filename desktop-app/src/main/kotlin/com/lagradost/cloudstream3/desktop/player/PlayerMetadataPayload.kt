@@ -32,8 +32,27 @@ data class PlayerUiSyncState(
     val activeSubtitleBold: String?,
     val activeSubtitleItalic: String?,
     val activeLazyVideoTrackUrl: String?,
+    val activeLazyAudioTrackUrl: String? = null,
     val resolution: String?,
     val activeSubtitleOverrideEnabled: Boolean,
+    val chapters: List<ChapterPayload> = emptyList(),
+    val currentChapterIndex: Int = -1,
+    val activeSkipInterval: SkipIntervalPayload? = null,
+    val skipIntervals: List<SkipIntervalPayload> = emptyList(),
+)
+
+data class SkipIntervalPayload(
+    val startMs: Long,
+    val endMs: Long,
+    val type: String,
+    val label: String,
+    val providerId: String,
+)
+
+data class ChapterPayload(
+    val index: Int,
+    val title: String,
+    val timeMs: Long,
 )
 
 data class FailedLinkPayload(
@@ -85,6 +104,8 @@ data class AppStateUpdatePayload(
     val debugPos: Double = 0.0,
     val interpolationEnabled: Boolean = false,
     val autoPlayEnabled: Boolean = true,
+    val showEndTime: Boolean = false,
+    val showClock: Boolean = false,
 )
 
 data class ToastPayload(

@@ -61,7 +61,8 @@ fun EpisodeCard(
 
     // thumbnailVersion is intentionally read here so Compose re-evaluates epImg when episode
     // thumbnails are enriched in-place (plain field mutations don't trigger recompose otherwise).
-    @Suppress("UNUSED_EXPRESSION") thumbnailVersion
+    @Suppress("UNUSED_EXPRESSION")
+    thumbnailVersion
     val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
     val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
 
@@ -98,7 +99,48 @@ fun EpisodeCard(
 
     val heroColor = MaterialTheme.colorScheme.primary
 
-    // Card is a pure 16:9 thumbnail — caller supplies width via modifier (weight for grid)
+    val rawDesc = ep.description ?: ""
+    val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
+    val releaseDate = dateMatch?.groupValues?.get(1)
+    val formattedDate = releaseDate?.let { raw ->
+        try {
+            val inFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            val outFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
+            val parsed = inFormat.parse(raw)
+            if (parsed != null) outFormat.format(parsed) else raw
+        } catch (e: Exception) {
+            raw
+        }
+    }
+    val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
+    val hasDesc = cleanDesc.isNotBlank()
+
+    val durationText = if (history != null && history.duration > 0) {
+        if (progress > 0f && progress < 1f) {
+            val leftSeconds = history.duration - history.position
+            val leftMins = leftSeconds / 60L
+            if (leftMins >= 60) {
+                "${leftMins / 60}h ${leftMins % 60}m left"
+            } else if (leftMins > 0) {
+                "${leftMins}m left"
+            } else {
+                "<1m left"
+            }
+        } else {
+            val totalMins = history.duration / 60L
+            if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
+        }
+    } else if (epRunTime != null) {
+        val totalMins = if (epRunTime > 1000) epRunTime / 60 else epRunTime
+        if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
+    } else {
+        null
+    }
+
+    val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
+    val isWatched = progress > 0.9f
+
+    // 16:9 On-Thumbnail Overlay Card (Clean Studio Design)
     Box(
         modifier = modifier
             .aspectRatio(16f / 9f)
@@ -116,16 +158,16 @@ fun EpisodeCard(
             .scale(scale)
             .shadow(
                 elevation = if (isHovered) 16.dp else 6.dp,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 spotColor = if (isHovered) heroColor else Color.Black,
                 ambientColor = if (isHovered) heroColor else Color.Black,
             )
             .border(
                 width = if (isHovered) 1.5.dp else 0.5.dp,
-                color = if (isHovered) heroColor else Color.White.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(12.dp),
+                color = if (isHovered) heroColor else Color.White.copy(alpha = 0.18f),
+                shape = RoundedCornerShape(16.dp),
             )
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable { onPlay(ep) },
     ) {
         // Background image
@@ -184,22 +226,24 @@ fun EpisodeCard(
             }
         }
 
-        // Gradient scrim: clear -> black at bottom
+        // Multi-stop smooth bottom gradient scrim for natural safe zone
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     androidx.compose.ui.graphics.Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.35f to Color.Transparent,
-                        0.62f to Color.Black.copy(alpha = 0.60f),
-                        1.0f to Color.Black.copy(alpha = 0.97f),
+                        0.36f to Color.Transparent,
+                        0.54f to Color.Black.copy(alpha = 0.22f),
+                        0.70f to Color.Black.copy(alpha = 0.50f),
+                        0.84f to Color.Black.copy(alpha = 0.78f),
+                        1.0f to Color.Black.copy(alpha = 0.94f),
                     ),
                 ),
         )
 
         // Hover play overlay
-        AnimatedVisibility(
+        androidx.compose.animation.AnimatedVisibility(
             visible = isHovered,
             modifier = Modifier.matchParentSize(),
             enter = fadeIn(tween(150)),
@@ -207,14 +251,14 @@ fun EpisodeCard(
         ) {
             Box(
                 modifier = Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f)),
+                    .background(Color.Black.copy(alpha = 0.35f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
                         .size(56.dp)
-                        .background(heroColor.copy(alpha = 0.7f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                        .background(heroColor.copy(alpha = 0.85f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -242,13 +286,45 @@ fun EpisodeCard(
             }
         }
 
-        val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
+        // Top-Left: Gold Star Rating Badge
+        if (rating10p != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.40f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = "Rating",
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.1f", rating10p),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.3.sp,
+                        ),
+                        color = Color(0xFFFFD700),
+                    )
+                }
+            }
+        }
 
-        // Top-Right: Actions and EP number pill
+        // Top-Right: Mark as Watched toggle + optional Download button
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(10.dp),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -256,153 +332,95 @@ fun EpisodeCard(
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.65f))
-                        .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape)
                         .clickable { onDownload(ep) }
-                        .padding(8.dp),
+                        .padding(7.dp),
                 ) {
                     Icon(
                         Icons.Default.Download,
                         contentDescription = "Download",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
 
-            ep.episode?.let { epNum ->
-                val epText = if (ep.season != null) "S${ep.season}E$epNum" else "EP $epNum"
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(percent = 50))
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .padding(horizontal = 9.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        text = epText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(
+                        if (isWatched) {
+                            Color(0xFF4CAF50).copy(alpha = 0.90f)
+                        } else {
+                            Color.Black.copy(alpha = 0.45f)
+                        },
                     )
-                }
-            }
-        }
-
-        // Top-Left: Mark as Watched toggle
-        val isWatched = progress > 0.9f
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(10.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isWatched) {
-                        Color(0xFF4CAF50).copy(alpha = 0.85f)
-                    } else {
-                        Color.Black.copy(alpha = 0.5f)
-                    },
-                )
-                .clickable {
-                    if (isWatched) {
-                        // Unwatch: Delete history completely to cleanly remove watch status
-                        onRemoveEpisodeWatched(ep)
-                    } else {
-                        // Watch: Mark completely watched
-                        onToggleWatched(ep, true)
+                    .clickable {
+                        if (isWatched) {
+                            onRemoveEpisodeWatched(ep)
+                        } else {
+                            onToggleWatched(ep, true)
+                        }
                     }
-                }
-                .padding(6.dp),
-        ) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = if (isWatched) "Unmark as watched" else "Mark as watched",
-                tint = if (isWatched) Color.White else Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(16.dp),
-            )
-        }
-
-        // Bottom overlay: Title + plot description
-        val rawDesc = ep.description ?: ""
-        val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
-        val releaseDate = dateMatch?.groupValues?.get(1)
-        val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
-        val hasDesc = cleanDesc.isNotBlank()
-        
-        val remainingSeconds = if (history != null && history.duration > 0) {
-            if (progress > 0f && progress < 1f) history.duration - history.position else history.duration
-        } else if (epRunTime != null) {
-            if (epRunTime > 1000) epRunTime.toLong() else epRunTime.toLong() * 60L
-        } else null
-
-        val endTimeText = remainingSeconds?.let { secs ->
-            val calendar = java.util.Calendar.getInstance()
-            calendar.add(java.util.Calendar.SECOND, secs.toInt())
-            val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-            "Ends at ${formatter.format(calendar.time)}"
-        }
-
-        // Calculate duration text
-        val durationText = if (history != null && history.duration > 0) {
-            if (progress > 0f && progress < 1f) {
-                val leftSeconds = history.duration - history.position
-                val leftMins = leftSeconds / 60L
-                if (leftMins >= 60) {
-                    "${leftMins / 60}h ${leftMins % 60}m left"
-                } else if (leftMins > 0) {
-                    "${leftMins}m left"
-                } else {
-                    "<1m left"
-                }
-            } else {
-                val totalMins = history.duration / 60L
-                if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
+                    .padding(6.dp),
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = if (isWatched) "Unmark as watched" else "Mark as watched",
+                    tint = if (isWatched) Color.White else Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(14.dp),
+                )
             }
-        } else if (epRunTime != null) {
-            val totalMins = if (epRunTime > 1000) epRunTime / 60 else epRunTime
-            if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
-        } else {
-            null
         }
 
+        // Bottom overlay: Episode badge, Title, Synopsis & Metadata in a clean safe zone
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                .padding(start = 18.dp, end = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 21.sp),
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
-                    modifier = Modifier.run { if (shouldHideSpoilers) this.blur(2.dp) else this }.weight(1f, fill = false),
-                )
-                if (rating10p != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = "Rating",
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Text(
-                            text = String.format(java.util.Locale.US, "%.1f", rating10p),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 16.sp),
-                            color = Color.White,
+            // Row 0: Episode Code Badge (e.g. S1E1 / EP 1)
+            ep.episode?.let { epNum ->
+                val epText = if (ep.season != null) "S${ep.season}E$epNum" else "EP $epNum"
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 7.dp, vertical = 2.5.dp),
+                ) {
+                    Text(
+                        text = epText,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                        )
-                    }
+                            letterSpacing = 0.5.sp,
+                        ),
+                        color = Color.White.copy(alpha = 0.90f),
+                    )
                 }
             }
 
+            // Row 1: Full-Width Episode Title
+            Text(
+                text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (isHovered) Color(0xFFB0C4FF) else Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .run { if (shouldHideSpoilers) this.blur(2.dp) else this },
+            )
+
+            // Subtle breathing room between Title and Description
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Row 2: Synopsis / Plot with comfortable line height
             Text(
                 text = when {
                     shouldHideSpoilers -> "Description hidden."
@@ -410,64 +428,41 @@ fun EpisodeCard(
                     runTimeStr != null -> "Runtime: $runTimeStr"
                     else -> "No description available."
                 },
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 16.sp, lineHeight = 22.sp),
-                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.72f else 0.42f),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp, lineHeight = 19.5.sp),
+                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.84f else 0.45f),
                 minLines = 2,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
             )
 
-            if (releaseDate != null || durationText != null) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (releaseDate != null) {
-                        Text(
-                            text = releaseDate,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 14.sp),
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.width(1.dp))
-                    }
+            // Row 3: Duration on Left & Air Date on Right (always maintains minimum baseline height to prevent synopsis from sagging)
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 18.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (durationText != null) {
+                    Text(
+                        text = durationText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (endTimeText != null) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = endTimeText,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
-                        if (durationText != null) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.Black.copy(alpha = 0.8f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = durationText,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        }
-                    }
+                if (formattedDate != null) {
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
         }
@@ -480,8 +475,8 @@ fun EpisodeCard(
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 6.dp)
                     .height(3.dp)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(1.5.dp))
-                    .background(Color.White.copy(alpha = 0.2f)),
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(Color.White.copy(alpha = 0.20f)),
             ) {
                 Box(
                     modifier = Modifier

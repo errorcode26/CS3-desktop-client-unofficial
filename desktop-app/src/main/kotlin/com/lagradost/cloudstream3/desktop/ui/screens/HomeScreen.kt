@@ -35,6 +35,8 @@ fun ComposeHomeScreen(
     val errorSnapshot = uiState.errorSnapshot
 
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
+    val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
 
     DisposableEffect(viewModel) {
         val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.register {
@@ -106,15 +108,17 @@ fun ComposeHomeScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    // Items handle their own horizontal safe padding internally
+                    verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp),
                     contentPadding = PaddingValues(
+                        top = if (!heroEnabled) safeTop else 0.dp,
                         bottom = safeBottom + 32.dp,
                     ),
                 ) {
                     items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].second.name}" }) { index ->
                         val (currentProvider, pageData) = allPages[index]
                         val isFirstPage = index == 0
-                        Box(modifier = Modifier.padding(horizontal = if (isFirstPage) 0.dp else 20.dp)) {
+                        val horizontalPad = if (isFirstPage && heroEnabled) 0.dp else 20.dp
+                        Box(modifier = Modifier.fillMaxWidth()) {
                             HomeCategorySection(
                                 pageData = pageData,
                                 provider = currentProvider,
@@ -124,6 +128,7 @@ fun ComposeHomeScreen(
                                 allBookmarks = uiState.bookmarks,
                                 onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
                                 onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
+                                outerPadding = horizontalPad,
                                 afterHeroContent = if (isFirstPage) {
                                     {
                                         HomeHistoryRow(

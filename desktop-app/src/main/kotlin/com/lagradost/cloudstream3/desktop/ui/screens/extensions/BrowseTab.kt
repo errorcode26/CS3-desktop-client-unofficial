@@ -1,9 +1,9 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
@@ -520,10 +519,8 @@ fun BrowseTab(
                             ?: uiState.remotePluginIcons[plugin.name]
 
                         var isInstalling by remember { mutableStateOf(false) }
-                        val isPluginInstalled = remember(plugin, syncGeneration) {
-                            val ext = uiState.extensionsDir
-                            val subDir = java.io.File(ext, repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
-                            java.io.File(subDir, "${plugin.internalName}.jar").exists()
+                        val isPluginInstalled = remember(plugin, uiState.installedPlugins) {
+                            uiState.installedPlugins.any { it.internalName == plugin.internalName }
                         }
                         var installStatus by remember(plugin, syncGeneration) {
                             mutableStateOf(if (isPluginInstalled) "Installed" else "")

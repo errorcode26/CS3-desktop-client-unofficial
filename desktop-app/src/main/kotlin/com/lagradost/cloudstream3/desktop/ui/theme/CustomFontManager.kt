@@ -81,7 +81,7 @@ object CustomFontManager {
             "Pacifico-Regular.ttf",
             "Poppins-Bold.ttf", "Poppins-Medium.ttf", "Poppins-Regular.ttf", "Poppins-SemiBold.ttf",
             "Roboto-Bold.ttf", "Roboto-Medium.ttf", "Roboto-Regular.ttf",
-            "Ubuntu-Bold.ttf", "Ubuntu-Medium.ttf", "Ubuntu-Regular.ttf"
+            "Ubuntu-Bold.ttf", "Ubuntu-Medium.ttf", "Ubuntu-Regular.ttf",
         )
 
         bundledFonts.forEach { fontName ->

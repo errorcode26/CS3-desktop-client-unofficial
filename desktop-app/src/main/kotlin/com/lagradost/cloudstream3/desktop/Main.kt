@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,9 +78,11 @@ fun main(args: Array<String> = emptyArray()) {
     com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.extractBundledFonts()
     com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.preloadAsync()
     com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.init()
-    Runtime.getRuntime().addShutdownHook(Thread {
-        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
-    })
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
+        },
+    )
 
     application {
         initCoil()
@@ -129,24 +129,24 @@ fun main(args: Array<String> = emptyArray()) {
                 LaunchedEffect(Unit) {
                     launch(Dispatchers.IO) {
                         val proxyJob = async { initProxy() }
-                        
+
                         // Strict dependency: Security (DataStore, Conscrypt) must init first
                         initSecurity()
-                        
+
                         // Network and Providers can initialize simultaneously
                         val networkJob = async { initNetwork() }
                         val providersJob = async { initProviders() }
-                        
+
                         networkJob.await()
                         providersJob.await()
-                        
+
                         // Plugins require network and providers to be ready
                         initPlugins()
-                        
+
                         // API and Repository init can run simultaneously
                         val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
                         val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
-                        
+
                         repoJob.await()
                         apiJob.await()
                         proxyJob.await()

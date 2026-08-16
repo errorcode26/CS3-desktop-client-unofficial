@@ -45,7 +45,9 @@ class DetailsViewModel(
             ).apply {
                 this.backgroundPosterUrl = preloadedBg
             }
-        } else null,
+        } else {
+            null
+        },
         autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
         isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
     ),
@@ -152,6 +154,15 @@ class DetailsViewModel(
                     }
                     is EnrichmentUpdate.EpisodeThumbnailsEnriched -> {
                         updateState { copy(episodeThumbnailVersion = episodeThumbnailVersion + 1) }
+                    }
+                    is EnrichmentUpdate.RatingsLoaded -> {
+                        updateState {
+                            copy(
+                                enrichedImdbRating = update.imdb ?: enrichedImdbRating,
+                                enrichedTmdbRating = update.tmdb ?: enrichedTmdbRating,
+                                enrichedAniListRating = update.anilist ?: enrichedAniListRating,
+                            )
+                        }
                     }
                     is EnrichmentUpdate.MetadataLoaded -> {
                         updateState {

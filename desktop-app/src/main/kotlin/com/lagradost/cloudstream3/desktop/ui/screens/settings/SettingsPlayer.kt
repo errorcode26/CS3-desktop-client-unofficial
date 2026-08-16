@@ -397,6 +397,38 @@ fun SettingsPlayer(
                 }
             }
 
+            SettingsGroupCard(title = "Intro & Outro Skipping") {
+                MviSettingsToggle(
+                    key = PlayerConfig.PREF_ENABLE_SKIP_INTERVALS,
+                    label = "Enable Intro & Outro Detection",
+                    subtitle = "Automatically discovers openings, endings, and recaps using AniSkip and chapter metadata.",
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    defaultValue = true,
+                )
+
+                val skipEnabled = uiState.booleanSettings[PlayerConfig.PREF_ENABLE_SKIP_INTERVALS] ?: true
+                if (skipEnabled) {
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_AUTO_SKIP_INTRO,
+                        label = "Auto-Skip Openings & Intros",
+                        subtitle = "Automatically skips intros and anime openings without needing to click the on-screen button.",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = false,
+                    )
+
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_AUTO_SKIP_OUTRO,
+                        label = "Auto-Skip Endings & Outros",
+                        subtitle = "Automatically skips outros and anime endings.",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = false,
+                    )
+                }
+            }
+
             SettingsGroupCard(title = "Subtitles") {
                 SettingsNavigationItem(
                     label = "Subtitle Appearance",

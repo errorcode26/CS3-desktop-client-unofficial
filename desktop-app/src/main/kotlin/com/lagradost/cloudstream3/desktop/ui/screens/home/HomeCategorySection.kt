@@ -9,7 +9,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.HomePageResponse
@@ -46,6 +45,7 @@ fun HomeCategorySection(
     allBookmarks: Map<String, com.lagradost.common.storage.DesktopBookmark>,
     onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
     onHeroBackgroundChanged: (String?) -> Unit,
+    outerPadding: androidx.compose.ui.unit.Dp = 0.dp,
     afterHeroContent: @Composable () -> Unit = {},
     isHistoryVisible: Boolean = false,
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
@@ -146,10 +146,7 @@ fun HomeCategorySection(
                     } else {
                         val isFirstRowOfFirstPage = isFirstPage && sectionIndex == 0
                         if (isFirstRowOfFirstPage) {
-                            val heroPadding = if (!heroEnabled && isHistoryVisible) 72.dp else 0.dp
-                            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(top = heroPadding)) {
-                                afterHeroContent()
-                            }
+                            afterHeroContent()
                         }
                         val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
                         val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
@@ -174,12 +171,10 @@ fun HomeCategorySection(
                         val isHorizontalCategory = pageData.horizontalImages || section.list.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
                         val categoryAspectRatio = if (isHorizontalCategory) 16f / 9f else 2f / 3f
 
-                        val topPadding = if (isFirstRowOfFirstPage && !heroEnabled && !isHistoryVisible) 72.dp else 0.dp
-
                         BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = paddingStart, end = paddingEnd, top = topPadding),
+                                .padding(start = paddingStart, end = paddingEnd),
                         ) {
                             val availableWidth = this.maxWidth
                             val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
@@ -232,6 +227,7 @@ fun HomeCategorySection(
                             }
                         }
                     }
+
                 }
             } else if (errorMessage != null) {
                 val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()

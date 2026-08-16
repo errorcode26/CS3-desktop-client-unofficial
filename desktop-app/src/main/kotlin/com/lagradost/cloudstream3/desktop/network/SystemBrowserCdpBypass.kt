@@ -10,7 +10,6 @@ import okhttp3.*
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 object SystemBrowserCdpBypass {
     private const val TAG = "SystemBrowserCdpBypass"
@@ -27,13 +26,13 @@ object SystemBrowserCdpBypass {
         val id: String,
         val type: String,
         val url: String,
-        @com.fasterxml.jackson.annotation.JsonProperty("webSocketDebuggerUrl") val webSocketDebuggerUrl: String? = null
+        @com.fasterxml.jackson.annotation.JsonProperty("webSocketDebuggerUrl") val webSocketDebuggerUrl: String? = null,
     )
 
     data class ExtractedData(
         val cookies: Map<String, String>,
         val userAgent: String,
-        val responseBody: String? = null
+        val responseBody: String? = null,
     )
 
     suspend fun resolveCloudflare(url: String): ExtractedData? = bypassMutex.withLock {
@@ -43,10 +42,10 @@ object SystemBrowserCdpBypass {
         val port = (9222..9999).random()
         val sessionDirName = "CloudStream_CF_${System.currentTimeMillis()}"
         val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
-        
+
         val edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
         val chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-        
+
         val browserPath = when {
             File(edgePath).exists() -> edgePath
             File(chromePath).exists() -> chromePath
@@ -72,7 +71,7 @@ object SystemBrowserCdpBypass {
             "--disable-background-networking",
             "--disable-sync",
             "--no-default-browser-check",
-            "--no-first-run"
+            "--no-first-run",
         ).start()
 
         try {
@@ -80,19 +79,19 @@ object SystemBrowserCdpBypass {
         } finally {
             // Kill the process and any descendants safely
             runCatching { process.destroy() }
-            
+
             // Because Edge forks and the parent exits, we must use WMI to kill the actual renderer/browser processes
             runCatching {
                 val script = "Get-CimInstance Win32_Process -Filter \"Name = 'msedge.exe' OR Name = 'chrome.exe'\" | Where-Object { \$_.CommandLine -match '$sessionDirName' } | Invoke-CimMethod -MethodName Terminate"
                 ProcessBuilder("powershell", "-NoProfile", "-Command", script).start().waitFor()
             }
-            
+
             // Give OS a moment to release file locks, then clean up the 200MB profile dir
             runCatching {
                 Thread.sleep(1000)
                 userDataDir.deleteRecursively()
             }
-            
+
             isBrowserOpen = false
         }
     }
@@ -127,100 +126,103 @@ object SystemBrowserCdpBypass {
             var resumed = false
             var tempCookies: Map<String, String>? = null
             var tempUserAgent: String? = null
-            
+
             val wsReq = Request.Builder().url(wsUrl!!).build()
-            val webSocket = client.newWebSocket(wsReq, object : WebSocketListener() {
-                var messageId = 1
-                
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        while (!resumed && isActive) {
-                            val msg = """{"id": $messageId, "method": "Network.getAllCookies"}"""
-                            webSocket.send(msg)
-                            messageId++
-                            delay(1000)
+            val webSocket = client.newWebSocket(
+                wsReq,
+                object : WebSocketListener() {
+                    var messageId = 1
+
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            while (!resumed && isActive) {
+                                val msg = """{"id": $messageId, "method": "Network.getAllCookies"}"""
+                                webSocket.send(msg)
+                                messageId++
+                                delay(1000)
+                            }
                         }
                     }
-                }
 
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    try {
-                        val tree = mapper.readTree(text)
-                        
-                        // Handle Runtime.evaluate response (body extraction)
-                        if (tree.has("id") && tree.get("id").asInt() == 8888) {
-                            if (!resumed && tempCookies != null && tempUserAgent != null) {
-                                resumed = true
-                                val bodyText = tree.get("result")?.get("result")?.get("value")?.asText()
-                                AppLogger.i("$TAG: Captured cf_clearance, User-Agent, and API response body.")
-                                cont.resume(ExtractedData(tempCookies!!, tempUserAgent!!, bodyText))
-                                webSocket.close(1000, "Done")
-                            }
-                            return
-                        }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        try {
+                            val tree = mapper.readTree(text)
 
-                        // Handle Browser.getVersion response
-                        if (tree.has("id") && tree.get("id").asInt() == 9999) {
-                            if (!resumed) {
-                                val ua = tree.get("result")?.get("userAgent")?.asText() ?: ""
-                                tempUserAgent = ua
-                                if (isApiRequest) {
-                                    // It's an API request. Evaluate document.body.innerText to get the JSON!
-                                    val evalMsg = """{"id": 8888, "method": "Runtime.evaluate", "params": {"expression": "document.body.innerText"}}"""
-                                    webSocket.send(evalMsg)
-                                } else {
-                                    // Normal request, no need for body
+                            // Handle Runtime.evaluate response (body extraction)
+                            if (tree.has("id") && tree.get("id").asInt() == 8888) {
+                                if (!resumed && tempCookies != null && tempUserAgent != null) {
                                     resumed = true
-                                    AppLogger.i("$TAG: Captured cf_clearance and User-Agent: $ua")
-                                    cont.resume(ExtractedData(tempCookies ?: emptyMap(), ua))
+                                    val bodyText = tree.get("result")?.get("result")?.get("value")?.asText()
+                                    AppLogger.i("$TAG: Captured cf_clearance, User-Agent, and API response body.")
+                                    cont.resume(ExtractedData(tempCookies!!, tempUserAgent!!, bodyText))
                                     webSocket.close(1000, "Done")
                                 }
+                                return
                             }
-                            return
-                        }
-                        
-                        // Handle Network.getAllCookies response
-                        if (tree.has("id") && tree.has("result")) {
-                            val cookiesNode = tree.get("result").get("cookies")
-                            if (cookiesNode != null && cookiesNode.isArray) {
-                                val cookiesMap = mutableMapOf<String, String>()
-                                var hasClearance = false
-                                for (cookie in cookiesNode) {
-                                    val name = cookie.get("name").asText()
-                                    val value = cookie.get("value").asText()
-                                    cookiesMap[name] = value
-                                    if (name == "cf_clearance" && value.length > 20) {
-                                        hasClearance = true
+
+                            // Handle Browser.getVersion response
+                            if (tree.has("id") && tree.get("id").asInt() == 9999) {
+                                if (!resumed) {
+                                    val ua = tree.get("result")?.get("userAgent")?.asText() ?: ""
+                                    tempUserAgent = ua
+                                    if (isApiRequest) {
+                                        // It's an API request. Evaluate document.body.innerText to get the JSON!
+                                        val evalMsg = """{"id": 8888, "method": "Runtime.evaluate", "params": {"expression": "document.body.innerText"}}"""
+                                        webSocket.send(evalMsg)
+                                    } else {
+                                        // Normal request, no need for body
+                                        resumed = true
+                                        AppLogger.i("$TAG: Captured cf_clearance and User-Agent: $ua")
+                                        cont.resume(ExtractedData(tempCookies ?: emptyMap(), ua))
+                                        webSocket.close(1000, "Done")
                                     }
                                 }
-                                
-                                if (hasClearance && tempCookies == null) {
-                                    tempCookies = cookiesMap
-                                    webSocket.send("""{"id": 9999, "method": "Browser.getVersion"}""")
+                                return
+                            }
+
+                            // Handle Network.getAllCookies response
+                            if (tree.has("id") && tree.has("result")) {
+                                val cookiesNode = tree.get("result").get("cookies")
+                                if (cookiesNode != null && cookiesNode.isArray) {
+                                    val cookiesMap = mutableMapOf<String, String>()
+                                    var hasClearance = false
+                                    for (cookie in cookiesNode) {
+                                        val name = cookie.get("name").asText()
+                                        val value = cookie.get("value").asText()
+                                        cookiesMap[name] = value
+                                        if (name == "cf_clearance" && value.length > 20) {
+                                            hasClearance = true
+                                        }
+                                    }
+
+                                    if (hasClearance && tempCookies == null) {
+                                        tempCookies = cookiesMap
+                                        webSocket.send("""{"id": 9999, "method": "Browser.getVersion"}""")
+                                    }
                                 }
                             }
+                        } catch (e: Exception) {
+                            AppLogger.e("$TAG: Error parsing CDP message: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        AppLogger.e("$TAG: Error parsing CDP message: ${e.message}")
                     }
-                }
-                
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    if (!resumed) {
-                        resumed = true
-                        cont.resume(null)
+
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        if (!resumed) {
+                            resumed = true
+                            cont.resume(null)
+                        }
                     }
-                }
-                
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    if (!resumed) {
-                        resumed = true
-                        cont.resume(null)
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        if (!resumed) {
+                            resumed = true
+                            cont.resume(null)
+                        }
                     }
-                }
-            })
-            
-            cont.invokeOnCancellation { 
+                },
+            )
+
+            cont.invokeOnCancellation {
                 webSocket.close(1000, "Cancelled")
             }
         }
@@ -229,10 +231,10 @@ object SystemBrowserCdpBypass {
     fun launchStandaloneIsolatedBrowser(url: String) {
         val sessionDirName = "CloudStream_Sandbox_${System.currentTimeMillis()}"
         val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
-        
+
         val edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
         val chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-        
+
         val browserPath = when {
             File(edgePath).exists() -> edgePath
             File(chromePath).exists() -> chromePath
@@ -255,7 +257,7 @@ object SystemBrowserCdpBypass {
             "--disable-background-networking",
             "--disable-sync",
             "--no-default-browser-check",
-            "--no-first-run"
+            "--no-first-run",
         ).start()
 
         // Background thread to wait for browser to close and clean up

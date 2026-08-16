@@ -59,7 +59,7 @@ object DetailsRepository {
         try {
             // Check cache again after acquiring lock
             DetailsCache.get(url)?.let { return it }
-            
+
             return doFetchRaw(provider, url, fallbackName)
         } finally {
             mutex.unlock()
@@ -104,7 +104,9 @@ object DetailsRepository {
                                             ?: altResults?.firstOrNull()
                                         if (altMatch != null && altMatch.url.isNotBlank() && !altMatch.url.contains("themoviedb.org")) {
                                             api to altMatch.url
-                                        } else null
+                                        } else {
+                                            null
+                                        }
                                     } catch (e: CancellationException) {
                                         throw e
                                     } catch (e: Throwable) {

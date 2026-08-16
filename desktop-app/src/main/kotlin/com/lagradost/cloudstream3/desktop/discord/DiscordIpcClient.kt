@@ -25,6 +25,7 @@ class DiscordIpcClient {
     }
 
     @Volatile private var raf: RandomAccessFile? = null
+
     @Volatile private var connected = false
     private val lock = Any()
 
@@ -41,45 +42,35 @@ class DiscordIpcClient {
         for (i in 0..9) {
             val pipePath = "\\\\.\\pipe\\discord-ipc-$i"
             try {
-                AppLogger.i(TAG, "Trying pipe: $pipePath")
                 val pipe = RandomAccessFile(pipePath, "rw")
 
                 // Send handshake
                 val handshake = """{"v":1,"client_id":"$clientId"}"""
                 if (!writeFrame(pipe, OP_HANDSHAKE, handshake)) {
-                    AppLogger.w(TAG, "Handshake write failed on $pipePath")
                     closeRaf(pipe)
                     continue
                 }
 
                 // Read READY — synchronous, one-time
                 val response = readFrameSync(pipe)
-                AppLogger.i(TAG, "Handshake response on $pipePath: $response")
-
                 if (response != null && response.contains("READY", ignoreCase = true)) {
                     raf = pipe
                     connected = true
                     AppLogger.i(TAG, "Connected to Discord IPC on $pipePath")
                     return true
                 } else {
-                    AppLogger.w(TAG, "Did not receive READY on $pipePath (response=$response)")
                     closeRaf(pipe)
                 }
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "Exception on $pipePath: ${e.message}")
+            } catch (_: Exception) {
+                // Pipe doesn't exist or is busy — silently continue probing next pipe
             }
         }
-
-        AppLogger.w(TAG, "No Discord IPC pipe found.")
         return false
     }
 
     /** Fire-and-forget send. Returns false if the write fails (caller should reconnect). */
     fun sendActivity(activityJson: String): Boolean = synchronized(lock) {
-        val pipe = raf ?: run {
-            AppLogger.w(TAG, "sendActivity: not connected")
-            return false
-        }
+        val pipe = raf ?: return false
         val nonce = java.util.UUID.randomUUID().toString()
         val payload = buildString {
             append("""{"cmd":"SET_ACTIVITY","args":{"pid":""")
@@ -90,7 +81,7 @@ class DiscordIpcClient {
             append(nonce)
             append(""""}""")
         }
-        AppLogger.i(TAG, "Sending SET_ACTIVITY: $payload")
+        AppLogger.d(TAG, "Sending SET_ACTIVITY: $payload")
         val ok = writeFrame(pipe, OP_FRAME, payload)
         if (!ok) {
             AppLogger.w(TAG, "sendActivity write failed — marking disconnected")
@@ -104,7 +95,7 @@ class DiscordIpcClient {
         val pipe = raf ?: return false
         val nonce = java.util.UUID.randomUUID().toString()
         val payload = """{"cmd":"SET_ACTIVITY","args":{"pid":${ProcessHandle.current().pid()},"activity":null},"nonce":"$nonce"}"""
-        AppLogger.i(TAG, "Clearing activity")
+        AppLogger.d(TAG, "Clearing activity")
         val ok = writeFrame(pipe, OP_FRAME, payload)
         if (!ok) connected = false
         return ok
@@ -123,7 +114,9 @@ class DiscordIpcClient {
     }
 
     private fun closeRaf(pipe: RandomAccessFile) {
-        try { pipe.close() } catch (_: Exception) {}
+        try {
+            pipe.close()
+        } catch (_: Exception) {}
     }
 
     private fun writeFrame(pipe: RandomAccessFile, opcode: Int, json: String): Boolean {

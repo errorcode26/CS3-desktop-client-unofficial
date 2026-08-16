@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,257 +29,265 @@ fun SettingsDiagnostics() {
     var lastRunTime by remember { mutableStateOf("") }
     var copied by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(end = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
     ) {
-        Text(
-            text = "Network Diagnostics",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "Test infrastructure connectivity and metadata provider availability.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        // ── Network infrastructure tests ──────────────────────────────────
-        Text(
-            text = "Network Infrastructure",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = "Tests basic internet connectivity, DNS, TMDB API, and GitHub access.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(end = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Button(
-                onClick = {
-                    if (!isRunning) {
-                        isRunning = true
-                        results = emptyList()
-                        currentTest = "Starting..."
-                        copied = false
-                        scope.launch {
-                            DiagnosticsRunner.runAll { result ->
-                                results = results + result
-                                currentTest = result.name
-                            }
-                            isRunning = false
-                            currentTest = ""
-                            lastRunTime = java.time.LocalDateTime.now()
-                                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        }
-                    }
-                },
-                enabled = !isRunning,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            ) {
-                if (isRunning && currentTest.isNotEmpty() && !currentTest.startsWith("Provider:")) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Running...")
-                } else {
-                    Text("Test Network")
-                }
-            }
+            Text(
+                text = "Network Diagnostics",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "Test infrastructure connectivity and metadata provider availability.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-            if (results.isNotEmpty() && results.none { it.name.startsWith("Provider:") }) {
-                OutlinedButton(
-                    onClick = {
-                        val report = DiagnosticsRunner.formatReport(results)
-                        val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                        clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                        copied = true
-                    },
-                ) {
-                    Text(if (copied) "Copied!" else "Copy Results")
-                }
-            }
-        }
+            // ── Network infrastructure tests ──────────────────────────────────
+            Text(
+                text = "Network Infrastructure",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Tests basic internet connectivity, DNS, TMDB API, and GitHub access.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-        // ── Metadata provider tests ───────────────────────────────────────
-        Text(
-            text = "Metadata Providers",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = "Tests each installed content provider by running a live search and checking for results.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            var isMetaRunning by remember { mutableStateOf(false) }
-            Button(
-                onClick = {
-                    if (!isMetaRunning) {
-                        isMetaRunning = true
-                        results = results.filter { it.name.startsWith("Provider:").not() }
-                        currentTest = "Starting metadata tests..."
-                        copied = false
-                        scope.launch {
-                            DiagnosticsRunner.runMetaProviders { result ->
-                                results = results + result
-                                currentTest = result.name
-                            }
-                            isMetaRunning = false
-                            currentTest = ""
-                            lastRunTime = java.time.LocalDateTime.now()
-                                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        }
-                    }
-                },
-                enabled = !isMetaRunning,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-            ) {
-                if (isMetaRunning) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Testing Providers...")
-                } else {
-                    Text("Test Providers")
-                }
-            }
-
-            if (results.any { it.name.startsWith("Provider:") }) {
-                OutlinedButton(
-                    onClick = {
-                        val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
-                        val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                        clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                        copied = true
-                    },
-                ) {
-                    Text(if (copied) "Copied!" else "Copy Results")
-                }
-            }
-        }
-
-        if (isRunning && currentTest.isNotEmpty()) {
             Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 2.dp,
-                )
-                Text(
-                    text = "Testing: $currentTest",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        if (results.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                Button(
+                    onClick = {
+                        if (!isRunning) {
+                            isRunning = true
+                            results = emptyList()
+                            currentTest = "Starting..."
+                            copied = false
+                            scope.launch {
+                                DiagnosticsRunner.runAll { result ->
+                                    results = results + result
+                                    currentTest = result.name
+                                }
+                                isRunning = false
+                                currentTest = ""
+                                lastRunTime = java.time.LocalDateTime.now()
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                            }
+                        }
+                    },
+                    enabled = !isRunning,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                    if (isRunning && currentTest.isNotEmpty() && !currentTest.startsWith("Provider:")) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Running...")
+                    } else {
+                        Text("Test Network")
+                    }
+                }
+
+                if (results.isNotEmpty() && results.none { it.name.startsWith("Provider:") }) {
+                    OutlinedButton(
+                        onClick = {
+                            val report = DiagnosticsRunner.formatReport(results)
+                            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                            clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
+                            copied = true
+                        },
                     ) {
-                        Text(
-                            "",
-                            modifier = Modifier.width(32.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "Test",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "Time",
-                            modifier = Modifier.width(72.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "Detail",
-                            modifier = Modifier.weight(1.5f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    )
-
-                    results.forEach { result ->
-                        DiagnosticResultRow(result)
+                        Text(if (copied) "Copied!" else "Copy Results")
                     }
                 }
             }
 
-            val passCount = results.count { it.passed }
-            val failCount = results.count { !it.passed }
-            val avgTime = results.filter { it.passed && it.timeMs > 0 }
-                .let { passed -> if (passed.isNotEmpty()) passed.sumOf { it.timeMs } / passed.size else 0 }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // ── Metadata provider tests ───────────────────────────────────────
+            Text(
+                text = "Metadata Providers",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Tests each installed content provider by running a live search and checking for results.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SummaryChip("✅ $passCount passed", MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                if (failCount > 0) {
-                    SummaryChip("❌ $failCount failed", MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                var isMetaRunning by remember { mutableStateOf(false) }
+                Button(
+                    onClick = {
+                        if (!isMetaRunning) {
+                            isMetaRunning = true
+                            results = results.filter { it.name.startsWith("Provider:").not() }
+                            currentTest = "Starting metadata tests..."
+                            copied = false
+                            scope.launch {
+                                DiagnosticsRunner.runMetaProviders { result ->
+                                    results = results + result
+                                    currentTest = result.name
+                                }
+                                isMetaRunning = false
+                                currentTest = ""
+                                lastRunTime = java.time.LocalDateTime.now()
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                            }
+                        }
+                    },
+                    enabled = !isMetaRunning,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                ) {
+                    if (isMetaRunning) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Testing Providers...")
+                    } else {
+                        Text("Test Providers")
+                    }
                 }
-                Text(
-                    text = "Avg response: ${avgTime}ms",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (lastRunTime.isNotEmpty()) {
-                    Spacer(modifier = Modifier.weight(1f))
+
+                if (results.any { it.name.startsWith("Provider:") }) {
+                    OutlinedButton(
+                        onClick = {
+                            val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
+                            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                            clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
+                            copied = true
+                        },
+                    ) {
+                        Text(if (copied) "Copied!" else "Copy Results")
+                    }
+                }
+            }
+
+            if (isRunning && currentTest.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp,
+                    )
                     Text(
-                        text = "Last run: $lastRunTime",
+                        text = "Testing: $currentTest",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            if (results.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                "",
+                                modifier = Modifier.width(32.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Test",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Time",
+                                modifier = Modifier.width(72.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Detail",
+                                modifier = Modifier.weight(1.5f),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+
+                        results.forEach { result ->
+                            DiagnosticResultRow(result)
+                        }
+                    }
+                }
+
+                val passCount = results.count { it.passed }
+                val failCount = results.count { !it.passed }
+                val avgTime = results.filter { it.passed && it.timeMs > 0 }
+                    .let { passed -> if (passed.isNotEmpty()) passed.sumOf { it.timeMs } / passed.size else 0 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SummaryChip("✅ $passCount passed", MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    if (failCount > 0) {
+                        SummaryChip("❌ $failCount failed", MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                    }
+                    Text(
+                        text = "Avg response: ${avgTime}ms",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (lastRunTime.isNotEmpty()) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "Last run: $lastRunTime",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }
 

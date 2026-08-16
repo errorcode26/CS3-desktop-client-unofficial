@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.syncproviders
 
 import com.lagradost.cloudstream3.syncproviders.providers.AniListApi
 import com.lagradost.cloudstream3.syncproviders.providers.MalApi
+import com.lagradost.cloudstream3.syncproviders.providers.OpenSubtitlesStremioApi
 import com.lagradost.cloudstream3.syncproviders.providers.SimklApi
 import com.lagradost.cloudstream3.syncproviders.providers.SubDlApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class AccountManager {
     companion object {
+        @JvmStatic
+        val openSubtitlesStremioApi = OpenSubtitlesStremioApi()
+
         @JvmStatic
         val subDlApi = SubDlApi()
 
@@ -22,8 +26,8 @@ class AccountManager {
         @JvmStatic
         val simklApi = SimklApi()
 
-        val subtitleProviders = listOf(subDlApi)
-        val allApis = listOf(subDlApi, aniListApi, malApi, simklApi)
+        val subtitleProviders = listOf(openSubtitlesStremioApi, subDlApi)
+        val allApis = listOf(openSubtitlesStremioApi, subDlApi, aniListApi, malApi, simklApi)
 
         var cachedAccounts: MutableMap<String, Array<AuthData>> = mutableMapOf()
 

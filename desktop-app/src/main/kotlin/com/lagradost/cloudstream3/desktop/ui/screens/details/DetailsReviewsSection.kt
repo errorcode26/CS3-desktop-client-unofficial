@@ -100,7 +100,7 @@ fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
             .animateContentSize()
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -112,7 +112,7 @@ fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)),
                     )
                 } else {
                     Box(
@@ -120,18 +120,18 @@ fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = review.author.firstOrNull()?.uppercase() ?: "?",
                             color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = review.author,
@@ -139,13 +139,13 @@ fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     review.createdAt?.take(10)?.let { date ->
                         Text(
                             text = date,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -156,27 +156,27 @@ fun ReviewCard(review: ReviewData, modifier: Modifier = Modifier) {
                             imageVector = Icons.Filled.Star,
                             contentDescription = "Rating",
                             tint = androidx.compose.ui.graphics.Color(0xFFFFC107),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${review.rating.toInt()}/10",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Text(
                 text = review.content,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = if (expanded) Int.MAX_VALUE else 5,
-                overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis
+                overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
             )
         }
     }

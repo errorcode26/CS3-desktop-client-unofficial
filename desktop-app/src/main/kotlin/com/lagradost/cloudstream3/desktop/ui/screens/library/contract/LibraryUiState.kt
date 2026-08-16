@@ -8,7 +8,7 @@ enum class SortOption(val title: String) {
     DATE_ADDED_DESC("Date Added (Newest)"),
     DATE_ADDED_ASC("Date Added (Oldest)"),
     ALPHA_ASC("Alphabetical (A-Z)"),
-    ALPHA_DESC("Alphabetical (Z-A)")
+    ALPHA_DESC("Alphabetical (Z-A)"),
 }
 
 data class LibraryUiState(

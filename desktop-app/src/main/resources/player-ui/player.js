@@ -219,6 +219,7 @@
     const seekChapters  = document.getElementById('seekChapters');
     const seekTooltip   = document.getElementById('seekTooltip');
     let _cachedChapters = [];
+    let _cachedSkipIntervals = [];
     let _activeChapterIndex = -1;
 
     // Watch Next Elements
@@ -597,6 +598,21 @@
                         if (idx === activeIdx) item.classList.add('active');
                         else item.classList.remove('active');
                     });
+                }
+            }
+        }
+
+        // ── Real-time Active Skip Button Evaluation ─────────────────────
+        if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
+            const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
+            const skipBtn = document.getElementById('skipBtn');
+            const skipBtnLabel = document.getElementById('skipBtnLabel');
+            if (skipBtn) {
+                if (activeInv) {
+                    if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
+                    skipBtn.style.display = 'flex';
+                } else {
+                    skipBtn.style.display = 'none';
                 }
             }
         }
@@ -1425,8 +1441,22 @@
         _cachedChapters = meta.chapters || [];
         _activeChapterIndex = typeof meta.currentChapterIndex === 'number' ? meta.currentChapterIndex : -1;
         
+        // ── Skip Intervals & Active Skip Button ─────────────────────────
+        _cachedSkipIntervals = meta.skipIntervals || [];
+        const skipBtn = document.getElementById('skipBtn');
+        const skipBtnLabel = document.getElementById('skipBtnLabel');
+        if (skipBtn) {
+            const activeInv = meta.activeSkipInterval || (_cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs));
+            if (activeInv) {
+                if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
+                skipBtn.style.display = 'flex';
+            } else {
+                skipBtn.style.display = 'none';
+            }
+        }
+
         renderChaptersList(_cachedChapters, _activeChapterIndex);
-        renderSeekbarChapters(_cachedChapters);
+        renderSeekbarChapters(_cachedChapters, meta.skipIntervals);
     };
 
     const renderChaptersList = (chapters, activeIndex) => {
@@ -1455,9 +1485,26 @@
         }).join('');
     };
 
-    const renderSeekbarChapters = (chapters) => {
+    const renderSeekbarChapters = (chapters, skipIntervals) => {
         if (!seekChapters) return;
         seekChapters.innerHTML = '';
+        
+        // Render skip intervals (highlighted zones on seekbar)
+        if (skipIntervals && skipIntervals.length > 0 && durationMs > 0) {
+            skipIntervals.forEach(inv => {
+                const leftPct = Math.max(0, Math.min(100, (inv.startMs / durationMs) * 100));
+                const rightPct = Math.max(0, Math.min(100, (inv.endMs / durationMs) * 100));
+                const widthPct = Math.max(0.5, rightPct - leftPct);
+
+                const div = document.createElement('div');
+                div.className = `seek-skip-interval ${inv.type ? inv.type.toLowerCase() : ''}`;
+                div.style.left = `${leftPct}%`;
+                div.style.width = `${widthPct}%`;
+                div.title = `${inv.label || 'Skip'} (${fmt(inv.startMs)} - ${fmt(inv.endMs)})`;
+                seekChapters.appendChild(div);
+            });
+        }
+
         if (!chapters || chapters.length <= 1 || durationMs <= 0) return;
         
         chapters.forEach((ch, idx) => {
@@ -2302,6 +2349,31 @@
         triggerActionFeedback(SVGS.forward10, 'right');
     });
 
+    const performSkipInterval = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const r = document.getElementById('resumeOverlay');
+        if (r) r.style.display = 'none';
+        const sBtn = document.getElementById('skipBtn');
+        if (sBtn) sBtn.style.display = 'none';
+
+        if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
+            const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
+            if (activeInv) {
+                send('seekTo', activeInv.endMs + 100);
+            }
+        }
+        send('skipInterval');
+    };
+
+    const skipBtnElem = document.getElementById('skipBtn');
+    if (skipBtnElem) {
+        skipBtnElem.addEventListener('click', performSkipInterval);
+        skipBtnElem.addEventListener('pointerdown', e => e.stopPropagation());
+    }
+
     const triggerNextEpisode = () => {
         if (endCountdownTimer) clearInterval(endCountdownTimer);
         send('hideVideoEnded', '1');
@@ -2716,6 +2788,13 @@
                 e.preventDefault();
                 send('togglePlay');
                 triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
+                break;
+            case 'KeyS':
+                const sBtn = document.getElementById('skipBtn');
+                if (sBtn && sBtn.style.display !== 'none') {
+                    e.preventDefault();
+                    performSkipInterval(e);
+                }
                 break;
             case 'KeyF':
                 send('toggleFullscreen');

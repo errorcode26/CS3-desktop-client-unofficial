@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.lagradost.cloudstream3.desktop.ui.screens.player.LivePlayerDiagnostics
 import com.lagradost.common.logging.LogEntry
 import com.lagradost.common.logging.LogLevel
 import com.lagradost.common.logging.LogSubsystem
@@ -582,8 +581,9 @@ private fun DevStudioLogTable(
         derivedStateOf {
             val layoutInfo = listState.layoutInfo
             val totalItems = layoutInfo.totalItemsCount
-            if (totalItems == 0) true
-            else {
+            if (totalItems == 0) {
+                true
+            } else {
                 val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                 lastVisible >= totalItems - 2
             }
@@ -1521,7 +1521,16 @@ private fun PlayerDiagnosticsTabContent(
                 title = "Playback Engine",
                 modifier = Modifier.weight(1f),
             ) {
-                InspectorField("Status", if (diag.isBuffering) "Buffering..." else if (diag.isPaused) "Paused" else "Playing")
+                InspectorField(
+                    "Status",
+                    if (diag.isBuffering) {
+                        "Buffering..."
+                    } else if (diag.isPaused) {
+                        "Paused"
+                    } else {
+                        "Playing"
+                    },
+                )
                 InspectorField("Position", "${diag.positionMs / 1000}s / ${diag.durationMs / 1000}s")
                 InspectorField("Buffer Ahead", "${diag.bufferMs / 1000}s")
                 InspectorField("Probing Active", if (diag.isProbing) "YES" else "NO")

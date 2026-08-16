@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,9 +57,8 @@ import com.lagradost.common.storage.DesktopWatchType
 @Composable
 fun ComposeLibraryScreen(
     onNavigate: (Config) -> Unit,
-    viewModel: LibraryViewModel
+    viewModel: LibraryViewModel,
 ) {
-
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->
             when (effect) {
@@ -221,12 +219,18 @@ fun LibraryActionBar(
             DropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text("All Providers") },
-                    onClick = { onProviderChange(null); providerExpanded = false },
+                    onClick = {
+                        onProviderChange(null)
+                        providerExpanded = false
+                    },
                 )
                 uiState.availableProviders.forEach { prov ->
                     DropdownMenuItem(
                         text = { Text(prov) },
-                        onClick = { onProviderChange(prov); providerExpanded = false },
+                        onClick = {
+                            onProviderChange(prov)
+                            providerExpanded = false
+                        },
                     )
                 }
             }
@@ -248,7 +252,10 @@ fun LibraryActionBar(
                 SortOption.entries.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.title) },
-                        onClick = { onSortChange(option); sortExpanded = false },
+                        onClick = {
+                            onSortChange(option)
+                            sortExpanded = false
+                        },
                     )
                 }
             }
@@ -270,7 +277,7 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                 modifier = Modifier
                     .matchParentSize()
                     .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .background(primary.copy(alpha = 0.65f), shape)
+                    .background(primary.copy(alpha = 0.65f), shape),
             )
         }
         Surface(

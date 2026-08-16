@@ -36,8 +36,8 @@ data class PlayerUiState(
     /** True while a scrape job is running in the background. */
     val isScrapingLinks: Boolean get() = when (phase) {
         is PlayerPhase.Scraping -> true
-        is PlayerPhase.Probing  -> phase.stillScraping
-        is PlayerPhase.Playing  -> phase.stillScraping
+        is PlayerPhase.Probing -> phase.stillScraping
+        is PlayerPhase.Playing -> phase.stillScraping
         else -> false
     }
 

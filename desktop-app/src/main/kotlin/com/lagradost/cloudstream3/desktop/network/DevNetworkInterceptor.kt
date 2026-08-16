@@ -5,7 +5,6 @@ import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.Response
 import okio.Buffer
-import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
@@ -101,12 +100,12 @@ class DevNetworkInterceptor : Interceptor {
 
         val isTextOrJson = contentType != null && (
             contentType.contains("json", ignoreCase = true) ||
-            contentType.contains("text", ignoreCase = true) ||
-            contentType.contains("xml", ignoreCase = true) ||
-            contentType.contains("javascript", ignoreCase = true) ||
-            contentType.contains("mpegurl", ignoreCase = true) ||
-            contentType.contains("html", ignoreCase = true)
-        )
+                contentType.contains("text", ignoreCase = true) ||
+                contentType.contains("xml", ignoreCase = true) ||
+                contentType.contains("javascript", ignoreCase = true) ||
+                contentType.contains("mpegurl", ignoreCase = true) ||
+                contentType.contains("html", ignoreCase = true)
+            )
 
         if (!isTextOrJson) {
             val size = if (contentLength >= 0) contentLength else 0L

@@ -173,7 +173,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
                             }
                         }
-                        
+
                         val fullscreenController = LocalFullscreenController.current
                         val isFullscreen = fullscreenController?.isFullscreen == true
                         LaunchedEffect(isFullscreen, currentVideo) {
@@ -181,7 +181,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateFullscreen(isFullscreen)
                             }
                         }
-                        
+
                         val applySafePadding = when (activeInstance) {
                             is RootComponent.Child.Details -> false // Details manually pads itself
                             is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
@@ -252,13 +252,13 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     is RootComponent.Child.Library -> {
                                         ComposeLibraryScreen(
                                             onNavigate = { rootComponent.bringToFront(it) },
-                                            viewModel = child.component.viewModel
+                                            viewModel = child.component.viewModel,
                                         )
                                     }
                                     is RootComponent.Child.Settings -> {
                                         com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
                                             onNavigate = { config -> rootComponent.bringToFront(config) },
-                                            viewModel = child.component.viewModel
+                                            viewModel = child.component.viewModel,
                                         )
                                     }
                                     is RootComponent.Child.CategoryGrid -> {

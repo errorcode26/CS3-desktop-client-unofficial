@@ -35,19 +35,19 @@ class DefaultRootComponent(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext),
             )
             is Config.History -> RootComponent.Child.History(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent(componentContext)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent(componentContext),
             )
             is Config.Search -> RootComponent.Child.Search(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent(componentContext),
             )
             is Config.Extensions -> RootComponent.Child.Extensions(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent(componentContext, config.initialTab)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent(componentContext, config.initialTab),
             )
             is Config.Library -> RootComponent.Child.Library(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent(componentContext)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent(componentContext),
             )
             is Config.Settings -> RootComponent.Child.Settings(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent(componentContext)
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent(componentContext),
             )
             is Config.Details -> RootComponent.Child.Details(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent(componentContext, config),
@@ -56,8 +56,8 @@ class DefaultRootComponent(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.CategoryGridComponent(
                     componentContext = componentContext,
                     providerName = config.providerName,
-                    title = config.title
-                )
+                    title = config.title,
+                ),
             )
         }
 

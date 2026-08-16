@@ -13,9 +13,6 @@ import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
-import com.lagradost.common.platform.PlatformPaths
-import kotlinx.coroutines.delay
-import java.io.File
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -41,7 +38,7 @@ fun EmbeddedVideoPlayer(
             when (effect) {
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ShowToast -> {
                     com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.postMessage(
-                        "{\"type\":\"show_toast\",\"message\":\"${effect.message.replace("\"", "\\\"")}\"}"
+                        "{\"type\":\"show_toast\",\"message\":\"${effect.message.replace("\"", "\\\"")}\"}",
                     )
                 }
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ClosePlayer -> {
@@ -81,6 +78,20 @@ fun EmbeddedVideoPlayer(
         // isLoading is already reset to true by remember(episodeId) above
         playerState.reset()
         com.lagradost.player.impl.proxy.LocalStreamProxyState.loadingStatus.value = null
+
+        // Pre-fetch skip intervals in parallel with stream scraping for 0ms startup delay
+        val currentEp = uiState.episodes.find { it.data == actualLaunchData.history.episodeId }
+        val epNum = actualLaunchData.history.episode ?: currentEp?.episode ?: 1
+        val seasonNum = actualLaunchData.history.season ?: currentEp?.season ?: 1
+        val showTitle = (actualLaunchData.history.showName ?: "").ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
+        if (showTitle.isNotBlank()) {
+            playerState.loadSkipIntervals(
+                title = showTitle,
+                episode = epNum,
+                season = seasonNum,
+                durationSeconds = 0.0
+            )
+        }
     }
 
     LaunchedEffect(nextEpisodeError) {
@@ -160,7 +171,9 @@ fun EmbeddedVideoPlayer(
                     val isMidStreamSwitch = phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && !phase.isInitial
                     val displayLoadingStatus = if (isMidStreamSwitch) {
                         if ((phase as com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing).isRetry) "Reconnecting..." else "Trying next source..."
-                    } else null
+                    } else {
+                        null
+                    }
 
                     ComposeNativeWebPlayer(
                         link = safeLink,
@@ -221,6 +234,19 @@ fun EmbeddedVideoPlayer(
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady for link index $displayLinkIndex")
                             isLoading = false
                             viewModel.onEvent(PlayerUiEvent.OnPlaybackReady)
+
+                            val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
+                            val epNum = currentEp?.episode ?: 1
+                            val seasonNum = currentEp?.season ?: 1
+                            val showTitle = (actualLaunchData.history.showName ?: "").ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
+                            if (playerState.skipIntervals.value.isEmpty() && showTitle.isNotBlank()) {
+                                playerState.loadSkipIntervals(
+                                    title = showTitle,
+                                    episode = epNum,
+                                    season = seasonNum,
+                                    durationSeconds = playerState.durationMs.value / 1000.0
+                                )
+                            }
                         },
                         onPositionChange = { posMs, durMs ->
                             playerState.updatePositionFromPlayer(posMs)

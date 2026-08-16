@@ -24,7 +24,7 @@ class PluginCircuitBreakerTest {
             val res = SafePluginInvoker.invoke<String>(
                 tag = "Search:$provider",
                 timeoutMs = 500L,
-                failureThreshold = 4
+                failureThreshold = 4,
             ) {
                 throw RuntimeException("Network 500")
             }
@@ -40,7 +40,7 @@ class PluginCircuitBreakerTest {
         val res4 = SafePluginInvoker.invoke<String>(
             tag = "Search:$provider",
             timeoutMs = 500L,
-            failureThreshold = 4
+            failureThreshold = 4,
         ) {
             throw RuntimeException("Network 500 again")
         }
@@ -65,7 +65,7 @@ class PluginCircuitBreakerTest {
         var executed = false
         val result = SafePluginInvoker.invoke<String>(
             tag = "Search:$provider",
-            timeoutMs = 5000L
+            timeoutMs = 5000L,
         ) {
             executed = true
             "should not execute"
@@ -93,7 +93,7 @@ class PluginCircuitBreakerTest {
         // Successful execution restores HEALTHY state
         val res = SafePluginInvoker.invoke<String>(
             tag = "Search:$provider",
-            timeoutMs = 1000L
+            timeoutMs = 1000L,
         ) {
             "recovered data"
         }

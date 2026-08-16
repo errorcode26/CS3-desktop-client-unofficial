@@ -71,11 +71,13 @@ fun SourcesOverlay(
             )
 
             if (availableQualities.isNotEmpty()) {
-                val stringQualities = availableQualities.map { "${it}p" }
+                val stringQualities = availableQualities.map { if (it == 400 || it <= 0) "Auto" else "${it}p" }
                 QualitySelector(
                     availableQualities = stringQualities,
-                    selectedQuality = selectedQuality?.let { "${it}p" },
-                    onSelect = { str -> selectedQuality = str?.replace("p", "")?.toIntOrNull() },
+                    selectedQuality = selectedQuality?.let { if (it == 400 || it <= 0) "Auto" else "${it}p" },
+                    onSelect = { str ->
+                        selectedQuality = if (str == "Auto") 400 else str?.replace("p", "")?.toIntOrNull()
+                    },
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }

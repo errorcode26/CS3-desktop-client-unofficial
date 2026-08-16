@@ -154,12 +154,12 @@ fun BaseMpvPlayer(
                             val chTime = MpvLibrary.getPropertyString(handle, "chapter-list/$c/time")?.toDoubleOrNull() ?: 0.0
                             chapters.add(PlayerState.Chapter(index = c, title = chTitle, timeMs = (chTime * 1000).toLong()))
                         }
-                        playerState?._chapters?.value = chapters
+                        playerState?.updateChaptersFromPlayer(chapters)
                         val currentChapter = MpvLibrary.getPropertyString(handle, "chapter")?.toIntOrNull() ?: -1
                         playerState?._currentChapterIndex?.value = currentChapter
                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Extracted $chapterCount chapters from stream")
                     } else {
-                        playerState?._chapters?.value = emptyList()
+                        playerState?.updateChaptersFromPlayer(emptyList())
                         playerState?._currentChapterIndex?.value = -1
                     }
                 }
@@ -245,8 +245,8 @@ fun BaseMpvPlayer(
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Playback active (MPV_EVENT_FILE_LOADED / RESTART)")
 
                                         if (startPositionMs > 0) {
-                                            com.lagradost.common.logging.AppLogger.i("Player:MPV", "Executing initial seek to $startPositionMs ms")
-                                            playerState?.seekTo(startPositionMs)
+                                            com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial playback started at $startPositionMs ms")
+                                            playerState?._positionMs?.value = startPositionMs
                                         }
 
                                         playerState?._isBuffering?.value = false
@@ -570,10 +570,12 @@ fun BaseMpvPlayer(
         }
         lib.mpv_set_property_string(handle, "cursor-autohide", "1500")
 
-        val startSec = startPositionMs / 1000L
-        // ALWAYS start at 0 to prevent cold-seek timeouts on unsupported CDNs.
-        // We will perform a deferred warm-seek in the initialization loop instead.
-        lib.mpv_set_property_string(handle, "start", "0")
+        val startSec = startPositionMs / 1000.0
+        if (startSec > 0) {
+            lib.mpv_set_property_string(handle, "start", startSec.toString())
+        } else {
+            lib.mpv_set_property_string(handle, "start", "0")
+        }
 
         if (validated.displayTitle.isNotBlank()) {
             lib.mpv_set_property_string(handle, "force-media-title", validated.displayTitle)

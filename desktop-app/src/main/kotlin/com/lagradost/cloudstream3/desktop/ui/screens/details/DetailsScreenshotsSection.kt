@@ -97,40 +97,40 @@ fun DetailsScreenshotsSection(
             exit = fadeOut(tween(200)) + androidx.compose.animation.shrinkVertically(tween(200)),
         ) {
             Column {
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val maxCardWidth = minOf(480.dp, maxWidth - 48.dp)
-                LazyRow(
-                    state = screenshotsScrollState,
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                        detectHorizontalDragGestures { change, dragAmount ->
-                            change.consume()
-                            screenshotsScrollState.dispatchRawDelta(-dragAmount)
-                        }
-                    },
-                ) {
-                    items(screenshots, key = { it }) { imgUrl ->
-                        Surface(
-                            modifier = Modifier
-                                .width(maxCardWidth)
-                                .aspectRatio(16f / 9f)
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { onScreenshotClick(imgUrl) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                        ) {
-                            coil3.compose.AsyncImage(
-                                model = imgUrl,
-                                contentDescription = "Screenshot",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val maxCardWidth = minOf(480.dp, maxWidth - 48.dp)
+                    LazyRow(
+                        state = screenshotsScrollState,
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
+                            detectHorizontalDragGestures { change, dragAmount ->
+                                change.consume()
+                                screenshotsScrollState.dispatchRawDelta(-dragAmount)
+                            }
+                        },
+                    ) {
+                        items(screenshots, key = { it }) { imgUrl ->
+                            Surface(
+                                modifier = Modifier
+                                    .width(maxCardWidth)
+                                    .aspectRatio(16f / 9f)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onScreenshotClick(imgUrl) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                coil3.compose.AsyncImage(
+                                    model = imgUrl,
+                                    contentDescription = "Screenshot",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         }
                     }
                 }
-            }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
                     Surface(

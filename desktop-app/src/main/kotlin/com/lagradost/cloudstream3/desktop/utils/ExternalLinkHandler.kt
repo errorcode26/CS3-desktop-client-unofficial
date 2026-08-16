@@ -36,11 +36,11 @@ object ExternalLinkHandler {
     fun isExternalBrowserAllowed(): Boolean {
         return DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER) ?: true
     }
-    
+
     fun isIsolatedBrowserEnabled(): Boolean {
         return DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ISOLATED_EXTERNAL_BROWSER) ?: true
     }
-    
+
     fun isDontAskEnabled(): Boolean {
         return DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_DONT_ASK_EXTERNAL_LINKS) ?: false
     }
@@ -133,13 +133,13 @@ fun ExternalLinkConfirmationDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = dontAskAgain,
-                        onCheckedChange = { dontAskAgain = it }
+                        onCheckedChange = { dontAskAgain = it },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Don't ask me again",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }

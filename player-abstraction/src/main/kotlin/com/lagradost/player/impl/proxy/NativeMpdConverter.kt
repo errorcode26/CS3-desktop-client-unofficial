@@ -64,7 +64,7 @@ class NativeMpdConverter {
         sessionId: String,
         mpdUrl: String,
         clearKey: String? = null,
-        tracksListener: ProxyTracksListener? = null
+        tracksListener: ProxyTracksListener? = null,
     ): String {
         val doc = parseXml(mpdContent)
         val mpd = doc.documentElement
@@ -80,6 +80,7 @@ class NativeMpdConverter {
         val firstPeriod = if (periods.length > 0) periods.item(0) as Element else mpd
         val adaptationSets = firstPeriod.getElementsByTagName("AdaptationSet")
         val audioTracks = mutableListOf<String>()
+        val lazyAudioTracks = mutableListOf<ProxyTrack>()
 
         // 1. Find Audio Tracks
         for (i in 0 until adaptationSets.length) {
@@ -114,6 +115,7 @@ class NativeMpdConverter {
                     val isDefault = audioTracks.isEmpty()
                     sb.appendLine("""#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="$lang",NAME="${lang.uppercase()}",DEFAULT=${if (isDefault) "YES" else "NO"},AUTOSELECT=YES,URI="$mediaUrl"""")
                     audioTracks.add(repId)
+                    lazyAudioTracks.add(ProxyTrack(mediaUrl, lang.uppercase(), lang))
                 }
             }
         }
@@ -171,9 +173,9 @@ class NativeMpdConverter {
                 }
             }
         }
-        
-        tracksListener?.onTracksDiscovered(emptyList(), emptyList(), lazyVideoTracks)
-        
+
+        tracksListener?.onTracksDiscovered(lazyAudioTracks, emptyList(), lazyVideoTracks)
+
         return sb.toString()
     }
 
@@ -324,16 +326,16 @@ class NativeMpdConverter {
                     // ISO 8601 duration: PT1H22M30.000S or PT22M30S or PT30S
                     if (!raw.startsWith("PT", ignoreCase = true)) return null
                     val hoursMatch = Regex("(\\d+(?:\\.\\d+)?)H").find(raw)
-                    val minsMatch  = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
-                    val secsMatch  = Regex("(\\d+(?:\\.\\d+)?)S").find(raw)
+                    val minsMatch = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
+                    val secsMatch = Regex("(\\d+(?:\\.\\d+)?)S").find(raw)
                     val hours = hoursMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-                    val mins  = minsMatch?.groupValues?.get(1)?.toDoubleOrNull()  ?: 0.0
-                    val secs  = secsMatch?.groupValues?.get(1)?.toDoubleOrNull()  ?: 0.0
+                    val mins = minsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+                    val secs = secsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
                     val total = hours * 3600.0 + mins * 60.0 + secs
                     return if (total > 0.0) total else null
                 }
 
-                val mpdDurRaw    = mpd.getAttribute("mediaPresentationDuration")
+                val mpdDurRaw = mpd.getAttribute("mediaPresentationDuration")
                 val periodDurRaw = period?.getAttribute("duration")
 
                 val totalSecs = parseMpdDuration(mpdDurRaw)

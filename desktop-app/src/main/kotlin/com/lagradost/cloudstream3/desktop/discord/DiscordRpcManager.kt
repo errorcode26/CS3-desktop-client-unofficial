@@ -12,6 +12,7 @@ object DiscordRpcManager {
     const val DEFAULT_CLIENT_ID = "1534799947826991266"
 
     private val client = DiscordIpcClient()
+
     // Single-threaded dispatcher: guarantees all IPC operations are sequential
     private val dispatcher = Dispatchers.IO.limitedParallelism(1)
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
@@ -47,18 +48,23 @@ object DiscordRpcManager {
     private var lastPlayingPositionSec: Long = -1L
     private var lastPlayingTimestampMs: Long = 0L
     private var lastPlayingFullscreen: Boolean = false
+
     // Track the last paused state sent to Discord so we can re-anchor on resume
     private var lastSentIsPaused: Boolean? = null
+
+    // Track offline status and last connection attempt to prevent spam
+    @Volatile private var lastConnectAttemptMs = 0L
+    @Volatile private var hasLoggedOffline = false
 
     fun init() {
         // Single dispatcher worker — all IPC calls are serialized here
         scope.launch {
-            AppLogger.i(TAG, "Starting DiscordRpcManager dispatcher worker...")
+            AppLogger.d(TAG, "Starting DiscordRpcManager dispatcher worker...")
             for (state in updateChannel) {
                 try {
                     processState(state)
                 } catch (e: Throwable) {
-                    AppLogger.e(TAG, "Error processing state $state: ${e.message}", e)
+                    AppLogger.d(TAG, "Error processing state $state: ${e.message}")
                 }
             }
         }
@@ -71,17 +77,18 @@ object DiscordRpcManager {
                 if (isRpcEnabled() && state !is PresenceState.None) {
                     try {
                         if (!client.isConnected()) {
-                            AppLogger.i(TAG, "Heartbeat: reconnecting...")
                             val connected = withTimeout(5_000) { client.connect(getActiveClientId()) }
                             if (connected) {
+                                if (hasLoggedOffline) {
+                                    AppLogger.i(TAG, "✓ Connected to Discord RPC")
+                                    hasLoggedOffline = false
+                                }
                                 val payload = buildActivityPayload(state)
                                 if (payload != null) client.sendActivity(payload)
                             }
                         }
-                    } catch (e: TimeoutCancellationException) {
-                        AppLogger.w(TAG, "Heartbeat: connect() timed out")
-                    } catch (e: Exception) {
-                        AppLogger.w(TAG, "Heartbeat error: ${e.message}")
+                    } catch (_: TimeoutCancellationException) {
+                    } catch (_: Exception) {
                     }
                 }
             }
@@ -91,7 +98,7 @@ object DiscordRpcManager {
     fun updateBrowsing(screen: String) {
         val isEnabled = isRpcEnabled()
         val showBrowsing = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_DISCORD_RPC_SHOW_BROWSING) ?: true
-        AppLogger.i(TAG, "updateBrowsing('$screen') enabled=$isEnabled showBrowsing=$showBrowsing")
+        AppLogger.d(TAG, "updateBrowsing('$screen') enabled=$isEnabled showBrowsing=$showBrowsing")
         if (!isEnabled || !showBrowsing) {
             if (currentState is PresenceState.Browsing) {
                 currentState = PresenceState.None
@@ -99,10 +106,6 @@ object DiscordRpcManager {
             }
             return
         }
-        // No Playing guard here — ComposeNavigation already ensures this is only called
-        // when currentVideo == null (no active playback). A guard here caused a race:
-        // if LaunchedEffect fired before onPlayerStopped() updated currentState,
-        // the browsing update would be silently dropped and Discord would show a stale screen.
         val newState = PresenceState.Browsing(screen)
         currentState = newState
         updateChannel.trySend(newState)
@@ -133,7 +136,7 @@ object DiscordRpcManager {
         val isResuming = lastSentIsPaused == true && !isPaused
 
         if (isMediaChanged || isPauseChanged || isSeekDetected || isResuming || lastPlayingPositionSec < 0) {
-            AppLogger.i(TAG, "updatePlaying: title='$title' ep='$episodeInfo' pos=${positionSeconds}s paused=$isPaused")
+            AppLogger.d(TAG, "updatePlaying: title='$title' ep='$episodeInfo' pos=${positionSeconds}s paused=$isPaused")
             lastPlayingTitle = title
             lastPlayingEpisode = episodeInfo
             lastPlayingPaused = isPaused
@@ -159,7 +162,7 @@ object DiscordRpcManager {
         lastPlayingFullscreen = isFullscreen
         val state = currentState
         if (state is PresenceState.Playing && state.isFullscreen != isFullscreen) {
-            AppLogger.i(TAG, "updateFullscreen: $isFullscreen")
+            AppLogger.d(TAG, "updateFullscreen: $isFullscreen")
             val newState = state.copy(isFullscreen = isFullscreen)
             currentState = newState
             updateChannel.trySend(newState)
@@ -167,7 +170,7 @@ object DiscordRpcManager {
     }
 
     fun onPlayerStopped() {
-        AppLogger.i(TAG, "onPlayerStopped")
+        AppLogger.d(TAG, "onPlayerStopped")
         lastPlayingTitle = null
         lastPlayingEpisode = null
         lastPlayingPaused = null
@@ -182,7 +185,7 @@ object DiscordRpcManager {
     }
 
     fun clearPresence() {
-        AppLogger.i(TAG, "clearPresence")
+        AppLogger.d(TAG, "clearPresence")
         currentState = PresenceState.None
         updateChannel.trySend(PresenceState.None)
     }
@@ -190,14 +193,14 @@ object DiscordRpcManager {
     fun onSettingsChanged() {
         scope.launch {
             val enabled = isRpcEnabled()
-            AppLogger.i(TAG, "onSettingsChanged: enabled=$enabled")
+            AppLogger.d(TAG, "onSettingsChanged: enabled=$enabled")
             if (!enabled) {
                 client.clearActivity()
                 client.close()
                 currentState = PresenceState.None
                 updateChannel.trySend(PresenceState.None)
             } else {
-                // Force re-emit the current state so the worker reconnects and re-sends
+                lastConnectAttemptMs = 0L // reset backoff
                 val state = currentState
                 val toSend = if (state is PresenceState.None) PresenceState.Browsing("Home") else state
                 currentState = toSend
@@ -207,9 +210,12 @@ object DiscordRpcManager {
     }
 
     fun shutdown() {
-        AppLogger.i(TAG, "shutdown")
-        try { client.clearActivity() } catch (_: Exception) {}
-        try { client.close() } catch (_: Exception) {}
+        try {
+            client.clearActivity()
+        } catch (_: Exception) {}
+        try {
+            client.close()
+        } catch (_: Exception) {}
     }
 
     // ---- Internal ----
@@ -222,11 +228,8 @@ object DiscordRpcManager {
             ?.takeIf { it.isNotBlank() } ?: DEFAULT_CLIENT_ID
 
     private suspend fun processState(state: PresenceState) {
-        AppLogger.i(TAG, "processState: $state")
-
         if (!isRpcEnabled() || state is PresenceState.None) {
             if (client.isConnected()) {
-                AppLogger.i(TAG, "processState: RPC disabled or None — clearing")
                 client.clearActivity()
                 client.close()
             }
@@ -234,24 +237,31 @@ object DiscordRpcManager {
         }
 
         if (!client.isConnected()) {
-            AppLogger.i(TAG, "processState: connecting...")
+            val now = System.currentTimeMillis()
+            // Backoff: do not probe named pipes more than once per 20 seconds during UI events
+            if (now - lastConnectAttemptMs < 20_000L) {
+                return
+            }
+            lastConnectAttemptMs = now
+
             val ok = try {
                 withTimeout(5_000) { client.connect(getActiveClientId()) }
-            } catch (e: TimeoutCancellationException) {
-                AppLogger.w(TAG, "processState: connect() timed out")
+            } catch (_: Exception) {
                 false
             }
             if (!ok) {
-                AppLogger.w(TAG, "processState: connection failed, will retry on heartbeat")
+                if (!hasLoggedOffline) {
+                    AppLogger.i(TAG, "Discord client not detected (Rich Presence standing by)")
+                    hasLoggedOffline = true
+                }
                 return
+            } else {
+                AppLogger.i(TAG, "✓ Connected to Discord RPC")
+                hasLoggedOffline = false
             }
         }
 
-        val payload = buildActivityPayload(state)
-        if (payload == null) {
-            AppLogger.w(TAG, "processState: buildActivityPayload returned null")
-            return
-        }
+        val payload = buildActivityPayload(state) ?: return
 
         // Respect Discord's 5 updates/20s rate limit (one per ~500ms minimum)
         val now = System.currentTimeMillis()
@@ -260,8 +270,6 @@ object DiscordRpcManager {
         lastUpdateTimestamp.set(System.currentTimeMillis())
 
         val success = client.sendActivity(payload)
-        AppLogger.i(TAG, "processState: sendActivity=$success")
-        // Bug 1 fix: only update lastSentIsPaused after confirmed successful send
         if (success && state is PresenceState.Playing) {
             lastSentIsPaused = state.isPaused
         }
@@ -274,8 +282,11 @@ object DiscordRpcManager {
         val hrs = s / 3600
         val mins = (s % 3600) / 60
         val secs = s % 60
-        return if (hrs > 0) String.format("%d:%02d:%02d", hrs, mins, secs)
-        else String.format("%02d:%02d", mins, secs)
+        return if (hrs > 0) {
+            String.format("%d:%02d:%02d", hrs, mins, secs)
+        } else {
+            String.format("%02d:%02d", mins, secs)
+        }
     }
 
     private fun String.limit(max: Int): String =
@@ -312,11 +323,13 @@ object DiscordRpcManager {
                 // Playing: send start + end for the full progress bar
                 val nowSec = System.currentTimeMillis() / 1000L
                 val fsSuffix = if (state.isFullscreen) " (Fullscreen)" else ""
-                
+
                 if (state.isPaused) {
                     val timeInfo = if (state.durationSeconds > 0) {
                         "${formatDuration(state.positionSeconds)} / ${formatDuration(state.durationSeconds)} • Paused"
-                    } else "Paused"
+                    } else {
+                        "Paused"
+                    }
                     activityMap["state"] = ((if (episodeText != null) "$episodeText • $timeInfo" else timeInfo) + fsSuffix).limit(128)
                     // Frozen timestamp: start is anchored at the current playback position
                     // Discord shows elapsed from start which equals positionSeconds and stays static
@@ -337,13 +350,12 @@ object DiscordRpcManager {
                     }
                 }
 
-
                 val assetsMap = mutableMapOf<String, String>()
                 if (!state.posterUrl.isNullOrBlank() && state.posterUrl.startsWith("http")) {
                     assetsMap["large_image"] = state.posterUrl
                     assetsMap["large_text"] = displayTitle.limit(128)
                     assetsMap["small_image"] = DEFAULT_ASSET_KEY
-                    
+
                     val statusText = when {
                         state.isPaused -> "Paused"
                         state.isFullscreen -> "Watching in Fullscreen"

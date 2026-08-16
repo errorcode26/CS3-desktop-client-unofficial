@@ -419,54 +419,261 @@
         /* ── Subtitle Search Overlay ────────────────────────────────────── */
         #subSearchOverlay {
             position: absolute; inset: 0;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.78); backdrop-filter: blur(16px);
             z-index: var(--z-sub-search); display: none; align-items: center; justify-content: center;
             pointer-events: auto;
+            animation: subSearchFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes subSearchFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes subSearchSlideUp {
+            from { opacity: 0; transform: translateY(14px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .subsearch-card {
-            background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px; padding: 28px; width: 680px; max-width: 90vw;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.9);
-            display: flex; flex-direction: column; max-height: 85vh;
-            backdrop-filter: blur(15px);
+            background: rgba(18,18,22,0.96); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 22px; padding: 24px; width: 720px; max-width: 92vw;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.92), 0 0 0 1px rgba(255,255,255,0.04);
+            display: flex; flex-direction: column; max-height: 85vh; gap: 16px;
+            backdrop-filter: blur(24px);
+            animation: subSearchSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .subsearch-header {
+            display: flex; justify-content: space-between; align-items: center; padding-bottom: 2px;
+        }
+        .subsearch-icon-badge {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: rgba(var(--accent-color-rgb),0.15); border: 1px solid rgba(var(--accent-color-rgb),0.3);
+            display: flex; align-items: center; justify-content: center; color: var(--accent-color); flex-shrink: 0;
+        }
+        .subsearch-title {
+            margin: 0; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
+        }
+        .subsearch-tag-pill {
+            font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+            color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .subsearch-subtitle {
+            font-size: 12px; color: #777; margin-top: 2px;
+        }
+        .subsearch-close-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+            width: 34px; height: 34px; border-radius: 50%; color: #999;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease;
+        }
+        .subsearch-close-btn:hover {
+            background: rgba(255,255,255,0.15); color: #fff; transform: scale(1.05);
+        }
+
+        .subsearch-controls-card {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .subsearch-input-wrapper {
+            display: flex; align-items: center; position: relative; width: 100%;
+        }
+        .subsearch-input-icon {
+            position: absolute; left: 14px; color: #777; pointer-events: none;
+        }
+        .subsearch-text-input {
+            width: 100%; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 12px 36px 12px 40px; color: #fff; font-size: 14px;
+            font-family: inherit; outline: none; transition: all 0.2s ease;
+        }
+        .subsearch-text-input:focus {
+            border-color: var(--accent-color); background: rgba(0,0,0,0.65);
+            box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb),0.15);
+        }
+        .subsearch-clear-btn {
+            position: absolute; right: 10px; background: transparent; border: none; color: #666;
+            font-size: 14px; cursor: pointer; width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .subsearch-clear-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+        .subsearch-filter-row {
+            display: flex; gap: 10px; align-items: center; position: relative;
+        }
+        .custom-lang-select-container {
+            position: relative; flex: 1; min-width: 160px;
+        }
+        .custom-lang-trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            padding: 11px 14px; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer;
+            outline: none; transition: all 0.2s ease; gap: 8px; font-family: inherit;
+        }
+        .custom-lang-trigger:hover {
+            border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.05);
+        }
+        .custom-lang-globe { font-size: 14px; margin-right: 4px; }
+        .custom-lang-chevron { color: #888; transition: transform 0.2s ease; margin-left: auto; }
+        .custom-lang-popover {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+            background: rgba(22,22,26,0.98); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9); z-index: 1000; padding: 10px; max-height: 280px;
+            display: flex; flex-direction: column; gap: 8px; backdrop-filter: blur(20px);
+            animation: subSearchFadeIn 0.15s ease;
+        }
+        .custom-lang-search-box {
+            display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; color: #aaa;
+        }
+        .custom-lang-search-box input {
+            background: transparent; border: none; color: #fff; font-size: 13px; outline: none; width: 100%; font-family: inherit;
+        }
+        .custom-lang-options-list {
+            overflow-y: auto; max-height: 200px; display: flex; flex-direction: column; gap: 2px; padding-right: 4px;
+        }
+        .custom-lang-options-list::-webkit-scrollbar { width: 4px; }
+        .custom-lang-options-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .custom-lang-option {
+            display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px;
+            color: #ddd; font-size: 13px; cursor: pointer; transition: all 0.15s ease;
+        }
+        .custom-lang-option:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .custom-lang-option.selected { background: rgba(var(--accent-color-rgb),0.2); color: var(--accent-color); font-weight: 600; }
+        .custom-lang-option-badge {
+            font-size: 10px; font-weight: 700; color: #888; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
+        }
+
+        .subsearch-se-wrapper { display: flex; gap: 6px; align-items: center; }
+        .subsearch-se-input-box {
+            display: flex; align-items: center; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 4px 8px; gap: 4px;
+        }
+        .subsearch-se-label { font-size: 11px; font-weight: 700; color: #777; text-transform: uppercase; }
+        .subsearch-se-input {
+            width: 36px; background: transparent; border: none; color: #fff; font-size: 13px; font-weight: 600;
+            text-align: center; outline: none; font-family: inherit; -moz-appearance: textfield;
+        }
+        .subsearch-se-input::-webkit-outer-spin-button, .subsearch-se-input::-webkit-inner-spin-button {
+            -webkit-appearance: none; margin: 0;
+        }
+
+        .subsearch-submit-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: var(--accent-color, #e53935); border: none; border-radius: 10px;
+            padding: 11px 22px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(var(--accent-color-rgb),0.3); flex-shrink: 0;
+            font-family: inherit; min-width: 90px;
+        }
+        .subsearch-submit-btn:hover {
+            transform: translateY(-1px); box-shadow: 0 6px 20px rgba(var(--accent-color-rgb),0.5); filter: brightness(1.1);
+        }
+        .subsearch-submit-btn:active { transform: translateY(0); }
+        .subsearch-spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+
+        .subsearch-quick-chips {
+            display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+        }
+        .subsearch-quick-chips::-webkit-scrollbar { display: none; }
+        .subsearch-quick-chip {
+            display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+            color: #bbb; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+        }
+        .subsearch-quick-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .subsearch-quick-chip.active {
+            background: rgba(var(--accent-color-rgb),0.25); border-color: rgba(var(--accent-color-rgb),0.5);
+            color: #fff; font-weight: 600;
+        }
+
+        .subsearch-status-box {
+            color: #888; font-size: 13px; text-align: center; padding: 24px;
         }
         .subsearch-results-container {
-            display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
-            flex: 1; padding-right: 12px; margin-right: -12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            max-height: 420px;
+            padding-right: 6px;
+            margin-right: -6px;
         }
-        /* Custom scrollbar for search results */
-        .subsearch-results-container::-webkit-scrollbar {
-            width: 6px;
+        .subsearch-results-container::-webkit-scrollbar { width: 6px; }
+        .subsearch-results-container::-webkit-scrollbar-track { background: transparent; border-radius: 3px; }
+        .subsearch-results-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+        .subsearch-results-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+        .sub-result-item {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 14px !important;
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
+            border-radius: 14px !important;
+            padding: 12px 16px !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            cursor: pointer !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
         }
-        .subsearch-results-container::-webkit-scrollbar-track {
-            background: transparent; border-radius: 3px;
-        }
-        .subsearch-results-container::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.12); border-radius: 3px;
-        }
-        .subsearch-results-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(255,255,255,0.25);
-        }
-        
         .sub-result-item:hover {
             background: rgba(255,255,255,0.07) !important;
+            border-color: rgba(255,255,255,0.14) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+        }
+        .sub-lang-pill {
+            border-radius: 8px !important;
+            padding: 6px 10px !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+            letter-spacing: 0.5px !important;
+            text-transform: uppercase !important;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.3) !important;
+            flex-shrink: 0 !important;
+        }
+        .sub-lang-pill.eng { background: rgba(33,150,243,0.15) !important; border: 1px solid rgba(33,150,243,0.35) !important; color: #90caf9 !important; }
+        .sub-lang-pill.esp { background: rgba(255,152,0,0.15) !important; border: 1px solid rgba(255,152,0,0.35) !important; color: #ffcc80 !important; }
+        .sub-lang-pill.fra { background: rgba(156,39,176,0.15) !important; border: 1px solid rgba(156,39,176,0.35) !important; color: #ce93d8 !important; }
+        .sub-lang-pill.deu { background: rgba(76,175,80,0.15) !important; border: 1px solid rgba(76,175,80,0.35) !important; color: #a5d6a7 !important; }
+        .sub-lang-pill.ara { background: rgba(0,188,212,0.15) !important; border: 1px solid rgba(0,188,212,0.35) !important; color: #80deea !important; }
+        .sub-lang-pill.hin { background: rgba(255,87,34,0.15) !important; border: 1px solid rgba(255,87,34,0.35) !important; color: #ffab91 !important; }
+        .sub-lang-pill.por, .sub-lang-pill.pob { background: rgba(233,30,99,0.15) !important; border: 1px solid rgba(233,30,99,0.35) !important; color: #f48fb1 !important; }
+        .sub-lang-pill.other { background: rgba(255,255,255,0.08) !important; border: 1px solid rgba(255,255,255,0.15) !important; color: #ddd !important; }
+
+        .sub-download-btn {
+            background: rgba(255,255,255,0.08) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            border-radius: 10px !important;
+            width: 40px !important;
+            height: 40px !important;
+            cursor: pointer !important;
+            color: #fff !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            transition: all 0.2s ease !important;
+            padding: 0 !important;
         }
         .sub-download-btn:hover {
-            background: rgba(var(--accent-color-rgb),0.9) !important;
-            transform: scale(1.05);
-        }
-        
-        #subSearchQuery:focus, #subSearchSeason:focus, #subSearchEpisode:focus, #subSearchLang:focus {
-            border-color: rgba(var(--accent-color-rgb),0.6) !important;
-            background: rgba(25,25,25,1) !important;
-        }
-        #subSearchBtn {
-            transition: all 0.2s ease;
-        }
-        #subSearchBtn:hover {
             background: var(--accent-color) !important;
-            box-shadow: 0 4px 15px rgba(var(--accent-color-rgb),0.4);
-            transform: translateY(-1px);
+            border-color: var(--accent-color) !important;
+            transform: scale(1.06) !important;
+            box-shadow: 0 4px 12px rgba(var(--accent-color-rgb),0.4) !important;
+        }
+        .sub-download-btn.downloading {
+            background: rgba(255,255,255,0.1) !important;
+            cursor: wait !important;
+            pointer-events: none !important;
+        }
+        .sub-download-btn.success {
+            background: #2e7d32 !important;
+            border-color: #4caf50 !important;
+            color: #fff !important;
+            pointer-events: none !important;
         }
 
         .rbtn {
@@ -918,7 +1125,7 @@
         .link-probing-list {
             display: flex; flex-direction: column; gap: 8px;
             margin-top: 32px; width: 100%; max-width: 480px;
-            max-height: 240px; overflow-y: auto; overflow-x: hidden;
+            height: 260px; overflow-y: auto; overflow-x: hidden;
             padding-right: 8px;
             mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
@@ -1159,49 +1366,86 @@
 
 
 <!-- ── Subtitle Search Dialog ─────────────────────────────────────────── -->
-<div id="subSearchOverlay">
-    <div class="subsearch-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="margin:0; font-size:18px; font-weight:600; color:white;">Search Subtitles</h3>
-            <button onclick="closeSubSearchModal()" style="background:transparent; border:none; color:#888; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+<div id="subSearchOverlay" onclick="if(event.target === this) closeSubSearchModal()">
+    <div class="subsearch-card" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="subsearch-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div class="subsearch-icon-badge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="13" y2="13"></line></svg>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 class="subsearch-title">Search Subtitles</h3>
+                        <span id="subSearchTypeBadge" class="subsearch-tag-pill">Movie</span>
+                    </div>
+                    <div class="subsearch-subtitle">Search & auto-apply online subtitles</div>
+                </div>
+            </div>
+            <button class="subsearch-close-btn" onclick="closeSubSearchModal()" title="Close (Esc)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
         </div>
         
-        <!-- Search bar rows -->
-        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-            <!-- Row 1: Title -->
-            <div style="display:flex;">
-                <input id="subSearchQuery" type="text" placeholder="Title..."
-                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 14px; color:#fff; font-size:14px; outline:none; transition:all 0.2s ease;"/>
+        <!-- Search Controls Box -->
+        <div class="subsearch-controls-card">
+            <!-- Row 1: Query Input with Search & Clear icons -->
+            <div class="subsearch-input-wrapper">
+                <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input id="subSearchQuery" type="text" placeholder="Movie or series title..."
+                    class="subsearch-text-input" autocomplete="off" spellcheck="false"
+                    onkeydown="if(event.key === 'Enter') doSubSearch()"
+                    oninput="document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';" />
+                <button id="subSearchClearBtn" class="subsearch-clear-btn" style="display:none;" onclick="document.getElementById('subSearchQuery').value=''; this.style.display='none'; document.getElementById('subSearchQuery').focus();">✕</button>
             </div>
-            <!-- Row 2: Filters and Search Button -->
-            <div style="display:flex; gap:10px; align-items:center;">
-                <select id="subSearchLang"
-                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 10px; color:#fff; font-size:13px; outline:none; cursor:pointer; transition:all 0.2s ease;">
-                    <option value="">All</option>
-                    <option value="en" selected>English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="pt">Portuguese</option>
-                    <option value="de">German</option>
-                    <option value="it">Italian</option>
-                    <option value="ar">Arabic</option>
-                    <option value="hi">Hindi</option>
-                    <option value="ko">Korean</option>
-                    <option value="ja">Japanese</option>
-                    <option value="zh">Chinese</option>
-                </select>
-                <input id="subSearchSeason" type="text" placeholder="S" maxlength="3"
-                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
-                <input id="subSearchEpisode" type="text" placeholder="E" maxlength="3"
-                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
-                <button id="subSearchBtn"
-                    style="background:#e53935; border:none; border-radius:8px; padding:12px 20px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center;"
-                    onclick="doSubSearch()">Search</button>
+
+            <!-- Row 2: Custom Searchable Language Dropdown + Season/Episode inputs + Search Button -->
+            <div class="subsearch-filter-row">
+                <!-- Custom Glassmorphic Language Selector -->
+                <div class="custom-lang-select-container" id="customLangSelectWrap">
+                    <button type="button" class="custom-lang-trigger" id="customLangTrigger" onclick="toggleCustomLangDropdown(event)">
+                        <span class="custom-lang-globe">🌐</span>
+                        <span id="selectedLangLabel">English</span>
+                        <svg class="custom-lang-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <!-- Floating Popover -->
+                    <div class="custom-lang-popover" id="customLangPopover" style="display:none;" onclick="event.stopPropagation()">
+                        <div class="custom-lang-search-box">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="customLangSearchInput" placeholder="Search language..." oninput="filterCustomLanguages(this.value)" autocomplete="off" />
+                        </div>
+                        <div class="custom-lang-options-list" id="customLangOptionsList"></div>
+                    </div>
+                </div>
+
+                <!-- Hidden native field for value storage -->
+                <input type="hidden" id="subSearchLang" value="en" />
+
+                <!-- Season & Episode inputs -->
+                <div class="subsearch-se-wrapper" id="subSearchSeWrap">
+                    <div class="subsearch-se-input-box" title="Season Number">
+                        <span class="subsearch-se-label">S</span>
+                        <input id="subSearchSeason" type="number" min="0" max="99" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    </div>
+                    <div class="subsearch-se-input-box" title="Episode Number">
+                        <span class="subsearch-se-label">E</span>
+                        <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    </div>
+                </div>
+
+                <!-- Search Button -->
+                <button id="subSearchBtn" class="subsearch-submit-btn" onclick="doSubSearch()">
+                    <span id="subSearchBtnText">Search</span>
+                    <div id="subSearchSpinner" class="subsearch-spinner" style="display:none;"></div>
+                </button>
             </div>
         </div>
 
-        <!-- Results -->
-        <div id="subSearchStatus" style="color:#888; font-size:13px; text-align:center; display:none; padding:20px;">Searching...</div>
+        <!-- Quick Filter Chips for results -->
+        <div id="subSearchChipsContainer" class="subsearch-quick-chips" style="display:none;"></div>
+
+        <!-- Status & Results Container -->
+        <div id="subSearchStatus" class="subsearch-status-box" style="display:none;"></div>
         <div id="subSearchResults" class="subsearch-results-container"></div>
     </div>
 </div>
@@ -3077,19 +3321,202 @@
         });
     }
 
+    // ── Subtitle Search Modal & Custom Dropdown ──────────────────────────────
+    const ALL_SUB_LANGUAGES = [
+        { code: '', label: 'All Languages', badge: 'ALL', popular: true },
+        { code: 'en', label: 'English', badge: 'ENG', popular: true },
+        { code: 'es', label: 'Spanish', badge: 'ESP', popular: true },
+        { code: 'fr', label: 'French', badge: 'FRA', popular: true },
+        { code: 'de', label: 'German', badge: 'DEU', popular: true },
+        { code: 'pt', label: 'Portuguese', badge: 'POR', popular: true },
+        { code: 'it', label: 'Italian', badge: 'ITA', popular: true },
+        { code: 'ar', label: 'Arabic', badge: 'ARA', popular: true },
+        { code: 'hi', label: 'Hindi', badge: 'HIN', popular: true },
+        { code: 'ru', label: 'Russian', badge: 'RUS', popular: true },
+        { code: 'ja', label: 'Japanese', badge: 'JPN', popular: true },
+        { code: 'ko', label: 'Korean', badge: 'KOR', popular: true },
+        { code: 'zh', label: 'Chinese', badge: 'ZHO', popular: true },
+        { code: 'tr', label: 'Turkish', badge: 'TUR', popular: true },
+        { code: 'nl', label: 'Dutch', badge: 'NLD', popular: true },
+        { code: 'pl', label: 'Polish', badge: 'POL', popular: true },
+        { code: 'id', label: 'Indonesian', badge: 'IND', popular: true },
+        { code: 'vi', label: 'Vietnamese', badge: 'VIE', popular: true },
+        { code: 'th', label: 'Thai', badge: 'THA', popular: true },
+        { code: 'af', label: 'Afrikaans', badge: 'AFR' },
+        { code: 'sq', label: 'Albanian', badge: 'ALB' },
+        { code: 'am', label: 'Amharic', badge: 'AMH' },
+        { code: 'hy', label: 'Armenian', badge: 'ARM' },
+        { code: 'az', label: 'Azerbaijani', badge: 'AZE' },
+        { code: 'eu', label: 'Basque', badge: 'BAQ' },
+        { code: 'be', label: 'Belarusian', badge: 'BEL' },
+        { code: 'bn', label: 'Bengali', badge: 'BEN' },
+        { code: 'bs', label: 'Bosnian', badge: 'BOS' },
+        { code: 'bg', label: 'Bulgarian', badge: 'BUL' },
+        { code: 'my', label: 'Burmese', badge: 'MYA' },
+        { code: 'ca', label: 'Catalan', badge: 'CAT' },
+        { code: 'hr', label: 'Croatian', badge: 'HRV' },
+        { code: 'cs', label: 'Czech', badge: 'CZE' },
+        { code: 'da', label: 'Danish', badge: 'DAN' },
+        { code: 'et', label: 'Estonian', badge: 'EST' },
+        { code: 'tl', label: 'Filipino', badge: 'FIL' },
+        { code: 'fi', label: 'Finnish', badge: 'FIN' },
+        { code: 'gl', label: 'Galician', badge: 'GLG' },
+        { code: 'ka', label: 'Georgian', badge: 'GEO' },
+        { code: 'el', label: 'Greek', badge: 'ELL' },
+        { code: 'gu', label: 'Gujarati', badge: 'GUJ' },
+        { code: 'he', label: 'Hebrew', badge: 'HEB' },
+        { code: 'hu', label: 'Hungarian', badge: 'HUN' },
+        { code: 'is', label: 'Icelandic', badge: 'ISL' },
+        { code: 'kn', label: 'Kannada', badge: 'KAN' },
+        { code: 'kk', label: 'Kazakh', badge: 'KAZ' },
+        { code: 'km', label: 'Khmer', badge: 'KHM' },
+        { code: 'ku', label: 'Kurdish', badge: 'KUR' },
+        { code: 'lo', label: 'Lao', badge: 'LAO' },
+        { code: 'lv', label: 'Latvian', badge: 'LAV' },
+        { code: 'lt', label: 'Lithuanian', badge: 'LIT' },
+        { code: 'mk', label: 'Macedonian', badge: 'MKD' },
+        { code: 'ms', label: 'Malay', badge: 'MAY' },
+        { code: 'ml', label: 'Malayalam', badge: 'MAL' },
+        { code: 'mr', label: 'Marathi', badge: 'MAR' },
+        { code: 'mn', label: 'Mongolian', badge: 'MON' },
+        { code: 'ne', label: 'Nepali', badge: 'NEP' },
+        { code: 'no', label: 'Norwegian', badge: 'NOR' },
+        { code: 'fa', label: 'Persian', badge: 'PER' },
+        { code: 'pa', label: 'Punjabi', badge: 'PAN' },
+        { code: 'ro', label: 'Romanian', badge: 'RON' },
+        { code: 'sr', label: 'Serbian', badge: 'SRP' },
+        { code: 'si', label: 'Sinhala', badge: 'SIN' },
+        { code: 'sk', label: 'Slovak', badge: 'SLK' },
+        { code: 'sl', label: 'Slovenian', badge: 'SLV' },
+        { code: 'so', label: 'Somali', badge: 'SOM' },
+        { code: 'sw', label: 'Swahili', badge: 'SWA' },
+        { code: 'sv', label: 'Swedish', badge: 'SWE' },
+        { code: 'ta', label: 'Tamil', badge: 'TAM' },
+        { code: 'te', label: 'Telugu', badge: 'TEL' },
+        { code: 'uk', label: 'Ukrainian', badge: 'UKR' },
+        { code: 'ur', label: 'Urdu', badge: 'URD' },
+        { code: 'uz', label: 'Uzbek', badge: 'UZB' },
+        { code: 'yi', label: 'Yiddish', badge: 'YID' },
+    ];
+
+    window.toggleCustomLangDropdown = (e) => {
+        if (e) e.stopPropagation();
+        const popover = document.getElementById('customLangPopover');
+        const trigger = document.getElementById('customLangTrigger');
+        if (!popover) return;
+        const isOpen = popover.style.display === 'flex';
+        if (isOpen) {
+            popover.style.display = 'none';
+        } else {
+            popover.style.display = 'flex';
+            renderCustomLangOptions('');
+            const searchInp = document.getElementById('customLangSearchInput');
+            if (searchInp) {
+                searchInp.value = '';
+                searchInp.focus();
+            }
+        }
+    };
+
+    window.filterCustomLanguages = (query) => {
+        renderCustomLangOptions(query.trim().toLowerCase());
+    };
+
+    window.selectCustomLanguage = (code, label) => {
+        const hiddenInp = document.getElementById('subSearchLang');
+        const labelEl = document.getElementById('selectedLangLabel');
+        const popover = document.getElementById('customLangPopover');
+        if (hiddenInp) hiddenInp.value = code;
+        if (labelEl) labelEl.innerText = label;
+        if (popover) popover.style.display = 'none';
+    };
+
+    const renderCustomLangOptions = (filterText) => {
+        const listEl = document.getElementById('customLangOptionsList');
+        if (!listEl) return;
+        const currentCode = document.getElementById('subSearchLang')?.value || '';
+
+        let filtered = ALL_SUB_LANGUAGES;
+        if (filterText) {
+            filtered = ALL_SUB_LANGUAGES.filter(l => 
+                l.label.toLowerCase().includes(filterText) ||
+                l.badge.toLowerCase().includes(filterText) ||
+                l.code.toLowerCase().includes(filterText)
+            );
+        }
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="color:#777;font-size:12px;text-align:center;padding:12px;">No languages found</div>';
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(l => {
+            const isSelected = l.code === currentCode;
+            return `
+            <div class="custom-lang-option ${isSelected ? 'selected' : ''}" onclick="selectCustomLanguage('${l.code}', '${l.label}')">
+                <span>${l.label}</span>
+                <span class="custom-lang-option-badge">${l.badge}</span>
+            </div>`;
+        }).join('');
+    };
+
+    // Close language popover if clicking outside
+    document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('customLangSelectWrap');
+        const popover = document.getElementById('customLangPopover');
+        if (popover && popover.style.display === 'flex' && wrap && !wrap.contains(e.target)) {
+            popover.style.display = 'none';
+        }
+    });
+
     // Subtitle Search Modal
     window.openSubSearchModal = () => {
         const overlay = document.getElementById('subSearchOverlay');
         if (overlay) {
             overlay.style.display = 'flex';
-            // Also close other things if open, e.g. panel
             closeAllPanels();
+
+            // Auto-populate Title if present and not user-edited
+            const queryInput = document.getElementById('subSearchQuery');
+            const clearBtn = document.getElementById('subSearchClearBtn');
+            const seasonInput = document.getElementById('subSearchSeason');
+            const episodeInput = document.getElementById('subSearchEpisode');
+            const typeBadge = document.getElementById('subSearchTypeBadge');
+
+            if (queryInput && !queryInput._userEdited && currentTitle) {
+                // Strip episode parts e.g. "Breaking Bad - S01E01" -> "Breaking Bad"
+                let cleanTitle = currentTitle.split(' - ')[0].trim();
+                queryInput.value = cleanTitle;
+                if (clearBtn) clearBtn.style.display = cleanTitle ? 'flex' : 'none';
+            }
+
+            // Populate Season/Episode if active episode exists
+            const s = (activeEpInfo && activeEpInfo.season) ? activeEpInfo.season : '';
+            const ep = (activeEpInfo && activeEpInfo.episode) ? activeEpInfo.episode : '';
+            if (seasonInput) seasonInput.value = s || '';
+            if (episodeInput) episodeInput.value = ep || '';
+
+            if (typeBadge) {
+                if (s || ep) {
+                    typeBadge.innerText = `S${String(s || 1).padStart(2,'0')} E${String(ep || 1).padStart(2,'0')}`;
+                    typeBadge.style.color = '#90caf9';
+                    typeBadge.style.borderColor = 'rgba(33,150,243,0.3)';
+                } else {
+                    typeBadge.innerText = 'Movie';
+                    typeBadge.style.color = '#aaa';
+                    typeBadge.style.borderColor = 'rgba(255,255,255,0.12)';
+                }
+            }
+
+            queryInput?.focus();
         }
     };
 
     window.closeSubSearchModal = () => {
         const overlay = document.getElementById('subSearchOverlay');
         if (overlay) overlay.style.display = 'none';
+        const popover = document.getElementById('customLangPopover');
+        if (popover) popover.style.display = 'none';
     };
 
     window.showToast = (msg) => {
@@ -3101,7 +3528,7 @@
             document.body.appendChild(overlay);
         }
         const toast = document.createElement('div');
-        toast.style.cssText = 'background: rgba(0,0,0,0.85); color: white; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
+        toast.style.cssText = 'background: rgba(18,18,22,0.92); color: white; padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
         toast.innerText = msg;
         overlay.appendChild(toast);
         
@@ -3116,84 +3543,192 @@
         }, 3000);
     };
 
-    // Subtitle Search
+    // Subtitle Search Execution
     window.doSubSearch = () => {
         const query   = document.getElementById('subSearchQuery')?.value?.trim() || '';
         const lang    = document.getElementById('subSearchLang')?.value || '';
         const season  = document.getElementById('subSearchSeason')?.value?.trim() || '';
         const episode = document.getElementById('subSearchEpisode')?.value?.trim() || '';
-        if (!query) return;
+        if (!query) {
+            document.getElementById('subSearchQuery')?.focus();
+            return;
+        }
 
-        const resultsEl = document.getElementById('subSearchResults');
-        const statusEl  = document.getElementById('subSearchStatus');
+        const resultsEl  = document.getElementById('subSearchResults');
+        const statusEl   = document.getElementById('subSearchStatus');
+        const chipsEl    = document.getElementById('subSearchChipsContainer');
+        const searchBtn  = document.getElementById('subSearchBtn');
+        const btnText    = document.getElementById('subSearchBtnText');
+        const spinner    = document.getElementById('subSearchSpinner');
+
         if (resultsEl) resultsEl.innerHTML = '';
-        if (statusEl)  { statusEl.style.display = 'block'; statusEl.textContent = 'Searching...'; }
+        if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+        if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:10px;"><div class="subsearch-spinner"></div><span>Searching online providers...</span></div>';
+        }
+
+        if (searchBtn) searchBtn.style.pointerEvents = 'none';
+        if (btnText) btnText.style.display = 'none';
+        if (spinner) spinner.style.display = 'block';
 
         send('searchSubtitles', JSON.stringify({ query, lang, season, episode }));
     };
 
-    const handleSubtitleSearchResults = (p) => {
-        const statusEl  = document.getElementById('subSearchStatus');
-        const resultsEl = document.getElementById('subSearchResults');
-        if (!resultsEl) return;
+    // Render Subtitle Results with Quick Filters
+    let _cachedSearchResults = [];
+    let _activeFilterLang = 'all';
 
+    const handleSubtitleSearchResults = (p) => {
+        const statusEl   = document.getElementById('subSearchStatus');
+        const resultsEl  = document.getElementById('subSearchResults');
+        const chipsEl    = document.getElementById('subSearchChipsContainer');
+        const searchBtn  = document.getElementById('subSearchBtn');
+        const btnText    = document.getElementById('subSearchBtnText');
+        const spinner    = document.getElementById('subSearchSpinner');
+
+        if (searchBtn) searchBtn.style.pointerEvents = 'auto';
+        if (btnText) btnText.style.display = 'block';
+        if (spinner) spinner.style.display = 'none';
+
+        if (!resultsEl) return;
         if (statusEl) statusEl.style.display = 'none';
 
         const results = p.results || [];
+        _cachedSearchResults = results;
+        _activeFilterLang = 'all';
+
         if (results.length === 0) {
-            resultsEl.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:16px;">No subtitles found.</div>';
+            resultsEl.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:#777;gap:12px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="15" x2="16" y2="15"></line><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                <div style="font-size:14px;font-weight:500;">No subtitles found</div>
+                <div style="font-size:12px;color:#666;">Try adjusting the title or switching language filter to "All".</div>
+            </div>`;
             return;
         }
 
-        resultsEl.innerHTML = results.map((r, i) => {
-            const lang    = (r.lang || '??').substring(0, 3).toUpperCase();
-            const name    = (r.name || 'Unknown');
-            const source  = r.source || '';
-            const epTag   = [
+        // Build Language Counts for Quick Filter Chips
+        const langCounts = {};
+        results.forEach(r => {
+            const l = (r.langName || r.lang || 'Other');
+            langCounts[l] = (langCounts[l] || 0) + 1;
+        });
+
+        if (chipsEl && Object.keys(langCounts).length > 1) {
+            chipsEl.style.display = 'flex';
+            let chipHtml = `<div class="subsearch-quick-chip active" data-lang="all" onclick="filterSubResults('all')">All (${results.length})</div>`;
+            for (const [langName, count] of Object.entries(langCounts)) {
+                chipHtml += `<div class="subsearch-quick-chip" data-lang="${langName}" onclick="filterSubResults('${langName}')">${langName} (${count})</div>`;
+            }
+            chipsEl.innerHTML = chipHtml;
+        }
+
+        renderFilteredResults();
+    };
+
+    window.filterSubResults = (langName) => {
+        _activeFilterLang = langName;
+        const chips = document.querySelectorAll('.subsearch-quick-chip');
+        chips.forEach(c => {
+            if (c.dataset.lang === langName) c.classList.add('active');
+            else c.classList.remove('active');
+        });
+        renderFilteredResults();
+    };
+
+    const renderFilteredResults = () => {
+        const resultsEl = document.getElementById('subSearchResults');
+        if (!resultsEl) return;
+
+        let filtered = _cachedSearchResults;
+        if (_activeFilterLang !== 'all') {
+            filtered = _cachedSearchResults.filter(r => (r.langName || r.lang || 'Other') === _activeFilterLang);
+        }
+
+        if (filtered.length === 0) {
+            resultsEl.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;padding:24px;">No subtitles for selected filter.</div>';
+            return;
+        }
+
+        resultsEl.innerHTML = filtered.map((r, i) => {
+            const originalIndex = _cachedSearchResults.indexOf(r);
+            const badge = (r.langBadge || (r.lang || '??').substring(0, 3)).toUpperCase();
+            const name = (r.name || 'Unknown Subtitle');
+            const source = r.source || 'Online Provider';
+            const epTag = [
                 r.seasonNumber ? `S${String(r.seasonNumber).padStart(2,'0')}` : '',
                 r.epNumber     ? `E${String(r.epNumber).padStart(2,'0')}` : ''
             ].filter(Boolean).join(' ');
+
+            // Badge Color Class
+            let badgeClass = 'other';
+            if (badge === 'ENG') badgeClass = 'eng';
+            else if (badge === 'ESP' || badge === 'SPA' || badge === 'SPL') badgeClass = 'esp';
+            else if (badge === 'FRA' || badge === 'FRE') badgeClass = 'fra';
+            else if (badge === 'DEU' || badge === 'GER') badgeClass = 'deu';
+            else if (badge === 'ARA') badgeClass = 'ara';
+            else if (badge === 'HIN') badgeClass = 'hin';
+            else if (badge === 'POR' || badge === 'POB') badgeClass = 'por';
+
             return `
-            <div class="sub-result-item" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 16px;border:1px solid rgba(255,255,255,0.05);transition:all 0.2s ease;">
-                <div style="background:rgba(229,57,53,0.15);border:1px solid rgba(229,57,53,0.3);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:#ef9a9a;white-space:nowrap;box-shadow:inset 0 1px 3px rgba(0,0,0,0.2);">${lang}</div>
+            <div class="sub-result-item" onclick="downloadSubtitle(event, ${originalIndex})">
+                <div class="sub-lang-pill ${badgeClass}">${badge}</div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="color:#eee;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
-                        ${epTag ? `<span style="color:#aaa;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;">${epTag}</span>` : ''}
+                        <span style="color:#f0f0f0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+                        ${epTag ? `<span style="color:#90caf9;background:rgba(33,150,243,0.12);border:1px solid rgba(33,150,243,0.25);padding:1px 6px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;">${epTag}</span>` : ''}
                     </div>
-                    <div style="color:#888;font-size:12px;margin-top:4px;font-style:normal;display:flex;align-items:center;gap:4px;">
+                    <div style="color:#777;font-size:12px;margin-top:3px;display:flex;align-items:center;gap:5px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                        ${source}
+                        <span>${source}</span>
                     </div>
                 </div>
-                <button class="sub-download-btn" onclick="downloadSubtitle(event, ${i})"
-                    style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s ease;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <button class="sub-download-btn" id="subDlBtn_${originalIndex}" onclick="downloadSubtitle(event, ${originalIndex})" title="Download and Apply Subtitle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 </button>
             </div>`;
         }).join('');
-
-        // Store results for download handler
-        window._subSearchResults = results;
     };
 
     window.downloadSubtitle = (e, index) => {
-        const results = window._subSearchResults;
-        if (!results || !results[index]) return;
+        if (e) e.stopPropagation();
+        const results = _cachedSearchResults;
+        if (!results || !results[index]) {
+            console.error('[SubSearch] Invalid index:', index);
+            return;
+        }
         const r = results[index];
+        console.log('[SubSearch] Downloading subtitle:', r);
         
-        const btn = e.currentTarget;
-        btn.innerHTML = '...';
-        btn.style.opacity = '0.5';
-        btn.style.pointerEvents = 'none';
+        const btn = document.getElementById(`subDlBtn_${index}`) || (e ? e.currentTarget : null);
+        if (btn) {
+            btn.classList.add('downloading');
+            btn.innerHTML = '<div class="subsearch-spinner" style="width:16px;height:16px;border-width:2px;"></div>';
+        }
 
-        send('downloadSubtitle', JSON.stringify({ idPrefix: r.idPrefix, data: r.data }));
+        send('downloadSubtitle', JSON.stringify({
+            idPrefix: r.idPrefix || '',
+            data: r.data || '',
+            name: r.name || '',
+            lang: r.lang || '',
+            source: r.source || '',
+        }));
         
-        // Show loading state briefly then close
-        setTimeout(() => closeSubSearchModal(), 800);
+        // Brief success feedback then close modal
+        setTimeout(() => {
+            if (btn) {
+                btn.classList.remove('downloading');
+                btn.classList.add('success');
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            }
+            setTimeout(() => {
+                closeSubSearchModal();
+            }, 500);
+        }, 400);
     };
 
-    // Mark query as user-edited so we stop auto-filling it
+    // Mark query as user-edited
     document.getElementById('subSearchQuery')?.addEventListener('input', function() {
         this._userEdited = true;
     });

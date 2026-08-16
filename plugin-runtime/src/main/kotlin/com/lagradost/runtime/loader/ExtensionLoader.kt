@@ -41,7 +41,9 @@ object ExtensionLoader {
         return object : ClassLoader(fallback) {
             override fun loadClass(name: String, resolve: Boolean): Class<*> {
                 for (loader in pluginLoaders) {
-                    try { return loader.loadClass(name) } catch (_: ClassNotFoundException) {}
+                    try {
+                        return loader.loadClass(name)
+                    } catch (_: ClassNotFoundException) {}
                 }
                 return super.loadClass(name, resolve)
             }

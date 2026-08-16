@@ -33,6 +33,7 @@ object SafePluginInvoker {
 
     const val TIMEOUT_SEARCH_MS: Long = 25_000L
     const val TIMEOUT_LOAD_MS: Long = 30_000L
+
     // Scraping uses callbacks that stream results incrementally — the timeout is a safety cap
     // on the TOTAL call, not an indicator of failure. Links may have already been delivered.
     const val TIMEOUT_SCRAPE_MS: Long = 60_000L
@@ -63,7 +64,7 @@ object SafePluginInvoker {
 
         val executingThread = AtomicReference<Thread?>(null)
         val compositeClassLoader = com.lagradost.runtime.loader.ExtensionLoader.createCompositeClassLoader(
-            Thread.currentThread().contextClassLoader
+            Thread.currentThread().contextClassLoader,
         )
         return try {
             val result = withContext(PluginDispatcher + PluginClassLoaderElement(compositeClassLoader)) {
@@ -146,7 +147,7 @@ object SafePluginInvoker {
         AppLogger.d(loggerTag, "Starting execution (timeout: ${timeoutMs}ms)")
         val executingThread = AtomicReference<Thread?>(null)
         val compositeClassLoader = com.lagradost.runtime.loader.ExtensionLoader.createCompositeClassLoader(
-            Thread.currentThread().contextClassLoader
+            Thread.currentThread().contextClassLoader,
         )
 
         return try {
@@ -162,7 +163,7 @@ object SafePluginInvoker {
             }
             val elapsedMs = System.currentTimeMillis() - startMs
             AppLogger.i(loggerTag, "Completed successfully in ${elapsedMs}ms")
-            
+
             if (resolvedProvider != null) {
                 PluginCircuitBreaker.recordSuccess(resolvedProvider, elapsedMs)
             }
@@ -180,7 +181,7 @@ object SafePluginInvoker {
                     PluginCircuitBreaker.recordFailure(
                         providerName = resolvedProvider,
                         reason = "Timeout after ${elapsedMs}ms",
-                        failureThreshold = failureThreshold
+                        failureThreshold = failureThreshold,
                     )
                 }
             } else {
@@ -208,7 +209,7 @@ object SafePluginInvoker {
                     providerName = resolvedProvider,
                     reason = reason,
                     throwable = t,
-                    failureThreshold = failureThreshold
+                    failureThreshold = failureThreshold,
                 )
             }
             Result.failure(t)

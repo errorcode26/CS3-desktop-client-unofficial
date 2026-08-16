@@ -3,18 +3,18 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.common.storage.WatchHistory
@@ -255,149 +256,91 @@ fun DetailsEpisodeSection(
                     val chunks = preChunkedEpisodes.chunked(20)
                     if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
                     val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
+                    val seasonListState = rememberLazyListState()
+                    LaunchedEffect(selectedSeason, seasons) {
+                        val targetIdx = seasons.indexOf(selectedSeason)
+                        if (targetIdx >= 0) {
+                            seasonListState.animateScrollToItem(targetIdx)
+                        }
+                    }
 
                     // Season selector + sort
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             if (seasons.isNotEmpty()) {
-                                var seasonMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Button(
-                                        onClick = { seasonMenuExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        elevation = null,
-                                        shape = RoundedCornerShape(8.dp),
-                                    ) {
-                                        val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                        Text(selectedMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
-                                    }
-                                    if (seasonMenuExpanded) {
-                                        androidx.compose.ui.window.Popup(
-                                            onDismissRequest = { seasonMenuExpanded = false },
-                                            properties = androidx.compose.ui.window.PopupProperties(focusable = true)
-                                        ) {
-                                            var animateIn by remember { mutableStateOf(false) }
-                                            LaunchedEffect(Unit) { animateIn = true }
-
-                                            androidx.compose.animation.AnimatedVisibility(
-                                                visible = animateIn,
-                                                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.95f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f))
-                                            ) {
-                                                Surface(
-                                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
-                                                    shadowElevation = 8.dp,
-                                                    modifier = Modifier.padding(top = 8.dp).widthIn(max = 480.dp)
-                                                ) {
-                                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                                        Row(
-                                                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
-                                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                                            verticalAlignment = Alignment.CenterVertically
-                                                        ) {
-                                                            Text("Select Season", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                                            IconButton(onClick = { seasonMenuExpanded = false }) {
-                                                                Icon(Icons.Default.Clear, contentDescription = "Close")
-                                                            }
-                                                        }
-                                                        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                                            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 120.dp),
-                                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
-                                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                                                            modifier = Modifier.heightIn(max = 400.dp)
-                                                        ) {
-                                                            items(seasons) { season ->
-                                                                val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                                val isSelected = selectedSeason == season
-                                                                val fallbackThumbnail = (data as? TvSeriesLoadResponse)?.episodes?.find { it.season == season }?.posterUrl
-                                                                val posterUrl = meta?.posterUrl ?: fallbackThumbnail
-                                                                
-                                                                Card(
-                                                                    onClick = { 
-                                                                        selectedSeason = season
-                                                                        seasonMenuExpanded = false
-                                                                    },
-                                                                    shape = RoundedCornerShape(8.dp),
-                                                                    colors = CardDefaults.cardColors(
-                                                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                                                                    ),
-                                                                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                                                                    modifier = Modifier.fillMaxWidth()
-                                                                ) {
-                                                                    Column {
-                                                                        Box(
-                                                                            modifier = Modifier
-                                                                                .fillMaxWidth()
-                                                                                .aspectRatio(2f / 3f)
-                                                                                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
-                                                                            contentAlignment = Alignment.Center
-                                                                        ) {
-                                                                            if (posterUrl != null) {
-                                                                                coil3.compose.AsyncImage(
-                                                                                    model = posterUrl,
-                                                                                    contentDescription = null,
-                                                                                    modifier = Modifier.fillMaxSize(),
-                                                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                                                )
-                                                                            } else {
-                                                                                Box(
-                                                                                    modifier = Modifier
-                                                                                        .fillMaxSize()
-                                                                                        .background(
-                                                                                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                                                                                listOf(
-                                                                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                                                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                                                                                ),
-                                                                                            ),
-                                                                                        ),
-                                                                                    contentAlignment = Alignment.Center,
-                                                                                ) {
-                                                                                    Text(
-                                                                                        text = if (season == 0) "S" else "$season",
-                                                                                        style = MaterialTheme.typography.titleLarge,
-                                                                                        fontWeight = FontWeight.Bold,
-                                                                                        color = MaterialTheme.colorScheme.primary,
-                                                                                    )
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        Column(modifier = Modifier.padding(12.dp)) {
-                                                                            Text(
-                                                                                text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
-                                                                                style = MaterialTheme.typography.titleSmall,
-                                                                                fontWeight = FontWeight.Bold,
-                                                                                maxLines = 1,
-                                                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                                            )
-                                                                            if (meta?.episodeCount != null) {
-                                                                                Spacer(modifier = Modifier.height(4.dp))
-                                                                                Text(
-                                                                                    text = "${meta.episodeCount} eps",
-                                                                                    style = MaterialTheme.typography.bodySmall,
-                                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                                )
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
+                                if (seasons.size == 1) {
+                                    val singleSeason = seasons.first()
+                                    val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
+                                    Text(
+                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                } else {
+                                    LazyRow(
+                                        state = seasonListState,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .pointerInput(Unit) {
+                                                detectHorizontalDragGestures { change, dragAmount ->
+                                                    change.consume()
+                                                    seasonListState.dispatchRawDelta(-dragAmount)
                                                 }
+                                            },
+                                    ) {
+                                        items(seasons, key = { it }) { season ->
+                                            val isSelected = selectedSeason == season
+                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(
+                                                        if (isSelected) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                                        },
+                                                    )
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = if (isSelected) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            Color.White.copy(alpha = 0.08f)
+                                                        },
+                                                        shape = RoundedCornerShape(8.dp),
+                                                    )
+                                                    .clickable {
+                                                        selectedSeason = season
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = seasonName,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    ),
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onPrimary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                                                    },
+                                                )
                                             }
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
                             }
 
                             if (chunks.size > 1) {
@@ -406,17 +349,18 @@ fun DetailsEpisodeSection(
                                     Button(
                                         onClick = { chunkMenuExpanded = true },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                             contentColor = MaterialTheme.colorScheme.onSurface,
                                         ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
                                         elevation = null,
+                                        shape = RoundedCornerShape(8.dp),
                                     ) {
                                         val fEp = allFilteredEpisodes.firstOrNull()?.episode ?: "?"
                                         val lEp = allFilteredEpisodes.lastOrNull()?.episode ?: "?"
-                                        Text(if (fEp == lEp) "Episode $fEp" else "Episodes $fEp-$lEp", fontWeight = FontWeight.Bold)
+                                        Text(if (fEp == lEp) "Episode $fEp" else "Episodes $fEp-$lEp", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Range")
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Range", modifier = Modifier.size(18.dp))
                                     }
                                     DropdownMenu(
                                         expanded = chunkMenuExpanded,
@@ -442,7 +386,6 @@ fun DetailsEpisodeSection(
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
                             }
                         }
                         rightSideControls()
@@ -509,137 +452,91 @@ fun DetailsEpisodeSection(
                             }
                         }
                     val chunks = preChunkedEpisodes.chunked(20)
-                    if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
                     val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
+                    val animeSeasonListState = rememberLazyListState()
+                    LaunchedEffect(selectedSeason, seasons) {
+                        val targetIdx = seasons.indexOf(selectedSeason)
+                        if (targetIdx >= 0) {
+                            animeSeasonListState.animateScrollToItem(targetIdx)
+                        }
+                    }
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             if (seasons.isNotEmpty()) {
-                                var seasonMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Button(
-                                        onClick = { seasonMenuExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        elevation = null,
-                                        shape = RoundedCornerShape(8.dp),
-                                    ) {
-                                        val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                        Text(selectedMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason", fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Season")
-                                    }
-                                    if (seasonMenuExpanded) {
-                                        androidx.compose.ui.window.Popup(
-                                            onDismissRequest = { seasonMenuExpanded = false },
-                                            properties = androidx.compose.ui.window.PopupProperties(focusable = true)
-                                        ) {
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                                                shape = RoundedCornerShape(12.dp),
-                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
-                                                shadowElevation = 8.dp,
-                                                modifier = Modifier.padding(top = 8.dp).widthIn(max = 700.dp)
-                                            ) {
-                                                Column(modifier = Modifier.fillMaxWidth()) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text("Select Season", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                                        IconButton(onClick = { seasonMenuExpanded = false }) {
-                                                            Icon(Icons.Default.Clear, contentDescription = "Close")
-                                                        }
-                                                    }
-                                                    LazyRow(
-                                                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
-                                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                                    ) {
-                                                        items(seasons) { season ->
-                                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                            val isSelected = selectedSeason == season
-                                                            val fallbackThumbnail = (selectedDub?.let { (data as? AnimeLoadResponse)?.episodes?.get(it) } ?: emptyList()).find { it.season == season }?.posterUrl
-                                                            val posterUrl = meta?.posterUrl ?: fallbackThumbnail
-                                                            
-                                                            Card(
-                                                                onClick = { 
-                                                                    selectedSeason = season
-                                                                    seasonMenuExpanded = false
-                                                                },
-                                                                shape = RoundedCornerShape(8.dp),
-                                                                colors = CardDefaults.cardColors(
-                                                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent
-                                                                ),
-                                                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                                                                modifier = Modifier.width(100.dp)
-                                                            ) {
-                                                                Column(modifier = Modifier.padding(8.dp)) {
-                                                                    Box(
-                                                                        modifier = Modifier
-                                                                            .fillMaxWidth()
-                                                                            .aspectRatio(2f / 3f)
-                                                                            .clip(RoundedCornerShape(6.dp)),
-                                                                        contentAlignment = Alignment.Center
-                                                                    ) {
-                                                                        if (posterUrl != null) {
-                                                                            coil3.compose.AsyncImage(
-                                                                                model = posterUrl,
-                                                                                contentDescription = null,
-                                                                                modifier = Modifier.fillMaxSize(),
-                                                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                                            )
-                                                                        } else {
-                                                                            Box(
-                                                                                modifier = Modifier
-                                                                                    .fillMaxSize()
-                                                                                    .background(
-                                                                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                                                                            listOf(
-                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                                                                            ),
-                                                                                        ),
-                                                                                    ),
-                                                                                contentAlignment = Alignment.Center,
-                                                                            ) {
-                                                                                Text(
-                                                                                    text = if (season == 0) "S" else "$season",
-                                                                                    style = MaterialTheme.typography.headlineMedium,
-                                                                                    fontWeight = FontWeight.Bold,
-                                                                                    color = MaterialTheme.colorScheme.primary,
-                                                                                )
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                                    Text(
-                                                                        text = meta?.name ?: if (season == 0) "Specials" else "Season $season",
-                                                                        style = MaterialTheme.typography.bodyMedium,
-                                                                        fontWeight = FontWeight.SemiBold,
-                                                                        maxLines = 1,
-                                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                                    )
-                                                                    if (meta?.episodeCount != null) {
-                                                                        Text(
-                                                                            text = "${meta.episodeCount} eps",
-                                                                            style = MaterialTheme.typography.bodySmall,
-                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                        )
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
+                                if (seasons.size == 1) {
+                                    val singleSeason = seasons.first()
+                                    val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
+                                    Text(
+                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                } else {
+                                    LazyRow(
+                                        state = animeSeasonListState,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .pointerInput(Unit) {
+                                                detectHorizontalDragGestures { change, dragAmount ->
+                                                    change.consume()
+                                                    animeSeasonListState.dispatchRawDelta(-dragAmount)
                                                 }
+                                            },
+                                    ) {
+                                        items(seasons, key = { it }) { season ->
+                                            val isSelected = selectedSeason == season
+                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(
+                                                        if (isSelected) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                                        },
+                                                    )
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = if (isSelected) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            Color.White.copy(alpha = 0.08f)
+                                                        },
+                                                        shape = RoundedCornerShape(8.dp),
+                                                    )
+                                                    .clickable {
+                                                        selectedSeason = season
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = seasonName,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    ),
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onPrimary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                                                    },
+                                                )
                                             }
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
                             }
 
                             if (dubStatuses.size > 1) {
@@ -827,11 +724,17 @@ private fun RenderEpisodesSection(
         }
     } else {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val maxCardWidth = minOf(500.dp, maxWidth - 48.dp) // 24.dp padding on each side
+            val cardWidth = remember(maxWidth) {
+                when {
+                    maxWidth >= 1400.dp -> 460.dp
+                    maxWidth >= 1000.dp -> 420.dp
+                    else -> minOf(360.dp, maxWidth * 0.82f)
+                }
+            }
             LazyRow(
                 state = episodesScrollState,
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
                     detectHorizontalDragGestures { change: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
                         change.consume()
@@ -851,7 +754,7 @@ private fun RenderEpisodesSection(
                         uiState = uiState,
                         isAntiSpoiler = isAntiSpoiler,
                         thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
-                        modifier = Modifier.width(maxCardWidth),
+                        modifier = Modifier.width(cardWidth),
                         enableDownloadButtons = enableDownloadButtons,
                         onPlay = onPlay,
                         onDownload = onDownload,

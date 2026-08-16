@@ -21,7 +21,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -348,176 +347,178 @@ fun DetailsContent(
             item(key = "HeroAndTabs") {
                 Box(
                     modifier = Modifier.fillMaxWidth().heightIn(min = viewportHeight),
-                    contentAlignment = Alignment.BottomStart
+                    contentAlignment = Alignment.BottomStart,
                 ) {
-                        DetailsMetadata(
-                            provider = provider,
-                            data = data,
-                            hazeState = hazeState,
-                            heroAction = heroAction,
-                            downloadAction = downloadAction,
-                            enrichmentPhase = enrichmentPhase,
-                            isLoading = isLoading,
-                            uiState = uiState,
-                            screenshots = screenshots,
-                            onPhotosClick = {
-                                coroutineScope.launch { scrollState.animateScrollToItem(1) }
-                            },
-                            onCastClick = {
-                                coroutineScope.launch { scrollState.animateScrollToItem(2) }
-                            },
-                            onActorClick = { actor -> selectedActor = actor },
-                            onTrailerClick = { url ->
-                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
-                                    pendingExternalUrl = it
-                                }
-                            },
-                        )
+                    DetailsMetadata(
+                        provider = provider,
+                        data = data,
+                        hazeState = hazeState,
+                        heroAction = heroAction,
+                        downloadAction = downloadAction,
+                        enrichmentPhase = enrichmentPhase,
+                        isLoading = isLoading,
+                        uiState = uiState,
+                        screenshots = screenshots,
+                        onPhotosClick = {
+                            coroutineScope.launch { scrollState.animateScrollToItem(1) }
+                        },
+                        onCastClick = {
+                            coroutineScope.launch { scrollState.animateScrollToItem(2) }
+                        },
+                        onActorClick = { actor -> selectedActor = actor },
+                        onTrailerClick = { url ->
+                            com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
+                                pendingExternalUrl = it
+                            }
+                        },
+                    )
 
-                        val progress = remember(latestHistory) {
-                            if (latestHistory != null && latestHistory.duration > 0) {
-                                if (PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)) {
-                                    1f
-                                } else {
-                                    (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
-                                }
+                    val progress = remember(latestHistory) {
+                        if (latestHistory != null && latestHistory.duration > 0) {
+                            if (PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)) {
+                                1f
                             } else {
-                                0f
+                                (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
                             }
+                        } else {
+                            0f
                         }
+                    }
 
-                        val remainingSecondsForEnd = remember(latestHistory, data, progress) {
-                            if (latestHistory != null && latestHistory.duration > 0) {
-                                if (progress > 0f && progress < 1f) {
-                                    latestHistory.duration - latestHistory.position
-                                } else {
-                                    latestHistory.duration
-                                }
-                            } else if ((data as? com.lagradost.cloudstream3.MovieLoadResponse)?.duration != null) {
-                                (data as com.lagradost.cloudstream3.MovieLoadResponse).duration?.toLong()?.times(60L)
-                            } else null
-                        }
-
-                        val endTimeStr = remember(remainingSecondsForEnd) {
-                            remainingSecondsForEnd?.let { secs ->
-                                val calendar = java.util.Calendar.getInstance()
-                                calendar.add(java.util.Calendar.SECOND, secs.toInt())
-                                val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-                                "Ends at ${formatter.format(calendar.time)}"
-                            }
-                        }
-
-                        val progressInfo = remember(latestHistory, progress) {
-                            if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
-                                val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
-                                val leftMins = leftSeconds / 60L
-                                val hours = leftMins / 60L
-                                val mins = leftMins % 60L
-                                val timeStr = when {
-                                    hours > 0 && mins > 0 -> "${hours}h ${mins}m left"
-                                    hours > 0 -> "${hours}h left"
-                                    leftMins > 0 -> "${leftMins}m left"
-                                    else -> "< 1m left"
-                                }
-                                val pctStr = "${(progress * 100).toInt()}%"
-                                "$pctStr watched • $timeStr"
+                    val remainingSecondsForEnd = remember(latestHistory, data, progress) {
+                        if (latestHistory != null && latestHistory.duration > 0) {
+                            if (progress > 0f && progress < 1f) {
+                                latestHistory.duration - latestHistory.position
                             } else {
-                                null
+                                latestHistory.duration
                             }
+                        } else if ((data as? com.lagradost.cloudstream3.MovieLoadResponse)?.duration != null) {
+                            (data as com.lagradost.cloudstream3.MovieLoadResponse).duration?.toLong()?.times(60L)
+                        } else {
+                            null
                         }
+                    }
 
-                        val progressLabel = remember(latestHistory) {
-                            if (latestHistory != null) {
-                                val ep = latestHistory.episode
-                                val s = latestHistory.season
-                                when {
-                                    s != null && s > 0 && ep != null && ep > 0 -> "CONTINUE WATCHING S$s: E$ep"
-                                    ep != null && ep > 0 -> "CONTINUE WATCHING E$ep"
-                                    else -> "CONTINUE WATCHING"
-                                }
-                            } else {
-                                "CONTINUE WATCHING"
+                    val endTimeStr = remember(remainingSecondsForEnd) {
+                        remainingSecondsForEnd?.let { secs ->
+                            val calendar = java.util.Calendar.getInstance()
+                            calendar.add(java.util.Calendar.SECOND, secs.toInt())
+                            val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                            "Ends at ${formatter.format(calendar.time)}"
+                        }
+                    }
+
+                    val progressInfo = remember(latestHistory, progress) {
+                        if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
+                            val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
+                            val leftMins = leftSeconds / 60L
+                            val hours = leftMins / 60L
+                            val mins = leftMins % 60L
+                            val timeStr = when {
+                                hours > 0 && mins > 0 -> "${hours}h ${mins}m left"
+                                hours > 0 -> "${hours}h left"
+                                leftMins > 0 -> "${leftMins}m left"
+                                else -> "< 1m left"
                             }
+                            val pctStr = "${(progress * 100).toInt()}%"
+                            "$pctStr watched • $timeStr"
+                        } else {
+                            null
                         }
+                    }
 
-                        if (progressInfo != null || endTimeStr != null) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .padding(
-                                        start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
-                                        end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
-                                        bottom = 64.dp,
-                                    ),
-                                contentAlignment = Alignment.Center,
+                    val progressLabel = remember(latestHistory) {
+                        if (latestHistory != null) {
+                            val ep = latestHistory.episode
+                            val s = latestHistory.season
+                            when {
+                                s != null && s > 0 && ep != null && ep > 0 -> "CONTINUE WATCHING S$s: E$ep"
+                                ep != null && ep > 0 -> "CONTINUE WATCHING E$ep"
+                                else -> "CONTINUE WATCHING"
+                            }
+                        } else {
+                            "CONTINUE WATCHING"
+                        }
+                    }
+
+                    if (progressInfo != null || endTimeStr != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(
+                                    start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
+                                    end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
+                                    bottom = 64.dp,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Column(
-                                    modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    if (progressInfo != null && progress > 0f && progress < 1f) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Text(
-                                                text = progressLabel,
-                                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
-                                                color = Color.White.copy(alpha = 0.75f),
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                            Text(
-                                                text = progressInfo,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(5.dp)
-                                                .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
-                                                .clip(RoundedCornerShape(2.5.dp))
-                                                .background(Color.White.copy(alpha = 0.25f))
-                                                .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(2.5.dp)),
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(progress)
-                                                    .fillMaxHeight()
-                                                    .clip(RoundedCornerShape(2.5.dp))
-                                                    .background(Color.White),
-                                            )
-                                        }
+                                if (progressInfo != null && progress > 0f && progress < 1f) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = progressLabel,
+                                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
+                                            color = Color.White.copy(alpha = 0.75f),
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                        Text(
+                                            text = progressInfo,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                        )
                                     }
-
-                                    if (endTimeStr != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(5.dp)
+                                            .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
+                                            .clip(RoundedCornerShape(2.5.dp))
+                                            .background(Color.White.copy(alpha = 0.25f))
+                                            .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(2.5.dp)),
+                                    ) {
                                         Box(
                                             modifier = Modifier
-                                                .align(Alignment.CenterHorizontally)
-                                                .padding(top = 4.dp)
-                                                .clip(RoundedCornerShape(100.dp))
-                                                .background(Color.Black.copy(alpha = 0.35f))
-                                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = endTimeStr,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
-                                                color = Color.White.copy(alpha = 0.9f),
-                                                fontWeight = FontWeight.SemiBold,
-                                            )
-                                        }
+                                                .fillMaxWidth(progress)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(2.5.dp))
+                                                .background(Color.White),
+                                        )
+                                    }
+                                }
+
+                                if (endTimeStr != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.CenterHorizontally)
+                                            .padding(top = 4.dp)
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(Color.Black.copy(alpha = 0.35f))
+                                            .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = endTimeStr,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
 
             if (!isMovieLike) {
                 item(key = "Episodes") {

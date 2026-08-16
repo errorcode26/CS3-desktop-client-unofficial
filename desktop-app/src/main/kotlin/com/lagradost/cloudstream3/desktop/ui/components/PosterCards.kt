@@ -539,83 +539,162 @@ fun BoxScope.PosterBadges(
     showQuality: Boolean,
     showLanguage: Boolean,
 ) {
-    // Top Left: Rating
     val ratingText = item.score?.let { score ->
-        "%.1f".format(score.toFloat(10))
+        val v = score.toFloat(10)
+        if (v > 0.0f) String.format(java.util.Locale.US, "%.1f", v) else null
     }
 
-    if (showRating && ratingText != null) {
-        Box(
+    val isAnime = item is com.lagradost.cloudstream3.AnimeSearchResponse
+    val hasSub = showLanguage && isAnime && (
+        item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed] != null ||
+        item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true
+    )
+    val hasDub = showLanguage && isAnime && (
+        item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed] != null ||
+        item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true
+    )
+
+    val qualityText = if (showQuality && item.quality != null) {
+        val qName = item.quality!!.name
+        when {
+            qName == "FourK" || qName.contains("UHD", ignoreCase = true) -> "4K"
+            qName.contains("BlueRay", ignoreCase = true) || qName.contains("BluRay", ignoreCase = true) -> "BD"
+            qName.contains("HD", ignoreCase = true) -> "HD"
+            else -> qName
+        }
+    } else null
+
+    val hasTopStart = showRating && ratingText != null
+    val hasTopEnd = hasSub || hasDub || qualityText != null
+
+    if (hasTopStart || hasTopEnd) {
+        Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(6.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.Black.copy(alpha = 0.75f))
-                .padding(horizontal = 5.dp, vertical = 3.dp),
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 7.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = null,
-                    tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(10.dp),
-                )
-                Text(
-                    text = ratingText,
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-    }
-
-    // Bottom Badges
-    Row(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .fillMaxWidth()
-            .padding(6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        // Bottom Left: Language
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (showLanguage && item is com.lagradost.cloudstream3.AnimeSearchResponse) {
-                // Subs
-                val subCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed]
-                if (subCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true) {
-                    PosterBadge(text = if (subCount != null) "SUB $subCount" else "SUB", textColor = DesktopUi.Accent)
+            // Top Left: Rating
+            if (hasTopStart && ratingText != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.35f), RoundedCornerShape(5.dp))
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(10.dp),
+                        )
+                        Text(
+                            text = ratingText,
+                            color = Color(0xFFFFE082),
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.2.sp,
+                        )
+                    }
                 }
-                // Dubs
-                val dubCount = item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed]
-                if (dubCount != null || item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true) {
-                    PosterBadge(text = if (dubCount != null) "DUB $dubCount" else "DUB", textColor = Color(0xFFE040FB))
+            } else {
+                Spacer(modifier = Modifier.width(1.dp))
+            }
+
+            // Top Right: Language (SUB / DUB) and Quality (4K / HD / BD)
+            if (hasTopEnd) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(3.5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (hasSub && hasDub) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.Black.copy(alpha = 0.55f))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+                            ) {
+                                Text(
+                                    text = "SUB",
+                                    color = DesktopUi.Accent,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                                Text(
+                                    text = "•",
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    fontSize = 8.sp,
+                                )
+                                Text(
+                                    text = "DUB",
+                                    color = Color(0xFFCE93D8),
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            }
+                        }
+                    } else {
+                        if (hasSub) {
+                            PosterBadge(
+                                text = "SUB",
+                                textColor = DesktopUi.Accent,
+                                borderColor = DesktopUi.Accent.copy(alpha = 0.35f),
+                            )
+                        }
+                        if (hasDub) {
+                            PosterBadge(
+                                text = "DUB",
+                                textColor = Color(0xFFCE93D8),
+                                borderColor = Color(0xFFCE93D8).copy(alpha = 0.35f),
+                            )
+                        }
+                    }
+
+                    if (qualityText != null) {
+                        val is4k = qualityText == "4K"
+                        PosterBadge(
+                            text = qualityText,
+                            textColor = if (is4k) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.85f),
+                            borderColor = if (is4k) Color(0xFFFFD54F).copy(alpha = 0.40f) else Color.White.copy(alpha = 0.20f),
+                        )
+                    }
                 }
             }
-        }
-
-        // Bottom Right: Quality
-        if (showQuality && item.quality != null) {
-            val qualityText = if (item.quality!!.name == "FourK") "4K" else item.quality!!.name
-            PosterBadge(text = qualityText, textColor = Color(0xFFEEEEEE))
         }
     }
 }
 
 @Composable
-private fun PosterBadge(text: String, textColor: Color) {
+private fun PosterBadge(
+    text: String,
+    textColor: Color,
+    borderColor: Color = Color.White.copy(alpha = 0.20f),
+) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black.copy(alpha = 0.75f))
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .background(Color.Black.copy(alpha = 0.55f))
+            .border(0.5.dp, borderColor, RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.5.dp, vertical = 2.dp),
     ) {
         Text(
             text = text.uppercase(),
             color = textColor,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.3.sp,
         )
     }
 }

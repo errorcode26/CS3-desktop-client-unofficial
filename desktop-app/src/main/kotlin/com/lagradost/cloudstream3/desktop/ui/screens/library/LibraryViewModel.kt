@@ -7,9 +7,8 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
-import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopWatchType
 import kotlinx.coroutines.launch
 
@@ -52,22 +51,22 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
 
     private fun LibraryUiState.applyFilters(): LibraryUiState {
         var result = bookmarks.filter { it.watchType == selectedTab.id }
-        
+
         if (selectedProvider != null) {
             result = result.filter { it.apiName == selectedProvider }
         }
-        
+
         if (searchQuery.isNotBlank()) {
             result = result.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
-        
+
         result = when (sortOption) {
             SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
             SortOption.DATE_ADDED_ASC -> result.sortedBy { it.dateAdded }
             SortOption.ALPHA_ASC -> result.sortedBy { it.name.lowercase() }
             SortOption.ALPHA_DESC -> result.sortedByDescending { it.name.lowercase() }
         }
-        
+
         return copy(filteredBookmarks = result)
     }
 

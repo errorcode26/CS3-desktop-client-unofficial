@@ -24,8 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
@@ -57,7 +57,9 @@ fun WindowControlsPill(
             val kName = k.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
             kName.length >= 3 && pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
         }?.value
-    } else null
+    } else {
+        null
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,

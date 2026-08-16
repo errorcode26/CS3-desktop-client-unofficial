@@ -34,6 +34,9 @@ object PlayerConfig {
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
     const val PREF_SHOW_END_TIME = "player_show_end_time"
     const val PREF_SHOW_CLOCK = "player_show_clock"
+    const val PREF_ENABLE_SKIP_INTERVALS = "player_enable_skip_intervals"
+    const val PREF_AUTO_SKIP_INTRO = "player_auto_skip_intro"
+    const val PREF_AUTO_SKIP_OUTRO = "player_auto_skip_outro"
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
         // Unlock maximum rendering quality

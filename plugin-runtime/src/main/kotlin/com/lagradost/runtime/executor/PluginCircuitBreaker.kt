@@ -20,7 +20,7 @@ enum class PluginHealthStatus {
     TRIPPED_AUTO_DISABLED,
 
     /** Cooldown period passed; allowing a single trial request to verify recovery. */
-    HALF_OPEN
+    HALF_OPEN,
 }
 
 /**
@@ -83,14 +83,14 @@ object PluginCircuitBreaker {
                     publishUpdates()
                     AppLogger.i(
                         "PluginCircuitBreaker",
-                        "Provider '$providerName' entered HALF_OPEN state after ${elapsed / 1000}s cooldown. Testing connection."
+                        "Provider '$providerName' entered HALF_OPEN state after ${elapsed / 1000}s cooldown. Testing connection.",
                     )
                     Pair(true, null)
                 } else {
                     val remainingSec = (cooldownMs - elapsed) / 1000
                     Pair(
                         false,
-                        "Provider '$providerName' is auto-disabled (${current.consecutiveFailures} consecutive failures). Cooldown: ${remainingSec}s remaining."
+                        "Provider '$providerName' is auto-disabled (${current.consecutiveFailures} consecutive failures). Cooldown: ${remainingSec}s remaining.",
                     )
                 }
             }
@@ -118,7 +118,7 @@ object PluginCircuitBreaker {
         }
 
         val wasTripped = existing.status == PluginHealthStatus.TRIPPED_AUTO_DISABLED ||
-                existing.status == PluginHealthStatus.HALF_OPEN
+            existing.status == PluginHealthStatus.HALF_OPEN
 
         val updated = existing.copy(
             status = PluginHealthStatus.HEALTHY,
@@ -177,12 +177,12 @@ object PluginCircuitBreaker {
             AppLogger.w(
                 "PluginCircuitBreaker",
                 "⚠️ CIRCUIT TRIPPED for '$providerName'! Auto-disabling scraper due to $newConsecutive consecutive failures. Reason: $reason",
-                throwable
+                throwable,
             )
         } else {
             AppLogger.d(
                 "PluginCircuitBreaker",
-                "Recorded failure for '$providerName' ($newConsecutive/$failureThreshold failures): $reason"
+                "Recorded failure for '$providerName' ($newConsecutive/$failureThreshold failures): $reason",
             )
         }
     }

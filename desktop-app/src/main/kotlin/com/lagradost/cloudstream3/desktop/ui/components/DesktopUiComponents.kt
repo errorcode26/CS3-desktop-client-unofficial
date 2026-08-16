@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,7 +131,7 @@ fun AppDropdownMenu(
 
     val currentColorScheme = MaterialTheme.colorScheme
     val amoledColorScheme = currentColorScheme.copy(
-        surface = if (isAmoled) Color(0xFF101010) else currentColorScheme.surface
+        surface = if (isAmoled) Color(0xFF101010) else currentColorScheme.surface,
     )
 
     MaterialTheme(colorScheme = amoledColorScheme) {

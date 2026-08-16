@@ -11,8 +11,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
@@ -23,13 +25,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
@@ -39,11 +46,6 @@ import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
-import coil3.compose.AsyncImage
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.alpha
-import androidx.compose.foundation.verticalScroll
 
 enum class ContextMenuType {
     POSTER,
@@ -127,8 +129,6 @@ fun ContextMenuOverlay() {
     }
 
     if (isVisible) {
-        val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-        val isAmoled = appThemeBackground == "Pure Black"
 
         Box(
             modifier = Modifier
@@ -168,7 +168,7 @@ fun ContextMenuOverlay() {
                                 .width(basePosterWidth + cardPadding * 2 + menuWidth)
                                 .height(basePosterHeight + cardPadding * 2) // Fixed height tightly bound to poster with padding
                                 .clip(RoundedCornerShape(16.dp))
-                                .then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp)) else Modifier)
+                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                         ) {
                             // Ambient Cinematic Background (Blurred poster filling the entire card)
                             val posterUrl = if (state.menuType == ContextMenuType.POSTER) state.searchResponse?.posterUrl else state.watchHistory?.posterUrl
@@ -176,10 +176,10 @@ fun ContextMenuOverlay() {
                                 model = posterUrl,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().blur(48.dp).alpha(0.85f)
+                                modifier = Modifier.fillMaxSize().blur(48.dp).alpha(0.85f),
                             )
                             // Darken the background for text readability
-                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)))
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)))
 
                             Row(modifier = Modifier.fillMaxSize()) {
                                 // Left side: Poster
@@ -187,7 +187,7 @@ fun ContextMenuOverlay() {
                                     modifier = Modifier
                                         .width(basePosterWidth + cardPadding * 2)
                                         .fillMaxHeight()
-                                        .padding(cardPadding)
+                                        .padding(cardPadding),
                                 ) {
                                     if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
                                         PosterCard(
@@ -223,16 +223,47 @@ fun ContextMenuOverlay() {
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxHeight()
-                                        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f), Color.Black.copy(alpha = 0.5f))
-                                        ))
-                                        .padding(vertical = 16.dp, horizontal = 12.dp)
+                                        .background(
+                                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.4f),
+                                                    Color.Black.copy(alpha = 0.7f)
+                                                ),
+                                            ),
+                                        )
+                                        .padding(vertical = 16.dp, horizontal = 12.dp),
                                 ) {
                                     val scrollState = androidx.compose.foundation.rememberScrollState()
                                     Column(
                                         modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
-                                        verticalArrangement = Arrangement.Center
+                                        verticalArrangement = Arrangement.Center,
                                     ) {
+                                        val titleText = state.searchResponse?.name ?: state.watchHistory?.showName
+                                        if (!titleText.isNullOrBlank()) {
+                                            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                                                Text(
+                                                    text = titleText,
+                                                    color = Color.White.copy(alpha = 0.95f),
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 0.5.sp,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp)
+                                                        .height(1.dp)
+                                                        .background(Color.White.copy(alpha = 0.15f))
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                            }
+                                        }
+
+
                                         if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
                                             ContextMenuItem(
                                                 text = "Play",
@@ -354,30 +385,48 @@ fun ContextMenuOverlay() {
 private fun ContextMenuItem(
     text: String,
     icon: ImageVector,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    color: Color = Color.White.copy(alpha = 0.9f),
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val bgColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+        animationSpec = tween(150),
+        label = "menuItemBg",
+    )
+
+    val iconOffsetX by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isHovered) 4f else 0f,
+        animationSpec = tween(150),
+        label = "menuItemIconOffset",
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
             .clickable(interactionSource = interactionSource, indication = androidx.compose.material3.ripple()) { onClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = text,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier
+                .size(20.dp)
+                .offset(x = iconOffsetX.dp),
             tint = color,
         )
         Text(
             text = text,
             color = color,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
         )
     }
 }

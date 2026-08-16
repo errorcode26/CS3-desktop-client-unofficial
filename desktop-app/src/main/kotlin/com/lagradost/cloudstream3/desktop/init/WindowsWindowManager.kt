@@ -120,27 +120,36 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
             val bounds = window.graphicsConfiguration.bounds
             val scaleX = window.graphicsConfiguration.defaultTransform.scaleX
             val scaleY = window.graphicsConfiguration.defaultTransform.scaleY
-            
+
             val w = (400 * scaleX).toInt()
             val h_size = (225 * scaleY).toInt()
             val x = bounds.x + bounds.width - w - (20 * scaleX).toInt()
             val y = bounds.y + bounds.height - h_size - (40 * scaleY).toInt()
-            
+
             // Safely strip borders using C++ bridge
             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
                 hwnd = hwnd,
                 fullscreen = true,
-                x = 0, y = 0, width = 0, height = 0
+                x = 0,
+                y = 0,
+                width = 0,
+                height = 0,
             )
             // Install PiP-only subclass to block WM_DPICHANGED on monitor drag
             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setPipSubclass(hwnd, true)
-            
+
             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
             val hwndTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-1L))
-            
+
             // SWP_NOZORDER is 0x0004, SWP_SHOWWINDOW is 0x0040
             com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
-                hWin, hwndTopMost, x, y, w, h_size, 0x0040
+                hWin,
+                hwndTopMost,
+                x,
+                y,
+                w,
+                h_size,
+                0x0040,
             )
         } else {
             // Remove PiP subclass before restoring fullscreen state
@@ -148,12 +157,21 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.setFullscreen(
                 hwnd = hwnd,
                 fullscreen = false,
-                x = 0, y = 0, width = 0, height = 0
+                x = 0,
+                y = 0,
+                width = 0,
+                height = 0,
             )
             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
             val hwndNoTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-2L))
             com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
-                hWin, hwndNoTopMost, 0, 0, 0, 0, 0x0003
+                hWin,
+                hwndNoTopMost,
+                0,
+                0,
+                0,
+                0,
+                0x0003,
             )
         }
     } catch (e: Throwable) {

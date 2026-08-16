@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
+import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide
 import com.lagradost.common.storage.WatchHistory
 
 @Composable
@@ -37,7 +39,7 @@ fun HomeHistoryRow(
     if (historyList.isNotEmpty()) {
         lastNonEmptyList.value = historyList
     }
-    
+
     androidx.compose.animation.AnimatedVisibility(
         visible = historyList.isNotEmpty(),
         enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
@@ -65,17 +67,29 @@ fun HomeHistoryRow(
         )
 
         val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
+        val continueWatchingStyle by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.continueWatchingStyle.collectAsState()
+        val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
         val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
         val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
 
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
-        ) {
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth()) {
             val currentList = lastNonEmptyList.value
             CategoryRowWithHeader(
                 title = "Continue Watching",
                 itemCount = currentList.size,
                 onViewAll = onViewAllClick,
+                rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = paddingStart,
+                    end = paddingEnd,
+                    top = 16.dp,
+                    bottom = 16.dp
+                ),
+                headerPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = paddingStart,
+                    end = paddingEnd,
+                    top = 12.dp,
+                    bottom = 8.dp
+                ),
                 trailingHeaderExtra = {
                     TextButton(onClick = { showClearConfirmDialog = true }) {
                         Text("Clear History", color = DesktopUi.TextMuted)
@@ -85,23 +99,42 @@ fun HomeHistoryRow(
                 items(currentList.size, key = { index -> currentList[index].parentId }) { index ->
                     val history = currentList[index]
                     val provider = providers.find { it.name == history.apiName }
-                    WatchHistoryCard(
-                        modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
-                        history = history,
-                        provider = provider,
-                        onRemove = { onRemoveHistoryItem(history.parentId) },
-                        onClick = {
-                            if (provider != null) {
-                                onItemClick(provider, history)
-                            }
-                        },
-                        onPlayClick = {
-                            // For watch history, onClick already resumes playback.
-                            if (provider != null) {
-                                onItemClick(provider, history)
-                            }
-                        },
-                    )
+                    
+                    if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+                        WatchHistoryCardWide(
+                            modifier = Modifier.animateItem().width((posterWidthDp * 2.2f).dp).height((posterWidthDp * 1.5f).dp),
+                            history = history,
+                            provider = provider,
+                            onRemove = { onRemoveHistoryItem(history.parentId) },
+                            onClick = {
+                                if (provider != null) {
+                                    onItemClick(provider, history)
+                                }
+                            },
+                            onPlayClick = {
+                                if (provider != null) {
+                                    onItemClick(provider, history)
+                                }
+                            },
+                        )
+                    } else {
+                        WatchHistoryCard(
+                            modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
+                            history = history,
+                            provider = provider,
+                            onRemove = { onRemoveHistoryItem(history.parentId) },
+                            onClick = {
+                                if (provider != null) {
+                                    onItemClick(provider, history)
+                                }
+                            },
+                            onPlayClick = {
+                                if (provider != null) {
+                                    onItemClick(provider, history)
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }

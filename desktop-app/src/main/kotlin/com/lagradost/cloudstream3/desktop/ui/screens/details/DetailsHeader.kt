@@ -5,10 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -111,7 +109,9 @@ fun DetailsBackdrop(
                         ?: data.posterUrl?.takeIf { it.isNotBlank() }
                         ?: provider.fixUrlNull(data.backgroundPosterUrl)
                         ?: provider.fixUrlNull(data.posterUrl)
-                } else null
+                } else {
+                    null
+                }
         }
 
         val bgUrl = if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) {
@@ -250,7 +250,7 @@ fun DetailsMetadata(
     ) {
         // Prevent crash on unbounded height (Dp.Infinity) when inside LazyColumn
         val actualMaxHeight = if (maxHeight == androidx.compose.ui.unit.Dp.Infinity) 800.dp else maxHeight
-        
+
         val isNarrow = maxWidth < 1100.dp
         val isButtonsNarrow = maxWidth < 600.dp
         val isCompactHeight = actualMaxHeight < 550.dp
@@ -260,7 +260,7 @@ fun DetailsMetadata(
         // so the logo never dwarfs the text on massive monitors.
         val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.4f)
         val responsivePlotMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.85f else 0.45f)
-        
+
         val responsiveLogoMaxHeight = when {
             isCompactHeight -> 100.dp
             isMediumHeight -> 140.dp
@@ -271,11 +271,11 @@ fun DetailsMetadata(
             isMediumHeight -> if (isNarrow) 48.dp else 100.dp
             else -> if (isNarrow) 80.dp else 120.dp
         }
-        
+
         // A consistent, sensible bottom buffer that anchors the content closely to the bottom
         // on both small and large screens without creating a massive empty void.
-        // It is set to 120.dp to perfectly clear the "Continue Watching" progress bar which sits at 64.dp.
-        val responsiveBottomPadding = 120.dp
+        // It is set to 148.dp to perfectly clear the "Continue Watching" progress bar which sits at 64.dp, plus a generous gap.
+        val responsiveBottomPadding = 148.dp
 
         AdaptiveMetadataLayout(
             isNarrow = isNarrow,
@@ -285,179 +285,340 @@ fun DetailsMetadata(
             mainContent = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     if (isLoading) {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                                    Box(modifier = Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                                    Box(modifier = Modifier.width(64.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
-                                Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                                Box(modifier = Modifier.width(48.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
+                                Box(modifier = Modifier.width(64.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
                             }
-                        } else {
-                            val currentPhase = enrichmentPhase
-                            val activeLogoUrl = remember(data, currentPhase, uiState) {
-                                uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
-                                    ?: data.logoUrl?.takeIf { it.isNotBlank() }
-                                    ?: provider.fixUrlNull(data.logoUrl)
-                            }
-                            if (!activeLogoUrl.isNullOrBlank()) {
-                                Box(
-                                    modifier = Modifier
-                                        .widthIn(
-                                            min = DesktopDimens.HeroLogoMinWidth,
-                                            max = responsiveLogoMaxWidth,
-                                        )
-                                        .heightIn(max = responsiveLogoMaxHeight),
-                                    contentAlignment = Alignment.BottomStart,
-                                ) {
-                                    val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                        .data(activeLogoUrl)
-                                        .size(1600, 800)
-                                        .crossfade(true)
-                                        .build()
-                                    val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
-                                    AsyncImage(
-                                        model = logoRequest,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .offset(
-                                                x = DesktopDimens.LogoShadowOffsetX,
-                                                y = DesktopDimens.LogoShadowOffsetY,
-                                            )
-                                            .blur(
-                                                DesktopDimens.LogoShadowBlur,
-                                                edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
-                                            ),
-                                        contentScale = ContentScale.Fit,
-                                        alignment = Alignment.BottomStart,
-                                        colorFilter = DesktopDimens.LogoShadowFilter,
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                            Box(modifier = Modifier.fillMaxWidth(0.55f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerBackground())
+                        }
+                    } else {
+                        val currentPhase = enrichmentPhase
+                        val activeLogoUrl = remember(data, currentPhase, uiState) {
+                            uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
+                                ?: data.logoUrl?.takeIf { it.isNotBlank() }
+                                ?: provider.fixUrlNull(data.logoUrl)
+                        }
+                        if (!activeLogoUrl.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .widthIn(
+                                        min = DesktopDimens.HeroLogoMinWidth,
+                                        max = responsiveLogoMaxWidth,
                                     )
-                                    coil3.compose.SubcomposeAsyncImage(
-                                        model = logoRequest,
-                                        contentDescription = displayName,
-                                        contentScale = ContentScale.Fit,
-                                        modifier = Modifier.fillMaxSize(),
-                                        alignment = Alignment.BottomStart,
-                                        error = {
-                                            Text(
-                                                text = displayName,
-                                                style = MaterialTheme.typography.displayLarge,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = Color.White,
-                                            )
-                                        },
-                                    )
-                                }
-                            } else {
+                                    .heightIn(max = responsiveLogoMaxHeight),
+                                contentAlignment = Alignment.BottomStart,
+                            ) {
+                                val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(activeLogoUrl)
+                                    .size(1600, 800)
+                                    .crossfade(true)
+                                    .build()
                                 val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
-                                Text(
-                                    text = displayName,
-                                    style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
+                                AsyncImage(
+                                    model = logoRequest,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .offset(
+                                            x = DesktopDimens.LogoShadowOffsetX,
+                                            y = DesktopDimens.LogoShadowOffsetY,
+                                        )
+                                        .blur(
+                                            DesktopDimens.LogoShadowBlur,
+                                            edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
+                                        ),
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.BottomStart,
+                                    colorFilter = DesktopDimens.LogoShadowFilter,
+                                )
+                                coil3.compose.SubcomposeAsyncImage(
+                                    model = logoRequest,
+                                    contentDescription = displayName,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize(),
+                                    alignment = Alignment.BottomStart,
+                                    error = {
+                                        Text(
+                                            text = displayName,
+                                            style = MaterialTheme.typography.displayLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White,
+                                        )
+                                    },
                                 )
                             }
-                        }
-                        val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
-                        if (activeTagline != null) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "\"$activeTagline\"",
-                                style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontWeight = FontWeight.Normal,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(start = if (isNarrow) 0.dp else 4.dp),
-                                textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
-                            )
                         } else {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.displayLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                    val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
+                    if (activeTagline != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "\"$activeTagline\"",
+                            style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = if (isNarrow) 0.dp else 4.dp),
+                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    if (!isLoading) {
+                        // Row 1: Primary Meta Information & Status Badges
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(10.dp),
+                            modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
+                        ) {
+                            val metaItems = mutableListOf<String>()
+                            (uiState?.enrichedYear ?: data.year)?.let { metaItems.add(it.toString()) }
+
+                            val finalDuration = uiState?.enrichedDuration ?: data.duration
+                            finalDuration?.takeIf { it > 0 }?.let { dur ->
+                                val mins = if (dur > 360) dur / 60 else dur
+                                val durationStr = if (mins >= 60) {
+                                    val h = mins / 60
+                                    val m = mins % 60
+                                    if (m > 0) "${h}h ${m}m" else "${h}h"
+                                } else {
+                                    "${mins}m"
+                                }
+                                metaItems.add(durationStr)
+                            }
+
+                            val typeStr = when (data.type) {
+                                TvType.TvSeries -> "TV Series"
+                                TvType.Anime -> "Anime"
+                                TvType.Movie -> "Movie"
+                                TvType.AnimeMovie -> "Anime Movie"
+                                TvType.OVA -> "OVA"
+                                TvType.Live -> "Live"
+                                TvType.Documentary -> "Documentary"
+                                TvType.Cartoon -> "Cartoon"
+                                TvType.AsianDrama -> "Asian Drama"
+                                else -> data.type.name
+                            }
+                            if (typeStr.isNotBlank()) {
+                                metaItems.add(typeStr)
+                            }
+
+                            if (metaItems.isNotEmpty()) {
+                                Text(
+                                    text = metaItems.joinToString("  •  "),
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+
+                            data.contentRating?.takeIf { it.isNotBlank() }?.let { rating ->
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color.Transparent,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
+                                ) {
+                                    Text(
+                                        text = rating,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+
+                            uiState?.enrichedStatus?.takeIf { it.isNotBlank() }?.let { status ->
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                                ) {
+                                    Text(
+                                        text = status,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        // Row 2: Branded Vector Rating Badges (IMDb, TMDB, AniList)
+                        val imdbScore = uiState?.enrichedImdbRating
+                        val tmdbScore = uiState?.enrichedTmdbRating ?: if (imdbScore == null) data.score?.toFloat(10)?.toDouble() else null
+                        val anilistScore = uiState?.enrichedAniListRating
+                        val isAnime = data.type == TvType.Anime || data.type == TvType.AnimeMovie || data.type == TvType.OVA
 
-                        if (!isLoading) {
+                        if (imdbScore != null || tmdbScore != null || anilistScore != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(10.dp),
+                                modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
+                            ) {
+                                // 1. IMDb Vector Rating Pill
+                                if (imdbScore != null && imdbScore > 0.0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFFF5C518).copy(alpha = 0.12f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF5C518).copy(alpha = 0.45f)),
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(3.dp),
+                                                color = Color(0xFFF5C518),
+                                            ) {
+                                                Text(
+                                                    text = "IMDb",
+                                                    color = Color.Black,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = String.format(java.util.Locale.US, "%.1f", imdbScore),
+                                                color = Color(0xFFF5C518),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 2. TMDB Vector Rating Pill
+                                if (tmdbScore != null && tmdbScore > 0.0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFF01B4E4).copy(alpha = 0.12f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF01B4E4).copy(alpha = 0.4f)),
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(3.dp),
+                                                color = Color(0xFF01B4E4),
+                                            ) {
+                                                Text(
+                                                    text = "TMDB",
+                                                    color = Color.Black,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = String.format(java.util.Locale.US, "%.1f", tmdbScore),
+                                                color = Color(0xFF01B4E4),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 3. AniList Vector Rating Pill (for Anime)
+                                if (anilistScore != null && anilistScore > 0.0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFF02A9FF).copy(alpha = 0.12f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF02A9FF).copy(alpha = 0.4f)),
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(3.dp),
+                                                color = Color(0xFF02A9FF),
+                                            ) {
+                                                Text(
+                                                    text = "AniList",
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "${(anilistScore * 10).toInt()}%",
+                                                color = Color(0xFF02A9FF),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 3: Frosted Genre Chips
+                        val finalTags = uiState?.enrichedTags ?: data.tags
+                        if (!finalTags.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
                             FlowRow(
-                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
+                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                             ) {
-                                val finalYear = uiState?.enrichedYear ?: data.year
-                                finalYear?.let {
-                                    Text(text = it.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
-                                data.contentRating?.let { rating ->
-                                    Box(modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                        Text(text = rating, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                                val typeStr = when (data.type) {
-                                    TvType.TvSeries -> "TV Series"
-                                    TvType.Anime -> "Anime"
-                                    TvType.Movie -> "Movie"
-                                    TvType.AnimeMovie -> "Anime Movie"
-                                    TvType.OVA -> "OVA"
-                                    TvType.Live -> "Live"
-                                    TvType.Documentary -> "Documentary"
-                                    TvType.Cartoon -> "Cartoon"
-                                    TvType.AsianDrama -> "Asian Drama"
-                                    else -> data.type.name
-                                }
-                                if (!typeStr.isNullOrBlank()) {
-                                    Text(text = typeStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
-                                val finalDuration = uiState?.enrichedDuration ?: data.duration
-                                finalDuration?.takeIf { it > 0 }?.let { dur ->
-                                    val mins = if (dur > 360) dur / 60 else dur
-                                    val durationStr = if (mins >= 60) {
-                                        val h = mins / 60
-                                        val m = mins % 60
-                                        if (m > 0) "${h}h ${m}m" else "${h}h"
-                                    } else {
-                                        "${mins}m"
-                                    }
-                                    Text(text = durationStr, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
-                                data.score?.takeIf { it.toFloat(10) > 0f }?.let {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Star, "Rating", tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(text = it.toString(10), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                finalTags.take(6).forEach { tag ->
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color.White.copy(alpha = 0.08f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                    ) {
+                                        Text(
+                                            text = tag,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        )
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(14.dp))
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
 
-                        val finalTags = uiState?.enrichedTags ?: data.tags
-                        if (!isLoading && !finalTags.isNullOrEmpty()) {
-                            Text(
-                                text = finalTags.take(6).joinToString(" • "),
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-
-                        if (!isLoading && !data.plot.isNullOrBlank()) {
-                            Text(
-                                text = data.plot ?: "",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 15.sp,
-                                lineHeight = 22.sp,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = responsivePlotMaxWidth),
-                            )
-                        }
+                    if (!isLoading && !data.plot.isNullOrBlank()) {
+                        Text(
+                            text = data.plot ?: "",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = responsivePlotMaxWidth),
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -562,19 +723,21 @@ fun DetailsMetadata(
                                 border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.35f)),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = Color.White.copy(alpha = 0.18f),
-                                    contentColor = Color.White
-                                )
+                                    contentColor = Color.White,
+                                ),
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(20.dp),
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Trailer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                         }
-                    } else null
+                    } else {
+                        null
+                    }
 
                     if (isButtonsNarrow) {
                         Column(

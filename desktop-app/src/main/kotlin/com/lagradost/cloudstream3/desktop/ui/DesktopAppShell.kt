@@ -19,8 +19,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposeImageBitmap
-import androidx.compose.ui.graphics.asComposeShader
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,8 +28,6 @@ import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -125,7 +121,7 @@ fun DesktopAppShell(
                                     "Radial" -> androidx.compose.ui.graphics.Brush.linearGradient(
                                         colors = listOf(startColor, endColor),
                                         start = Offset(0f, 0f),
-                                        end = Offset(size.width, size.height * 1.2f)
+                                        end = Offset(size.width, size.height * 1.2f),
                                     )
                                     "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
                                         colors = listOf(startColor, endColor),

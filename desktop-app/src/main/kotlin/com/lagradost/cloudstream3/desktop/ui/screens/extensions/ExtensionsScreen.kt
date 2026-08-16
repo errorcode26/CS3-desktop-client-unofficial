@@ -19,9 +19,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ComposeExtensionScreen(
-    onNavigate: (Config) -> Unit, 
+    onNavigate: (Config) -> Unit,
     initialTab: Int = 0,
-    viewModel: ExtensionsViewModel
+    viewModel: ExtensionsViewModel,
 ) {
     var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabs = listOf("Browse", "Installed", "Repositories")
@@ -141,8 +141,6 @@ fun ComposeExtensionScreen(
                         }
                     }
                 }
-
-
             }
 
             // Vertical Divider

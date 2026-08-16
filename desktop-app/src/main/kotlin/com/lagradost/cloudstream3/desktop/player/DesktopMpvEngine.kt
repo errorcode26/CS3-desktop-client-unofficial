@@ -1,13 +1,11 @@
 package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.cloudstream3.SubtitleFile
-import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.sun.jna.Pointer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**

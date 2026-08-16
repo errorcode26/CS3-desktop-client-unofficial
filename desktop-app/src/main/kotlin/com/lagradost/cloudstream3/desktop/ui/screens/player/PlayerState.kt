@@ -70,6 +70,12 @@ class PlayerState {
     internal val _activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
     val activeLazyVideoTrackUrl: StateFlow<String?> = _activeLazyVideoTrackUrl.asStateFlow()
 
+    internal val _skipIntervals = MutableStateFlow<List<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval>>(emptyList())
+    val skipIntervals: StateFlow<List<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval>> = _skipIntervals.asStateFlow()
+
+    internal val _activeSkipInterval = MutableStateFlow<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?>(null)
+    val activeSkipInterval: StateFlow<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?> = _activeSkipInterval.asStateFlow()
+
     internal val _activeShader = MutableStateFlow<String>(
         com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None",
     )
@@ -134,6 +140,8 @@ class PlayerState {
         _audioTracks.value = emptyList()
         _subtitleTracks.value = emptyList()
         _videoTracks.value = emptyList()
+        _skipIntervals.value = emptyList()
+        _activeSkipInterval.value = null
         com.lagradost.player.impl.proxy.LocalStreamProxyState.reset()
     }
 
@@ -217,11 +225,109 @@ class PlayerState {
         }
 
         this._positionMs.value = posMs
+
+        // Evaluate active skip interval & auto-skip
+        val intervals = _skipIntervals.value
+        if (intervals.isNotEmpty()) {
+            val matching = intervals.firstOrNull { posMs >= it.startMs && posMs < it.endMs }
+            _activeSkipInterval.value = matching
+
+            if (matching != null && !isSeekingInProgress()) {
+                val autoSkipIntro = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_INTRO) ?: false
+                val autoSkipOutro = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_OUTRO) ?: false
+
+                val shouldAutoSkip = when (matching.type) {
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.OPENING,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.INTRO,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.RECAP,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_OP -> autoSkipIntro
+
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.ENDING,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.OUTRO,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.PREVIEW,
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_ED -> autoSkipOutro
+                }
+
+                if (shouldAutoSkip) {
+                    com.lagradost.common.logging.AppLogger.i("PlayerState", "Auto-skipping ${matching.label} to ${matching.endMs}ms")
+                    skipCurrentInterval()
+                }
+            }
+        } else {
+            _activeSkipInterval.value = null
+        }
+    }
+
+    fun skipCurrentInterval() {
+        val currentPos = _positionMs.value
+        val interval = _activeSkipInterval.value
+            ?: _skipIntervals.value.firstOrNull { currentPos >= it.startMs && currentPos < it.endMs }
+            ?: return
+        val target = interval.endMs + 100L
+        val dur = _durationMs.value
+        val safeTarget = if (dur > 0) kotlin.math.min(target, dur - 1000L) else target
+        seekTo(safeTarget)
+        showToast("Skipped ${interval.label}")
+    }
+
+    fun loadSkipIntervals(
+        title: String,
+        episode: Int = 1,
+        season: Int = 1,
+        durationSeconds: Double = 0.0,
+        malId: Int? = null,
+        tmdbId: Int? = null,
+        imdbId: String? = null
+    ) {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch {
+            try {
+                val query = com.lagradost.cloudstream3.desktop.player.skip.SkipQuery(
+                    title = title,
+                    episode = episode,
+                    season = season,
+                    durationSeconds = durationSeconds,
+                    malId = malId,
+                    tmdbId = tmdbId,
+                    imdbId = imdbId
+                )
+                val intervals = com.lagradost.cloudstream3.desktop.player.skip.SkipManager.resolveSkipIntervals(
+                    query = query,
+                    chapters = _chapters.value,
+                    totalDurationMs = _durationMs.value
+                )
+                _skipIntervals.value = intervals
+                val currentPos = _positionMs.value
+                _activeSkipInterval.value = intervals.firstOrNull { currentPos >= it.startMs && currentPos < it.endMs }
+                com.lagradost.common.logging.AppLogger.i("PlayerState", "Skip intervals updated: ${intervals.size} intervals active for '$title'")
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.i("PlayerState", "Failed to load skip intervals: ${e.message}")
+            }
+        }
+    }
+
+    fun updateChaptersFromPlayer(chapters: List<Chapter>) {
+        this._chapters.value = chapters
+        if (_skipIntervals.value.isEmpty() && chapters.isNotEmpty()) {
+            val chapterIntervals = com.lagradost.cloudstream3.desktop.player.skip.ChapterSkipProvider.parseChapters(chapters, _durationMs.value)
+            if (chapterIntervals.isNotEmpty()) {
+                _skipIntervals.value = chapterIntervals
+                val currentPos = _positionMs.value
+                _activeSkipInterval.value = chapterIntervals.firstOrNull { currentPos >= it.startMs && currentPos < it.endMs }
+            }
+        }
     }
 
     fun updateDurationFromPlayer(durMs: Long) {
         if (durMs > 0 && this.durationMs.value != durMs) {
             this._durationMs.value = durMs
+            if (_skipIntervals.value.isEmpty() && _chapters.value.isNotEmpty()) {
+                val chapterIntervals = com.lagradost.cloudstream3.desktop.player.skip.ChapterSkipProvider.parseChapters(_chapters.value, durMs)
+                if (chapterIntervals.isNotEmpty()) {
+                    _skipIntervals.value = chapterIntervals
+                    val currentPos = _positionMs.value
+                    _activeSkipInterval.value = chapterIntervals.firstOrNull { currentPos >= it.startMs && currentPos < it.endMs }
+                }
+            }
         }
     }
 

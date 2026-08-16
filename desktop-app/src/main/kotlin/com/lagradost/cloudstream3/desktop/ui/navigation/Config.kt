@@ -1,7 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.navigation
 
-import com.lagradost.cloudstream3.SearchResponse
-
 sealed class Config {
     data object Home : Config()
     data object History : Config()

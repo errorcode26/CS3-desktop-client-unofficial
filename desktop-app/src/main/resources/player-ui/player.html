@@ -46,7 +46,7 @@
 </div>
 
 <!-- ── Link Probing Overlay ───────────────────────────────────────────── -->
-<div id="linkProbingOverlay">
+<div id="linkProbingOverlay" class="active">
     <img id="linkProbingBackdrop" src="{{INITIAL_BACKDROP_URL}}" data-last-src="{{INITIAL_BACKDROP_URL}}" class="{{INITIAL_BACKDROP_CLASS}}" alt="">
     <div id="linkProbingGradient"></div>
     <div id="linkProbingContent">
@@ -72,8 +72,7 @@
 <!-- NOTE: This element is moved into .bottom-bar by JS on DOMContentLoaded -->
 <div id="resumeOverlay">
     <span class="resume-bar-label">Resuming from <strong id="resumeTime">00:00</strong></span>
-    <span id="resumeTitle" style="font-size:12px;color:rgba(255,255,255,0.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">CloudStream</span>
-    <span class="resume-bar-spacer"></span>
+    <span id="resumeTitle" style="font-size:12px;color:rgba(255,255,255,0.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">CloudStream</span>
     <button class="resume-bar-btn secondary" id="btnStartOver">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         From beginning
@@ -158,49 +157,86 @@
 
 
 <!-- ── Subtitle Search Dialog ─────────────────────────────────────────── -->
-<div id="subSearchOverlay">
-    <div class="subsearch-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="margin:0; font-size:18px; font-weight:600; color:white;">Search Subtitles</h3>
-            <button onclick="closeSubSearchModal()" style="background:transparent; border:none; color:#888; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+<div id="subSearchOverlay" onclick="if(event.target === this) closeSubSearchModal()">
+    <div class="subsearch-card" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="subsearch-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div class="subsearch-icon-badge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="13" y2="13"></line></svg>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h3 class="subsearch-title">Search Subtitles</h3>
+                        <span id="subSearchTypeBadge" class="subsearch-tag-pill">Movie</span>
+                    </div>
+                    <div class="subsearch-subtitle">Search & auto-apply online subtitles</div>
+                </div>
+            </div>
+            <button class="subsearch-close-btn" onclick="closeSubSearchModal()" title="Close (Esc)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
         </div>
         
-        <!-- Search bar rows -->
-        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-            <!-- Row 1: Title -->
-            <div style="display:flex;">
-                <input id="subSearchQuery" type="text" placeholder="Title..."
-                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 14px; color:#fff; font-size:14px; outline:none; transition:all 0.2s ease;"/>
+        <!-- Search Controls Box -->
+        <div class="subsearch-controls-card">
+            <!-- Row 1: Query Input with Search & Clear icons -->
+            <div class="subsearch-input-wrapper">
+                <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input id="subSearchQuery" type="text" placeholder="Movie or series title..."
+                    class="subsearch-text-input" autocomplete="off" spellcheck="false"
+                    onkeydown="if(event.key === 'Enter') doSubSearch()"
+                    oninput="document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';" />
+                <button id="subSearchClearBtn" class="subsearch-clear-btn" style="display:none;" onclick="document.getElementById('subSearchQuery').value=''; this.style.display='none'; document.getElementById('subSearchQuery').focus();">✕</button>
             </div>
-            <!-- Row 2: Filters and Search Button -->
-            <div style="display:flex; gap:10px; align-items:center;">
-                <select id="subSearchLang"
-                    style="flex:1; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 10px; color:#fff; font-size:13px; outline:none; cursor:pointer; transition:all 0.2s ease;">
-                    <option value="">All</option>
-                    <option value="en" selected>English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="pt">Portuguese</option>
-                    <option value="de">German</option>
-                    <option value="it">Italian</option>
-                    <option value="ar">Arabic</option>
-                    <option value="hi">Hindi</option>
-                    <option value="ko">Korean</option>
-                    <option value="ja">Japanese</option>
-                    <option value="zh">Chinese</option>
-                </select>
-                <input id="subSearchSeason" type="text" placeholder="S" maxlength="3"
-                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
-                <input id="subSearchEpisode" type="text" placeholder="E" maxlength="3"
-                    style="width:50px; background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px 0; color:#fff; font-size:14px; outline:none; text-align:center; transition:all 0.2s ease;"/>
-                <button id="subSearchBtn"
-                    style="background:#e53935; border:none; border-radius:8px; padding:12px 20px; color:#fff; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center;"
-                    onclick="doSubSearch()">Search</button>
+
+            <!-- Row 2: Custom Searchable Language Dropdown + Season/Episode inputs + Search Button -->
+            <div class="subsearch-filter-row">
+                <!-- Custom Glassmorphic Language Selector -->
+                <div class="custom-lang-select-container" id="customLangSelectWrap">
+                    <button type="button" class="custom-lang-trigger" id="customLangTrigger" onclick="toggleCustomLangDropdown(event)">
+                        <span class="custom-lang-globe">🌐</span>
+                        <span id="selectedLangLabel">English</span>
+                        <svg class="custom-lang-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <!-- Floating Popover -->
+                    <div class="custom-lang-popover" id="customLangPopover" style="display:none;" onclick="event.stopPropagation()">
+                        <div class="custom-lang-search-box">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="customLangSearchInput" placeholder="Search language..." oninput="filterCustomLanguages(this.value)" autocomplete="off" />
+                        </div>
+                        <div class="custom-lang-options-list" id="customLangOptionsList"></div>
+                    </div>
+                </div>
+
+                <!-- Hidden native field for value storage -->
+                <input type="hidden" id="subSearchLang" value="en" />
+
+                <!-- Season & Episode inputs -->
+                <div class="subsearch-se-wrapper" id="subSearchSeWrap">
+                    <div class="subsearch-se-input-box" title="Season Number">
+                        <span class="subsearch-se-label">S</span>
+                        <input id="subSearchSeason" type="number" min="0" max="99" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    </div>
+                    <div class="subsearch-se-input-box" title="Episode Number">
+                        <span class="subsearch-se-label">E</span>
+                        <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    </div>
+                </div>
+
+                <!-- Search Button -->
+                <button id="subSearchBtn" class="subsearch-submit-btn" onclick="doSubSearch()">
+                    <span id="subSearchBtnText">Search</span>
+                    <div id="subSearchSpinner" class="subsearch-spinner" style="display:none;"></div>
+                </button>
             </div>
         </div>
 
-        <!-- Results -->
-        <div id="subSearchStatus" style="color:#888; font-size:13px; text-align:center; display:none; padding:20px;">Searching...</div>
+        <!-- Quick Filter Chips for results -->
+        <div id="subSearchChipsContainer" class="subsearch-quick-chips" style="display:none;"></div>
+
+        <!-- Status & Results Container -->
+        <div id="subSearchStatus" class="subsearch-status-box" style="display:none;"></div>
         <div id="subSearchResults" class="subsearch-results-container"></div>
     </div>
 </div>
@@ -218,6 +254,20 @@
         <select class="season-select" id="seasonSelect"></select>
     </div>
     <div class="panel-body" id="episodesList"></div>
+</div>
+
+<!-- ── Chapters Panel ─────────────────────────────────────────────────── -->
+<div id="chaptersPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Chapters</h2>
+                <div class="sub" id="chaptersSubtitle">Select a chapter</div>
+            </div>
+            <button class="close-btn" id="closeChaptersBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body" id="chaptersList"></div>
 </div>
 
 <!-- ── Servers Panel ──────────────────────────────────────────────────── -->
@@ -366,27 +416,11 @@
                 </div>
                 <div class="style-row">
                     <span>Background</span>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span id="subBgVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
-                        <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
-                            <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            </div>
-                            <input type="range" class="style-slider" id="subBgSlider" min="0" max="255" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
-                        </div>
-                    </div>
+                    <select id="subBgInput" onchange="send('setSubtitleBackground', this.value)" style="width:160px; padding:8px; border-radius:6px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; font-size:14px; outline:none; appearance: none;">
+                        <option value="#00000000" style="background:#222;">Transparent</option>
+                        <option value="#80000000" style="background:#222;">Semi-transparent Black</option>
+                        <option value="#FF000000" style="background:#222;">Solid Black</option>
+                    </select>
                 </div>
                 <div class="style-row">
                     <span>Border Color</span>
@@ -518,7 +552,11 @@
                 </div>
                 <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
                     <span>Show End Time</span>
-                    <button class="chip active" id="btnToggleEndTime" style="padding: 4px 14px; min-width: 60px;">On</button>
+                    <button class="chip" id="btnToggleEndTime" style="padding: 4px 14px; min-width: 60px;">Off</button>
+                </div>
+                <div class="style-row" style="margin-top: 14px; justify-content: space-between; align-items: center; display: flex; width: 100%;">
+                    <span>Show Current Time (Clock)</span>
+                    <button class="chip" id="btnToggleClock" style="padding: 4px 14px; min-width: 60px;">Off</button>
                 </div>
             </div>
         </div>
@@ -758,6 +796,13 @@
         </div>
     </div>
 
+    <!-- ── Skip Intro / Outro Floating Pill Button ──────────────────────── -->
+    <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval (S)">
+        <span id="skipBtnLabel">Skip Intro</span>
+        <span class="skip-btn-badge">S</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+
     <!-- Bottom Bar -->
     <div class="bottom-bar" id="bottomBar">
         
@@ -765,11 +810,13 @@
 
         <!-- Progress Row (Full Width, above controls) -->
         <div class="progress-row">
-            <div class="seek-wrap">
+            <div class="seek-wrap" id="seekWrap">
                 <div class="seek-track"></div>
                 <div class="seek-buffer" id="seekBuffer"></div>
                 <div class="seek-fill" id="seekFill"></div>
+                <div class="seek-chapters" id="seekChapters"></div>
                 <input type="range" id="seekBar" class="seek-slider" min="0" max="1000" value="0" step="0.1">
+                <div class="seek-tooltip" id="seekTooltip">0:00</div>
             </div>
         </div>
 
@@ -821,6 +868,10 @@
                 <!-- Episodes -->
                 <button id="episodesBtn" class="icon-btn hidden" title="Episodes">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+                </button>
+                <!-- Chapters -->
+                <button id="chaptersBtn" class="icon-btn" title="Chapters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path><path d="M6 6h10"></path><path d="M6 10h10"></path></svg>
                 </button>
                 <!-- Source / Server -->
                 <button id="serversBtn" class="icon-btn" title="Video Sources">

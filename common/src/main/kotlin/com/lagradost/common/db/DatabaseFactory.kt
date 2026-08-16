@@ -12,6 +12,13 @@ object DatabaseFactory {
         // Ensure parent directories exist
         dbFile.parentFile?.mkdirs()
 
+        // Clean up legacy broken updates table
+        try {
+            driver.execute(null, "DROP TABLE IF EXISTS PluginUpdates;", 0)
+        } catch (e: Exception) {
+            // Ignore
+        }
+
         // Create the schema if it doesn't exist
         DesktopDatabase.Schema.create(driver)
 

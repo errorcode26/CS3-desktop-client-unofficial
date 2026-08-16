@@ -112,7 +112,7 @@ object PlayerLinkHandler {
             }
 
             val finalSessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
-            
+
             val finalUrl = if (useProxy) {
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(finalSessionId, url)

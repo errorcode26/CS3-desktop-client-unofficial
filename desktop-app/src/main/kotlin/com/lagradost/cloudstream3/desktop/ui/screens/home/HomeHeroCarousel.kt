@@ -107,7 +107,8 @@ fun HomeHeroCarousel(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(dynamicHeight),
+            .height(dynamicHeight)
+            .graphicsLayer { clip = false },
     ) {
         val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
         val safeStart = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
@@ -533,6 +534,7 @@ fun HomeHeroCarousel(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { clip = false }
                 .padding(bottom = safeBottom + (maxHeight * 0.04f)),
             contentAlignment = Alignment.BottomEnd,
         ) {
@@ -545,7 +547,7 @@ fun HomeHeroCarousel(
 
             LazyRow(
                 state = listState,
-                modifier = Modifier.widthIn(max = thumbnailsMaxWidth + paddingEnd),
+                modifier = Modifier.widthIn(max = thumbnailsMaxWidth + paddingEnd).graphicsLayer { clip = false },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Bottom,
                 contentPadding = PaddingValues(end = paddingEnd),

@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.metadata.MetadataEnrichmentCallbacks
+import com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -38,6 +40,11 @@ sealed interface EnrichmentUpdate {
         val tags: List<String>?,
         val actors: List<com.lagradost.cloudstream3.ActorData>?,
     ) : EnrichmentUpdate
+    data class RatingsLoaded(
+        val imdb: Double? = null,
+        val tmdb: Double? = null,
+        val anilist: Double? = null,
+    ) : EnrichmentUpdate
     data object EpisodeThumbnailsEnriched : EnrichmentUpdate
     data object FullyEnriched : EnrichmentUpdate
     data class Error(val message: String) : EnrichmentUpdate
@@ -67,52 +74,50 @@ object GetEnrichedDetailsUseCase {
 
         trySend(EnrichmentUpdate.RawData(rawData))
 
-        val imageUrl = rawData.backgroundPosterUrl ?: rawData.posterUrl ?: preloadedBg ?: preloadedPoster
-        val targetEnrichUrl = if (rawData.url.isNotBlank() && !rawData.url.contains("themoviedb.org")) rawData.url else url
-
         val enrichJob = launch {
-            HybridEnrichmentService.enrich(
+            MetadataPipeline.enrich(
                 loaded = rawData,
-                url = targetEnrichUrl,
-                onEnrichmentComplete = {
-                    if (rawData.backgroundPosterUrl != null) {
-                        trySend(EnrichmentUpdate.BackdropLoaded(rawData.backgroundPosterUrl!!))
-                    }
-                    if (rawData.posterUrl != null) {
-                        // We don't have a PosterLoaded state, but we can just use BackdropLoaded for now or maybe we don't need it for UI.
-                    }
-                    if (rawData.logoUrl != null) {
-                        trySend(EnrichmentUpdate.LogoLoaded(rawData.logoUrl!!))
-                    }
-                    trySend(EnrichmentUpdate.FullyEnriched)
-
-                    close()
-                },
-                onScreenshotsLoaded = { screenshots ->
-                    trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
-                },
-                onActorsLoaded = { actors ->
-                    trySend(EnrichmentUpdate.ActorsLoaded(actors))
-                },
-                onTrailersLoaded = { trailers ->
-                    trySend(EnrichmentUpdate.TrailersLoaded(trailers))
-                },
-                onReviewsLoaded = { reviews ->
-                    trySend(EnrichmentUpdate.ReviewsLoaded(reviews))
-                },
-                onEpisodeThumbnailsEnriched = {
+                url = url,
+                fetchCast = true,
+                callbacks = MetadataEnrichmentCallbacks(
+                    onScreenshotsLoaded = { screenshots ->
+                        trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
+                    },
+                    onActorsLoaded = { actors ->
+                        trySend(EnrichmentUpdate.ActorsLoaded(actors))
+                    },
+                    onTrailersLoaded = { trailers ->
+                        trySend(EnrichmentUpdate.TrailersLoaded(trailers))
+                    },
+                    onReviewsLoaded = { reviews ->
+                        trySend(EnrichmentUpdate.ReviewsLoaded(reviews))
+                    },
+                    onEpisodeThumbnailsEnriched = {
                         trySend(EnrichmentUpdate.EpisodeThumbnailsEnriched)
                     },
+                    onRatingsLoaded = { imdb, tmdb, anilist ->
+                        trySend(EnrichmentUpdate.RatingsLoaded(imdb = imdb, tmdb = tmdb, anilist = anilist))
+                    },
                     onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
-                    trySend(
-                        EnrichmentUpdate.MetadataLoaded(
-                            tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
-                        ),
-                    )
-                },
+                        trySend(
+                            EnrichmentUpdate.MetadataLoaded(
+                                tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
+                            ),
+                        )
+                    },
+                    onEnrichmentComplete = {
+                        if (rawData.backgroundPosterUrl != null) {
+                            trySend(EnrichmentUpdate.BackdropLoaded(rawData.backgroundPosterUrl!!))
+                        }
+                        if (rawData.logoUrl != null) {
+                            trySend(EnrichmentUpdate.LogoLoaded(rawData.logoUrl!!))
+                        }
+                        trySend(EnrichmentUpdate.FullyEnriched)
+                        close()
+                    },
+                ),
             )
         }
-
         awaitClose {
             enrichJob.cancel()
         }

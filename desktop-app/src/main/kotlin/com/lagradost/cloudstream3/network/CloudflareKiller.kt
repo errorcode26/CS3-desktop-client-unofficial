@@ -1,15 +1,14 @@
 package com.lagradost.cloudstream3.network
 
 import com.lagradost.common.logging.AppLogger
+import okhttp3.Cookie
+import okhttp3.CookieJar
 import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
-
-import okhttp3.Cookie
-import okhttp3.CookieJar
 
 class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
     companion object {
@@ -87,17 +86,17 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         }
 
         val serverHeader = response?.header("Server") ?: ""
-        
+
         val isCloudflareChallenge = response?.code in ERROR_CODES && (
             CLOUDFLARE_SERVERS.any { serverHeader.contains(it, ignoreCase = true) } ||
-            response?.peekBody(2048)?.string()?.contains("Just a moment...") == true
-        )
+                response?.peekBody(2048)?.string()?.contains("Just a moment...") == true
+            )
 
         // If we used a saved cookie and it STILL returned a challenge (or WAF block disguised as a challenge),
         // our saved cookie is invalid/expired. We must clear it and trigger bypass again!
         if (isCloudflareChallenge) {
             val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
-                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
             ) ?: false
 
             if (!isBypassAllowed) {
@@ -108,7 +107,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             }
 
             AppLogger.w("$TAG: Cloudflare challenge detected for $host. Triggering CDP Browser Bypass.")
-            
+
             val existingCfCookie = savedCookies[host]?.get("cf_clearance")
 
             // Clear the invalid saved cookies so we don't get stuck in a loop if bypass fails
@@ -116,7 +115,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 savedCookies.remove(host)
                 savedUserAgents.remove(host)
             }
-            
+
             val result = synchronized(CloudflareKiller::class.java) {
                 val currentCf = savedCookies[host]?.get("cf_clearance")
                 if (currentCf != null && currentCf != existingCfCookie) {
@@ -124,7 +123,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     return@synchronized com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.ExtractedData(
                         cookies = savedCookies[host]!!,
                         userAgent = savedUserAgents[host] ?: "",
-                        responseBody = null
+                        responseBody = null,
                     )
                 }
 
@@ -139,7 +138,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     AppLogger.i("$TAG: Successfully cleared Cloudflare for $host")
                     savedCookies[host] = result.cookies
                     savedUserAgents[host] = result.userAgent
-                    
+
                     cookieJar?.let { jar ->
                         val okCookies = result.cookies.mapNotNull { (k, v) ->
                             try {
@@ -151,9 +150,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         jar.saveFromResponse(request.url, okCookies)
                     }
                 }
-                
+
                 response.close() // Close the 403 response before retrying
-                
+
                 // If it was an API request and CDP captured the JSON response directly from Edge,
                 // we can return it immediately, completely bypassing OkHttp's HTTP/2 fingerprinting!
                 if (result.responseBody != null && result.responseBody.startsWith("{")) {
@@ -189,22 +188,22 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         val builder = request.newBuilder()
         if (userAgent != null) {
             builder.header("user-agent", userAgent)
-            
+
             // Cloudflare binds cf_clearance to the exact Sec-Ch-Ua headers. If they are missing, it throws a 403.
             val chromeVersionMatch = Regex("Chrome/([0-9]+)").find(userAgent)
             val edgeVersionMatch = Regex("Edg/([0-9]+)").find(userAgent)
             val version = edgeVersionMatch?.groupValues?.get(1) ?: chromeVersionMatch?.groupValues?.get(1) ?: "133"
-            
+
             val brand = if (userAgent.contains("Edg/")) {
                 "\"Not(A:Brand\";v=\"99\", \"Microsoft Edge\";v=\"$version\", \"Chromium\";v=\"$version\""
             } else {
                 "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"$version\", \"Chromium\";v=\"$version\""
             }
-            
+
             builder.header("sec-ch-ua", brand)
             builder.header("sec-ch-ua-mobile", "?0")
             builder.header("sec-ch-ua-platform", "\"Windows\"")
-            
+
             // Add WAF-bypassing headers (Sec-Fetch and Referer)
             builder.header("sec-fetch-site", "same-origin")
             builder.header("sec-fetch-mode", "cors")
@@ -221,10 +220,10 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         val finalRequest = builder.build()
         AppLogger.d("$TAG: Retrying request to ${finalRequest.url} with headers: ${finalRequest.headers}")
-        
+
         val response = chain.proceed(finalRequest)
         AppLogger.d("$TAG: Retry response code: ${response.code}, CipherSuite: ${response.handshake?.cipherSuite}")
-        
+
         return response
     }
 

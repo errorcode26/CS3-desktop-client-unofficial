@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -27,8 +28,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
+import com.lagradost.cloudstream3.desktop.subtitles.SubtitleConfig
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiState
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.launch
 
 fun String?.toColor(): Color {
     if (this == null) return Color.Transparent
@@ -45,27 +48,19 @@ fun String?.toColor(): Color {
     }
 }
 
-/**
- * Full-width dedicated sub-screen for subtitle customization.
- * Preview pinned at the top, controls below in a scrollable column.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsSubtitleEditorScreen() {
-    var subSize by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SIZE) ?: "45") }
-    var subColor by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF") }
-    var subBg by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000") }
-    var subFont by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_FONT)) }
-    var subBorderColor by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_COLOR) ?: "#000000") }
-    var subBorderSize by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_SIZE) ?: "3") }
-    var subShadowColor by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_COLOR) ?: "#00000000") }
-    var subShadowOffset by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_OFFSET) ?: "0") }
-    var subBlur by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BLUR) ?: "0") }
-    var subBold by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no") }
-    var subItalic by remember { mutableStateOf(DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no") }
-    var subOverrideEnabled by remember { mutableStateOf(DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false) }
+fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    val scope = rememberCoroutineScope()
+    val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SIZE) ?: "45"
+    val subColor = uiState.stringSettings[PlayerConfig.PREF_SUB_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF"
+    val subBg = uiState.stringSettings[PlayerConfig.PREF_SUB_BG] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000"
+    val subFont = uiState.stringSettings[PlayerConfig.PREF_SUB_FONT] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_FONT) ?: "Inter"
+    val subBorderColor = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_COLOR) ?: "#000000"
+    val subBorderSize = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_SIZE] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_SIZE) ?: "3"
+    val subShadowColor = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_COLOR) ?: "#00000000"
+    val subShadowOffset = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_OFFSET] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_OFFSET) ?: "0"
+    val subBlur = uiState.stringSettings[PlayerConfig.PREF_SUB_BLUR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BLUR) ?: "0"
 
     val parseSize = subSize.toFloatOrNull() ?: 45f
     val parseBorderSize = subBorderSize.toFloatOrNull() ?: 3f
@@ -99,8 +94,11 @@ fun SettingsSubtitleEditorScreen() {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
+                val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
+                val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+
                 val textStyle = TextStyle(
-                    fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(subFont.takeIf { !it.isNullOrBlank() } ?: "Inter"),
+                    fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(subFont),
                     fontSize = (parseSize / 1.5f).sp,
                     textAlign = TextAlign.Center,
                     fontWeight = if (subBold == "yes") FontWeight.Bold else FontWeight.Normal,
@@ -136,196 +134,213 @@ fun SettingsSubtitleEditorScreen() {
             }
         }
 
-        // Scrollable Controls Below
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(top = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+        val scrollState = rememberScrollState()
+        var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+        CompositionLocalProvider(
+            LocalSettingsScrollState provides scrollState,
+            LocalScrollContainerCoordinates provides containerCoordinates,
         ) {
-            SettingsGroupCard(title = "Global Override") {
-                SettingsToggleItem(
-                    label = "Override Video Subtitles",
-                    subtitle = "When enabled, the player forces these custom styles over the video's default subtitle styles.",
-                    checked = subOverrideEnabled,
-                    onCheckedChange = {
-                        subOverrideEnabled = it
-                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            DesktopDataStore.setKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, it)
-                        }
-                    },
-                )
-            }
-
-            SettingsGroupCard(title = "Text") {
-                SubtitleColorPickerRow("Text Color", subColor) {
-                    subColor = it
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_COLOR, it)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SettingsDropdownItem(
-                    label = "Subtitle Font",
-                    options = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it },
-                    currentValue = subFont.takeIf { !it.isNullOrBlank() } ?: "Inter",
-                    onSelectionChanged = {
-                        subFont = it
-                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            DesktopDataStore.setKey(PlayerConfig.PREF_SUB_FONT, it)
-                        }
-                    },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SubtitleSliderRow("Font Size", parseSize, 20f..100f) {
-                    subSize = it.toInt().toString()
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SIZE, subSize)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SettingsDropdownItem(
-                    label = "Background Style",
-                    options = listOf("#00000000" to "Transparent", "#80000000" to "Semi-transparent Black", "#FF000000" to "Solid Black"),
-                    currentValue = subBg,
-                    onSelectionChanged = {
-                        subBg = it
-                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BG, it)
-                        }
-                    },
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Font Style", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = subBold == "yes",
-                            onClick = {
-                                val v = if (subBold == "yes") "no" else "yes"
-                                subBold = v
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BOLD, v)
-                                }
-                            },
-                            label = { Text("Bold") },
-                        )
-                        FilterChip(
-                            selected = subItalic == "yes",
-                            onClick = {
-                                val v = if (subItalic == "yes") "no" else "yes"
-                                subItalic = v
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    DesktopDataStore.setKey(PlayerConfig.PREF_SUB_ITALIC, v)
-                                }
-                            },
-                            label = { Text("Italic") },
-                        )
-                    }
-                }
-            }
-
-            SettingsGroupCard(title = "Border") {
-                SubtitleColorPickerRow("Border Color", subBorderColor) {
-                    subBorderColor = it
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_COLOR, it)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SubtitleSliderRow("Border Size", parseBorderSize, 0f..10f) {
-                    subBorderSize = it.toInt().toString()
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BORDER_SIZE, subBorderSize)
-                    }
-                }
-            }
-
-            SettingsGroupCard(title = "Shadow") {
-                SubtitleColorPickerRow("Shadow Color", subShadowColor) {
-                    subShadowColor = it
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_COLOR, it)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SubtitleSliderRow("Shadow Offset", parseShadowOffset, 0f..10f) {
-                    subShadowOffset = it.toInt().toString()
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET, subShadowOffset)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                SubtitleSliderRow("Shadow Blur", parseBlur, 0f..10f) {
-                    subBlur = it.toInt().toString()
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.setKey(PlayerConfig.PREF_SUB_BLUR, subBlur)
-                    }
-                }
-            }
-            Button(
-                onClick = {
-                    subSize = "45"
-                    subColor = "#FFFFFF"
-                    subBg = "#00000000"
-                    subFont = null
-                    subBorderColor = "#000000"
-                    subBorderSize = "3"
-                    subShadowColor = "#00000000"
-                    subShadowOffset = "0"
-                    subBlur = "0"
-                    subBold = "no"
-                    subItalic = "no"
-                    subOverrideEnabled = false
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SIZE)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_COLOR)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BG)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_FONT)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_COLOR)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BORDER_SIZE)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_COLOR)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_SHADOW_OFFSET)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BLUR)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_BOLD)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_SUB_ITALIC)
-                        DesktopDataStore.removeKey(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onGloballyPositioned { containerCoordinates = it }
+                    .verticalScroll(scrollState)
+                    .padding(top = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                Text("Reset to Defaults", color = MaterialTheme.colorScheme.onErrorContainer)
-            }
+                SettingsGroupCard(title = "Subtitle Sources & Providers") {
+                    MviSettingsToggle(
+                        key = SubtitleConfig.PREF_OPENSUBTITLES_ENABLED,
+                        label = "OpenSubtitles (Stremio v3)",
+                        subtitle = "Auto-fetch multi-language subtitles via Stremio OpenSubtitles endpoint (No API key required).",
+                        uiState = uiState,
+                        onEvent = { event ->
+                            if (event is SettingsUiEvent.OnUpdateBoolean && event.key == SubtitleConfig.PREF_OPENSUBTITLES_ENABLED) {
+                                SubtitleConfig.setOpenSubtitlesEnabled(event.value)
+                            }
+                            viewModel.onEvent(event)
+                        },
+                        defaultValue = true,
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                SettingsGroupCard(title = "Global Override") {
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
+                        label = "Override Video Subtitles",
+                        subtitle = "When enabled, the player forces these custom styles over the video's default subtitle styles.",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = false,
+                    )
+                }
+
+                SettingsGroupCard(title = "Text") {
+                    MviSubtitleColorPickerRow(
+                        label = "Text Color",
+                        key = PlayerConfig.PREF_SUB_COLOR,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "#FFFFFF",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSettingsDropdown(
+                        key = PlayerConfig.PREF_SUB_FONT,
+                        label = "Subtitle Font",
+                        options = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it },
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "Inter",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSubtitleSliderRow(
+                        label = "Font Size",
+                        key = PlayerConfig.PREF_SUB_SIZE,
+                        range = 20f..100f,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "45",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSettingsDropdown(
+                        key = PlayerConfig.PREF_SUB_BG,
+                        label = "Background Style",
+                        options = listOf("#00000000" to "Transparent", "#80000000" to "Semi-transparent Black", "#FF000000" to "Solid Black"),
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "#00000000",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Font Style", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
+                            val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+
+                            FilterChip(
+                                selected = subBold == "yes",
+                                onClick = {
+                                    val v = if (subBold == "yes") "no" else "yes"
+                                    viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BOLD, v))
+                                },
+                                label = { Text("Bold") },
+                            )
+                            FilterChip(
+                                selected = subItalic == "yes",
+                                onClick = {
+                                    val v = if (subItalic == "yes") "no" else "yes"
+                                    viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_ITALIC, v))
+                                },
+                                label = { Text("Italic") },
+                            )
+                        }
+                    }
+                }
+
+                SettingsGroupCard(title = "Border") {
+                    MviSubtitleColorPickerRow(
+                        label = "Border Color",
+                        key = PlayerConfig.PREF_SUB_BORDER_COLOR,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "#000000",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSubtitleSliderRow(
+                        label = "Border Size",
+                        key = PlayerConfig.PREF_SUB_BORDER_SIZE,
+                        range = 0f..10f,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "3",
+                    )
+                }
+
+                SettingsGroupCard(title = "Shadow") {
+                    MviSubtitleColorPickerRow(
+                        label = "Shadow Color",
+                        key = PlayerConfig.PREF_SUB_SHADOW_COLOR,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "#00000000",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSubtitleSliderRow(
+                        label = "Shadow Offset",
+                        key = PlayerConfig.PREF_SUB_SHADOW_OFFSET,
+                        range = 0f..10f,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "0",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSubtitleSliderRow(
+                        label = "Shadow Blur",
+                        key = PlayerConfig.PREF_SUB_BLUR,
+                        range = 0f..10f,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "0",
+                    )
+                }
+                Button(
+                    onClick = {
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_SIZE, "45"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_COLOR, "#FFFFFF"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BG, "#00000000"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_FONT, "Inter"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BORDER_COLOR, "#000000"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BORDER_SIZE, "3"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_SHADOW_COLOR, "#00000000"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_SHADOW_OFFSET, "0"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BLUR, "0"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BOLD, "no"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_ITALIC, "no"))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, false))
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Text("Reset to Defaults", color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
 
 @Composable
-fun SubtitleColorPickerRow(label: String, selectedHex: String, onColorSelected: (String) -> Unit) {
+fun MviSubtitleColorPickerRow(
+    label: String,
+    key: String,
+    uiState: SettingsUiState,
+    onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: String,
+) {
+    val selectedHex = uiState.stringSettings[key] ?: DesktopDataStore.getKey<String>(key) ?: defaultValue
     val colors = listOf("#00000000", "#000000", "#FFFFFF", "#FFFF00", "#00FFFF", "#FF9900", "#FF5555", "#55FF55")
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -340,7 +355,7 @@ fun SubtitleColorPickerRow(label: String, selectedHex: String, onColorSelected: 
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(hex.toColor())
-                        .clickable { onColorSelected(hex) }
+                        .clickable { onEvent(SettingsUiEvent.OnUpdateString(key, hex)) }
                         .then(
                             if (isSelected) {
                                 Modifier.padding(2.dp).background(Color.Transparent, CircleShape)
@@ -362,7 +377,17 @@ fun SubtitleColorPickerRow(label: String, selectedHex: String, onColorSelected: 
 }
 
 @Composable
-fun SubtitleSliderRow(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onValueChange: (Float) -> Unit) {
+fun MviSubtitleSliderRow(
+    label: String,
+    key: String,
+    range: ClosedFloatingPointRange<Float>,
+    uiState: SettingsUiState,
+    onEvent: (SettingsUiEvent) -> Unit,
+    defaultValue: String,
+) {
+    val valueStr = uiState.stringSettings[key] ?: DesktopDataStore.getKey<String>(key) ?: defaultValue
+    val value = valueStr.toFloatOrNull() ?: defaultValue.toFloat()
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -372,7 +397,7 @@ fun SubtitleSliderRow(label: String, value: Float, range: ClosedFloatingPointRan
         Text(value.toInt().toString(), modifier = Modifier.padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { onEvent(SettingsUiEvent.OnUpdateString(key, it.toInt().toString())) },
             valueRange = range,
             modifier = Modifier.width(200.dp),
             colors = SliderDefaults.colors(

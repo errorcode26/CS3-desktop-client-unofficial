@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.components
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -69,7 +68,15 @@ fun PluginUpdatesModal(
             .fillMaxWidth(0.82f)
             .fillMaxHeight(0.85f)
             .clip(RoundedCornerShape(22.dp))
-            .background(if (isAmoled) Color.Black else if (isLightMode) Color(0xFFF9FAFB) else Color(0xFF13141D))
+            .background(
+                if (isAmoled) {
+                    Color.Black
+                } else if (isLightMode) {
+                    Color(0xFFF9FAFB)
+                } else {
+                    Color(0xFF13141D)
+                },
+            )
             .border(
                 1.dp,
                 if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f),

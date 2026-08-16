@@ -137,9 +137,8 @@ void dispatchPlayerEvent(const std::wstring& message) {
         return;
     }
 
-    std::string str(message.begin(), message.end());
     jstring jType = env->NewStringUTF("message");
-    jstring jVal  = env->NewStringUTF(str.c_str());
+    jstring jVal  = env->NewString((const jchar*)message.data(), (jsize)message.length());
     env->CallVoidMethod(g_listener, g_listenerMethod, jType, jVal);
     env->DeleteLocalRef(jType);
     env->DeleteLocalRef(jVal);
@@ -258,6 +257,12 @@ public:
                 }
             }
 
+            if (evType == L"ui_ready") {
+                if (g_webviewController) {
+                    g_webviewController->put_IsVisible(TRUE);
+                }
+            }
+
             // Always dispatch to Kotlin for non-fast-path events (ui_ready, episodes, links, etc.)
             // For fast-path events also dispatch so Kotlin can update its own state tracking.
             dispatchPlayerEvent(wjson);
@@ -323,7 +328,7 @@ public:
 
         g_webviewController = controller;
         g_webviewController->AddRef();
-        g_webviewController->put_IsVisible(FALSE); // hidden until ui_ready
+        g_webviewController->put_IsVisible(TRUE);
 
         g_webviewController->get_CoreWebView2(&g_webview);
 
@@ -1192,16 +1197,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         if (g_webviewController) {
             RECT bounds = {0, 0, (LONG)physW, (LONG)physH};
             g_webviewController->put_Bounds(bounds);
-            
-            // Hide the webview during rapid resizing to prevent extreme lag
-            if (g_webviewReady) {
-                g_webviewController->put_IsVisible(FALSE);
-            }
-            
-            // Use a 100ms debounce timer to turn the UI back on once resizing stops
-            if (g_messageHwnd) {
-                SetTimer(g_messageHwnd, 0x4E52, 100, nullptr);
-            }
+            g_webviewController->put_IsVisible(TRUE);
         }
     });
 }

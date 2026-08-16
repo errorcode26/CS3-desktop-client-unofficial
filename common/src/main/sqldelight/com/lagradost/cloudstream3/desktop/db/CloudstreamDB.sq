@@ -81,21 +81,22 @@ selectLatestWatchHistoryForShow:
 SELECT * FROM WatchHistory WHERE showUrl = ? ORDER BY updateTime DESC LIMIT 1;
 
 
-CREATE TABLE IF NOT EXISTS PluginUpdates (
-    pluginName TEXT NOT NULL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS PluginUpdateHistory (
+    pluginName TEXT NOT NULL,
     version INTEGER NOT NULL,
     iconUrl TEXT,
-    timestamp INTEGER NOT NULL
+    timestamp INTEGER NOT NULL,
+    PRIMARY KEY (pluginName, version)
 );
 
 insertPluginUpdate:
-INSERT OR REPLACE INTO PluginUpdates(pluginName, version, iconUrl, timestamp) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO PluginUpdateHistory(pluginName, version, iconUrl, timestamp) VALUES (?, ?, ?, ?);
 
 selectAllPluginUpdates:
-SELECT * FROM PluginUpdates ORDER BY timestamp DESC;
+SELECT * FROM PluginUpdateHistory ORDER BY timestamp DESC;
 
 deleteOldPluginUpdates:
-DELETE FROM PluginUpdates WHERE pluginName NOT IN (SELECT pluginName FROM PluginUpdates ORDER BY timestamp DESC LIMIT 50);
+DELETE FROM PluginUpdateHistory WHERE rowid NOT IN (SELECT rowid FROM PluginUpdateHistory ORDER BY timestamp DESC LIMIT 100);
 
 deletePluginUpdate:
-DELETE FROM PluginUpdates WHERE pluginName = ?;
+DELETE FROM PluginUpdateHistory WHERE pluginName = ?;
