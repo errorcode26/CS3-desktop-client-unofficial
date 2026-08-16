@@ -16,6 +16,8 @@ object PlayerConfig {
     const val PREF_SUB_BG = "player_sub_bg"
     const val PREF_YTDL_FORMAT = "player_ytdl_format"
     const val PREF_PREFERRED_QUALITY = "player_preferred_quality"
+    const val PREF_PREFERRED_AUDIO_LANG = "player_preferred_audio_lang"
+    const val PREF_PREFERRED_SUB_LANG = "player_preferred_sub_lang"
     const val PREF_AUTO_PLAY = "player_auto_play"
     const val PREF_AUTO_PLAY_WAIT_FOR_LINKS = "player_auto_play_wait_for_links"
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
@@ -30,6 +32,8 @@ object PlayerConfig {
     const val PREF_SUB_BOLD = "player_sub_bold"
     const val PREF_SUB_ITALIC = "player_sub_italic"
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
+    const val PREF_SHOW_END_TIME = "player_show_end_time"
+    const val PREF_SHOW_CLOCK = "player_show_clock"
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
         // Unlock maximum rendering quality
@@ -51,7 +55,8 @@ object PlayerConfig {
 
         // Subtitle Background (Default: None/Transparent -> #00000000)
         val subBg = DesktopDataStore.getKey<String>(PREF_SUB_BG) ?: "#00000000"
-        lib.mpv_set_option_string(handle, "sub-bg-color", subBg)
+        lib.mpv_set_option_string(handle, "sub-back-color", subBg)
+        lib.mpv_set_option_string(handle, "sub-border-style", "background-box")
 
         // Advanced Subtitle Styling
         DesktopDataStore.getKey<String>(PREF_SUB_BORDER_COLOR)?.let { lib.mpv_set_option_string(handle, "sub-border-color", it) }

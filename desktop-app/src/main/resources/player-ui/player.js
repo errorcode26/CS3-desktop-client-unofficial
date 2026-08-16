@@ -203,14 +203,23 @@
     const loadingContainer = document.getElementById('loadingContainer');
     const loadingStatus = document.getElementById('loadingStatus');
 
-    
     const titleDisplay  = document.getElementById('titleDisplay');
     const nextEpBtn     = document.getElementById('nextEpBtn');
     const episodesBtn   = document.getElementById('episodesBtn');
     const episodesPanel = document.getElementById('episodesPanel');
+    const chaptersBtn   = document.getElementById('chaptersBtn');
+    const chaptersPanel = document.getElementById('chaptersPanel');
+    const chaptersList  = document.getElementById('chaptersList');
+    const chaptersSubtitle = document.getElementById('chaptersSubtitle');
     const resumeOverlay = document.getElementById('resumeOverlay');
     const seasonSelectWrap = document.getElementById('seasonSelectWrap');
     const seasonSelect     = document.getElementById('seasonSelect');
+
+    const seekWrap      = document.getElementById('seekWrap');
+    const seekChapters  = document.getElementById('seekChapters');
+    const seekTooltip   = document.getElementById('seekTooltip');
+    let _cachedChapters = [];
+    let _activeChapterIndex = -1;
 
     // Watch Next Elements
     const watchNextPopup        = document.getElementById('watchNextPopup');
@@ -231,7 +240,7 @@
     const zoneRight         = document.getElementById('zoneRight');
 
     // Panel toggles
-    const panels = ['episodesPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
+    const panels = ['episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
 
     // SVG Icons
     const SVGS = {
@@ -366,17 +375,15 @@
     });
 
     // Close buttons
-    document.getElementById('closeEpisodesBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeServersBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeSubsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    
-
-
-    document.getElementById('closeSettingsBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeQualityBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeAudioBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeSpeedBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
-    document.getElementById('closeAspectBtn').addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeEpisodesBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeChaptersBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeServersBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeSubsBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeSettingsBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeQualityBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeAudioBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeSpeedBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeAspectBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
 
     // Season Dropdown Selector Change Event
     seasonSelect.addEventListener('change', e => {
@@ -572,18 +579,57 @@
             }
         }
         timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+
+        // Update active chapter in real time
+        if (_cachedChapters && _cachedChapters.length > 0) {
+            let activeIdx = -1;
+            for (let i = _cachedChapters.length - 1; i >= 0; i--) {
+                if (currentPosMs >= _cachedChapters[i].timeMs) {
+                    activeIdx = i;
+                    break;
+                }
+            }
+            if (activeIdx !== _activeChapterIndex) {
+                _activeChapterIndex = activeIdx;
+                const items = chaptersList?.querySelectorAll('.chapter-item');
+                if (items) {
+                    items.forEach((item, idx) => {
+                        if (idx === activeIdx) item.classList.add('active');
+                        else item.classList.remove('active');
+                    });
+                }
+            }
+        }
         
-        // Update End Time Clock
-        const endTimeDisplay = document.getElementById('endTimeDisplay');
-        const endTimeContainer = document.getElementById('endTimeContainer');
-        const showEndTime = document.getElementById('btnToggleEndTime')?.classList.contains('active') ?? true;
-        
-        if (endTimeDisplay && endTimeContainer) {
-            if (showEndTime && durationMs > 0 && currentPosMs < durationMs && globalIsPlaying) {
+        if (!window._clockTimerAdded) {
+            window._clockTimerAdded = true;
+            setInterval(() => { if (typeof updateClockDisplay === 'function') updateClockDisplay(); }, 1000);
+        }
+
+        const updateClockDisplay = () => {
+            const endTimeDisplay = document.getElementById('endTimeDisplay');
+            const endTimeContainer = document.getElementById('endTimeContainer');
+            const showEndTime = document.getElementById('btnToggleEndTime')?.classList.contains('active') ?? false;
+            const showClock = document.getElementById('btnToggleClock')?.classList.contains('active') ?? false;
+            
+            if (!endTimeDisplay || !endTimeContainer) return;
+
+            if (!showEndTime && !showClock) {
+                endTimeContainer.style.display = 'none';
+                return;
+            }
+
+            let parts = [];
+            
+            if (showClock) {
+                let clockStr = new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
+                parts.push(`Current Time ${clockStr}`);
+            }
+            
+            if (showEndTime && durationMs > 0 && currentPosMs < durationMs) {
                 let currentSpeedStr = document.getElementById('speedBtn')?.innerText.replace('×', '') || "1";
                 let currentSpeed = parseFloat(currentSpeedStr) || 1.0;
                 
-                // If the hold-speed hud is active, override with the displayed speed
                 const holdSpeedHud = document.getElementById('holdSpeedHud');
                 if (holdSpeedHud && holdSpeedHud.classList.contains('show')) {
                     const hudText = document.getElementById('holdSpeedHudText')?.innerText || "";
@@ -592,13 +638,19 @@
                 }
                 
                 let msLeft = (durationMs - currentPosMs) / currentSpeed;
-                let endStr = new Date(Date.now() + msLeft).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                endTimeDisplay.innerText = `Ends at ${endStr}`;
+                let endStr = new Date(Date.now() + msLeft).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
+                parts.push(`Ends at ${endStr}`);
+            }
+            
+            if (parts.length > 0) {
+                endTimeDisplay.innerText = parts.join(' • ');
                 endTimeContainer.style.display = 'inline-flex';
             } else {
                 endTimeContainer.style.display = 'none';
             }
-        }
+        };
+
+        updateClockDisplay();
         
         const wasPlaying = globalIsPlaying;
         if (s.isPlaying !== undefined) {
@@ -697,7 +749,9 @@
             if (activeServerFilter === 'Auto / HLS') return isHls || isDash;
             if (activeServerFilter === 'MP4 (Downloadable)') return !isHls && !isDash;
             
-            const qStr = String(l.quality).toLowerCase();
+            const qVal = l.quality;
+            const isAutoQuality = !qVal || qVal === 400 || qVal <= 0;
+            const qStr = isAutoQuality ? '' : String(qVal).toLowerCase();
             if (activeServerFilter === '4K') return qStr === '2160' || qStr === '4k';
             if (activeServerFilter === '1080p') return qStr === '1080';
             if (activeServerFilter === '720p') return qStr === '720';
@@ -716,7 +770,9 @@
             if (isHls || isDash) availableChips.add('Auto / HLS');
             else availableChips.add('MP4 (Downloadable)');
             
-            const qStr = String(l.quality).toLowerCase();
+            const qVal = l.quality;
+            const isAutoQuality = !qVal || qVal === 400 || qVal <= 0;
+            const qStr = isAutoQuality ? '' : String(qVal).toLowerCase();
             if (qStr === '2160' || qStr === '4k') availableChips.add('4K');
             else if (qStr === '1080') availableChips.add('1080p');
             else if (qStr === '720') availableChips.add('720p');
@@ -736,8 +792,13 @@
         }
 
         document.getElementById('serversList').innerHTML = filtered.map(l => {
-            const qStr = l.quality ? String(l.quality) : '';
-            const qStrLower = qStr.toLowerCase();
+            const qVal = l.quality;
+            const isAutoQuality = !qVal || qVal === 400 || qVal <= 0;
+            const isHls = l.isM3u8 || (l.name || '').toLowerCase().includes('hls') || (l.url || '').includes('.m3u8');
+            const isDash = l.isDash || (l.name || '').toLowerCase().includes('dash') || (l.url || '').includes('.mpd');
+            
+            const qStr = isAutoQuality ? (isHls ? 'HLS' : isDash ? 'DASH' : 'Auto') : (String(qVal) + 'p');
+            const qStrLower = String(qVal || '').toLowerCase();
             const is4K = qStrLower.includes('2160') || qStrLower.includes('4k');
             const isHD = qStrLower.includes('1080') || qStrLower.includes('720') || qStrLower.includes('hd');
             
@@ -745,6 +806,7 @@
             let badgeClass = 'sd';
             if (is4K) { badgeText = '4K'; badgeClass = 'hd'; }
             else if (isHD) { badgeText = 'HD'; badgeClass = 'hd'; }
+            else if (isAutoQuality) { badgeText = isHls ? 'HLS' : isDash ? 'DASH' : 'AUTO'; badgeClass = 'hd'; }
             
             const urlEncoded = encodeURIComponent(l.url || '');
             return `<div class="srv-item ${l.isActive ? 'active' : ''}" onclick="send('changeLink', decodeURIComponent('${urlEncoded}'));closeAllPanels();">
@@ -752,7 +814,7 @@
                 <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
                 <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
                 <span class="srv-quality">${qStr}</span>
-                ${qStr ? `<span class="srv-badge ${badgeClass}">${badgeText}</span>` : ''}
+                <span class="srv-badge ${badgeClass}">${badgeText}</span>
             </div>`;
         }).join('');
     };
@@ -1022,7 +1084,10 @@
                         st = 'waiting';
                         icon = '';
                     }
-                    const quality = l.quality ? `<span style="font-size:11px;opacity:0.5;margin-left:8px;">${l.quality}</span>` : '';
+                    const qVal = l.quality;
+                    const isAutoQuality = !qVal || qVal === 400 || qVal <= 0;
+                    const qualityLabel = isAutoQuality ? '' : `${qVal}p`;
+                    const quality = qualityLabel ? `<span style="font-size:11px;opacity:0.5;margin-left:8px;">${qualityLabel}</span>` : '';
                     return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.06, 0.5)}s">
                         <div style="display: flex; flex-direction: column; align-items: flex-start;">
                             <div>${l.name}${quality}</div>
@@ -1117,53 +1182,88 @@
         }
         // Audio Tracks
         let audioHtml = '';
+        const renderedAudioNames = new Set();
+
+        // 1. Native MPV Audio Tracks (already attached to MPV engine)
         if (meta.audioTracks && meta.audioTracks.length > 0) {
-            audioHtml += meta.audioTracks.map(t => `
-                <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
-                    <span class="track-name">${t.name || ('Track ' + t.id)}</span>
-                    <span class="track-check">${SVGS.check}</span>
-                </div>`).join('');
+            for (const t of meta.audioTracks) {
+                const displayName = t.name || ('Track ' + t.id);
+                renderedAudioNames.add(displayName.toLowerCase().trim());
+                audioHtml += `
+                    <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
+                        <span class="track-name">${displayName}</span>
+                        <span class="track-check">${t.isSelected ? SVGS.check : ''}</span>
+                    </div>`;
+            }
         }
+
+        // 2. Lazy Proxy Audio Tracks (available alternative languages)
         if (meta.lazyAudioTracks && meta.lazyAudioTracks.length > 0) {
-            audioHtml += meta.lazyAudioTracks.map(t => `
-                <div class="track-item" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
-                    <span class="track-name">${t.name}</span>
-                    <span class="track-check"></span>
-                </div>`).join('');
+            for (const t of meta.lazyAudioTracks) {
+                const displayName = t.name;
+                if (!renderedAudioNames.has(displayName.toLowerCase().trim())) {
+                    const isActive = meta.activeLazyAudioTrackUrl === t.url;
+                    audioHtml += `
+                        <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
+                            <span class="track-name">${displayName}</span>
+                            <span class="track-check">${isActive ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            }
         }
         document.getElementById('audioList').innerHTML = audioHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">No audio tracks</div>`;
 
         // Video Tracks (Qualities)
         let videoHtml = '';
-        if (meta.videoTracks && meta.videoTracks.length > 0) {
-            videoHtml += meta.videoTracks.map(t => {
-                const isHD = t.name.includes('1080') || t.name.includes('720');
-                const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
-                return `
-                <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
-                    <span class="track-name">${t.name} ${resBadge}</span>
-                    <span class="track-check">${SVGS.check}</span>
-                </div>`;
-            }).join('');
-        }
+        const renderedVideoNames = new Set();
+
+        // 1. Lazy Video Quality Variants (from HLS / DASH manifests)
         if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
-            videoHtml += meta.lazyVideoTracks.map(t => {
-                const isHD = t.name.includes('1080') || t.name.includes('720');
+            const height = meta.resolution ? meta.resolution.split('x')[1] : null;
+            for (const t of meta.lazyVideoTracks) {
+                const displayName = t.name;
+                renderedVideoNames.add(displayName.toLowerCase().trim());
+                const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
                 const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
                 
-                const height = meta.resolution ? meta.resolution.split('x')[1] : null;
                 const isActive = meta.activeLazyVideoTrackUrl 
                     ? (t.url === meta.activeLazyVideoTrackUrl)
-                    : (height && t.name.includes(height));
+                    : (height && (displayName.includes(height + 'p') || displayName.startsWith(height)));
                     
-                return `
-                <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
-                    <span class="track-name">${t.name} ${resBadge}</span>
+                videoHtml += `
+                    <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
+                        <span class="track-name">${displayName} ${resBadge}</span>
+                        <span class="track-check">${isActive ? SVGS.check : ''}</span>
+                    </div>`;
+            }
+        }
+
+        // 2. Native MPV Video Tracks (if multiple native video tracks exist)
+        if (meta.videoTracks && meta.videoTracks.length > 1) {
+            for (const t of meta.videoTracks) {
+                const displayName = t.name || ('Track ' + t.id);
+                if (!renderedVideoNames.has(displayName.toLowerCase().trim())) {
+                    const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
+                    const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+                    videoHtml += `
+                        <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
+                            <span class="track-name">${displayName} ${resBadge}</span>
+                            <span class="track-check">${t.isSelected ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            }
+        } else if (meta.videoTracks && meta.videoTracks.length === 1 && videoHtml === '') {
+            const t = meta.videoTracks[0];
+            const displayName = meta.resolution || t.name || 'Auto';
+            const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
+            const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+            videoHtml += `
+                <div class="track-item active" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
+                    <span class="track-name">${displayName} ${resBadge}</span>
                     <span class="track-check">${SVGS.check}</span>
                 </div>`;
-            }).join('');
         }
-        document.getElementById('videoList').innerHTML = videoHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">Auto (No qualities available)</div>`;
+        document.getElementById('videoList').innerHTML = videoHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">Auto (Default)</div>`;
 
         // Subtitle Tracks
         let subHtml = '';
@@ -1250,20 +1350,11 @@
             }
         }
 
-        // Initialize Background Slider
+        // Initialize Background Select
         if (meta.activeSubtitleBackground) {
-            const bgHex = meta.activeSubtitleBackground;
-            if (bgHex.length === 9) {
-                const alphaHex = bgHex.substring(1, 3);
-                const alphaInt = parseInt(alphaHex, 16);
-                if (!isNaN(alphaInt)) {
-                    const bgSlider = document.getElementById('subBgSlider');
-                    const bgVal = document.getElementById('subBgVal');
-                    if (bgSlider && bgVal) {
-                        bgSlider.value = alphaInt;
-                        bgVal.innerText = alphaInt;
-                    }
-                }
+            const bgSelect = document.getElementById('subBgInput');
+            if (bgSelect) {
+                bgSelect.value = meta.activeSubtitleBackground;
             }
         }
 
@@ -1329,7 +1420,89 @@
             `).join('');
         }
         document.getElementById('shaderList').innerHTML = shaderHtml;
+
+        // ── Chapters Handling ─────────────────────────────────────────
+        _cachedChapters = meta.chapters || [];
+        _activeChapterIndex = typeof meta.currentChapterIndex === 'number' ? meta.currentChapterIndex : -1;
+        
+        renderChaptersList(_cachedChapters, _activeChapterIndex);
+        renderSeekbarChapters(_cachedChapters);
     };
+
+    const renderChaptersList = (chapters, activeIndex) => {
+        if (!chaptersList) return;
+        if (!chapters || chapters.length === 0) {
+            chaptersList.innerHTML = '<div style="padding: 24px; text-align: center; color: rgba(255,255,255,0.4); font-size: 13px;">No chapters found for this video</div>';
+            if (chaptersSubtitle) chaptersSubtitle.innerText = 'No chapters available';
+            return;
+        }
+        
+        if (chaptersSubtitle) {
+            chaptersSubtitle.innerText = `${chapters.length} chapter${chapters.length > 1 ? 's' : ''}`;
+        }
+        
+        chaptersList.innerHTML = chapters.map((ch, idx) => {
+            const isActive = idx === activeIndex;
+            return `
+                <div class="chapter-item ${isActive ? 'active' : ''}" onclick="send('seekTo', ${ch.timeMs}); closeAllPanels();">
+                    <div class="chapter-info">
+                        <div class="chapter-num">${idx + 1}</div>
+                        <div class="chapter-title">${escapeHtml(ch.title || `Chapter ${idx + 1}`)}</div>
+                    </div>
+                    <div class="chapter-time">${fmt(ch.timeMs)}</div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    const renderSeekbarChapters = (chapters) => {
+        if (!seekChapters) return;
+        seekChapters.innerHTML = '';
+        if (!chapters || chapters.length <= 1 || durationMs <= 0) return;
+        
+        chapters.forEach((ch, idx) => {
+            if (idx === 0 && ch.timeMs === 0) return; // Skip zero start position
+            const pct = Math.max(0, Math.min(100, (ch.timeMs / durationMs) * 100));
+            const notch = document.createElement('div');
+            notch.className = 'chapter-notch';
+            notch.style.left = `${pct}%`;
+            notch.title = `${ch.title || `Chapter ${idx + 1}`} (${fmt(ch.timeMs)})`;
+            seekChapters.appendChild(notch);
+        });
+    };
+
+    // Seekbar Hover Tooltip
+    if (seekWrap && seekTooltip) {
+        seekWrap.addEventListener('mousemove', e => {
+            if (durationMs <= 0) return;
+            const rect = seekWrap.getBoundingClientRect();
+            const offsetX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+            const pct = offsetX / rect.width;
+            const hoverTimeMs = pct * durationMs;
+            
+            let chapterText = '';
+            if (_cachedChapters && _cachedChapters.length > 0) {
+                let matchingCh = null;
+                for (let i = _cachedChapters.length - 1; i >= 0; i--) {
+                    if (hoverTimeMs >= _cachedChapters[i].timeMs) {
+                        matchingCh = _cachedChapters[i];
+                        break;
+                    }
+                }
+                if (matchingCh && matchingCh.title) {
+                    chapterText = `<span class="seek-tooltip-chapter">${escapeHtml(matchingCh.title)}</span>`;
+                }
+            }
+            
+            seekTooltip.innerHTML = `${fmt(hoverTimeMs)}${chapterText}`;
+            seekTooltip.style.left = `${offsetX}px`;
+            seekTooltip.classList.add('visible');
+        });
+        
+        seekWrap.addEventListener('mouseleave', () => {
+            seekTooltip.classList.remove('visible');
+        });
+    }
 
     const dismissProbingOverlay = (userInitiated = false) => {
         // Once dismissed (by user click OR by onPlaybackReady), it stays dismissed
@@ -1416,6 +1589,32 @@
             const btn = document.getElementById('btnToggleAutoPlay');
             if (btn) {
                 if (window.autoPlayEnabled) {
+                    btn.classList.add('active');
+                    btn.innerText = 'On';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Off';
+                }
+            }
+        }
+
+        if (s.showEndTime !== undefined) {
+            const btn = document.getElementById('btnToggleEndTime');
+            if (btn) {
+                if (s.showEndTime === true) {
+                    btn.classList.add('active');
+                    btn.innerText = 'On';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Off';
+                }
+            }
+        }
+
+        if (s.showClock !== undefined) {
+            const btn = document.getElementById('btnToggleClock');
+            if (btn) {
+                if (s.showClock === true) {
                     btn.classList.add('active');
                     btn.innerText = 'On';
                 } else {
@@ -1546,18 +1745,202 @@
     }
 
     // Subtitle Search Modal
+    // ── Subtitle Search Modal & Custom Dropdown ──────────────────────────────
+    const ALL_SUB_LANGUAGES = [
+        { code: '', label: 'All Languages', badge: 'ALL', popular: true },
+        { code: 'en', label: 'English', badge: 'ENG', popular: true },
+        { code: 'es', label: 'Spanish', badge: 'ESP', popular: true },
+        { code: 'fr', label: 'French', badge: 'FRA', popular: true },
+        { code: 'de', label: 'German', badge: 'DEU', popular: true },
+        { code: 'pt', label: 'Portuguese', badge: 'POR', popular: true },
+        { code: 'it', label: 'Italian', badge: 'ITA', popular: true },
+        { code: 'ar', label: 'Arabic', badge: 'ARA', popular: true },
+        { code: 'hi', label: 'Hindi', badge: 'HIN', popular: true },
+        { code: 'ru', label: 'Russian', badge: 'RUS', popular: true },
+        { code: 'ja', label: 'Japanese', badge: 'JPN', popular: true },
+        { code: 'ko', label: 'Korean', badge: 'KOR', popular: true },
+        { code: 'zh', label: 'Chinese', badge: 'ZHO', popular: true },
+        { code: 'tr', label: 'Turkish', badge: 'TUR', popular: true },
+        { code: 'nl', label: 'Dutch', badge: 'NLD', popular: true },
+        { code: 'pl', label: 'Polish', badge: 'POL', popular: true },
+        { code: 'id', label: 'Indonesian', badge: 'IND', popular: true },
+        { code: 'vi', label: 'Vietnamese', badge: 'VIE', popular: true },
+        { code: 'th', label: 'Thai', badge: 'THA', popular: true },
+        { code: 'af', label: 'Afrikaans', badge: 'AFR' },
+        { code: 'sq', label: 'Albanian', badge: 'ALB' },
+        { code: 'am', label: 'Amharic', badge: 'AMH' },
+        { code: 'hy', label: 'Armenian', badge: 'ARM' },
+        { code: 'az', label: 'Azerbaijani', badge: 'AZE' },
+        { code: 'eu', label: 'Basque', badge: 'BAQ' },
+        { code: 'be', label: 'Belarusian', badge: 'BEL' },
+        { code: 'bn', label: 'Bengali', badge: 'BEN' },
+        { code: 'bs', label: 'Bosnian', badge: 'BOS' },
+        { code: 'bg', label: 'Bulgarian', badge: 'BUL' },
+        { code: 'my', label: 'Burmese', badge: 'MYA' },
+        { code: 'ca', label: 'Catalan', badge: 'CAT' },
+        { code: 'hr', label: 'Croatian', badge: 'HRV' },
+        { code: 'cs', label: 'Czech', badge: 'CZE' },
+        { code: 'da', label: 'Danish', badge: 'DAN' },
+        { code: 'et', label: 'Estonian', badge: 'EST' },
+        { code: 'tl', label: 'Filipino', badge: 'FIL' },
+        { code: 'fi', label: 'Finnish', badge: 'FIN' },
+        { code: 'gl', label: 'Galician', badge: 'GLG' },
+        { code: 'ka', label: 'Georgian', badge: 'GEO' },
+        { code: 'el', label: 'Greek', badge: 'ELL' },
+        { code: 'gu', label: 'Gujarati', badge: 'GUJ' },
+        { code: 'he', label: 'Hebrew', badge: 'HEB' },
+        { code: 'hu', label: 'Hungarian', badge: 'HUN' },
+        { code: 'is', label: 'Icelandic', badge: 'ISL' },
+        { code: 'kn', label: 'Kannada', badge: 'KAN' },
+        { code: 'kk', label: 'Kazakh', badge: 'KAZ' },
+        { code: 'km', label: 'Khmer', badge: 'KHM' },
+        { code: 'ku', label: 'Kurdish', badge: 'KUR' },
+        { code: 'lo', label: 'Lao', badge: 'LAO' },
+        { code: 'lv', label: 'Latvian', badge: 'LAV' },
+        { code: 'lt', label: 'Lithuanian', badge: 'LIT' },
+        { code: 'mk', label: 'Macedonian', badge: 'MKD' },
+        { code: 'ms', label: 'Malay', badge: 'MAY' },
+        { code: 'ml', label: 'Malayalam', badge: 'MAL' },
+        { code: 'mr', label: 'Marathi', badge: 'MAR' },
+        { code: 'mn', label: 'Mongolian', badge: 'MON' },
+        { code: 'ne', label: 'Nepali', badge: 'NEP' },
+        { code: 'no', label: 'Norwegian', badge: 'NOR' },
+        { code: 'fa', label: 'Persian', badge: 'PER' },
+        { code: 'pa', label: 'Punjabi', badge: 'PAN' },
+        { code: 'ro', label: 'Romanian', badge: 'RON' },
+        { code: 'sr', label: 'Serbian', badge: 'SRP' },
+        { code: 'si', label: 'Sinhala', badge: 'SIN' },
+        { code: 'sk', label: 'Slovak', badge: 'SLK' },
+        { code: 'sl', label: 'Slovenian', badge: 'SLV' },
+        { code: 'so', label: 'Somali', badge: 'SOM' },
+        { code: 'sw', label: 'Swahili', badge: 'SWA' },
+        { code: 'sv', label: 'Swedish', badge: 'SWE' },
+        { code: 'ta', label: 'Tamil', badge: 'TAM' },
+        { code: 'te', label: 'Telugu', badge: 'TEL' },
+        { code: 'uk', label: 'Ukrainian', badge: 'UKR' },
+        { code: 'ur', label: 'Urdu', badge: 'URD' },
+        { code: 'uz', label: 'Uzbek', badge: 'UZB' },
+        { code: 'yi', label: 'Yiddish', badge: 'YID' },
+    ];
+
+    window.toggleCustomLangDropdown = (e) => {
+        if (e) e.stopPropagation();
+        const popover = document.getElementById('customLangPopover');
+        const trigger = document.getElementById('customLangTrigger');
+        if (!popover) return;
+        const isOpen = popover.style.display === 'flex';
+        if (isOpen) {
+            popover.style.display = 'none';
+        } else {
+            popover.style.display = 'flex';
+            renderCustomLangOptions('');
+            const searchInp = document.getElementById('customLangSearchInput');
+            if (searchInp) {
+                searchInp.value = '';
+                searchInp.focus();
+            }
+        }
+    };
+
+    window.filterCustomLanguages = (query) => {
+        renderCustomLangOptions(query.trim().toLowerCase());
+    };
+
+    window.selectCustomLanguage = (code, label) => {
+        const hiddenInp = document.getElementById('subSearchLang');
+        const labelEl = document.getElementById('selectedLangLabel');
+        const popover = document.getElementById('customLangPopover');
+        if (hiddenInp) hiddenInp.value = code;
+        if (labelEl) labelEl.innerText = label;
+        if (popover) popover.style.display = 'none';
+    };
+
+    const renderCustomLangOptions = (filterText) => {
+        const listEl = document.getElementById('customLangOptionsList');
+        if (!listEl) return;
+        const currentCode = document.getElementById('subSearchLang')?.value || '';
+
+        let filtered = ALL_SUB_LANGUAGES;
+        if (filterText) {
+            filtered = ALL_SUB_LANGUAGES.filter(l => 
+                l.label.toLowerCase().includes(filterText) ||
+                l.badge.toLowerCase().includes(filterText) ||
+                l.code.toLowerCase().includes(filterText)
+            );
+        }
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="color:#777;font-size:12px;text-align:center;padding:12px;">No languages found</div>';
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(l => {
+            const isSelected = l.code === currentCode;
+            return `
+            <div class="custom-lang-option ${isSelected ? 'selected' : ''}" onclick="selectCustomLanguage('${l.code}', '${l.label}')">
+                <span>${l.label}</span>
+                <span class="custom-lang-option-badge">${l.badge}</span>
+            </div>`;
+        }).join('');
+    };
+
+    // Close language popover if clicking outside
+    document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('customLangSelectWrap');
+        const popover = document.getElementById('customLangPopover');
+        if (popover && popover.style.display === 'flex' && wrap && !wrap.contains(e.target)) {
+            popover.style.display = 'none';
+        }
+    });
+
+    // Subtitle Search Modal
     window.openSubSearchModal = () => {
         const overlay = document.getElementById('subSearchOverlay');
         if (overlay) {
             overlay.style.display = 'flex';
-            // Also close other things if open, e.g. panel
             closeAllPanels();
+
+            // Auto-populate Title if present and not user-edited
+            const queryInput = document.getElementById('subSearchQuery');
+            const clearBtn = document.getElementById('subSearchClearBtn');
+            const seasonInput = document.getElementById('subSearchSeason');
+            const episodeInput = document.getElementById('subSearchEpisode');
+            const typeBadge = document.getElementById('subSearchTypeBadge');
+
+            if (queryInput && !queryInput._userEdited && currentTitle) {
+                // Strip episode parts e.g. "Breaking Bad - S01E01" -> "Breaking Bad"
+                let cleanTitle = currentTitle.split(' - ')[0].trim();
+                queryInput.value = cleanTitle;
+                if (clearBtn) clearBtn.style.display = cleanTitle ? 'flex' : 'none';
+            }
+
+            // Populate Season/Episode if active episode exists
+            const s = (activeEpInfo && activeEpInfo.season) ? activeEpInfo.season : '';
+            const ep = (activeEpInfo && activeEpInfo.episode) ? activeEpInfo.episode : '';
+            if (seasonInput) seasonInput.value = s || '';
+            if (episodeInput) episodeInput.value = ep || '';
+
+            if (typeBadge) {
+                if (s || ep) {
+                    typeBadge.innerText = `S${String(s || 1).padStart(2,'0')} E${String(ep || 1).padStart(2,'0')}`;
+                    typeBadge.style.color = '#90caf9';
+                    typeBadge.style.borderColor = 'rgba(33,150,243,0.3)';
+                } else {
+                    typeBadge.innerText = 'Movie';
+                    typeBadge.style.color = '#aaa';
+                    typeBadge.style.borderColor = 'rgba(255,255,255,0.12)';
+                }
+            }
+
+            queryInput?.focus();
         }
     };
 
     window.closeSubSearchModal = () => {
         const overlay = document.getElementById('subSearchOverlay');
         if (overlay) overlay.style.display = 'none';
+        const popover = document.getElementById('customLangPopover');
+        if (popover) popover.style.display = 'none';
     };
 
     window.showToast = (msg) => {
@@ -1569,7 +1952,7 @@
             document.body.appendChild(overlay);
         }
         const toast = document.createElement('div');
-        toast.style.cssText = 'background: rgba(0,0,0,0.85); color: white; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
+        toast.style.cssText = 'background: rgba(18,18,22,0.92); color: white; padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
         toast.innerText = msg;
         overlay.appendChild(toast);
         
@@ -1584,84 +1967,192 @@
         }, 3000);
     };
 
-    // Subtitle Search
+    // Subtitle Search Execution
     window.doSubSearch = () => {
         const query   = document.getElementById('subSearchQuery')?.value?.trim() || '';
         const lang    = document.getElementById('subSearchLang')?.value || '';
         const season  = document.getElementById('subSearchSeason')?.value?.trim() || '';
         const episode = document.getElementById('subSearchEpisode')?.value?.trim() || '';
-        if (!query) return;
+        if (!query) {
+            document.getElementById('subSearchQuery')?.focus();
+            return;
+        }
 
-        const resultsEl = document.getElementById('subSearchResults');
-        const statusEl  = document.getElementById('subSearchStatus');
+        const resultsEl  = document.getElementById('subSearchResults');
+        const statusEl   = document.getElementById('subSearchStatus');
+        const chipsEl    = document.getElementById('subSearchChipsContainer');
+        const searchBtn  = document.getElementById('subSearchBtn');
+        const btnText    = document.getElementById('subSearchBtnText');
+        const spinner    = document.getElementById('subSearchSpinner');
+
         if (resultsEl) resultsEl.innerHTML = '';
-        if (statusEl)  { statusEl.style.display = 'block'; statusEl.textContent = 'Searching...'; }
+        if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+        if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:10px;"><div class="subsearch-spinner"></div><span>Searching online providers...</span></div>';
+        }
+
+        if (searchBtn) searchBtn.style.pointerEvents = 'none';
+        if (btnText) btnText.style.display = 'none';
+        if (spinner) spinner.style.display = 'block';
 
         send('searchSubtitles', JSON.stringify({ query, lang, season, episode }));
     };
 
-    const handleSubtitleSearchResults = (p) => {
-        const statusEl  = document.getElementById('subSearchStatus');
-        const resultsEl = document.getElementById('subSearchResults');
-        if (!resultsEl) return;
+    // Render Subtitle Results with Quick Filters
+    let _cachedSearchResults = [];
+    let _activeFilterLang = 'all';
 
+    const handleSubtitleSearchResults = (p) => {
+        const statusEl   = document.getElementById('subSearchStatus');
+        const resultsEl  = document.getElementById('subSearchResults');
+        const chipsEl    = document.getElementById('subSearchChipsContainer');
+        const searchBtn  = document.getElementById('subSearchBtn');
+        const btnText    = document.getElementById('subSearchBtnText');
+        const spinner    = document.getElementById('subSearchSpinner');
+
+        if (searchBtn) searchBtn.style.pointerEvents = 'auto';
+        if (btnText) btnText.style.display = 'block';
+        if (spinner) spinner.style.display = 'none';
+
+        if (!resultsEl) return;
         if (statusEl) statusEl.style.display = 'none';
 
         const results = p.results || [];
+        _cachedSearchResults = results;
+        _activeFilterLang = 'all';
+
         if (results.length === 0) {
-            resultsEl.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:16px;">No subtitles found.</div>';
+            resultsEl.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:#777;gap:12px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="15" x2="16" y2="15"></line><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                <div style="font-size:14px;font-weight:500;">No subtitles found</div>
+                <div style="font-size:12px;color:#666;">Try adjusting the title or switching language filter to "All".</div>
+            </div>`;
             return;
         }
 
-        resultsEl.innerHTML = results.map((r, i) => {
-            const lang    = (r.lang || '??').substring(0, 3).toUpperCase();
-            const name    = (r.name || 'Unknown');
-            const source  = r.source || '';
-            const epTag   = [
+        // Build Language Counts for Quick Filter Chips
+        const langCounts = {};
+        results.forEach(r => {
+            const l = (r.langName || r.lang || 'Other');
+            langCounts[l] = (langCounts[l] || 0) + 1;
+        });
+
+        if (chipsEl && Object.keys(langCounts).length > 1) {
+            chipsEl.style.display = 'flex';
+            let chipHtml = `<div class="subsearch-quick-chip active" data-lang="all" onclick="filterSubResults('all')">All (${results.length})</div>`;
+            for (const [langName, count] of Object.entries(langCounts)) {
+                chipHtml += `<div class="subsearch-quick-chip" data-lang="${langName}" onclick="filterSubResults('${langName}')">${langName} (${count})</div>`;
+            }
+            chipsEl.innerHTML = chipHtml;
+        }
+
+        renderFilteredResults();
+    };
+
+    window.filterSubResults = (langName) => {
+        _activeFilterLang = langName;
+        const chips = document.querySelectorAll('.subsearch-quick-chip');
+        chips.forEach(c => {
+            if (c.dataset.lang === langName) c.classList.add('active');
+            else c.classList.remove('active');
+        });
+        renderFilteredResults();
+    };
+
+    const renderFilteredResults = () => {
+        const resultsEl = document.getElementById('subSearchResults');
+        if (!resultsEl) return;
+
+        let filtered = _cachedSearchResults;
+        if (_activeFilterLang !== 'all') {
+            filtered = _cachedSearchResults.filter(r => (r.langName || r.lang || 'Other') === _activeFilterLang);
+        }
+
+        if (filtered.length === 0) {
+            resultsEl.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;padding:24px;">No subtitles for selected filter.</div>';
+            return;
+        }
+
+        resultsEl.innerHTML = filtered.map((r, i) => {
+            const originalIndex = _cachedSearchResults.indexOf(r);
+            const badge = (r.langBadge || (r.lang || '??').substring(0, 3)).toUpperCase();
+            const name = (r.name || 'Unknown Subtitle');
+            const source = r.source || 'Online Provider';
+            const epTag = [
                 r.seasonNumber ? `S${String(r.seasonNumber).padStart(2,'0')}` : '',
                 r.epNumber     ? `E${String(r.epNumber).padStart(2,'0')}` : ''
             ].filter(Boolean).join(' ');
+
+            // Badge Color Class
+            let badgeClass = 'other';
+            if (badge === 'ENG') badgeClass = 'eng';
+            else if (badge === 'ESP' || badge === 'SPA' || badge === 'SPL') badgeClass = 'esp';
+            else if (badge === 'FRA' || badge === 'FRE') badgeClass = 'fra';
+            else if (badge === 'DEU' || badge === 'GER') badgeClass = 'deu';
+            else if (badge === 'ARA') badgeClass = 'ara';
+            else if (badge === 'HIN') badgeClass = 'hin';
+            else if (badge === 'POR' || badge === 'POB') badgeClass = 'por';
+
             return `
-            <div class="sub-result-item" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 16px;border:1px solid rgba(255,255,255,0.05);transition:all 0.2s ease;">
-                <div style="background:rgba(229,57,53,0.15);border:1px solid rgba(229,57,53,0.3);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:#ef9a9a;white-space:nowrap;box-shadow:inset 0 1px 3px rgba(0,0,0,0.2);">${lang}</div>
+            <div class="sub-result-item" onclick="downloadSubtitle(event, ${originalIndex})">
+                <div class="sub-lang-pill ${badgeClass}">${badge}</div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="color:#eee;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
-                        ${epTag ? `<span style="color:#aaa;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;">${epTag}</span>` : ''}
+                        <span style="color:#f0f0f0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+                        ${epTag ? `<span style="color:#90caf9;background:rgba(33,150,243,0.12);border:1px solid rgba(33,150,243,0.25);padding:1px 6px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;">${epTag}</span>` : ''}
                     </div>
-                    <div style="color:#888;font-size:12px;margin-top:4px;font-style:normal;display:flex;align-items:center;gap:4px;">
+                    <div style="color:#777;font-size:12px;margin-top:3px;display:flex;align-items:center;gap:5px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                        ${source}
+                        <span>${source}</span>
                     </div>
                 </div>
-                <button class="sub-download-btn" onclick="downloadSubtitle(event, ${i})"
-                    style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s ease;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <button class="sub-download-btn" id="subDlBtn_${originalIndex}" onclick="downloadSubtitle(event, ${originalIndex})" title="Download and Apply Subtitle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 </button>
             </div>`;
         }).join('');
-
-        // Store results for download handler
-        window._subSearchResults = results;
     };
 
     window.downloadSubtitle = (e, index) => {
-        const results = window._subSearchResults;
-        if (!results || !results[index]) return;
+        if (e) e.stopPropagation();
+        const results = _cachedSearchResults;
+        if (!results || !results[index]) {
+            console.error('[SubSearch] Invalid index:', index);
+            return;
+        }
         const r = results[index];
+        console.log('[SubSearch] Downloading subtitle:', r);
         
-        const btn = e.currentTarget;
-        btn.innerHTML = '...';
-        btn.style.opacity = '0.5';
-        btn.style.pointerEvents = 'none';
+        const btn = document.getElementById(`subDlBtn_${index}`) || (e ? e.currentTarget : null);
+        if (btn) {
+            btn.classList.add('downloading');
+            btn.innerHTML = '<div class="subsearch-spinner" style="width:16px;height:16px;border-width:2px;"></div>';
+        }
 
-        send('downloadSubtitle', JSON.stringify({ idPrefix: r.idPrefix, data: r.data }));
+        send('downloadSubtitle', JSON.stringify({
+            idPrefix: r.idPrefix || '',
+            data: r.data || '',
+            name: r.name || '',
+            lang: r.lang || '',
+            source: r.source || '',
+        }));
         
-        // Show loading state briefly then close
-        setTimeout(() => closeSubSearchModal(), 800);
+        // Brief success feedback then close modal
+        setTimeout(() => {
+            if (btn) {
+                btn.classList.remove('downloading');
+                btn.classList.add('success');
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            }
+            setTimeout(() => {
+                closeSubSearchModal();
+            }, 500);
+        }, 400);
     };
 
-    // Mark query as user-edited so we stop auto-filling it
+    // Mark query as user-edited
     document.getElementById('subSearchQuery')?.addEventListener('input', function() {
         this._userEdited = true;
     });
@@ -1823,6 +2314,7 @@
     nextEpBtn.addEventListener('click', e => { e.stopPropagation(); triggerNextEpisode(); });
 
     episodesBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel('episodesPanel'); });
+    chaptersBtn?.addEventListener('click', e => { e.stopPropagation(); togglePanel('chaptersPanel'); });
     document.getElementById('serversBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('serversPanel'); });
     document.getElementById('subtitlesBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('subsPanel'); });
     document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('settingsPanel'); });
@@ -1893,12 +2385,7 @@
         document.getElementById('subSizeVal').innerText = e.target.value;
         send('setMpvProperty', `sub-font-size:${e.target.value}`); 
     });
-    document.getElementById('subBgSlider').addEventListener('input', e => {
-        e.stopPropagation();
-        document.getElementById('subBgVal').innerText = e.target.value;
-        const hex = parseInt(e.target.value).toString(16).padStart(2, '0').toUpperCase();
-        send('setSubtitleBackground', `#${hex}000000`);
-    });
+
     document.getElementById('subBorderSizeSlider').addEventListener('input', e => {
         e.stopPropagation();
         document.getElementById('subBorderSizeVal').innerText = e.target.value;
@@ -2052,7 +2539,8 @@
         // Instantly reset UI inputs to match defaults
         document.getElementById('subSizeSlider').value = 45;
         document.getElementById('subSizeVal').innerText = '45';
-        document.getElementById('subBgSlider').value = 0;
+        const subBgInput = document.getElementById('subBgInput');
+        if (subBgInput) subBgInput.value = '#00000000';
         document.getElementById('subBgVal').innerText = '0';
         document.getElementById('subBorderSizeSlider').value = 3;
         document.getElementById('subBorderSizeVal').innerText = '3';
@@ -2126,12 +2614,18 @@
         if (badge) badge.innerText = `${currentSpeed || 1}x`;
 
         ctxMenu.style.display = 'block';
-        const rect = ctxMenu.getBoundingClientRect();
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
+        
+        const zoom = parseFloat(getComputedStyle(document.body).zoom) || 1;
+        const scaledX = x / zoom;
+        const scaledY = y / zoom;
+        const winW = window.innerWidth / zoom;
+        const winH = window.innerHeight / zoom;
+        
+        const w = ctxMenu.offsetWidth;
+        const h = ctxMenu.offsetHeight;
 
-        const posX = (x + rect.width > winW) ? (winW - rect.width - 10) : x;
-        const posY = (y + rect.height > winH) ? (winH - rect.height - 10) : y;
+        const posX = (scaledX + w > winW) ? (winW - w - 10) : scaledX;
+        const posY = (scaledY + h > winH) ? (winH - h - 10) : scaledY;
 
         ctxMenu.style.left = `${posX}px`;
         ctxMenu.style.top = `${posY}px`;
@@ -2255,6 +2749,18 @@
                 send('setVolume', currentVolume);
                 showHudToast(`Volume: ${currentVolume}%`);
                 break;
+            case 'PageUp':
+                if (_cachedChapters && _cachedChapters.length > 0) {
+                    e.preventDefault();
+                    send('previousChapter');
+                }
+                break;
+            case 'PageDown':
+                if (_cachedChapters && _cachedChapters.length > 0) {
+                    e.preventDefault();
+                    send('nextChapter');
+                }
+                break;
             case 'Equal': case 'NumpadAdd': case 'BracketRight':
                 currentSpeed = Math.min(3.0, Math.round((currentSpeed + 0.25) * 100) / 100);
                 send('setSpeed', currentSpeed);
@@ -2353,12 +2859,30 @@
             if (isActive) {
                 btnToggleEndTime.classList.remove('active');
                 btnToggleEndTime.innerText = 'Off';
+                send('setPrefShowEndTime', 'false');
             } else {
                 btnToggleEndTime.classList.add('active');
                 btnToggleEndTime.innerText = 'On';
+                send('setPrefShowEndTime', 'true');
             }
-            // Trigger UI update
-            handleStateUpdate({});
+            if (typeof updateClockDisplay === 'function') updateClockDisplay();
+        });
+    }
+
+    const btnToggleClock = document.getElementById('btnToggleClock');
+    if (btnToggleClock) {
+        btnToggleClock.addEventListener('click', () => {
+            const isActive = btnToggleClock.classList.contains('active');
+            if (isActive) {
+                btnToggleClock.classList.remove('active');
+                btnToggleClock.innerText = 'Off';
+                send('setPrefShowClock', 'false');
+            } else {
+                btnToggleClock.classList.add('active');
+                btnToggleClock.innerText = 'On';
+                send('setPrefShowClock', 'true');
+            }
+            if (typeof updateClockDisplay === 'function') updateClockDisplay();
         });
     }
 

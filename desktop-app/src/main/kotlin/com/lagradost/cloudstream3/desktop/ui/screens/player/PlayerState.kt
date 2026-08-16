@@ -2,10 +2,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player
 
 import com.lagradost.cloudstream3.desktop.player.MpvLibrary
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class PlayerState {
     internal val _positionMs = MutableStateFlow(0L)
@@ -52,12 +51,22 @@ class PlayerState {
         val isSelected: Boolean,
     )
 
+    data class Chapter(
+        val index: Int,
+        val title: String,
+        val timeMs: Long,
+    )
+
     internal val _subtitleTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
     val subtitleTracks: StateFlow<List<VideoTrack>> = _subtitleTracks.asStateFlow()
     internal val _audioTracks = MutableStateFlow<List<VideoTrack>>(emptyList())
     val audioTracks: StateFlow<List<VideoTrack>> = _audioTracks.asStateFlow()
     internal val _videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
     val videoTracks: StateFlow<List<VideoTrack>> = _videoTracks.asStateFlow()
+    internal val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
+    val chapters: StateFlow<List<Chapter>> = _chapters.asStateFlow()
+    internal val _currentChapterIndex = MutableStateFlow<Int>(-1)
+    val currentChapterIndex: StateFlow<Int> = _currentChapterIndex.asStateFlow()
     internal val _activeLazyVideoTrackUrl = MutableStateFlow<String?>(null)
     val activeLazyVideoTrackUrl: StateFlow<String?> = _activeLazyVideoTrackUrl.asStateFlow()
 
@@ -107,6 +116,9 @@ class PlayerState {
      * Resets all playback state for a new stream load.
      * Call this before ComposeMpvPlayer loads a new URL so the UI shows correct initial state.
      */
+    internal val _activeLazyAudioTrackUrl = MutableStateFlow<String?>(null)
+    val activeLazyAudioTrackUrl: StateFlow<String?> = _activeLazyAudioTrackUrl.asStateFlow()
+
     fun reset() {
         _positionMs.value = 0L
         _durationMs.value = 0L
@@ -118,6 +130,11 @@ class PlayerState {
         lastSeekTime = 0L
         targetSeekMs = -1L
         _activeLazyVideoTrackUrl.value = null
+        _activeLazyAudioTrackUrl.value = null
+        _audioTracks.value = emptyList()
+        _subtitleTracks.value = emptyList()
+        _videoTracks.value = emptyList()
+        com.lagradost.player.impl.proxy.LocalStreamProxyState.reset()
     }
 
     fun togglePlayPause() {
@@ -366,41 +383,66 @@ class PlayerState {
             // MPV command: audio-add <url> select <title> <lang>
             val cmd = "audio-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
             MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
-
-            // Remove from proxy state to prevent TrackRevealer from adding it again and to hide it from UI
-            val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
-            proxyState.lazyAudioTracks.value = proxyState.lazyAudioTracks.value.filter { it.url != track.url }
+            _activeLazyAudioTrackUrl.value = track.url
         }
     }
 
     fun loadLazySubtitleTrack(track: LazyTrack) {
-        mpvHandle?.let {
-            val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
-            val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
-            val safeLang = track.language.replace("\\", "\\\\").replace("\"", "\\\"")
-            // MPV command: sub-add <url> select <title> <lang>
-            val cmd = "sub-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
-            MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
+        mpvHandle?.let { handle ->
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    val cleanPath = if (track.url.startsWith("http", ignoreCase = true)) {
+                        com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.downloadAndExtractSubtitle(
+                            idPrefix = "stream_extractor",
+                            data = track.url,
+                            name = track.name,
+                            lang = track.language,
+                            source = "Stream",
+                        ) ?: track.url.replace("\\", "/")
+                    } else {
+                        track.url.replace("\\", "/")
+                    }
+                    val safeName = track.name.replace("\"", "").trim()
+                    val safeLang = track.language.replace("\"", "").trim()
+                    val cmd = "sub-add \"$cleanPath\" select \"$safeName\" \"$safeLang\""
+                    MpvLibrary.INSTANCE.mpv_command_string(handle, cmd)
+                    MpvLibrary.INSTANCE.mpv_set_property_string(handle, "sub-visibility", "yes")
 
-            val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
-            proxyState.lazySubtitleTracks.value = proxyState.lazySubtitleTracks.value.filter { t -> t.url != track.url }
+                    val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
+                    proxyState.lazySubtitleTracks.value = proxyState.lazySubtitleTracks.value.filter { t -> t.url != track.url }
+                } catch (e: Exception) {
+                    com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to load lazy subtitle: ${e.message}", e)
+                }
+            }
         }
     }
 
     fun loadLazyVideoTrack(track: LazyTrack) {
-        mpvHandle?.let {
+        mpvHandle?.let { handle ->
             val currentPos = _positionMs.value / 1000.0
-            // MPV's hls-bitrate property does NOT work dynamically at runtime with lavf!
-            // We must force a reload of the specific Media Playlist variant at the current timestamp.
+            val currentAudioUrl = _activeLazyAudioTrackUrl.value
+            val currentLazyAudio = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == currentAudioUrl }
+                ?: com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.firstOrNull()
+
             try {
-                // Set the start time property directly; older libmpv versions fail to parse 
+                // Set the start time property directly; older libmpv versions fail to parse
                 // it as a 4th argument in the loadfile command array.
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "start", currentPos.toString())
+                MpvLibrary.INSTANCE.mpv_set_property_string(handle, "start", currentPos.toString())
                 MpvLibrary.INSTANCE.mpv_command(
-                    it, 
-                    arrayOf("loadfile", track.url, "replace", null)
+                    handle,
+                    arrayOf("loadfile", track.url, "replace", null),
                 )
                 _activeLazyVideoTrackUrl.value = track.url
+
+                // Re-attach the active audio track so video quality switching retains audio seamlessly!
+                if (currentLazyAudio != null) {
+                    val safeAudioUrl = currentLazyAudio.url.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val safeAudioName = currentLazyAudio.name.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val safeAudioLang = currentLazyAudio.language.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val audioCmd = "audio-add \"$safeAudioUrl\" select \"$safeAudioName\" \"$safeAudioLang\""
+                    MpvLibrary.INSTANCE.mpv_command_string(handle, audioCmd)
+                    _activeLazyAudioTrackUrl.value = currentLazyAudio.url
+                }
             } catch (e: Exception) {
                 com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to switch video track: ${e.message}", e)
             }
@@ -438,6 +480,24 @@ class PlayerState {
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "panscan", "1.0")
                 }
             }
+        }
+    }
+
+    fun nextChapter() {
+        mpvHandle?.let {
+            MpvLibrary.INSTANCE.mpv_command_string(it, "add chapter 1")
+        }
+    }
+
+    fun previousChapter() {
+        mpvHandle?.let {
+            MpvLibrary.INSTANCE.mpv_command_string(it, "add chapter -1")
+        }
+    }
+
+    fun seekToChapter(index: Int) {
+        mpvHandle?.let {
+            MpvLibrary.INSTANCE.mpv_command_string(it, "set chapter $index")
         }
     }
 }

@@ -127,7 +127,9 @@ object HlsRewriter {
                     l.trim().startsWith("#EXT-X-MEDIA:TYPE=AUDIO") &&
                         URI_REGEX.find(l)?.groupValues?.get(1) == bestAudioUrl
                 }?.let { Regex("""GROUP-ID="([^"]+)"""").find(it)?.groupValues?.get(1) }
-            } else null
+            } else {
+                null
+            }
 
             // Pass 2: Reconstruct playlist keeping only best video variant, DEFAULT audio variant, and ALL subtitles as lazy
             val rewritten = buildString {
@@ -159,23 +161,7 @@ object HlsRewriter {
                             val uri = uriMatch.groupValues[1]
                             val absolute = resolveUrl(baseUrl, uri)
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
-
-                            val isDefault = trim.contains("DEFAULT=YES", ignoreCase = true) ||
-                                (bestAudioGroupId != null &&
-                                    Regex("""GROUP-ID="([^"]+)"""").find(trim)?.groupValues?.get(1) == bestAudioGroupId &&
-                                    uri == bestAudioUrl)
-
-                            if (isDefault) {
-                                // Only embed the DEFAULT audio track in the manifest so MPV starts instantly.
-                                val newLine = trim.replace(uriMatch.groupValues[0], "URI=\"$proxied\"")
-                                appendLine(newLine)
-                            } else {
-                                // Defer all other audio tracks — MPV would probe every one before starting otherwise.
-                                lazyAudios.add(ProxyTrack(proxied, name, lang))
-                            }
-                        } else {
-                            // Embedded audio (no URI) — keep it in the manifest as-is
-                            appendLine(trim)
+                            lazyAudios.add(ProxyTrack(proxied, name, lang))
                         }
                         continue
                     }
@@ -204,8 +190,8 @@ object HlsRewriter {
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
 
                             // Keep ALL variants in the proxy M3U8 so MPV can natively and seamlessly switch them!
-                            // We do not add them to lazyVideoTracks, because native track switching via `vid` is much more optimized than `video-add`.
-                            appendLine(pendingVariantLine)
+                            val cleanedVariantLine = pendingVariantLine!!.replace(Regex(""",?AUDIO="[^"]+""""), "")
+                            appendLine(cleanedVariantLine)
                             appendLine(proxied)
 
                             // Expose to Compose UI so we can use `hls-bitrate` property

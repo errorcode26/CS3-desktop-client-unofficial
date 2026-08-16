@@ -3,10 +3,10 @@ package com.lagradost.cloudstream3.desktop.player
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.lagradost.cloudstream3.desktop.ui.components.PlayerShortcutsModal
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.player.impl.PlayerLinkHandler
-import com.lagradost.cloudstream3.desktop.ui.components.PlayerShortcutsModal
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -82,6 +82,88 @@ fun BaseMpvPlayer(
                 var diagnosticLogged = false
                 var playbackStartedAt = 0L
 
+                fun pollTracksAndChapters(handle: com.sun.jna.Pointer) {
+                    val trackCountStr = MpvLibrary.getPropertyString(handle, "track-list/count")
+                    val trackCount = trackCountStr?.toIntOrNull() ?: 0
+
+                    val audioTracks = mutableListOf<PlayerState.VideoTrack>()
+                    val subTracks = mutableListOf<PlayerState.VideoTrack>()
+                    val videoTracks = mutableListOf<PlayerState.VideoTrack>()
+
+                    for (i in 0 until trackCount) {
+                        val id = MpvLibrary.getPropertyString(handle, "track-list/$i/id")?.toIntOrNull() ?: continue
+                        val type = MpvLibrary.getPropertyString(handle, "track-list/$i/type") ?: continue
+                        val lang = MpvLibrary.getPropertyString(handle, "track-list/$i/lang")
+                        val title = MpvLibrary.getPropertyString(handle, "track-list/$i/title")
+                        val selected = MpvLibrary.getPropertyString(handle, "track-list/$i/selected") == "yes"
+
+                        val name = when {
+                            !title.isNullOrBlank() -> title
+                            !lang.isNullOrBlank() -> lang.uppercase()
+                            else -> if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id"
+                        }
+                        if (type == "audio") {
+                            audioTracks.add(PlayerState.VideoTrack(id, name, selected))
+                        } else if (type == "sub") {
+                            subTracks.add(PlayerState.VideoTrack(id, name, selected))
+                        } else if (type == "video") {
+                            val res = MpvLibrary.getPropertyString(handle, "track-list/$i/demux-h") ?: ""
+                            val fpsVal = MpvLibrary.getPropertyString(handle, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
+                            val finalName = if (res.isNotEmpty()) {
+                                if (fpsVal > 30.0) "${res}p ${fpsVal.toInt()}fps" else "${res}p"
+                            } else {
+                                name
+                            }
+                            videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
+                        }
+                    }
+                    playerState?._audioTracks?.value = audioTracks
+                    playerState?._subtitleTracks?.value = subTracks
+                    playerState?._videoTracks?.value = videoTracks
+
+                    // Auto-attach active, preferred, or default audio track if MPV has 0 native audio tracks loaded
+                    val lazyAudios = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value
+                    if (audioTracks.isEmpty() && lazyAudios.isNotEmpty()) {
+                        val currentActiveUrl = playerState?.activeLazyAudioTrackUrl?.value
+                        val targetTrack = if (currentActiveUrl != null) {
+                            lazyAudios.find { it.url == currentActiveUrl } ?: lazyAudios.first()
+                        } else {
+                            val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
+                            if (prefLang != "auto" && prefLang.isNotBlank()) {
+                                lazyAudios.firstOrNull { it.language.contains(prefLang, ignoreCase = true) || it.name.contains(prefLang, ignoreCase = true) } ?: lazyAudios.first()
+                            } else {
+                                lazyAudios.first()
+                            }
+                        }
+                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "Auto-attaching audio track: ${targetTrack.name}")
+                        playerState?.loadLazyAudioTrack(PlayerState.LazyTrack(targetTrack.url, targetTrack.name, targetTrack.language, targetTrack.bitrate))
+                    }
+
+                    val w = MpvLibrary.getPropertyString(handle, "width") ?: "0"
+                    val hw = MpvLibrary.getPropertyString(handle, "height") ?: "0"
+                    if (w != "0" && hw != "0") {
+                        playerState?._resolution?.value = "${w}x$hw"
+                    }
+
+                    // Poll Chapters
+                    val chapterCount = MpvLibrary.getPropertyString(handle, "chapter-list/count")?.toIntOrNull() ?: 0
+                    if (chapterCount > 0) {
+                        val chapters = mutableListOf<PlayerState.Chapter>()
+                        for (c in 0 until chapterCount) {
+                            val chTitle = MpvLibrary.getPropertyString(handle, "chapter-list/$c/title") ?: "Chapter ${c + 1}"
+                            val chTime = MpvLibrary.getPropertyString(handle, "chapter-list/$c/time")?.toDoubleOrNull() ?: 0.0
+                            chapters.add(PlayerState.Chapter(index = c, title = chTitle, timeMs = (chTime * 1000).toLong()))
+                        }
+                        playerState?._chapters?.value = chapters
+                        val currentChapter = MpvLibrary.getPropertyString(handle, "chapter")?.toIntOrNull() ?: -1
+                        playerState?._currentChapterIndex?.value = currentChapter
+                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "Extracted $chapterCount chapters from stream")
+                    } else {
+                        playerState?._chapters?.value = emptyList()
+                        playerState?._currentChapterIndex?.value = -1
+                    }
+                }
+
                 while (isActive) {
                     try {
                         // Block IO thread for up to 50ms waiting for an event.
@@ -120,8 +202,12 @@ fun BaseMpvPlayer(
                                             if (!hasEverPlayed) {
                                                 com.lagradost.common.logging.AppLogger.e("Player:MPV", "Stream instantly ended (EOF) before ever playing.")
                                                 currentOnPlaybackError("Stream failed to load or instantly ended.")
+                                            } else if (lastDur > 0 && lastPos < lastDur - 15.0) {
+                                                // Premature EOF: Stream connection was dropped before actual end of video
+                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream closed prematurely at ${lastPos}s of ${lastDur}s. Triggering automatic source retry/fallback.")
+                                                currentOnPlaybackError("Stream connection was interrupted.")
                                             } else {
-                                                com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached EOF successfully.")
+                                                com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF successfully.")
                                                 currentOnFinished()
                                             }
                                         }
@@ -149,6 +235,10 @@ fun BaseMpvPlayer(
                                 // MPV_EVENT_FILE_LOADED (8) or MPV_EVENT_PLAYBACK_RESTART (21)
                                 8, 21 -> {
                                     waitingForTimePosReset = false
+                                    // Immediate track and chapter extraction upon load
+                                    lastTrackPollMs = System.currentTimeMillis()
+                                    pollTracksAndChapters(h)
+
                                     if (!hasEverPlayed) {
                                         hasEverPlayed = true
                                         playbackStartedAt = System.currentTimeMillis()
@@ -296,56 +386,8 @@ fun BaseMpvPlayer(
                         // never stall the 100ms seek-bar update window.
                         if (now - lastTrackPollMs >= 2000L) {
                             lastTrackPollMs = now
-                            val trackCountStr = MpvLibrary.getPropertyString(h, "track-list/count")
-                            val trackCount = trackCountStr?.toIntOrNull() ?: 0
+                            pollTracksAndChapters(h)
 
-                            val audioTracks = mutableListOf<PlayerState.VideoTrack>()
-                            val subTracks = mutableListOf<PlayerState.VideoTrack>()
-                            val videoTracks = mutableListOf<PlayerState.VideoTrack>()
-
-                            for (i in 0 until trackCount) {
-                                val id = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
-                                val type = MpvLibrary.getPropertyString(h, "track-list/$i/type") ?: continue
-                                val lang = MpvLibrary.getPropertyString(h, "track-list/$i/lang")
-                                val title = MpvLibrary.getPropertyString(h, "track-list/$i/title")
-                                val selected = MpvLibrary.getPropertyString(h, "track-list/$i/selected") == "yes"
-
-                                val name = buildString {
-                                    if (!lang.isNullOrBlank()) append(lang.uppercase())
-                                    if (!title.isNullOrBlank()) {
-                                        if (isNotEmpty()) append(" - ")
-                                        append(title)
-                                    }
-                                    if (isEmpty()) {
-                                        append(
-                                            if (type == "audio") {
-                                                "Audio $id"
-                                            } else if (type == "video") {
-                                                "Video $id"
-                                            } else {
-                                                "Subtitle $id"
-                                            },
-                                        )
-                                    }
-                                }
-                                if (type == "audio") {
-                                    audioTracks.add(PlayerState.VideoTrack(id, name, selected))
-                                } else if (type == "sub") {
-                                    subTracks.add(PlayerState.VideoTrack(id, name, selected))
-                                } else if (type == "video") {
-                                    val res = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
-                                    val fpsVal = MpvLibrary.getPropertyString(h, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
-                                    val finalName = if (res.isNotEmpty()) {
-                                        if (fpsVal > 30.0) "${res}p ${fpsVal.toInt()}fps" else "${res}p"
-                                    } else {
-                                        name
-                                    }
-                                    videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
-                                }
-                            }
-                            playerState?._audioTracks?.value = audioTracks
-                            playerState?._subtitleTracks?.value = subTracks
-                            playerState?._videoTracks?.value = videoTracks
                             // Poll Video Stats
                             if (playerState != null && playerState._showStats.value) {
                                 playerState._videoCodec.value = MpvLibrary.getPropertyString(h, "video-codec") ?: "Unknown"
@@ -403,6 +445,8 @@ fun BaseMpvPlayer(
             return@LaunchedEffect
         }
 
+        playerState?.reset()
+
         val lib = MpvLibrary.INSTANCE
 
         // NOTE: We intentionally do NOT inject headers into demuxer-lavf-o because the
@@ -455,12 +499,8 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
                 lib.mpv_set_property_string(handle, "force-seekable", "yes")
 
-                // Force fast startup and flawless cache rewinding for proxied HLS streams
-                lib.mpv_set_property_string(handle, "stream-lavf-o", "seekable=1,icy=0")
-                // 1MB probesize is a good balance: large enough to identify video/audio codec params,
-                // but small enough not to stall startup by reading entire segments.
+                // Fast probesize and instant start for proxied HLS streams
                 lib.mpv_set_property_string(handle, "demuxer-lavf-probesize", "1048576") // 1 MB
-                // Don't waste time analyzing stream durations at startup
                 lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "0") // 0 s
             }
             PlayerLinkHandler.StreamKind.DASH -> {
@@ -507,12 +547,27 @@ fun BaseMpvPlayer(
             }
         }
 
-        // Disable auto-probing of subtitles and pre-select English audio.
-        // Critical for complex HLS streams with 20+ tracks.
-        lib.mpv_set_property_string(handle, "alang", "eng,en")
-        lib.mpv_set_property_string(handle, "sub-auto", "no")
-        lib.mpv_set_property_string(handle, "sid", "no")
+        // Set dynamic audio and subtitle selection according to user preference:
+        val prefAudioLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
+        if (prefAudioLang != "auto" && prefAudioLang.isNotBlank()) {
+            lib.mpv_set_property_string(handle, "alang", prefAudioLang)
+        } else {
+            lib.mpv_set_property_string(handle, "alang", "")
+        }
         lib.mpv_set_property_string(handle, "aid", "auto")
+
+        val prefSubLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "auto"
+        if (prefSubLang != "auto" && prefSubLang != "off" && prefSubLang.isNotBlank()) {
+            lib.mpv_set_property_string(handle, "slang", prefSubLang)
+            lib.mpv_set_property_string(handle, "sid", "auto")
+            lib.mpv_set_property_string(handle, "sub-auto", "all")
+        } else if (prefSubLang == "off") {
+            lib.mpv_set_property_string(handle, "sid", "no")
+            lib.mpv_set_property_string(handle, "sub-auto", "no")
+        } else {
+            lib.mpv_set_property_string(handle, "sid", "auto")
+            lib.mpv_set_property_string(handle, "sub-auto", "fuzzy")
+        }
         lib.mpv_set_property_string(handle, "cursor-autohide", "1500")
 
         val startSec = startPositionMs / 1000L
@@ -561,7 +616,9 @@ fun BaseMpvPlayer(
 
         val cmdResult = try {
             lib.mpv_command(handle, arrayOf("loadfile", safeUrl, "replace", null))
-        } catch (_: Throwable) { -1 }
+        } catch (_: Throwable) {
+            -1
+        }
 
         if (cmdResult != 0) {
             lib.mpv_command_string(handle, "loadfile \"$safeUrl\"")
@@ -775,7 +832,7 @@ fun BaseMpvPlayer(
                                     lower == "x" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay 0.1")
                                     lower == "c" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
                                     lower == "v" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
-                                    lower == "f" -> currentOnFullscreenToggle?.invoke()
+                                    lower == "f" || lower == "f11" -> currentOnFullscreenToggle?.invoke()
                                     lower == "?" || lower == "f1" || lower == "h" -> currentOnShowShortcuts()
                                     lower.length == 1 && lower[0].isDigit() -> {
                                         val pct = (lower[0] - '0') * 10
@@ -791,10 +848,6 @@ fun BaseMpvPlayer(
             }
 
             override fun removeNotify() {
-                // Instantly hide and shrink the component to 0x0 to prevent the Skia/AWT
-                // teardown gap from exposing a white flash.
-                this.isVisible = false
-                this.bounds = java.awt.Rectangle(0, 0, 0, 0)
 
                 // Find and remove the dispatcher to prevent memory leaks
                 val focusManager = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
@@ -928,6 +981,9 @@ private fun awtKeyToMpv(e: KeyEvent): String? {
         KeyEvent.VK_END -> "END"
 
         KeyEvent.VK_Q -> "QUIT_OVERRIDE"
+
+        KeyEvent.VK_F11 -> "F11"
+        KeyEvent.VK_F12 -> "F12"
 
         in KeyEvent.VK_A..KeyEvent.VK_Z -> KeyEvent.getKeyText(e.keyCode).lowercase()
         in KeyEvent.VK_0..KeyEvent.VK_9 -> KeyEvent.getKeyText(e.keyCode)
