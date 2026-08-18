@@ -22,6 +22,7 @@ object PlayerConfig {
     const val PREF_AUTO_PLAY_WAIT_FOR_LINKS = "player_auto_play_wait_for_links"
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
     const val PREF_INTERPOLATION = "player_interpolation_enabled"
+    const val PREF_DEBAND = "player_deband"
     const val PREF_ACTIVE_SHADER = "player_active_shader"
     const val PREF_SUB_FONT = "player_sub_font"
     const val PREF_SUB_BORDER_COLOR = "player_sub_border_color"
@@ -59,16 +60,25 @@ object PlayerConfig {
         // Subtitle Background (Default: None/Transparent -> #00000000)
         val subBg = DesktopDataStore.getKey<String>(PREF_SUB_BG) ?: "#00000000"
         lib.mpv_set_option_string(handle, "sub-back-color", subBg)
-        lib.mpv_set_option_string(handle, "sub-border-style", "background-box")
+        val borderStyle = if (subBg == "#00000000" || subBg.isBlank() || subBg.startsWith("#00")) "outline-and-shadow" else "background-box"
+        lib.mpv_set_option_string(handle, "sub-border-style", borderStyle)
 
         // Advanced Subtitle Styling
-        DesktopDataStore.getKey<String>(PREF_SUB_BORDER_COLOR)?.let { lib.mpv_set_option_string(handle, "sub-border-color", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_BORDER_SIZE)?.let { lib.mpv_set_option_string(handle, "sub-border-size", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_COLOR)?.let { lib.mpv_set_option_string(handle, "sub-shadow-color", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_OFFSET)?.let { lib.mpv_set_option_string(handle, "sub-shadow-offset", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_BLUR)?.let { lib.mpv_set_option_string(handle, "sub-blur", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_BOLD)?.let { lib.mpv_set_option_string(handle, "sub-bold", it) }
-        DesktopDataStore.getKey<String>(PREF_SUB_ITALIC)?.let { lib.mpv_set_option_string(handle, "sub-italic", it) }
+        val subBorderColor = DesktopDataStore.getKey<String>(PREF_SUB_BORDER_COLOR) ?: "#000000"
+        val subBorderSize = DesktopDataStore.getKey<String>(PREF_SUB_BORDER_SIZE) ?: "3"
+        val subShadowColor = DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_COLOR) ?: "#000000"
+        val subShadowOffset = DesktopDataStore.getKey<String>(PREF_SUB_SHADOW_OFFSET) ?: "0"
+        val subBlur = DesktopDataStore.getKey<String>(PREF_SUB_BLUR) ?: "0"
+        val subBold = DesktopDataStore.getKey<String>(PREF_SUB_BOLD) ?: "no"
+        val subItalic = DesktopDataStore.getKey<String>(PREF_SUB_ITALIC) ?: "no"
+
+        lib.mpv_set_option_string(handle, "sub-border-color", subBorderColor)
+        lib.mpv_set_option_string(handle, "sub-border-size", subBorderSize)
+        lib.mpv_set_option_string(handle, "sub-shadow-color", subShadowColor)
+        lib.mpv_set_option_string(handle, "sub-shadow-offset", subShadowOffset)
+        lib.mpv_set_option_string(handle, "sub-blur", subBlur)
+        lib.mpv_set_option_string(handle, "sub-bold", subBold)
+        lib.mpv_set_option_string(handle, "sub-italic", subItalic)
 
         // Custom Subtitle Font & Override
         val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)
@@ -110,6 +120,10 @@ object PlayerConfig {
             lib.mpv_set_option_string(handle, "video-sync", "audio")
             lib.mpv_set_option_string(handle, "interpolation", "no")
         }
+
+        // Deband (Reduces color banding artifacts)
+        val deband = DesktopDataStore.getKey<Boolean>(PREF_DEBAND) ?: false
+        lib.mpv_set_option_string(handle, "deband", if (deband) "yes" else "no")
 
         // Custom Shaders (e.g. Anime4K)
         val activeShader = DesktopDataStore.getKey<String>(PREF_ACTIVE_SHADER)

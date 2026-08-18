@@ -130,8 +130,11 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                     DesktopDataStore.setKey(PREF_SEARCH_HISTORY, emptyList<String>())
                 }
             }
+            is SearchUiEvent.OnLoadMore -> loadMore()
         }
     }
+
+    private var currentPage = 1
 
     private fun addToHistory(query: String) {
         val trimmed = query.trim()
@@ -151,10 +154,11 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
         if (query.isBlank() || (!force && query == lastSearchedQuery)) return
 
         lastSearchedQuery = query
+        currentPage = 1
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            updateState { copy(isLoadingSearch = true, searchResultsGrouped = null) }
+            updateState { copy(isLoadingSearch = true, isLoadingMore = false, canPaginate = true, searchResultsGrouped = null) }
             try {
                 val providers = uiState.value.providers
 
@@ -191,6 +195,51 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 DesktopErrorReporter.report("Search failed", e)
             } finally {
                 updateState { copy(isLoadingSearch = false) }
+            }
+        }
+    }
+
+    private fun loadMore() {
+        val state = uiState.value
+        val query = state.searchQuery
+        if (state.isGlobalSearchEnabled || state.isLoadingSearch || state.isLoadingMore || !state.canPaginate || query.isBlank()) return
+
+        val activeProvider = state.providers.find { it.name == state.selectedProviderName } ?: state.providers.firstOrNull() ?: return
+        val currentGrouped = state.searchResultsGrouped ?: return
+        val currentItems = currentGrouped[activeProvider.name] ?: return
+
+        val nextPage = currentPage + 1
+        viewModelScope.launch {
+            updateState { copy(isLoadingMore = true) }
+            try {
+                com.lagradost.common.logging.AppLogger.i("Plugin:${activeProvider.name}", "Loading more search results (page $nextPage) for '$query'")
+                val res = SafePluginInvoker.invokeOrNull(
+                    tag = "SearchMore:${activeProvider.name}",
+                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                ) {
+                    activeProvider.search(query, nextPage)
+                }
+
+                if (res != null && res.items.isNotEmpty()) {
+                    val existingUrls = currentItems.map { it.url }.toSet()
+                    val newUniqueItems = res.items.filter { it.url !in existingUrls }
+                    if (newUniqueItems.isNotEmpty()) {
+                        currentPage = nextPage
+                        val updatedItems = currentItems + newUniqueItems
+                        val updatedMap = currentGrouped.toMutableMap().apply { put(activeProvider.name, updatedItems) }
+                        updateState { copy(searchResultsGrouped = updatedMap, canPaginate = true) }
+                        com.lagradost.common.logging.AppLogger.i("Plugin:${activeProvider.name}", "Appended ${newUniqueItems.size} new items (total: ${updatedItems.size})")
+                    } else {
+                        updateState { copy(canPaginate = false) }
+                    }
+                } else {
+                    updateState { copy(canPaginate = false) }
+                }
+            } catch (e: Throwable) {
+                com.lagradost.common.logging.AppLogger.e("Failed loading more search results: ${e.message}")
+                updateState { copy(canPaginate = false) }
+            } finally {
+                updateState { copy(isLoadingMore = false) }
             }
         }
     }

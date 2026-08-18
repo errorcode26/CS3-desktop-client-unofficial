@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,8 @@ data class VideoLaunchData(
     val startPositionMs: Long,
     val history: WatchHistory,
     val loadResponse: com.lagradost.cloudstream3.LoadResponse? = null,
+    val enrichedLogoUrl: String? = null,
+    val enrichedBackdropUrl: String? = null,
 )
 
 val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoLaunchData?) -> Unit> { { } }
@@ -152,8 +155,14 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                         },
                     )
 
+                    val rootContentModifier = if (blurRadius > 0.dp) {
+                        androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
+                    } else {
+                        androidx.compose.ui.Modifier.fillMaxSize()
+                    }
+
                     androidx.compose.foundation.layout.Box(
-                        modifier = androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius),
+                        modifier = rootContentModifier,
                     ) {
                         val activeInstance = childStack.active.instance
 

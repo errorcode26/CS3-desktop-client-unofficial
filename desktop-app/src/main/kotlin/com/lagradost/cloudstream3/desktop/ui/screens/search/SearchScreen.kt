@@ -499,6 +499,10 @@ fun ComposeSearchScreen(
                     searchResultsGrouped = resultsList,
                     selectedCategories = selectedCategories,
                     isLoadingSearch = isLoadingSearch,
+                    isLoadingMore = uiState.isLoadingMore,
+                    canPaginate = uiState.canPaginate,
+                    isGlobalSearchEnabled = isGlobalSearchEnabled,
+                    onLoadMore = { viewModel.onEvent(SearchUiEvent.OnLoadMore) },
                     onViewAll = { provider, title, items ->
                         com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.put(provider.name, title, items)
                         onNavigate(Config.CategoryGrid(provider.name, title))

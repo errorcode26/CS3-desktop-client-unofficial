@@ -448,16 +448,17 @@ fun WatchHistoryCard(
                     }
                 }
                 if (seText.isNotBlank()) {
+                    val isUpNext = history.duration == 0L && history.position == 0L
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
+                            .background(if (isUpNext) primary.copy(alpha = 0.85f) else Color.Black.copy(alpha = 0.6f))
                             .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 3.dp),
                     ) {
                         Text(
-                            text = seText.uppercase(),
+                            text = (if (isUpNext) "UP NEXT $seText" else seText).uppercase(),
                             color = Color.White,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
@@ -493,7 +494,9 @@ fun WatchHistoryCard(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
 
-                val timeLeftText = if (progress >= 1f) {
+                val timeLeftText = if (history.duration == 0L && history.position == 0L) {
+                    "Up Next"
+                } else if (progress >= 1f) {
                     "Completed"
                 } else if (history.duration > 0) {
                     val leftSeconds = history.duration - history.position

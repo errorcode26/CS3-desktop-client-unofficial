@@ -23,8 +23,6 @@ class DetailsViewModel(
     cachedUiState: DetailsUiState? = EnrichedDetailsCache.get(url),
 ) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
     initialState = cachedUiState?.copy(
-        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
-        isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
         fetchFailed = false,
         error = null,
     ) ?: DetailsUiState(
@@ -48,11 +46,19 @@ class DetailsViewModel(
         } else {
             null
         },
-        autoPlayEnabled = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true,
-        isEpisodesStackedView = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false,
     ),
 ) {
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
+            val isStacked = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false
+            updateState {
+                copy(
+                    autoPlayEnabled = autoPlay,
+                    isEpisodesStackedView = isStacked,
+                )
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             DesktopDataStore.historyUpdates.collect {
                 val currentDataUrl = uiState.value.response?.url ?: url
@@ -220,10 +226,33 @@ class DetailsViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val resp = uiState.value.response ?: uiState.value.fakeData ?: return@launch
 
-            val firstEp = if (resp is TvSeriesLoadResponse) {
-                resp.episodes.firstOrNull()
-            } else if (resp is AnimeLoadResponse) {
-                resp.episodes.values.firstOrNull()?.firstOrNull()
+            val allEpisodes = when (resp) {
+                is TvSeriesLoadResponse -> resp.episodes
+                is AnimeLoadResponse -> resp.episodes.values.flatten()
+                else -> emptyList()
+            }
+            val sortedEpisodes = allEpisodes.sortedWith(
+                compareBy<Episode> { it.season ?: 1 }
+                    .thenBy { it.episode ?: 1 },
+            )
+
+            val latestHistory = uiState.value.watchHistory.values.maxByOrNull { it.updateTime }
+            val isLatestCompleted = latestHistory != null && latestHistory.duration > 0 &&
+                com.lagradost.player.impl.PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
+
+            val targetEp = if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
+                if (isLatestCompleted) {
+                    val currentIdx = sortedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
+                    if (currentIdx != -1 && currentIdx + 1 < sortedEpisodes.size) {
+                        sortedEpisodes[currentIdx + 1]
+                    } else {
+                        sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+                    }
+                } else {
+                    sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+                }
+            } else if (sortedEpisodes.isNotEmpty()) {
+                sortedEpisodes.firstOrNull()
             } else if (resp is MovieLoadResponse) {
                 provider.newEpisode(resp.dataUrl) {
                     this.name = resp.name
@@ -233,9 +262,9 @@ class DetailsViewModel(
                 null
             }
 
-            if (firstEp != null) {
-                val history = buildWatchHistory(firstEp, resp)
-                val patchedData = patchEpisodeData(firstEp, resp)
+            if (targetEp != null) {
+                val history = buildWatchHistory(targetEp, resp)
+                val patchedData = patchEpisodeData(targetEp, resp)
                 handlePlayRequest(Triple(provider, patchedData, history))
             }
         }
@@ -339,6 +368,44 @@ class DetailsViewModel(
                 duration = dur,
             )
             DesktopDataStore.setLastWatched(history)
+
+            if (isWatched) {
+                val allEps = when (data) {
+                    is TvSeriesLoadResponse -> data.episodes
+                    is AnimeLoadResponse -> data.episodes.values.flatten()
+                    else -> emptyList()
+                }
+                val currentIdx = allEps.indexOfFirst { it.data == ep.data }
+                if (currentIdx != -1 && currentIdx + 1 < allEps.size) {
+                    val nextEp = allEps[currentIdx + 1]
+                    val existingNext = DesktopDataStore.getEpisodeWatched(parentId, nextEp.data)
+                    if (existingNext == null) {
+                        val nextEpHistory = WatchHistory(
+                            parentId = parentId,
+                            showName = data.name,
+                            showUrl = data.url,
+                            apiName = provider.name,
+                            posterUrl = data.posterUrl,
+                            episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
+                            screenshotUrl = null,
+                            episode = nextEp.episode,
+                            season = nextEp.season,
+                            episodeId = nextEp.data,
+                            position = 0,
+                            duration = 0,
+                            updateTime = System.currentTimeMillis() + 1000,
+                        )
+                        DesktopDataStore.setLastWatched(nextEpHistory)
+                    } else if (existingNext.position < (existingNext.duration * 0.9)) {
+                        DesktopDataStore.setLastWatched(
+                            existingNext.copy(
+                                updateTime = System.currentTimeMillis() + 1000,
+                                episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
+                            ),
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -376,6 +443,48 @@ class DetailsViewModel(
                         ),
                     )
                 }
+
+                // Advance to next episode after the batch if one exists
+                if (episodes.isNotEmpty()) {
+                    val allEps = when (data) {
+                        is TvSeriesLoadResponse -> data.episodes
+                        is AnimeLoadResponse -> data.episodes.values.flatten()
+                        else -> emptyList()
+                    }
+                    val lastWatchedEp = episodes.last()
+                    val lastIdx = allEps.indexOfFirst { it.data == lastWatchedEp.data }
+                    if (lastIdx != -1 && lastIdx + 1 < allEps.size) {
+                        val nextEp = allEps[lastIdx + 1]
+                        val existingNext = DesktopDataStore.getEpisodeWatched(parentId, nextEp.data)
+                        if (existingNext == null) {
+                            historiesToSave.add(
+                                WatchHistory(
+                                    parentId = parentId,
+                                    showName = data.name,
+                                    showUrl = data.url,
+                                    apiName = provider.name,
+                                    posterUrl = data.posterUrl,
+                                    episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
+                                    screenshotUrl = null,
+                                    episode = nextEp.episode,
+                                    season = nextEp.season,
+                                    episodeId = nextEp.data,
+                                    position = 0,
+                                    duration = 0,
+                                    updateTime = System.currentTimeMillis() + 1000,
+                                ),
+                            )
+                        } else if (existingNext.position < (existingNext.duration * 0.9)) {
+                            historiesToSave.add(
+                                existingNext.copy(
+                                    updateTime = System.currentTimeMillis() + 1000,
+                                    episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
+                                ),
+                            )
+                        }
+                    }
+                }
+
                 DesktopDataStore.setMultipleLastWatched(historiesToSave)
                 updateState { copy(backupSeasonHistory = newBackupMap) }
             } else {
@@ -447,6 +556,8 @@ class DetailsViewModel(
                         startPositionMs = resumeMs,
                         history = linkHistory,
                         loadResponse = response,
+                        enrichedLogoUrl = uiState.value.enrichedLogoUrl,
+                        enrichedBackdropUrl = uiState.value.enrichedBackdropUrl,
                     ),
                 ),
             )

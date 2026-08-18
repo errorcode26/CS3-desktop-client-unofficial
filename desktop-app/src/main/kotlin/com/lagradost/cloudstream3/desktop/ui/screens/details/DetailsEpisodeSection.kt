@@ -418,6 +418,7 @@ fun DetailsEpisodeSection(
                             onPlay = onPlay,
                             onDownload = onDownload,
                             onToggleWatched = onToggleWatched,
+                            onToggleSeasonWatched = onToggleSeasonWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
                         if (!isEpisodesStackedView) {
@@ -637,6 +638,7 @@ fun DetailsEpisodeSection(
                             onPlay = onPlay,
                             onDownload = onDownload,
                             onToggleWatched = onToggleWatched,
+                            onToggleSeasonWatched = onToggleSeasonWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
                         if (!isEpisodesStackedView) {
@@ -681,13 +683,22 @@ private fun RenderEpisodesSection(
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)?,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
+    onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
 ) {
+    val handleMarkPreviousWatched: (com.lagradost.cloudstream3.Episode) -> Unit = { targetEp ->
+        val targetIdx = allFilteredEpisodes.indexOfFirst { it.data == targetEp.data }
+        if (targetIdx >= 0) {
+            val epsToMark = allFilteredEpisodes.take(targetIdx + 1)
+            onToggleSeasonWatched(epsToMark, true)
+        }
+    }
+
     if (isEpisodesStackedView) {
         // BoxWithConstraints gives us the real available pixel width so we can
         // pass an explicit width to each card instead of weight(1f).
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-            val desiredWidth = 500f
+            val desiredWidth = 560f
             val columns = maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
             val gapDp = 24.dp
             val totalGapDp = gapDp * (columns - 1)
@@ -718,6 +729,7 @@ private fun RenderEpisodesSection(
                         onDownload = onDownload,
                         onToggleWatched = onToggleWatched,
                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                        onMarkPreviousWatched = handleMarkPreviousWatched,
                     )
                 }
             }
@@ -726,9 +738,10 @@ private fun RenderEpisodesSection(
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val cardWidth = remember(maxWidth) {
                 when {
-                    maxWidth >= 1400.dp -> 460.dp
-                    maxWidth >= 1000.dp -> 420.dp
-                    else -> minOf(360.dp, maxWidth * 0.82f)
+                    maxWidth >= 1800.dp -> 580.dp
+                    maxWidth >= 1400.dp -> 540.dp
+                    maxWidth >= 1000.dp -> 480.dp
+                    else -> minOf(420.dp, maxWidth * 0.85f)
                 }
             }
             LazyRow(
@@ -760,6 +773,7 @@ private fun RenderEpisodesSection(
                         onDownload = onDownload,
                         onToggleWatched = onToggleWatched,
                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                        onMarkPreviousWatched = handleMarkPreviousWatched,
                     )
                 }
             }

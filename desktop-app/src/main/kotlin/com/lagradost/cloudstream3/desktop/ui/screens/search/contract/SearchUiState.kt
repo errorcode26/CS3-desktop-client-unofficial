@@ -8,6 +8,8 @@ data class SearchUiState(
     val searchQuery: String = "",
     val searchResultsGrouped: Map<String, List<SearchResponse>>? = null,
     val isLoadingSearch: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val canPaginate: Boolean = true,
     val isGlobalSearchEnabled: Boolean = false,
     val selectedProviderName: String? = null,
     val selectedCategories: Set<TvType> = emptySet(),

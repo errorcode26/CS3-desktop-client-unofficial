@@ -126,7 +126,7 @@ fun SourcesOverlay(
 
                         if (failedLinks.containsKey(originalIndex)) {
                             Text(
-                                text = "Failed",
+                                text = failedLinks[originalIndex] ?: "Failed",
                                 color = Color.Red,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,

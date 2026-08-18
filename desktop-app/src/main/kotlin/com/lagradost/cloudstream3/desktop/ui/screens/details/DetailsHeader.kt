@@ -105,10 +105,8 @@ fun DetailsBackdrop(
                 // finishes. If we fall back mid-enrichment we trigger a CF storm for an image
                 // we'll crossfade away in 2 seconds anyway.
                 ?: if (uiState?.isEnriching == false) {
-                    data.backgroundPosterUrl?.takeIf { it.isNotBlank() }
-                        ?: data.posterUrl?.takeIf { it.isNotBlank() }
-                        ?: provider.fixUrlNull(data.backgroundPosterUrl)
-                        ?: provider.fixUrlNull(data.posterUrl)
+                    provider.fixUrlNull(data.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
+                        ?: provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
                 } else {
                     null
                 }
@@ -1018,6 +1016,15 @@ private fun ActorCard(
     onInvertToggle: () -> Unit,
     onClick: () -> Unit,
 ) {
+    var isHovered by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isHovered) 1.04f else 1.0f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
+        ),
+    )
+
     val (mainImgRaw, cornerImgRaw) = if (!isInverted || actor.voiceActor?.image.isNullOrBlank()) {
         Pair(actor.actor.image, actor.voiceActor?.image)
     } else {
@@ -1030,57 +1037,135 @@ private fun ActorCard(
         Pair(actor.voiceActor?.name ?: "", actor.actor.name)
     }
 
+    val roleStr = when {
+        actor.roleString?.equals("Director", ignoreCase = true) == true -> "DIRECTOR"
+        actor.roleString?.equals("Creator", ignoreCase = true) == true -> "CREATOR"
+        actor.role != null -> actor.role?.name?.uppercase()
+        !actor.roleString.isNullOrBlank() && subName.isNullOrBlank() -> null
+        else -> actor.roleString?.uppercase()
+    }
+
+    val secondaryText = when {
+        !subName.isNullOrBlank() -> subName
+        !actor.roleString.isNullOrBlank() && actor.roleString?.equals("Director", ignoreCase = true) != true && actor.roleString?.equals("Creator", ignoreCase = true) != true -> actor.roleString
+        else -> null
+    }
+
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(200.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(12.dp),
+            .width(165.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        when (event.type) {
+                            PointerEventType.Enter -> isHovered = true
+                            PointerEventType.Exit -> isHovered = false
+                        }
+                    }
+                }
+            }
+            .clickable { onClick() },
     ) {
-        Box(modifier = Modifier.size(170.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.72f)
+                .shadow(
+                    elevation = if (isHovered) 16.dp else 6.dp,
+                    shape = RoundedCornerShape(14.dp),
+                    ambientColor = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.5f),
+                    spotColor = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.5f),
+                )
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(
+                    width = if (isHovered) 1.5.dp else 1.dp,
+                    color = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(14.dp),
+                ),
+        ) {
             val actorImg = provider.fixUrlNull(mainImgRaw)
             if (actorImg != null) {
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(actorImg)
-                        .size(512, 512)
+                        .size(400, 560)
+                        .crossfade(true)
                         .build(),
                     contentDescription = mainName,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .shadow(16.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .shadow(16.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Default.Person,
                         contentDescription = mainName,
-                        modifier = Modifier.size(80.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(54.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
                 }
             }
 
+            // Bottom gradient scrim
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f))
+                        )
+                    )
+            )
+
+            // Top-left Role Badge
+            if (!roleStr.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .align(Alignment.TopStart)
+                        .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(6.dp))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = roleStr,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                        ),
+                        color = when (roleStr) {
+                            "MAIN" -> MaterialTheme.colorScheme.primary
+                            "SUPPORTING" -> Color(0xFF4DD0E1)
+                            "DIRECTOR", "CREATOR" -> Color(0xFFFFB74D)
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
+            }
+
+            // Bottom-right Dual Cast (Voice Actor) mini avatar badge
             val voiceActorImg = cornerImgRaw?.let { provider.fixUrlNull(it) }
             if (voiceActorImg != null) {
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(44.dp)
                         .align(Alignment.BottomEnd)
-                        .offset(x = 4.dp, y = 4.dp)
+                        .offset(x = (-6).dp, y = (-6).dp)
+                        .shadow(8.dp, CircleShape)
                         .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(4.dp)
+                        .padding(2.5.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onInvertToggle() },
@@ -1089,6 +1174,7 @@ private fun ActorCard(
                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                             .data(voiceActorImg)
                             .size(128, 128)
+                            .crossfade(true)
                             .build(),
                         contentDescription = subName,
                         contentScale = ContentScale.Crop,
@@ -1097,42 +1183,34 @@ private fun ActorCard(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(18.dp))
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Main Title (Character Name or Live Action Actor Name)
         Text(
-            mainName,
-            style = MaterialTheme.typography.titleMedium.copy(
-                shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
+            text = mainName,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
             ),
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            color = if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth(),
         )
 
-        if (!subName.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
+        // Secondary Text (Voice Actor name or Live Action Character Role)
+        if (!secondaryText.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                subName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
+                text = if (!subName.isNullOrBlank()) "🎙 $secondaryText" else secondaryText,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
-
-        val roleStr = actor.role?.name ?: actor.roleString
-        if (!roleStr.isNullOrBlank()) {
-            Text(
-                roleStr,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

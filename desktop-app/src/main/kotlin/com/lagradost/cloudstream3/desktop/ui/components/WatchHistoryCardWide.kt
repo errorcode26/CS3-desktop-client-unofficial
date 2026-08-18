@@ -256,11 +256,13 @@ fun WatchHistoryCardWide(
                     modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
                 ) {
                     if (isSeries) {
+                        val isUpNext = history.duration == 0L && history.position == 0L
+                        val prefix = if (isUpNext) "Up Next • " else ""
                         Text(
-                            text = seText,
+                            text = "$prefix$seText",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Color.White
+                            color = if (isUpNext) primary else Color.White,
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                     }

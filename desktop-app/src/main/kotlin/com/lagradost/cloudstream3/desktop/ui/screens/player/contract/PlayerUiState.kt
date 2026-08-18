@@ -1,4 +1,4 @@
-﻿package com.lagradost.cloudstream3.desktop.ui.screens.player.contract
+package com.lagradost.cloudstream3.desktop.ui.screens.player.contract
 
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.SubtitleFile
@@ -12,7 +12,7 @@ data class PlayerUiState(
     val nextEpisodeLinks: List<ExtractorLink> = emptyList(),
     val nextEpisodeSubtitles: List<SubtitleFile> = emptyList(),
     val targetEpisodeData: Episode? = null,
-    val failedLinks: Set<String> = emptySet(),
+    val failedLinks: Map<String, String> = emptyMap(),
     val countdownToNextEpisode: Int? = null,
     val autoPlayEnabled: Boolean = true,
     /** Single source of truth for the scrape/playback pipeline state. */

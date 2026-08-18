@@ -131,9 +131,8 @@ fun ComposeDetailsScreen(
 
         val bgUrl = remember(response, uiState) {
             uiState.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
-                ?: response?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
-                ?: response?.posterUrl?.takeIf { it.isNotBlank() }
-                ?: provider.fixUrlNull(response?.backgroundPosterUrl) ?: provider.fixUrlNull(response?.posterUrl)
+                ?: provider.fixUrlNull(response?.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
+                ?: provider.fixUrlNull(response?.posterUrl)?.takeIf { it.isNotBlank() }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -385,6 +384,23 @@ fun DetailsContent(
                         }
                     }
 
+                    val showCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
+                    val showEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
+                    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
+
+                    val currentFormattedTime by produceState(initialValue = "", key1 = clockTimeFormat) {
+                        val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
+                        while (true) {
+                            val formatter = try {
+                                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+                            } catch (_: Exception) {
+                                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                            }
+                            value = formatter.format(java.util.Date())
+                            kotlinx.coroutines.delay(1000L)
+                        }
+                    }
+
                     val remainingSecondsForEnd = remember(latestHistory, data, progress) {
                         if (latestHistory != null && latestHistory.duration > 0) {
                             if (progress > 0f && progress < 1f) {
@@ -399,14 +415,21 @@ fun DetailsContent(
                         }
                     }
 
-                    val endTimeStr = remember(remainingSecondsForEnd) {
+                    val formattedEndTime = remember(remainingSecondsForEnd, currentFormattedTime, clockTimeFormat) {
                         remainingSecondsForEnd?.let { secs ->
                             val calendar = java.util.Calendar.getInstance()
                             calendar.add(java.util.Calendar.SECOND, secs.toInt())
-                            val formatter = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                            val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
+                            val formatter = try {
+                                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+                            } catch (_: Exception) {
+                                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                            }
                             "Ends at ${formatter.format(calendar.time)}"
                         }
                     }
+
+                    val showTimePill = (showCurrentTime && currentFormattedTime.isNotBlank()) || (showEndTime && formattedEndTime != null)
 
                     val progressInfo = remember(latestHistory, progress) {
                         if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
@@ -441,7 +464,7 @@ fun DetailsContent(
                         }
                     }
 
-                    if (progressInfo != null || endTimeStr != null) {
+                    if (progressInfo != null || showTimePill) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -495,23 +518,78 @@ fun DetailsContent(
                                     }
                                 }
 
-                                if (endTimeStr != null) {
+                                if (showTimePill) {
                                     Box(
                                         modifier = Modifier
                                             .align(Alignment.CenterHorizontally)
-                                            .padding(top = 4.dp)
+                                            .padding(top = 6.dp)
+                                            .shadow(
+                                                elevation = 8.dp,
+                                                shape = RoundedCornerShape(100.dp),
+                                                ambientColor = Color.Black.copy(alpha = 0.5f),
+                                                spotColor = Color.Black.copy(alpha = 0.5f),
+                                            )
                                             .clip(RoundedCornerShape(100.dp))
-                                            .background(Color.Black.copy(alpha = 0.35f))
-                                            .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                                            .background(Color.Black.copy(alpha = 0.48f))
+                                            .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(100.dp))
+                                            .padding(horizontal = 14.dp, vertical = 5.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        Text(
-                                            text = endTimeStr,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            if (showCurrentTime && currentFormattedTime.isNotBlank()) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                ) {
+                                                    Text(
+                                                        text = "🕒",
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                    )
+                                                    Text(
+                                                        text = currentFormattedTime,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            letterSpacing = 0.3.sp,
+                                                        ),
+                                                        color = Color.White.copy(alpha = 0.95f),
+                                                    )
+                                                }
+                                            }
+
+                                            if (showCurrentTime && currentFormattedTime.isNotBlank() && showEndTime && formattedEndTime != null) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(3.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color.White.copy(alpha = 0.4f)),
+                                                )
+                                            }
+
+                                            if (showEndTime && formattedEndTime != null) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                ) {
+                                                    Text(
+                                                        text = "⏳",
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                    )
+                                                    Text(
+                                                        text = formattedEndTime,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            letterSpacing = 0.3.sp,
+                                                        ),
+                                                        color = Color.White.copy(alpha = 0.85f),
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

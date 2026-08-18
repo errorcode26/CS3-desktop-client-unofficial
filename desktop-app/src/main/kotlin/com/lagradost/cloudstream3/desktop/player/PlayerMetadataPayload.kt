@@ -5,6 +5,7 @@ data class PlayerUiSyncState(
     val year: Int?,
     val tags: List<String>?,
     val isProbing: Boolean,
+    val isScraping: Boolean = false,
     val backdropUrl: String?,
     val logoUrl: String?,
     val currentLinkIndex: Int,

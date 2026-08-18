@@ -244,7 +244,8 @@ object PlayerLinkHandler {
         val percent = position * 100 / duration
         if (percent >= RESUME_RESET_PERCENT) return 0
         if (percent <= RESUME_MIN_PERCENT) return 0
-        return position.coerceAtLeast(0)
+        val adjusted = if (position > 15) position - 5 else position
+        return adjusted.coerceAtLeast(0)
     }
 
     fun isCompleted(position: Long, duration: Long): Boolean {

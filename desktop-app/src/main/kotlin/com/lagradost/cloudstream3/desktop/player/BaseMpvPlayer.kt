@@ -164,6 +164,8 @@ fun BaseMpvPlayer(
                     }
                 }
 
+                var lastStreamErrorReason: String? = null
+
                 while (isActive) {
                     try {
                         // Block IO thread for up to 50ms waiting for an event.
@@ -182,6 +184,7 @@ fun BaseMpvPlayer(
 
                                 6 -> { // MPV_EVENT_START_FILE — a new file is being loaded
                                     com.lagradost.common.logging.AppLogger.i("Player:MPV", "Starting new media stream (MPV_EVENT_START_FILE)")
+                                    lastStreamErrorReason = null
                                     waitingForTimePosReset = false
                                     hasEverPlayed = false
                                     playbackStartedAt = 0L
@@ -196,16 +199,25 @@ fun BaseMpvPlayer(
 
                                         // 0 = EOF, 2 = STOP, 3 = QUIT, 4 = ERROR
                                         if (endFile.reason == 4) { // MPV_END_FILE_REASON_ERROR
-                                            com.lagradost.common.logging.AppLogger.e("Player:MPV", "MPV stream error (MPV_END_FILE_REASON_ERROR, code=${endFile.error})")
-                                            currentOnPlaybackError("Stream is dead, timed out, or connection rejected.")
+                                            val errDesc = lastStreamErrorReason ?: when (endFile.error) {
+                                                -2 -> "Failed to load stream (Dead link or HTTP Error)"
+                                                -3 -> "Stream format unsupported"
+                                                -4 -> "No audio/video streams found"
+                                                -8 -> "Connection timed out"
+                                                else -> "Stream playback error (code ${endFile.error})"
+                                            }
+                                            com.lagradost.common.logging.AppLogger.e("Player:MPV", "MPV stream error (MPV_END_FILE_REASON_ERROR, code=${endFile.error}): $errDesc")
+                                            currentOnPlaybackError(errDesc)
                                         } else if (endFile.reason == 0) { // MPV_END_FILE_REASON_EOF
                                             if (!hasEverPlayed) {
-                                                com.lagradost.common.logging.AppLogger.e("Player:MPV", "Stream instantly ended (EOF) before ever playing.")
-                                                currentOnPlaybackError("Stream failed to load or instantly ended.")
+                                                val errDesc = lastStreamErrorReason ?: "Stream instantly closed (Empty / EOF)"
+                                                com.lagradost.common.logging.AppLogger.e("Player:MPV", "Stream instantly ended (EOF) before ever playing: $errDesc")
+                                                currentOnPlaybackError(errDesc)
                                             } else if (lastDur > 0 && lastPos < lastDur - 15.0) {
                                                 // Premature EOF: Stream connection was dropped before actual end of video
-                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream closed prematurely at ${lastPos}s of ${lastDur}s. Triggering automatic source retry/fallback.")
-                                                currentOnPlaybackError("Stream connection was interrupted.")
+                                                val errDesc = lastStreamErrorReason ?: "Stream connection was interrupted"
+                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream closed prematurely at ${lastPos}s of ${lastDur}s: $errDesc. Triggering fallback.")
+                                                currentOnPlaybackError(errDesc)
                                             } else {
                                                 com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF successfully.")
                                                 currentOnFinished()
@@ -222,11 +234,31 @@ fun BaseMpvPlayer(
                                         val text = logMsg.text?.trimEnd('\r', '\n') ?: ""
                                         if (text.isNotBlank()) {
                                             val tag = "Player:MPV:$pfx"
-                                            when (logMsg.level?.lowercase()) {
+                                            val level = logMsg.level?.lowercase()
+                                            when (level) {
                                                 "error", "fatal" -> com.lagradost.common.logging.AppLogger.e(tag, text)
                                                 "warn" -> com.lagradost.common.logging.AppLogger.w(tag, text)
                                                 "info", "status" -> com.lagradost.common.logging.AppLogger.i(tag, text)
                                                 else -> com.lagradost.common.logging.AppLogger.d(tag, text)
+                                            }
+
+                                            // Extract descriptive error reason for UI feedback
+                                            if (level in listOf("error", "fatal", "warn")) {
+                                                val lower = text.lowercase()
+                                                when {
+                                                    lower.contains("403") || lower.contains("forbidden") -> lastStreamErrorReason = "HTTP 403 Forbidden"
+                                                    lower.contains("404") || lower.contains("not found") -> lastStreamErrorReason = "HTTP 404 Not Found"
+                                                    lower.contains("401") || lower.contains("unauthorized") -> lastStreamErrorReason = "HTTP 401 Unauthorized"
+                                                    lower.contains("429") || lower.contains("too many requests") -> lastStreamErrorReason = "HTTP 429 Rate Limited"
+                                                    lower.contains("502") || lower.contains("bad gateway") -> lastStreamErrorReason = "HTTP 502 Bad Gateway"
+                                                    lower.contains("503") || lower.contains("service unavailable") -> lastStreamErrorReason = "HTTP 503 Service Unavailable"
+                                                    lower.contains("500") || lower.contains("internal server error") -> lastStreamErrorReason = "HTTP 500 Server Error"
+                                                    lower.contains("timed out") || lower.contains("operation timed out") || lower.contains("timeout") -> lastStreamErrorReason = "Connection Timed Out"
+                                                    lower.contains("certificate") || lower.contains("tls") || lower.contains("ssl") -> lastStreamErrorReason = "SSL/TLS Handshake Error"
+                                                    lower.contains("connection refused") -> lastStreamErrorReason = "Connection Refused"
+                                                    lower.contains("could not resolve") || lower.contains("name resolution") -> lastStreamErrorReason = "DNS / Host Resolution Failed"
+                                                    lower.contains("invalid data") || lower.contains("unsupported") -> lastStreamErrorReason = "Unsupported Stream Format"
+                                                }
                                             }
                                         }
                                     }

@@ -108,6 +108,23 @@ object LocalStreamProxy {
             .build()
     }
 
+    private val imageProxyClient by lazy {
+        val cacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache_http").also { it.mkdirs() }
+        app.baseClient.newBuilder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .cache(okhttp3.Cache(cacheDir, 256L * 1024 * 1024))
+            .apply {
+                interceptors().removeAll {
+                    it.javaClass.simpleName == "RateLimitInterceptor" ||
+                        it.javaClass.simpleName == "DevNetworkInterceptor"
+                }
+            }
+            .build()
+    }
+
     fun start() {
         if (server != null) return
         server = embeddedServer(Netty, port = 0, host = "127.0.0.1") {
@@ -232,18 +249,37 @@ object LocalStreamProxy {
                 call.respond(io.ktor.http.HttpStatusCode.NotFound)
                 return
             }
-            val url = String(java.util.Base64.getUrlDecoder().decode(encodedUrl), Charsets.UTF_8)
+            var url = String(java.util.Base64.getUrlDecoder().decode(encodedUrl), Charsets.UTF_8).trim()
+            if (url.startsWith("//")) {
+                url = "https:$url"
+            }
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                call.respond(io.ktor.http.HttpStatusCode.BadRequest)
+                return
+            }
+
             val requestBuilder = okhttp3.Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
                 .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-            try {
-                val uri = java.net.URI(url)
-                requestBuilder.header("Referer", "${uri.scheme}://${uri.host}/")
-            } catch (_: Exception) {}
-            val response = proxyClient.newCall(requestBuilder.build()).await()
+
+            val isThirdPartyCdn = url.contains("image.tmdb.org", ignoreCase = true) ||
+                url.contains("anilist.co", ignoreCase = true) ||
+                url.contains("kitsu.app", ignoreCase = true) ||
+                url.contains("kitsu.io", ignoreCase = true) ||
+                url.contains("fanart.tv", ignoreCase = true) ||
+                url.contains("imgur.com", ignoreCase = true)
+
+            if (!isThirdPartyCdn) {
+                try {
+                    val uri = java.net.URI(url)
+                    requestBuilder.header("Referer", "${uri.scheme}://${uri.host}/")
+                } catch (_: Exception) {}
+            }
+
+            val response = imageProxyClient.newCall(requestBuilder.build()).await()
             if (!response.isSuccessful) {
                 response.body?.close()
-                call.respond(io.ktor.http.HttpStatusCode.NotFound)
+                call.respond(io.ktor.http.HttpStatusCode.fromValue(response.code))
                 return
             }
             val contentType = response.header("Content-Type") ?: "image/jpeg"

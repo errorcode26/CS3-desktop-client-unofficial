@@ -140,7 +140,10 @@ fun ComposeHomeScreen(
                                                 onNavigate(Config.History)
                                             },
                                             onItemClick = { prov, hist ->
-                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null))
+                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = false))
+                                            },
+                                            onPlayClick = { prov, hist ->
+                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true))
                                             },
                                         )
                                     }

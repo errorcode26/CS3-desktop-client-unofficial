@@ -382,26 +382,27 @@ object AniListMetadataProvider : MetadataProvider {
                     val vaName = vaNode?.name?.userPreferred ?: vaNode?.name?.full
                     val vaImage = vaNode?.image?.large
 
-                    if (vaName != null) {
-                        actorsList.add(
-                            ActorData(
-                                actor = com.lagradost.cloudstream3.Actor(
-                                    name = vaName,
-                                    image = vaImage ?: charImage,
-                                ),
-                                role = ActorRole.Main,
-                                roleString = if (charName.isNotBlank()) charName else null,
-                            )
-                        )
-                    } else if (charName.isNotBlank()) {
+                    val parsedRole = when (edge.role?.uppercase()) {
+                        "MAIN" -> ActorRole.Main
+                        "SUPPORTING" -> ActorRole.Supporting
+                        "BACKGROUND" -> ActorRole.Background
+                        else -> null
+                    }
+
+                    if (charName.isNotBlank()) {
                         actorsList.add(
                             ActorData(
                                 actor = com.lagradost.cloudstream3.Actor(
                                     name = charName,
                                     image = charImage,
                                 ),
-                                role = ActorRole.Main,
-                                roleString = "Character",
+                                role = parsedRole,
+                                voiceActor = if (vaName != null) {
+                                    com.lagradost.cloudstream3.Actor(
+                                        name = vaName,
+                                        image = vaImage,
+                                    )
+                                } else null,
                             )
                         )
                     }

@@ -33,6 +33,7 @@ fun HomeHistoryRow(
     onRemoveHistoryItem: (String) -> Unit,
     onViewAllClick: () -> Unit,
     onItemClick: (MainAPI, WatchHistory) -> Unit,
+    onPlayClick: ((MainAPI, WatchHistory) -> Unit)? = null,
 ) {
     val displayList = remember(historyList) { historyList.ifEmpty { emptyList() } } // We'll hold previous state
     val lastNonEmptyList = remember { mutableStateOf(historyList) }
@@ -113,7 +114,11 @@ fun HomeHistoryRow(
                             },
                             onPlayClick = {
                                 if (provider != null) {
-                                    onItemClick(provider, history)
+                                    if (onPlayClick != null) {
+                                        onPlayClick(provider, history)
+                                    } else {
+                                        onItemClick(provider, history)
+                                    }
                                 }
                             },
                         )
@@ -130,7 +135,11 @@ fun HomeHistoryRow(
                             },
                             onPlayClick = {
                                 if (provider != null) {
-                                    onItemClick(provider, history)
+                                    if (onPlayClick != null) {
+                                        onPlayClick(provider, history)
+                                    } else {
+                                        onItemClick(provider, history)
+                                    }
                                 }
                             },
                         )

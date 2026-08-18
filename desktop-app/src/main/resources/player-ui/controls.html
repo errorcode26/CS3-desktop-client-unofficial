@@ -1092,8 +1092,9 @@
         #linkProbingContent {
             position: relative; z-index: 2;
             width: 100%; max-width: 520px;
-            padding: 40px 40px 60px;
-            display: flex; flex-direction: column; align-items: center;
+            min-height: 440px;
+            padding: 20px 40px;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
             opacity: 1; transform: translateY(0);
             transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
                         transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1102,14 +1103,14 @@
             opacity: 0; transform: translateY(12px);
         }
         #linkProbingLogo {
-            max-width: 420px; max-height: 220px; object-fit: contain;
-            margin-bottom: 36px; display: none;
+            max-width: 380px; max-height: 140px; object-fit: contain;
+            margin-bottom: 16px; display: none;
             animation: breathe 3s ease-in-out infinite;
             filter: drop-shadow(0 4px 24px rgba(0,0,0,0.6));
         }
         #linkProbingTitle {
-            font-size: 38px; font-weight: 800; color: white; text-align: center;
-            margin-bottom: 36px; display: none; letter-spacing: -0.5px;
+            font-size: 32px; font-weight: 800; color: white; text-align: center;
+            margin-bottom: 16px; display: none; letter-spacing: -0.5px;
             animation: breathe 3s ease-in-out infinite;
             text-shadow: 0 2px 20px rgba(0,0,0,0.8);
         }
@@ -1119,13 +1120,14 @@
             100% { transform: scale(1);    opacity: 0.85; }
         }
         .link-probing-status {
-            font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 500;
-            margin-top: 20px; letter-spacing: 0.5px; text-transform: uppercase;
+            font-size: 13px; color: rgba(255,255,255,0.65); font-weight: 600;
+            margin-top: 12px; letter-spacing: 0.5px; text-transform: uppercase;
+            text-align: center; min-height: 18px;
         }
         .link-probing-list {
             display: flex; flex-direction: column; gap: 8px;
-            margin-top: 32px; width: 100%; max-width: 480px;
-            height: 260px; overflow-y: auto; overflow-x: hidden;
+            margin-top: 24px; width: 100%; max-width: 480px;
+            max-height: 320px; overflow-y: auto; overflow-x: hidden;
             padding-right: 8px;
             mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
@@ -2861,22 +2863,27 @@
             const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
             const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
 
-            // Backdrop: only set src if it changed, use onload for smooth transition
-            if (targetBackdropUrl && pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
-                pBackdrop.dataset.lastSrc = targetBackdropUrl;
-                pBackdrop.classList.remove('loaded');
-                const tempImg = new Image();
-                tempImg.onload = () => {
+            // Backdrop: immediate display if cached or fast-loading
+            if (targetBackdropUrl) {
+                if (pBackdrop.src === targetBackdropUrl && (pBackdrop.complete || pBackdrop.naturalWidth > 0)) {
+                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
+                    pBackdrop.classList.add('loaded');
+                } else if (pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
+                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
                     pBackdrop.src = targetBackdropUrl;
-                    // RAF to allow repaint before class triggers CSS transition
-                    requestAnimationFrame(() => pBackdrop.classList.add('loaded'));
-                };
-                tempImg.onerror = () => {
-                    pBackdrop.dataset.lastSrc = ''; 
-                    pBackdrop.classList.remove('loaded');
-                };
-                tempImg.src = targetBackdropUrl;
-            } else if (!targetBackdropUrl) {
+                    if (pBackdrop.complete && pBackdrop.naturalWidth > 0) {
+                        pBackdrop.classList.add('loaded');
+                    } else {
+                        pBackdrop.onload = () => {
+                            pBackdrop.classList.add('loaded');
+                        };
+                        pBackdrop.onerror = () => {
+                            pBackdrop.dataset.lastSrc = '';
+                            pBackdrop.classList.remove('loaded');
+                        };
+                    }
+                }
+            } else {
                 pBackdrop.classList.remove('loaded');
                 pBackdrop.dataset.lastSrc = '';
             }
@@ -2917,15 +2924,20 @@
             // Status label
             if (pStatus) {
                 const totalLinks = (meta.links || []).length;
-                const failedCount = (meta.failedLinks || []).length;
+                const failedArr = meta.failedLinks || [];
+                const failedCount = failedArr.length;
+                const lastFailed = failedArr[failedArr.length - 1];
+
                 if (totalLinks === 0) {
                     pStatus.innerText = 'Finding sources\u2026';
                 } else if (failedCount >= totalLinks) {
-                    pStatus.innerText = 'Waiting for more links...';
+                    pStatus.innerText = 'Waiting for more sources...';
+                } else if (failedCount > 0 && lastFailed && lastFailed.reason) {
+                    pStatus.innerText = `Source ${failedCount} failed (${lastFailed.reason}) \u2022 Connecting to source ${failedCount + 1} of ${totalLinks}\u2026`;
                 } else if (failedCount > 0) {
-                    pStatus.innerText = `Trying source ${failedCount + 1} of ${totalLinks}`;
+                    pStatus.innerText = `Trying source ${failedCount + 1} of ${totalLinks}\u2026`;
                 } else {
-                    pStatus.innerText = `Trying source 1 of ${totalLinks}`;
+                    pStatus.innerText = `Connecting to source 1 of ${totalLinks}\u2026`;
                 }
             }
 

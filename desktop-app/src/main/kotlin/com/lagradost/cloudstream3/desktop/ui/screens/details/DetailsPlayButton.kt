@@ -23,6 +23,7 @@ import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.common.storage.WatchHistory
+import com.lagradost.player.impl.PlayerLinkHandler
 
 @Composable
 fun DetailsPlayButton(
@@ -45,16 +46,31 @@ fun DetailsPlayButton(
                 .thenBy { it.episode ?: 1 },
         )
     }
-    val targetEp = remember(sortedEpisodes, latestHistory) {
+
+    val isLatestCompleted = remember(latestHistory) {
+        latestHistory != null && latestHistory.duration > 0 &&
+            PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
+    }
+
+    val targetEp = remember(sortedEpisodes, latestHistory, isLatestCompleted) {
         if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-            sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+            if (isLatestCompleted) {
+                val currentIdx = sortedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
+                if (currentIdx != -1 && currentIdx + 1 < sortedEpisodes.size) {
+                    sortedEpisodes[currentIdx + 1]
+                } else {
+                    sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+                }
+            } else {
+                sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+            }
         } else {
             sortedEpisodes.firstOrNull()
         }
     }
 
-    val buttonLabel = remember(data, latestHistory, targetEp) {
-        if (latestHistory != null) {
+    val buttonLabel = remember(data, latestHistory, targetEp, isLatestCompleted) {
+        if (latestHistory != null && !isLatestCompleted && latestHistory.position > 0) {
             if (targetEp?.episode != null) {
                 "Resume E${targetEp.episode}"
             } else {

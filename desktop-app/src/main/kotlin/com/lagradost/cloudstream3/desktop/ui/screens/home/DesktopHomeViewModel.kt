@@ -58,8 +58,8 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
             }
         }
 
-        viewModelScope.launch {
-            uiState.map { it.activeProviders }.distinctUntilChanged().collect { names ->
+        viewModelScope.launch(Dispatchers.IO) {
+            uiState.map { it.activeProviders }.distinctUntilChanged().drop(1).collect { names ->
                 DesktopDataStore.setKey(PREF_ACTIVE_PROVIDERS, names)
                 val disabledMap = names.associateWith { name ->
                     DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
@@ -161,16 +161,32 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     }
 
     private fun updateHistory() {
-        val newHistory = DesktopDataStore.getAllWatchHistory()
-            .filter {
-                val isCompleted = com.lagradost.player.impl.PlayerLinkHandler.isCompleted(it.position, it.duration)
-                // Either it's a partially watched episode (not completed)
-                (!isCompleted && it.duration >= 30L && (it.position * 100 / it.duration) > 1L) ||
-                    // OR it's a queued "Next Episode" (position = 0, duration = 0)
-                    (it.duration == 0L && it.position == 0L)
+        val all = DesktopDataStore.getAllWatchHistory()
+        val grouped = all.groupBy { it.parentId }
+        val newHistory = grouped.mapNotNull { (_, histories) ->
+            val inProgressOrQueued = histories.filter {
+                val isCompleted = it.duration > 0L && com.lagradost.player.impl.PlayerLinkHandler.isCompleted(it.position, it.duration)
+                !isCompleted
+            }.maxByOrNull { it.updateTime }
+
+            if (inProgressOrQueued != null) {
+                inProgressOrQueued
+            } else {
+                val latestCompleted = histories.maxByOrNull { it.updateTime }
+                if (latestCompleted != null && (latestCompleted.episode != null || latestCompleted.season != null)) {
+                    latestCompleted.copy(
+                        episode = (latestCompleted.episode ?: 0) + 1,
+                        position = 0L,
+                        duration = 0L,
+                        screenshotUrl = null,
+                        episodeThumbnailUrl = null,
+                    )
+                } else {
+                    null
+                }
             }
-            .sortedByDescending { it.updateTime }
-            .distinctBy { it.parentId }
+        }.sortedByDescending { it.updateTime }
+
         updateState { copy(historyList = newHistory) }
         prefetchTopHistory(newHistory.take(3))
     }

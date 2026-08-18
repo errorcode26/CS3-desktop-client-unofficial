@@ -92,9 +92,13 @@ object AppearanceConfig {
     private const val PREF_BG_IMAGE_TINT_ALPHA = "pref_bg_image_tint_alpha"
     private const val PREF_ANTI_SPOILER_ENABLED = "pref_anti_spoiler_enabled"
     private const val PREF_UI_CARD_OPACITY = "pref_ui_card_opacity"
+    private const val PREF_DETAILS_SHOW_CURRENT_TIME = "pref_details_show_current_time"
+    private const val PREF_DETAILS_SHOW_END_TIME = "pref_details_show_end_time"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
+    val detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
+    val detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
     val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
     val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
@@ -363,6 +367,16 @@ object AppearanceConfig {
     fun setClockDateFormat(format: String) {
         clockDateFormat.value = format
         DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
+    }
+
+    fun setDetailsShowCurrentTime(enabled: Boolean) {
+        detailsShowCurrentTime.value = enabled
+        DesktopDataStore.setKey(PREF_DETAILS_SHOW_CURRENT_TIME, enabled)
+    }
+
+    fun setDetailsShowEndTime(enabled: Boolean) {
+        detailsShowEndTime.value = enabled
+        DesktopDataStore.setKey(PREF_DETAILS_SHOW_END_TIME, enabled)
     }
 
     fun setBackgroundImagePath(path: String) {

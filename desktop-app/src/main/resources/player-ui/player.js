@@ -19,15 +19,83 @@
         return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
     };
 
+    const escapeHtml = (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
     // State
     let isSeeking = false, durationMs = 0, currentPosMs = 0;
     let isMuted = false, currentVolume = 100;
     let isMenuOpen = false;
     let subDelaySec = 0, audioDelaySec = 0;
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
-    let isAppLoading = false; // Moved up to global scope
+    let isAppLoading = false;
     let linksData = [];
     let userDismissedWatchNext = false;
+    let currentLinkIndex = -1;
+    let seekLockTimer = null;
+    let episodesData = [];
+    let loadingTimer = null;
+    let isCurrentlyLoading = false;
+    let globalIsLoading = false;   // set by C++ via state_update (core_idle || paused-for-cache)
+    let globalIsPlaying = false;
+    let endCountdownTimer = null;
+    let _cachedChapters = [];
+    let _cachedSkipIntervals = [];
+    let _activeChapterIndex = -1;
+
+    // Element References
+    const overlay       = document.getElementById('overlay');
+    const playPauseBtn  = document.getElementById('playPauseBtn');
+    const muteBtn       = document.getElementById('muteBtn');
+    const seekBar       = document.getElementById('seekBar');
+    const seekFill      = document.getElementById('seekFill');
+    const seekBuffer    = document.getElementById('seekBuffer');
+    const volumeBar     = document.getElementById('volumeBar');
+    const timeDisplay   = document.getElementById('timeDisplay');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const backBtn       = document.getElementById('backBtn');
+    const loadingContainer = document.getElementById('loadingContainer');
+    const loadingStatus = document.getElementById('loadingStatus');
+    const titleDisplay  = document.getElementById('titleDisplay');
+    const nextEpBtn     = document.getElementById('nextEpBtn');
+    const episodesBtn   = document.getElementById('episodesBtn');
+    const episodesPanel = document.getElementById('episodesPanel');
+    const chaptersBtn   = document.getElementById('chaptersBtn');
+    const chaptersPanel = document.getElementById('chaptersPanel');
+    const chaptersList  = document.getElementById('chaptersList');
+    const chaptersSubtitle = document.getElementById('chaptersSubtitle');
+    const resumeOverlay = document.getElementById('resumeOverlay');
+    const videoEndedOverlay = document.getElementById('videoEndedOverlay');
+    const seasonSelectWrap = document.getElementById('seasonSelectWrap');
+    const seasonSelect     = document.getElementById('seasonSelect');
+    const seekWrap      = document.getElementById('seekWrap');
+    const seekChapters  = document.getElementById('seekChapters');
+    const seekTooltip   = document.getElementById('seekTooltip');
+
+    // Watch Next Elements
+    const watchNextPopup        = document.getElementById('watchNextPopup');
+    const watchNextCountdown    = document.getElementById('watchNextCountdown');
+    const closeWatchNextBtn     = document.getElementById('closeWatchNextBtn');
+    const watchNextThumb        = document.getElementById('watchNextThumb');
+    const watchNextEpMeta       = document.getElementById('watchNextEpMeta');
+    const watchNextTitle        = document.getElementById('watchNextTitle');
+    const watchNextDesc         = document.getElementById('watchNextDesc');
+    const watchNextProgressFill = document.getElementById('watchNextProgressFill');
+    const btnWatchNextPlay      = document.getElementById('btnWatchNextPlay');
+    const btnWatchNextDismiss   = document.getElementById('btnWatchNextDismiss');
+    const watchNextBody         = document.getElementById('watchNextBody');
+
+    // Zone references
+    const zoneLeft          = document.getElementById('zoneLeft');
+    const zoneCenter        = document.getElementById('zoneCenter');
+    const zoneRight         = document.getElementById('zoneRight');
 
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
@@ -35,8 +103,8 @@
         // Kill all pending timers that could fire from a stale session
         if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
         if (window.probingDismissTimer) { clearTimeout(window.probingDismissTimer); window.probingDismissTimer = null; }
-        clearTimeout(loadingTimer);
-        loadingTimer = null;
+        if (loadingTimer) { clearTimeout(loadingTimer); loadingTimer = null; }
+        if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; }
 
         // Reset all session-scoped JS state
         resumeHandled = false;
@@ -60,13 +128,11 @@
 
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         if (videoEndedOvl) videoEndedOvl.style.display = 'none';
-        if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; }
 
-        const wNextOvl = document.getElementById('watchNextPopup');
-        if (wNextOvl) wNextOvl.classList.remove('visible');
+        if (watchNextPopup) watchNextPopup.classList.remove('visible');
 
-        resumeOverlay.style.display = 'none';
-        loadingContainer.classList.remove('show');
+        if (resumeOverlay) resumeOverlay.style.display = 'none';
+        if (loadingContainer) loadingContainer.classList.remove('show');
 
         const pauseOverlay = document.getElementById('pauseInfoOverlay');
         const pauseBackdrop = document.getElementById('pauseBackdrop');
@@ -77,10 +143,11 @@
         const mainOverlay = document.getElementById('overlay');
         if (mainOverlay) { mainOverlay.style.display = ''; mainOverlay.style.opacity = ''; }
 
-        seekFill.style.width = '0%';
-        seekBar.value = 0;
-        seekBuffer.style.width = '0%';
-        timeDisplay.innerText = '0:00 / 0:00';
+        if (seekFill) seekFill.style.width = '0%';
+        if (seekBar) seekBar.value = 0;
+        if (seekBuffer) seekBuffer.style.width = '0%';
+        if (timeDisplay) timeDisplay.innerText = '0:00 / 0:00';
+        chaptersBtn?.classList.add('hidden');
     }
 
     function evaluateResumeOverlay() {
@@ -90,29 +157,21 @@
         const shouldShow = pendingResumeMs > 0 && !resumeHandled && !isProbing && !isAppLoading;
 
         if (shouldShow) {
-            document.getElementById('resumeTime').innerText = fmt(pendingResumeMs);
-            // Move the resume bar inside the bottom-bar if not already there
-            const bottomBar = document.getElementById('bottomBar');
-            if (resumeOverlay.parentElement !== bottomBar) {
-                bottomBar.insertBefore(resumeOverlay, bottomBar.firstChild);
-            }
-            if (resumeOverlay.style.display !== 'flex') {
+            const timeElem = document.getElementById('resumeTime');
+            if (timeElem) timeElem.innerText = fmt(pendingResumeMs);
+            if (resumeOverlay && resumeOverlay.style.display !== 'flex') {
                 resumeOverlay.style.display = 'flex';
-                // Re-trigger countdown animation by forcing reflow
                 void resumeOverlay.offsetWidth;
             }
-            document.body.classList.remove('hidden-controls');
             if (!window.resumeDismissTimer) {
                 window.resumeDismissTimer = setTimeout(() => {
-                    // Auto-dismiss: user ignored it, do nothing (default behaviour is continue)
-                    resumeOverlay.style.display = 'none';
+                    if (resumeOverlay) resumeOverlay.style.display = 'none';
                     resumeHandled = true;
                     window.resumeDismissTimer = null;
-                    send('play'); // Auto-unpause the player to actually continue!
-                }, 10000);
+                }, 6000);
             }
         } else {
-            resumeOverlay.style.display = 'none';
+            if (resumeOverlay) resumeOverlay.style.display = 'none';
         }
     }
 
@@ -172,73 +231,17 @@
             if (shouldBeLoading) {
                 const delay = isSeeking ? 0 : 150;
                 loadingTimer = setTimeout(() => {
-                    loadingContainer.classList.add('show');
-                    loadingStatus.innerText = getCleanLoadingText();
+                    if (loadingContainer) loadingContainer.classList.add('show');
+                    if (loadingStatus) loadingStatus.innerText = getCleanLoadingText();
                 }, delay);
             } else {
-                loadingContainer.classList.remove('show');
-                loadingStatus.innerText = '';
+                if (loadingContainer) loadingContainer.classList.remove('show');
+                if (loadingStatus) loadingStatus.innerText = '';
             }
         } else if (shouldBeLoading) {
-             loadingStatus.innerText = getCleanLoadingText();
+             if (loadingStatus) loadingStatus.innerText = getCleanLoadingText();
         }
     }
-
-    let currentLinkIndex = -1;
-    let seekLockTimer = null;
-    let episodesData = [];
-
-    // Element References
-    const overlay       = document.getElementById('overlay');
-    const playPauseBtn  = document.getElementById('playPauseBtn');
-
-    const muteBtn       = document.getElementById('muteBtn');
-    const seekBar       = document.getElementById('seekBar');
-    const seekFill      = document.getElementById('seekFill');
-    const seekBuffer    = document.getElementById('seekBuffer');
-    const volumeBar     = document.getElementById('volumeBar');
-    const timeDisplay   = document.getElementById('timeDisplay');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const backBtn       = document.getElementById('backBtn');
-    const loadingContainer = document.getElementById('loadingContainer');
-    const loadingStatus = document.getElementById('loadingStatus');
-
-    const titleDisplay  = document.getElementById('titleDisplay');
-    const nextEpBtn     = document.getElementById('nextEpBtn');
-    const episodesBtn   = document.getElementById('episodesBtn');
-    const episodesPanel = document.getElementById('episodesPanel');
-    const chaptersBtn   = document.getElementById('chaptersBtn');
-    const chaptersPanel = document.getElementById('chaptersPanel');
-    const chaptersList  = document.getElementById('chaptersList');
-    const chaptersSubtitle = document.getElementById('chaptersSubtitle');
-    const resumeOverlay = document.getElementById('resumeOverlay');
-    const seasonSelectWrap = document.getElementById('seasonSelectWrap');
-    const seasonSelect     = document.getElementById('seasonSelect');
-
-    const seekWrap      = document.getElementById('seekWrap');
-    const seekChapters  = document.getElementById('seekChapters');
-    const seekTooltip   = document.getElementById('seekTooltip');
-    let _cachedChapters = [];
-    let _cachedSkipIntervals = [];
-    let _activeChapterIndex = -1;
-
-    // Watch Next Elements
-    const watchNextPopup        = document.getElementById('watchNextPopup');
-    const watchNextCountdown    = document.getElementById('watchNextCountdown');
-    const closeWatchNextBtn     = document.getElementById('closeWatchNextBtn');
-    const watchNextThumb        = document.getElementById('watchNextThumb');
-    const watchNextEpMeta       = document.getElementById('watchNextEpMeta');
-    const watchNextTitle        = document.getElementById('watchNextTitle');
-    const watchNextDesc         = document.getElementById('watchNextDesc');
-    const watchNextProgressFill = document.getElementById('watchNextProgressFill');
-    const btnWatchNextPlay      = document.getElementById('btnWatchNextPlay');
-    const btnWatchNextDismiss   = document.getElementById('btnWatchNextDismiss');
-    const watchNextBody         = document.getElementById('watchNextBody');
-
-    // Zone references
-    const zoneLeft          = document.getElementById('zoneLeft');
-    const zoneCenter        = document.getElementById('zoneCenter');
-    const zoneRight         = document.getElementById('zoneRight');
 
     // Panel toggles
     const panels = ['episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
@@ -300,13 +303,12 @@
 
     // Auto-hide Controls
     let hideTimer;
-    let globalIsPlaying = false;
     let lastMouseX = -1;
     let lastMouseY = -1;
     let isHoveringControls = false;
 
-    // Do not hide controls if the user's mouse is actively resting on the top or bottom bar
-    document.querySelectorAll('.top-bar, .bottom-bar').forEach(el => {
+    // Do not hide controls if the user's mouse is actively resting on the top bar, bottom bar, or open panels
+    document.querySelectorAll('.top-bar, .bottom-bar, .panel').forEach(el => {
         el.addEventListener('mouseenter', () => { isHoveringControls = true; clearTimeout(hideTimer); });
         el.addEventListener('mouseleave', () => { isHoveringControls = false; showControls(); });
     });
@@ -321,7 +323,7 @@
         }
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && pOverlay.classList.contains('active');
-        if (resumeOverlay.style.display === 'flex' || (isProbing && !userDismissedProbing)) {
+        if (isProbing && !userDismissedProbing) {
             clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls');
             return;
@@ -331,6 +333,11 @@
         }
         overlay.classList.remove('hidden-controls');
         document.body.classList.remove('hidden-controls');
+        const sBtn = document.getElementById('skipBtn');
+        if (sBtn) {
+            sBtn.classList.remove('idle-faded');
+            window._skipBtnActiveSince = Date.now();
+        }
         clearTimeout(hideTimer);
         if (!isMenuOpen && globalIsPlaying && !isHoveringControls && !isSeeking) {
             hideTimer = setTimeout(() => {
@@ -387,19 +394,22 @@
     document.getElementById('closeAspectBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
 
     // Season Dropdown Selector Change Event
-    seasonSelect.addEventListener('change', e => {
+    seasonSelect?.addEventListener('change', e => {
         renderFilteredEpisodes(parseInt(e.target.value));
     });
 
-    // Resume Bar (inline in bottom-bar)
-
-    document.getElementById('btnStartOver').addEventListener('click', () => {
-        if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
-        resumeOverlay.style.display = 'none';
-        resumeHandled = true;
-        send('seekTo', 0);
-        send('play'); // Unpause immediately when starting over
-    });
+    // Resume Floating Pill
+    const btnStartOverElem = document.getElementById('btnStartOver');
+    if (btnStartOverElem) {
+        btnStartOverElem.addEventListener('click', (e) => {
+            if (e) e.stopPropagation();
+            if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
+            resumeOverlay.style.display = 'none';
+            resumeHandled = true;
+            send('seekTo', 0);
+            send('play');
+        });
+    }
 
     // Seek Bar
     seekBar.addEventListener('mousedown', () => { 
@@ -522,11 +532,6 @@
     };
 
     // Backend Messages
-    let loadingTimer = null;
-    let isCurrentlyLoading = false;
-    // let isAppLoading = false; (now global)
-    let globalIsLoading = false;   // set by C++ via state_update (core_idle || paused-for-cache)
-
     const forceShowLoading = () => {
         if (globalIsPlaying) {
             isCurrentlyLoading = true;
@@ -536,7 +541,12 @@
     };
 
     const handleStateUpdate = (s) => {
-        if (typeof s.durationMs === 'number') durationMs = s.durationMs;
+        if (typeof s.durationMs === 'number' && s.durationMs > 0 && s.durationMs !== durationMs) {
+            durationMs = s.durationMs;
+            renderSeekbarChapters(_cachedChapters, _cachedSkipIntervals);
+        } else if (typeof s.durationMs === 'number') {
+            durationMs = s.durationMs;
+        }
         const incomingPos = (typeof s.positionMs === 'number') ? s.positionMs : currentPosMs;
 
         if (isSeeking) {
@@ -610,9 +620,23 @@
             if (skipBtn) {
                 if (activeInv) {
                     if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
-                    skipBtn.style.display = 'flex';
+                    if (skipBtn.style.display !== 'flex') {
+                        skipBtn.style.display = 'flex';
+                        skipBtn.classList.remove('idle-faded');
+                        window._skipBtnActiveSince = Date.now();
+                    }
+                    if (document.body.classList.contains('hidden-controls')) {
+                        if (Date.now() - (window._skipBtnActiveSince || 0) > 6000) {
+                            skipBtn.classList.add('idle-faded');
+                        }
+                    } else {
+                        skipBtn.classList.remove('idle-faded');
+                        window._skipBtnActiveSince = Date.now();
+                    }
                 } else {
                     skipBtn.style.display = 'none';
+                    skipBtn.classList.remove('idle-faded');
+                    window._skipBtnActiveSince = 0;
                 }
             }
         }
@@ -623,26 +647,31 @@
         }
 
         const updateClockDisplay = () => {
-            const endTimeDisplay = document.getElementById('endTimeDisplay');
             const endTimeContainer = document.getElementById('endTimeContainer');
+            const clockSegment = document.getElementById('clockSegment');
+            const clockValue = document.getElementById('clockValue');
+            const timeDivider = document.getElementById('timeDivider');
+            const endTimeSegment = document.getElementById('endTimeSegment');
+            const endTimeValue = document.getElementById('endTimeValue');
+
             const showEndTime = document.getElementById('btnToggleEndTime')?.classList.contains('active') ?? false;
             const showClock = document.getElementById('btnToggleClock')?.classList.contains('active') ?? false;
             
-            if (!endTimeDisplay || !endTimeContainer) return;
+            if (!endTimeContainer) return;
 
-            if (!showEndTime && !showClock) {
-                endTimeContainer.style.display = 'none';
-                return;
-            }
-
-            let parts = [];
+            let hasClock = false;
+            let hasEnd = false;
             
-            if (showClock) {
+            if (showClock && clockSegment && clockValue) {
                 let clockStr = new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
-                parts.push(`Current Time ${clockStr}`);
+                clockValue.innerText = clockStr;
+                clockSegment.style.display = 'inline-flex';
+                hasClock = true;
+            } else if (clockSegment) {
+                clockSegment.style.display = 'none';
             }
             
-            if (showEndTime && durationMs > 0 && currentPosMs < durationMs) {
+            if (showEndTime && durationMs > 0 && currentPosMs < durationMs && endTimeSegment && endTimeValue) {
                 let currentSpeedStr = document.getElementById('speedBtn')?.innerText.replace('×', '') || "1";
                 let currentSpeed = parseFloat(currentSpeedStr) || 1.0;
                 
@@ -655,17 +684,25 @@
                 
                 let msLeft = (durationMs - currentPosMs) / currentSpeed;
                 let endStr = new Date(Date.now() + msLeft).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
-                parts.push(`Ends at ${endStr}`);
+                endTimeValue.innerText = endStr;
+                endTimeSegment.style.display = 'inline-flex';
+                hasEnd = true;
+            } else if (endTimeSegment) {
+                endTimeSegment.style.display = 'none';
+            }
+
+            if (timeDivider) {
+                timeDivider.style.display = (hasClock && hasEnd) ? 'block' : 'none';
             }
             
-            if (parts.length > 0) {
-                endTimeDisplay.innerText = parts.join(' • ');
+            if (hasClock || hasEnd) {
                 endTimeContainer.style.display = 'inline-flex';
             } else {
                 endTimeContainer.style.display = 'none';
             }
         };
 
+        window.updateClockDisplay = updateClockDisplay;
         updateClockDisplay();
         
         const wasPlaying = globalIsPlaying;
@@ -695,7 +732,12 @@
             globalIsLoading = s.isLoading;
         }
         
-        // (AUTO-PLAY FIX removed in favor of strict Kotlin state management)
+        if ((currentPosMs > 50 || globalIsPlaying) && !userDismissedProbing) {
+            const pOverlay = document.getElementById('linkProbingOverlay');
+            if (pOverlay && pOverlay.classList.contains('active') && !pOverlay.classList.contains('dismissing')) {
+                dismissProbingOverlay();
+            }
+        }
         
         evaluateUIStates();
 
@@ -709,7 +751,19 @@
             if (nextEp && !isProbing && (!videoEndedOverlay || videoEndedOverlay.style.display !== 'flex')) {
                 if (watchNextPopup && !watchNextPopup.classList.contains('visible')) {
                     watchNextPopup.classList.add('visible');
-                    if (watchNextThumb) watchNextThumb.src = nextEp.posterUrl || '';
+                    if (watchNextThumb) {
+                        const backdropEl = document.getElementById('linkProbingBackdrop') || document.getElementById('pauseBackdrop');
+                        const fallbackSrc = backdropEl ? (backdropEl.src || '') : '';
+                        watchNextThumb.onerror = function() {
+                            if (fallbackSrc && this.src !== fallbackSrc) {
+                                this.src = fallbackSrc;
+                            } else {
+                                this.style.display = 'none';
+                            }
+                        };
+                        watchNextThumb.style.display = 'block';
+                        watchNextThumb.src = nextEp.posterUrl || fallbackSrc || '';
+                    }
                     if (watchNextEpMeta) {
                         watchNextEpMeta.innerText = (nextEp.season !== undefined && nextEp.season !== null)
                             ? `S${nextEp.season}:E${nextEp.episode}`
@@ -889,6 +943,7 @@
                 // Immediately pre-fill the probing screen with the NEW episode's data
                 // so there is zero window where old/stale data is visible on screen.
                 const pTitle = document.getElementById('linkProbingTitle');
+                const pSubtitle = document.getElementById('linkProbingSubtitle');
                 const pLogo = document.getElementById('linkProbingLogo');
                 const pStatus = document.getElementById('linkProbingStatus');
                 const pBackdrop = document.getElementById('linkProbingBackdrop');
@@ -900,12 +955,36 @@
                 // Reset status text
                 if (pStatus) pStatus.innerText = 'Finding sources\u2026';
 
-                // Update title: show episode-aware title immediately
-                if (pTitle) {
-                    pTitle.innerText = meta.title || '';
-                    pTitle.style.display = 'block';
+                // Update title, subtitle, and logo immediately
+                if (activeEp) {
+                    const s = activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : 1;
+                    const ep = activeEp.episode;
+                    const epTitle = activeEp.title ? activeEp.title : `Episode ${ep}`;
+                    let showTitle = meta.title || '';
+                    if (showTitle.includes(' - ')) {
+                        showTitle = showTitle.split(' - ')[0].trim();
+                    }
+                    if (meta.logoUrl) {
+                        if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                        if (pTitle) pTitle.style.display = 'none';
+                    } else {
+                        if (pLogo) pLogo.style.display = 'none';
+                        if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
+                    }
+                    if (pSubtitle) {
+                        pSubtitle.innerText = `S${s}:E${ep} • ${epTitle}`;
+                        pSubtitle.style.display = 'block';
+                    }
+                } else {
+                    if (meta.logoUrl) {
+                        if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                        if (pTitle) pTitle.style.display = 'none';
+                    } else {
+                        if (pLogo) pLogo.style.display = 'none';
+                        if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
+                    }
+                    if (pSubtitle) pSubtitle.style.display = 'none';
                 }
-                if (pLogo) pLogo.style.display = 'none';
 
                 // Crossfade backdrop to the new episode's art immediately
                 const newBackdrop = meta.backdropUrl || (activeEp ? activeEp.posterUrl : '');
@@ -934,7 +1013,6 @@
             }
             titleDisplay.innerText = niceTitle || "CloudStream Player";
             document.title = meta.title;
-            document.getElementById('resumeTitle').innerText = meta.title;
         }
 
         if (meta.startPositionMs !== undefined) {
@@ -1006,11 +1084,52 @@
         const pList = document.getElementById('linkProbingList');
         const pContent = document.getElementById('linkProbingContent');
         const pStatus = document.getElementById('linkProbingStatus');
+        const pToggleBtn = document.getElementById('probingToggleDetailsBtn');
+
+        // Setup Persistent Eye Toggle if not already bound
+        if (pToggleBtn && !pToggleBtn.dataset.bound) {
+            pToggleBtn.dataset.bound = 'true';
+            pToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currState = localStorage.getItem('cs3_show_probing_details') !== 'false';
+                const newState = !currState;
+                localStorage.setItem('cs3_show_probing_details', newState ? 'true' : 'false');
+                applyProbingListVisibility(newState);
+            });
+        }
+
+        const applyProbingListVisibility = (showDetails) => {
+            const listEl = document.getElementById('linkProbingList');
+            const eyeBtn = document.getElementById('probingToggleDetailsBtn');
+            const iconOpen = document.getElementById('eyeIconOpen');
+            const iconClosed = document.getElementById('eyeIconClosed');
+
+            if (listEl) {
+                if (showDetails) {
+                    listEl.classList.remove('collapsed');
+                } else {
+                    listEl.classList.add('collapsed');
+                }
+            }
+            if (eyeBtn) {
+                if (showDetails) {
+                    eyeBtn.classList.add('active');
+                    if (iconOpen) iconOpen.style.display = 'block';
+                    if (iconClosed) iconClosed.style.display = 'none';
+                } else {
+                    eyeBtn.classList.remove('active');
+                    if (iconOpen) iconOpen.style.display = 'none';
+                    if (iconClosed) iconClosed.style.display = 'block';
+                }
+            }
+        };
+
+        // Initialize visibility based on stored preference
+        const isDetailsVisible = localStorage.getItem('cs3_show_probing_details') !== 'false';
+        applyProbingListVisibility(isDetailsVisible);
 
         if (meta.isProbing === true && !userDismissedProbing) {
             // Only re-show the overlay if it isn't already mid-dismiss or dismissed.
-            // Without this guard, rapid metadata_updates can yank the overlay back
-            // on screen after onPlaybackReady already dismissed it.
             if (!pOverlay.classList.contains('dismissing')) {
                 if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
                 clearTimeout(hideTimer);
@@ -1026,90 +1145,137 @@
             const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
             const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
 
-            // Backdrop: only set src if it changed, use onload for smooth transition
-            if (targetBackdropUrl && pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
-                pBackdrop.dataset.lastSrc = targetBackdropUrl;
-                pBackdrop.classList.remove('loaded');
-                const tempImg = new Image();
-                tempImg.onload = () => {
+            // Backdrop: immediate display if cached or fast-loading
+            if (targetBackdropUrl) {
+                if (pBackdrop.src === targetBackdropUrl && (pBackdrop.complete || pBackdrop.naturalWidth > 0)) {
+                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
+                    pBackdrop.classList.add('loaded');
+                } else if (pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
+                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
                     pBackdrop.src = targetBackdropUrl;
-                    // RAF to allow repaint before class triggers CSS transition
-                    requestAnimationFrame(() => pBackdrop.classList.add('loaded'));
-                };
-                tempImg.onerror = () => {
-                    pBackdrop.dataset.lastSrc = ''; 
-                    pBackdrop.classList.remove('loaded');
-                };
-                tempImg.src = targetBackdropUrl;
-            } else if (!targetBackdropUrl) {
+                    if (pBackdrop.complete && pBackdrop.naturalWidth > 0) {
+                        pBackdrop.classList.add('loaded');
+                    } else {
+                        pBackdrop.onload = () => {
+                            pBackdrop.classList.add('loaded');
+                        };
+                        pBackdrop.onerror = () => {
+                            pBackdrop.dataset.lastSrc = '';
+                            pBackdrop.classList.remove('loaded');
+                        };
+                    }
+                }
+            } else {
                 pBackdrop.classList.remove('loaded');
                 pBackdrop.dataset.lastSrc = '';
             }
 
-            // Logo or text hero
-            if (meta.logoUrl && !activeEpInfo) {
-                // Only use the show logo if it's a movie (no episodes), 
-                // for episodes we prefer the text title to show the episode number.
-                pLogo.src = meta.logoUrl;
-                pLogo.style.display = 'block';
-                pTitle.style.display = 'none';
+            // Logo or text hero (stable, fixed top position)
+            const pSubtitle = document.getElementById('linkProbingSubtitle');
+            if (activeEpInfo) {
+                const s = activeEpInfo.season !== undefined && activeEpInfo.season !== null ? activeEpInfo.season : 1;
+                const ep = activeEpInfo.episode;
+                const epTitle = activeEpInfo.title ? activeEpInfo.title : `Episode ${ep}`;
+                let showTitle = meta.title || '';
+                if (showTitle.includes(' - ')) {
+                    showTitle = showTitle.split(' - ')[0].trim();
+                }
+                if (meta.logoUrl) {
+                    if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (pTitle) pTitle.style.display = 'none';
+                } else {
+                    if (pLogo) pLogo.style.display = 'none';
+                    if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
+                }
+                if (pSubtitle) {
+                    pSubtitle.innerText = `S${s}:E${ep} • ${epTitle}`;
+                    pSubtitle.style.display = 'inline-block';
+                }
             } else {
-                pLogo.style.display = 'none';
-                pTitle.style.display = 'block';
-                
-                
-                pTitle.innerText = meta.title || '';
+                if (meta.logoUrl) {
+                    if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (pTitle) pTitle.style.display = 'none';
+                } else {
+                    if (pLogo) pLogo.style.display = 'none';
+                    if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
+                }
+                if (pSubtitle) pSubtitle.style.display = 'none';
             }
 
-            // Status label
+            // Dynamic Step-by-Step Live Status label
+            const totalLinks = (meta.links || []).length;
+            const failedArr = meta.failedLinks || [];
+            const failedCount = failedArr.length;
+            const lastFailed = failedArr[failedArr.length - 1];
+            const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : 0;
+            const currentLinkObj = (meta.links || [])[currIdx] || (meta.links || [])[failedCount];
+            const currQualityLabel = (currentLinkObj && currentLinkObj.quality && currentLinkObj.quality > 0 && currentLinkObj.quality !== 400) ? ` (${currentLinkObj.quality}p)` : '';
+
             if (pStatus) {
-                const totalLinks = (meta.links || []).length;
-                const failedCount = (meta.failedLinks || []).length;
-                if (totalLinks === 0) {
-                    pStatus.innerText = 'Finding sources\u2026';
-                } else if (failedCount >= totalLinks) {
-                    pStatus.innerText = 'Waiting for more links...';
-                } else if (failedCount > 0) {
-                    pStatus.innerText = `Trying source ${failedCount + 1} of ${totalLinks}`;
+                if (meta.isScraping === true) {
+                    if (totalLinks === 0) {
+                        pStatus.innerText = 'Discovering streaming sources…';
+                    } else {
+                        pStatus.innerText = `Found ${totalLinks} source${totalLinks === 1 ? '' : 's'} • Searching for best quality…`;
+                    }
+                } else if (failedCount >= totalLinks && totalLinks > 0) {
+                    pStatus.innerText = `All ${totalLinks} sources failed • Waiting for fallback…`;
+                } else if (failedCount > 0 && lastFailed) {
+                    const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
+                    pStatus.innerText = `Source ${failedCount} failed${failReason} • Connecting to source ${currIdx + 1} of ${totalLinks}${currQualityLabel}…`;
+                } else if (totalLinks > 0) {
+                    pStatus.innerText = `Connecting to source ${currIdx + 1} of ${totalLinks}${currQualityLabel}…`;
                 } else {
-                    pStatus.innerText = `Trying source 1 of ${totalLinks}`;
+                    pStatus.innerText = 'Discovering streaming sources…';
                 }
             }
 
-            // Link list
+            // High-detail Glassmorphic Link cards
             if (meta.links && meta.links.length > 0) {
-                const failedArr = meta.failedLinks || [];
-                const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : 0;
-
                 pList.innerHTML = meta.links.map((l, i) => {
                     let st = 'waiting';
-                    let icon = '';
-                    let errorHtml = '';
+                    let statusBadgeHtml = '';
                     const failedInfo = failedArr.find(f => f.index === l.index);
+
+                    const qVal = l.quality;
+                    let qBadgeClass = 'fhd';
+                    let qLabel = '';
+                    if (qVal && qVal >= 2160) {
+                        qBadgeClass = 'uhd';
+                        qLabel = '4K UHD';
+                    } else if (qVal && qVal >= 1080) {
+                        qBadgeClass = 'fhd';
+                        qLabel = '1080p FHD';
+                    } else if (qVal && qVal >= 720) {
+                        qBadgeClass = 'fhd';
+                        qLabel = '720p HD';
+                    } else if (qVal && qVal > 0 && qVal !== 400) {
+                        qBadgeClass = '';
+                        qLabel = `${qVal}p`;
+                    }
+                    const qualityHtml = qLabel ? `<span class="link-quality-badge ${qBadgeClass}">${qLabel}</span>` : '';
 
                     if (failedInfo) {
                         st = 'failed';
-                        if (failedInfo.reason) {
-                            errorHtml = `<div class="err-reason">${failedInfo.reason}</div>`;
-                        }
-                        icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(255,80,80,0.8)"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+                        const err = failedInfo.reason ? `SKIPPED (${failedInfo.reason})` : 'SKIPPED';
+                        statusBadgeHtml = `<span class="link-status-badge skipped">${err}</span>`;
                     } else if (l.index === currIdx) {
                         st = 'active';
-                        icon = '<div class="link-spinner"><span></span></div>';
+                        statusBadgeHtml = `<span class="link-status-badge testing"><div class="link-spinner"><span></span></div> CONNECTING</span>`;
                     } else if (l.index > currIdx) {
                         st = 'waiting';
-                        icon = '';
+                        statusBadgeHtml = `<span class="link-status-badge queue">IN QUEUE</span>`;
+                    } else {
+                        st = 'waiting';
+                        statusBadgeHtml = `<span class="link-status-badge queue">PASSED</span>`;
                     }
-                    const qVal = l.quality;
-                    const isAutoQuality = !qVal || qVal === 400 || qVal <= 0;
-                    const qualityLabel = isAutoQuality ? '' : `${qVal}p`;
-                    const quality = qualityLabel ? `<span style="font-size:11px;opacity:0.5;margin-left:8px;">${qualityLabel}</span>` : '';
-                    return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.06, 0.5)}s">
-                        <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                            <div>${l.name}${quality}</div>
-                            ${errorHtml}
+
+                    return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.05, 0.4)}s">
+                        <div style="display: flex; align-items: center; gap: 4px; min-width: 0;">
+                            <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${l.name}</span>
+                            ${qualityHtml}
                         </div>
-                        <span>${icon}</span>
+                        <div>${statusBadgeHtml}</div>
                     </div>`;
                 }).join('');
 
@@ -1117,16 +1283,23 @@
                 setTimeout(() => {
                     const activeProb = pList.querySelector('.link-probing-item.active');
                     if (activeProb) activeProb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
+                }, 80);
             } else {
-                pList.innerHTML = '';
+                pList.innerHTML = `<div class="probing-initial-spinner">
+                    <div class="link-spinner"><span></span></div>
+                    <span>Discovering high-speed playback sources…</span>
+                </div>`;
+            }
+
+            const pPlayBtn = document.getElementById('probingPlayBtn');
+            if (pPlayBtn) {
+                pPlayBtn.style.display = (meta.links && meta.links.length > 0) ? 'inline-flex' : 'none';
             }
         } else if (meta.isProbing === false) {
             // Kotlin finished scraping/link selection.
-            // Do NOT dismiss the overlay yet! Let C++ wait for the first frame (position > 0.1)
             const pStatus = document.getElementById('linkProbingStatus');
             if (pStatus) {
-                pStatus.innerText = 'Connecting to source...';
+                pStatus.innerText = 'Connected • Launching player…';
             }
             
             // Highlight the successfully resolved link
@@ -1135,11 +1308,10 @@
                 const activeProb = pList.querySelector('.link-probing-item.active');
                 if (activeProb) {
                     activeProb.classList.remove('active');
-                    activeProb.style.background = 'rgba(34, 197, 94, 0.15)';
-                    activeProb.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-                    const iconSpan = activeProb.querySelector('span:last-child');
-                    if (iconSpan) {
-                        iconSpan.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(34, 197, 94, 0.9)"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
+                    activeProb.classList.add('success');
+                    const badgeContainer = activeProb.querySelector('div:last-child');
+                    if (badgeContainer) {
+                        badgeContainer.innerHTML = '<span class="link-status-badge ready"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> READY</span>';
                     }
                 }
             }
@@ -1441,6 +1613,15 @@
         _cachedChapters = meta.chapters || [];
         _activeChapterIndex = typeof meta.currentChapterIndex === 'number' ? meta.currentChapterIndex : -1;
         
+        if (_cachedChapters && _cachedChapters.length > 0) {
+            chaptersBtn?.classList.remove('hidden');
+        } else {
+            chaptersBtn?.classList.add('hidden');
+            if (document.getElementById('chaptersPanel')?.classList.contains('open')) {
+                closeAllPanels();
+            }
+        }
+        
         // ── Skip Intervals & Active Skip Button ─────────────────────────
         _cachedSkipIntervals = meta.skipIntervals || [];
         const skipBtn = document.getElementById('skipBtn');
@@ -1459,9 +1640,11 @@
         renderSeekbarChapters(_cachedChapters, meta.skipIntervals);
     };
 
+    let _lastRenderedChaptersJson = '';
     const renderChaptersList = (chapters, activeIndex) => {
         if (!chaptersList) return;
         if (!chapters || chapters.length === 0) {
+            _lastRenderedChaptersJson = '';
             chaptersList.innerHTML = '<div style="padding: 24px; text-align: center; color: rgba(255,255,255,0.4); font-size: 13px;">No chapters found for this video</div>';
             if (chaptersSubtitle) chaptersSubtitle.innerText = 'No chapters available';
             return;
@@ -1471,18 +1654,31 @@
             chaptersSubtitle.innerText = `${chapters.length} chapter${chapters.length > 1 ? 's' : ''}`;
         }
         
-        chaptersList.innerHTML = chapters.map((ch, idx) => {
-            const isActive = idx === activeIndex;
-            return `
-                <div class="chapter-item ${isActive ? 'active' : ''}" onclick="send('seekTo', ${ch.timeMs}); closeAllPanels();">
-                    <div class="chapter-info">
-                        <div class="chapter-num">${idx + 1}</div>
-                        <div class="chapter-title">${escapeHtml(ch.title || `Chapter ${idx + 1}`)}</div>
+        const currentJson = JSON.stringify(chapters);
+        if (_lastRenderedChaptersJson !== currentJson) {
+            _lastRenderedChaptersJson = currentJson;
+            chaptersList.innerHTML = chapters.map((ch, idx) => {
+                const isActive = idx === activeIndex;
+                return `
+                    <div class="chapter-item ${isActive ? 'active' : ''}" onclick="send('seekTo', ${ch.timeMs}); closeAllPanels();">
+                        <div class="chapter-info">
+                            <div class="chapter-num">${idx + 1}</div>
+                            <div class="chapter-title">${escapeHtml(ch.title || `Chapter ${idx + 1}`)}</div>
+                        </div>
+                        <div class="chapter-time">${fmt(ch.timeMs)}</div>
                     </div>
-                    <div class="chapter-time">${fmt(ch.timeMs)}</div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        } else {
+            // Update active state in-place without rebuilding DOM under hover cursor
+            const items = chaptersList.querySelectorAll('.chapter-item');
+            if (items) {
+                items.forEach((item, idx) => {
+                    if (idx === activeIndex) item.classList.add('active');
+                    else item.classList.remove('active');
+                });
+            }
+        }
     };
 
     const renderSeekbarChapters = (chapters, skipIntervals) => {
@@ -1560,31 +1756,27 @@
         const pContent = document.getElementById('linkProbingContent');
         if (!pOverlay) return;
         
-        // Fade content out immediately
-        if (pContent) pContent.classList.add('dismissing');
-        
-        const finishDismissal = () => {
-            // Add .dismissing while .active is still on so CSS transition
-            // animates from opacity:1 → opacity:0. Remove .active after one frame.
-            pOverlay.classList.add('dismissing');
-            requestAnimationFrame(() => {
-                pOverlay.classList.remove('active');
-            });
+        // Ensure minimum visual buffer time (500ms) so fast links don't flash jarringly
+        const elapsed = Date.now() - (window.sessionStartTime || 0);
+        const minBufferWait = userInitiated ? 0 : Math.max(0, 500 - elapsed);
+
+        setTimeout(() => {
+            // Fade content out first
+            if (pContent) pContent.classList.add('dismissing');
             
-            const resumeOvl = document.getElementById('resumeOverlay');
-            if (resumeOvl) resumeOvl.style.display = '';
+            setTimeout(() => {
+                // Crossfade the dark backdrop out and disable overlay
+                pOverlay.classList.add('dismissing');
+                pOverlay.classList.remove('active');
+                
+                const resumeOvl = document.getElementById('resumeOverlay');
+                if (resumeOvl) resumeOvl.style.display = '';
 
-            // Only show the player UI when the overlay is dismissed
-            showControls();
-            evaluateUIStates();
-        };
-
-        if (userInitiated) {
-            finishDismissal();
-        } else {
-            // Give content 200ms to fade, then crossfade the whole overlay
-            setTimeout(finishDismissal, 200);
-        }
+                // Only show the player UI when the overlay is dismissed
+                showControls();
+                evaluateUIStates();
+            }, 250);
+        }, minBufferWait);
     };
     // Expose globally so Kotlin can call via executeScript("window.__dismissProbingOverlay()")
     window.__dismissProbingOverlay = dismissProbingOverlay;
@@ -2325,10 +2517,11 @@
     document.getElementById('probingPlayBtn').addEventListener('click', e => { 
         e.stopPropagation(); 
         const btn = e.currentTarget;
-        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg> Loading...`;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg> Skipping...`;
         btn.style.opacity = '0.7';
         btn.style.pointerEvents = 'none';
-        userDismissedProbing = true;
+        const pStatus = document.getElementById('linkProbingStatus');
+        if (pStatus) pStatus.innerText = 'Skipping discovery • Connecting to best source…';
         send('skipScraping'); 
     });
     document.getElementById('probingCloseBtn').addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
@@ -2627,10 +2820,17 @@
         document.querySelector('.border-dot[data-color="#000000"]')?.classList.add('active');
         
         document.querySelectorAll('.shadow-dot').forEach(d => d.classList.remove('active'));
-        document.querySelector('.shadow-dot[data-color="#00000000"]')?.classList.add('active');
+        document.querySelector('.shadow-dot[data-color="#000000"]')?.classList.add('active');
         
-        document.getElementById('btnSubBold')?.classList.remove('active');
-        document.getElementById('btnSubItalic')?.classList.remove('active');
+        document.querySelectorAll('.color-row .color-dot:not(.border-dot):not(.shadow-dot)').forEach(d => d.classList.remove('active'));
+        document.querySelector('.color-row .color-dot:not(.border-dot):not(.shadow-dot)[data-color="#FFFFFF"]')?.classList.add('active');
+
+        localSubBold = false;
+        localSubItalic = false;
+        const btnBold = document.getElementById('btnSubBold');
+        if (btnBold) btnBold.style.background = 'rgba(255,255,255,0.1)';
+        const btnItalic = document.getElementById('btnSubItalic');
+        if (btnItalic) btnItalic.style.background = 'rgba(255,255,255,0.1)';
         
         const fontInput = document.getElementById('subFontInput');
         if (fontInput) fontInput.value = '';
@@ -2944,7 +3144,7 @@
                 btnToggleEndTime.innerText = 'On';
                 send('setPrefShowEndTime', 'true');
             }
-            if (typeof updateClockDisplay === 'function') updateClockDisplay();
+            if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
         });
     }
 
@@ -2961,7 +3161,7 @@
                 btnToggleClock.innerText = 'On';
                 send('setPrefShowClock', 'true');
             }
-            if (typeof updateClockDisplay === 'function') updateClockDisplay();
+            if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
         });
     }
 
@@ -3047,13 +3247,10 @@
     }
 
     // Video Ended Overlay Logic
-    const videoEndedOverlay = document.getElementById('videoEndedOverlay');
     const videoEndedSubtext = document.getElementById('videoEndedSubtext');
     const btnNextEpisode = document.getElementById('btnNextEpisode');
     const btnReplay = document.getElementById('btnReplay');
     const btnExitPlayer = document.getElementById('btnExitPlayer');
-    
-    let endCountdownTimer = null;
     let currentEndCountdown = 5;
 
     window.showVideoEnded = (hasNextEpisode, autoPlayEnabled) => {
@@ -3080,7 +3277,19 @@
 
             if (nextEp) {
                 if (videoEndedNextCard) videoEndedNextCard.style.display = 'flex';
-                if (videoEndedThumb) videoEndedThumb.src = nextEp.posterUrl || '';
+                if (videoEndedThumb) {
+                    const backdropEl = document.getElementById('linkProbingBackdrop') || document.getElementById('pauseBackdrop');
+                    const fallbackSrc = backdropEl ? (backdropEl.src || '') : '';
+                    videoEndedThumb.onerror = function() {
+                        if (fallbackSrc && this.src !== fallbackSrc) {
+                            this.src = fallbackSrc;
+                        } else {
+                            this.style.display = 'none';
+                        }
+                    };
+                    videoEndedThumb.style.display = 'block';
+                    videoEndedThumb.src = nextEp.posterUrl || fallbackSrc || '';
+                }
                 if (videoEndedNextEp) {
                     videoEndedNextEp.innerText = (nextEp.season !== undefined && nextEp.season !== null)
                         ? `S${nextEp.season}:E${nextEp.episode}`

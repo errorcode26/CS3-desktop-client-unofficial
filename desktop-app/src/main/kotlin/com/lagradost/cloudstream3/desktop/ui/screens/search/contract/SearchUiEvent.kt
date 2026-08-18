@@ -13,4 +13,5 @@ sealed class SearchUiEvent : UiEvent {
     data object OnClearCategories : SearchUiEvent()
     data class OnRemoveSearchHistoryItem(val query: String) : SearchUiEvent()
     object OnClearSearchHistory : SearchUiEvent()
+    data object OnLoadMore : SearchUiEvent()
 }

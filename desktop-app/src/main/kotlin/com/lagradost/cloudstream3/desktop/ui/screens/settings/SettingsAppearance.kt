@@ -661,6 +661,8 @@ fun SettingsAppearanceEffectsScreen() {
     val clockMode by AppearanceConfig.clockMode.collectAsState()
     val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
+    val detailsShowCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
+    val detailsShowEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
     val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
     val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
     val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
@@ -899,7 +901,7 @@ fun SettingsAppearanceEffectsScreen() {
 
             SettingsGroupCard("Clock & Date") {
                 SettingsDropdownItem(
-                    label = "Display Mode",
+                    label = "Main Menu Display Mode",
                     subtitle = "What to show in the top-left of the main menu",
                     options = listOf(
                         com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.HIDDEN to "Hidden",
@@ -911,8 +913,33 @@ fun SettingsAppearanceEffectsScreen() {
                     onSelectionChanged = { AppearanceConfig.setClockMode(it) },
                 )
 
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+
+                SettingsToggleItem(
+                    label = "Show Current Time in Details",
+                    subtitle = "Displays the live clock badge on movie and episode details screens",
+                    checked = detailsShowCurrentTime,
+                    onCheckedChange = { AppearanceConfig.setDetailsShowCurrentTime(it) },
+                )
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+
+                SettingsToggleItem(
+                    label = "Show Estimated End Time in Details",
+                    subtitle = "Calculates what time playback will finish based on runtime and progress",
+                    checked = detailsShowEndTime,
+                    onCheckedChange = { AppearanceConfig.setDetailsShowEndTime(it) },
+                )
+
                 if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY ||
-                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
+                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH ||
+                    detailsShowCurrentTime || detailsShowEndTime
                 ) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -920,7 +947,7 @@ fun SettingsAppearanceEffectsScreen() {
                     )
                     SettingsDropdownItem(
                         label = "Time Format",
-                        subtitle = "Pattern used to format the clock",
+                        subtitle = "Pattern used to format clocks and end time badges",
                         options = listOf(
                             "HH:mm" to "24h  (14:30)",
                             "HH:mm:ss" to "24h + seconds  (14:30:00)",

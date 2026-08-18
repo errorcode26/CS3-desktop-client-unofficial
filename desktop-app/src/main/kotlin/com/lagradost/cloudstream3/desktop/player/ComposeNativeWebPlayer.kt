@@ -37,6 +37,7 @@ fun ComposeNativeWebPlayer(
     isLoading: Boolean = false,
     loadingStatusText: String? = null,
     isProbing: Boolean = false,
+    isScraping: Boolean = false,
     failedLinks: Map<Int, String> = emptyMap(),
     backdropUrl: String? = null,
     logoUrl: String? = null,
@@ -117,8 +118,9 @@ fun ComposeNativeWebPlayer(
                 year = year,
                 tags = tags,
                 isProbing = isProbing,
-                backdropUrl = backdropUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
-                logoUrl = logoUrl?.let { com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(it) },
+                isScraping = isScraping,
+                backdropUrl = backdropUrl?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw },
+                logoUrl = logoUrl?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw },
                 currentLinkIndex = currentLinkIndex,
                 failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value) },
                 links = links.mapIndexed { index, l ->
@@ -133,13 +135,19 @@ fun ComposeNativeWebPlayer(
                     )
                 },
                 episodes = episodes.map {
+                    val epRawPoster = it.posterUrl?.takeIf { p -> p.isNotBlank() }
+                    val resolvedEpPoster = if (epRawPoster != null) {
+                        if (epRawPoster.startsWith("//")) "https:$epRawPoster" else epRawPoster
+                    } else {
+                        seriesPosterUrl
+                    }
                     EpisodePayload(
                         id = it.data,
                         title = it.name ?: "Episode ${it.episode}",
                         season = it.season,
                         episode = it.episode,
                         isActive = (it.data == currentEpisodeId),
-                        posterUrl = (it.posterUrl ?: seriesPosterUrl)?.let { url -> com.lagradost.player.impl.proxy.LocalStreamProxy.buildImageUrl(url) },
+                        posterUrl = resolvedEpPoster?.let { url -> if (url.startsWith("//")) "https:$url" else url },
                         description = it.description,
                         runTime = it.runTime,
                     )
@@ -317,6 +325,20 @@ fun ComposeNativeWebPlayer(
 
             val initialBackdropUrl = backdropUrl ?: (episodes.find { it.data == currentEpisodeId }?.posterUrl ?: "")
             val initialBackdropClass = if (initialBackdropUrl.isNotEmpty()) "loaded" else ""
+            val initialLogoUrl = logoUrl ?: ""
+            val hasLogo = initialLogoUrl.isNotEmpty()
+            val initialLogoStyle = if (hasLogo) "display: block;" else "display: none;"
+            val initialTitleStyle = if (hasLogo) "display: none;" else "display: block;"
+
+            val activeEp = episodes.find { it.data == currentEpisodeId }
+            val initialTitle = (title ?: "").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+            val initialSubtitle = if (activeEp != null) {
+                val s = activeEp.season ?: 1
+                val ep = activeEp.episode
+                val epTitle = activeEp.name?.ifEmpty { "Episode $ep" } ?: "Episode $ep"
+                "S$s:E$ep • $epTitle"
+            } else ""
+            val initialSubtitleStyle = if (initialSubtitle.isNotEmpty()) "display: block;" else "display: none;"
 
             val htmlContent = htmlTemplate
                 .replace("/* CSS_INJECT */", cssContent)
@@ -325,6 +347,12 @@ fun ComposeNativeWebPlayer(
                 .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
                 .replace("{{INITIAL_BACKDROP_URL}}", initialBackdropUrl)
                 .replace("{{INITIAL_BACKDROP_CLASS}}", initialBackdropClass)
+                .replace("{{INITIAL_LOGO_URL}}", initialLogoUrl)
+                .replace("{{INITIAL_LOGO_STYLE}}", initialLogoStyle)
+                .replace("{{INITIAL_TITLE}}", initialTitle)
+                .replace("{{INITIAL_TITLE_STYLE}}", initialTitleStyle)
+                .replace("{{INITIAL_SUBTITLE}}", initialSubtitle)
+                .replace("{{INITIAL_SUBTITLE_STYLE}}", initialSubtitleStyle)
 
             if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
                 tempFile.writeText(htmlContent, Charsets.UTF_8)
@@ -664,6 +692,8 @@ fun ComposeNativeWebPlayer(
                         "resetSubtitleSettings" -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_COLOR)
+                                com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SIZE)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE)
@@ -676,11 +706,13 @@ fun ComposeNativeWebPlayer(
 
                                 playerState?.setSubtitleFont(null)
                                 playerState?.setSubtitleOverrideEnabled(false)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-color", "#FFFFFF")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-font-size", "45")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", "#00000000")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", "background-box")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", "outline-and-shadow")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", "#000000")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", "3")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", "#00000000")
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", "#000000")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-offset", "0")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-blur", "0")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bold", "no")
@@ -691,6 +723,8 @@ fun ComposeNativeWebPlayer(
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, eventValue)
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", eventValue)
+                                val borderStyle = if (eventValue == "#00000000" || eventValue.isBlank() || eventValue.startsWith("#00")) "outline-and-shadow" else "background-box"
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", borderStyle)
                             }
                         }
                         "setSubtitleBorderColor" -> {
@@ -747,6 +781,13 @@ fun ComposeNativeWebPlayer(
                                     MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "audio")
                                     MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "no")
                                 }
+                            }
+                        }
+                        "toggleDeband" -> {
+                            val enabled = eventValue.toBoolean()
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_DEBAND, enabled)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "deband", if (enabled) "yes" else "no")
                             }
                         }
                         "setAudioNormalization" -> {
@@ -820,8 +861,14 @@ fun ComposeNativeWebPlayer(
                         "setMpvProperty" -> {
                             val parts = eventValue.split(":", limit = 2)
                             if (parts.size == 2) {
+                                val prop = parts[0]
+                                val value = parts[1]
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, parts[0], parts[1])
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, prop, value)
+                                    when (prop) {
+                                        "sub-color" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_COLOR, value)
+                                        "sub-font-size" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SIZE, value)
+                                    }
                                 }
                             }
                         }

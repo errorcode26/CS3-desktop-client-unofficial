@@ -13,6 +13,7 @@ import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
+import com.lagradost.cloudstream3.fixUrlNull
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -120,9 +121,10 @@ fun EmbeddedVideoPlayer(
                     val activeLink = uiState.activeLink
                     val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink
 
-                    val displayLinkIndex = actualLaunchData.links.indexOfFirst { it.url == activeLink?.url }.coerceAtLeast(0)
-                    val uiFailedLinks = actualLaunchData.links
-                        .mapIndexedNotNull { index, link -> if (link.url in uiState.failedLinks) index to "Failed" else null }
+                    val currentDisplayLinks = uiState.nextEpisodeLinks.ifEmpty { actualLaunchData.links }
+                    val displayLinkIndex = currentDisplayLinks.indexOfFirst { it.url == activeLink?.url }.coerceAtLeast(0)
+                    val uiFailedLinks = currentDisplayLinks
+                        .mapIndexedNotNull { index, link -> uiState.failedLinks[link.url]?.let { index to it } }
                         .toMap()
 
                     // When ViewModel clears activeLink after all sources are exhausted, close.
@@ -159,9 +161,30 @@ fun EmbeddedVideoPlayer(
 
                     val displayEpisodeId = targetEpisodeData?.data ?: actualLaunchData.history.episodeId
                     val episodes = uiState.episodes
-                    val backdropUrl = actualLaunchData.loadResponse?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
-                        ?: actualLaunchData.loadResponse?.posterUrl
-                    val logoUrl = actualLaunchData.loadResponse?.logoUrl
+                    val provider = actualLaunchData.loadResponse?.apiName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
+                        ?: actualLaunchData.history.apiName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
+
+                    val rawSeriesPoster = actualLaunchData.loadResponse?.posterUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.history.posterUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.loadResponse?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
+                    val resolvedSeriesPosterUrl = rawSeriesPoster?.let { raw ->
+                        (provider?.fixUrlNull(raw) ?: raw).let { if (it.startsWith("//")) "https:$it" else it }
+                    }
+
+                    val rawBackdrop = actualLaunchData.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.loadResponse?.backgroundPosterUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.loadResponse?.posterUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.history.posterUrl?.takeIf { it.isNotBlank() }
+                    val resolvedBackdropUrl = rawBackdrop?.let { raw ->
+                        (provider?.fixUrlNull(raw) ?: raw).let { if (it.startsWith("//")) "https:$it" else it }
+                    }
+
+                    val rawLogo = actualLaunchData.enrichedLogoUrl?.takeIf { it.isNotBlank() }
+                        ?: actualLaunchData.loadResponse?.logoUrl?.takeIf { it.isNotBlank() }
+                    val resolvedLogoUrl = rawLogo?.let { raw ->
+                        (provider?.fixUrlNull(raw) ?: raw).let { if (it.startsWith("//")) "https:$it" else it }
+                    }
+
                     val plot = targetEpisodeData?.description ?: actualLaunchData.loadResponse?.plot
                     val year = uiState.launchData?.loadResponse?.year
                     val tags = actualLaunchData.loadResponse?.tags
@@ -178,7 +201,7 @@ fun EmbeddedVideoPlayer(
                     ComposeNativeWebPlayer(
                         link = safeLink,
                         title = displayTitle,
-                        seriesPosterUrl = actualLaunchData.loadResponse?.posterUrl,
+                        seriesPosterUrl = resolvedSeriesPosterUrl,
                         plot = plot,
                         year = year,
                         tags = tags,
@@ -186,16 +209,17 @@ fun EmbeddedVideoPlayer(
                         isExiting = isExiting,
                         startPositionMs = computedStartPos,
                         shouldPauseForResume = false,
-                        links = actualLaunchData.links,
+                        links = currentDisplayLinks,
                         currentLinkIndex = displayLinkIndex,
                         episodes = episodes,
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
-                        isProbing = !isExiting && phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial,
+                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial)),
+                        isScraping = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping),
                         failedLinks = uiFailedLinks,
-                        backdropUrl = backdropUrl,
-                        logoUrl = logoUrl,
+                        backdropUrl = resolvedBackdropUrl,
+                        logoUrl = resolvedLogoUrl,
                         onLinkChange = { targetUrl ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange -> $targetUrl")
                             playerState.pause()
@@ -234,6 +258,7 @@ fun EmbeddedVideoPlayer(
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady for link index $displayLinkIndex")
                             isLoading = false
                             viewModel.onEvent(PlayerUiEvent.OnPlaybackReady)
+                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.postMessage("{\"type\":\"dismiss_probing\"}")
 
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             val epNum = currentEp?.episode ?: 1
@@ -251,6 +276,16 @@ fun EmbeddedVideoPlayer(
                         onPositionChange = { posMs, durMs ->
                             playerState.updatePositionFromPlayer(posMs)
                             playerState.updateDurationFromPlayer(durMs)
+                            val durSec = durMs / 1000L
+                            val posSec = posMs / 1000L
+                            if (posSec > 0) {
+                                val updatedHistory = actualLaunchData.history.copy(
+                                    position = posSec,
+                                    duration = if (durSec > 0) durSec else actualLaunchData.history.duration,
+                                    updateTime = System.currentTimeMillis(),
+                                )
+                                viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
+                            }
                         },
                         onCloseRequest = {
                             onClose()
@@ -269,7 +304,7 @@ fun EmbeddedVideoPlayer(
                             com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: Playback error — $err")
                             val failedUrl = uiState.activeLink?.url
                             if (failedUrl != null) {
-                                viewModel.onEvent(PlayerUiEvent.OnPlaybackError(failedUrl))
+                                viewModel.onEvent(PlayerUiEvent.OnPlaybackError(failedUrl, reason = err))
                             }
                             isLoading = true
                         },

@@ -9,14 +9,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +37,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun EpisodeCard(
     ep: Episode,
@@ -51,20 +50,22 @@ fun EpisodeCard(
     thumbnailVersion: Int = 0,
     modifier: Modifier = Modifier,
     enableDownloadButtons: Boolean = false,
+    isContextMenuEnabled: Boolean = true,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onMarkPreviousWatched: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
 ) {
     var isHovered by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(180))
+    val scale by animateFloatAsState(if (isHovered && isContextMenuEnabled) 1.02f else 1f, animationSpec = tween(180))
 
     // thumbnailVersion is intentionally read here so Compose re-evaluates epImg when episode
     // thumbnails are enriched in-place (plain field mutations don't trigger recompose otherwise).
     @Suppress("UNUSED_EXPRESSION")
     thumbnailVersion
-    val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
-    val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
+    val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
+    val fallbackImg = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
 
     val progress = if (history != null && history.duration > 0) {
         if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
@@ -144,31 +145,51 @@ fun EpisodeCard(
     Box(
         modifier = modifier
             .aspectRatio(16f / 9f)
-            .pointerInput(Unit) {
+            .pointerInput(ep, isContextMenuEnabled) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
                         when (event.type) {
                             androidx.compose.ui.input.pointer.PointerEventType.Enter -> isHovered = true
                             androidx.compose.ui.input.pointer.PointerEventType.Exit -> isHovered = false
+                            androidx.compose.ui.input.pointer.PointerEventType.Release -> {
+                                if (event.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
+                                    if (isContextMenuEnabled) {
+                                        com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForEpisode(
+                                            episode = ep,
+                                            loadResponse = data,
+                                            history = history,
+                                            provider = provider,
+                                            isAntiSpoiler = isAntiSpoiler,
+                                            enableDownloadButtons = enableDownloadButtons,
+                                            onPlay = onPlay,
+                                            onDownload = onDownload,
+                                            onToggleWatched = onToggleWatched,
+                                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                            onMarkPreviousWatched = onMarkPreviousWatched,
+                                        )
+                                    }
+                                } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
+                                    onPlay(ep)
+                                }
+                            }
                         }
                     }
                 }
             }
             .scale(scale)
             .shadow(
-                elevation = if (isHovered) 16.dp else 6.dp,
+                elevation = if (isHovered && isContextMenuEnabled) 16.dp else 6.dp,
                 shape = RoundedCornerShape(16.dp),
-                spotColor = if (isHovered) heroColor else Color.Black,
-                ambientColor = if (isHovered) heroColor else Color.Black,
+                spotColor = if (isHovered && isContextMenuEnabled) heroColor else Color.Black,
+                ambientColor = if (isHovered && isContextMenuEnabled) heroColor else Color.Black,
             )
             .border(
-                width = if (isHovered) 1.5.dp else 0.5.dp,
-                color = if (isHovered) heroColor else Color.White.copy(alpha = 0.18f),
+                width = if (isHovered && isContextMenuEnabled) 1.5.dp else 0.5.dp,
+                color = if (isHovered && isContextMenuEnabled) heroColor else Color.White.copy(alpha = 0.18f),
                 shape = RoundedCornerShape(16.dp),
             )
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onPlay(ep) },
+            .clip(RoundedCornerShape(16.dp)),
     ) {
         // Background image
         if (epImg != null || fallbackImg != null) {
@@ -226,50 +247,20 @@ fun EpisodeCard(
             }
         }
 
-        // Multi-stop smooth bottom gradient scrim for natural safe zone
+        // Subtle bottom gradient scrim (starts at lower 50%, gentle soft shadow)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     androidx.compose.ui.graphics.Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.36f to Color.Transparent,
-                        0.54f to Color.Black.copy(alpha = 0.22f),
-                        0.70f to Color.Black.copy(alpha = 0.50f),
-                        0.84f to Color.Black.copy(alpha = 0.78f),
-                        1.0f to Color.Black.copy(alpha = 0.94f),
+                        0.50f to Color.Transparent,
+                        0.70f to Color.Black.copy(alpha = 0.35f),
+                        0.88f to Color.Black.copy(alpha = 0.65f),
+                        1.0f to Color.Black.copy(alpha = 0.82f),
                     ),
                 ),
         )
-
-        // Hover play overlay
-        androidx.compose.animation.AnimatedVisibility(
-            visible = isHovered,
-            modifier = Modifier.matchParentSize(),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150)),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(heroColor.copy(alpha = 0.85f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp).offset(x = 2.dp),
-                    )
-                }
-            }
-        }
 
         // Anti-spoiler overlay
         if (shouldHideSpoilers && !isHovered) {
@@ -379,7 +370,7 @@ fun EpisodeCard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, bottom = 16.dp),
+                .padding(start = 18.dp, end = 18.dp, bottom = if (progress > 0f) 22.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             // Row 0: Episode Code Badge (e.g. S1E1 / EP 1)
@@ -388,26 +379,33 @@ fun EpisodeCard(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .border(0.5.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 7.dp, vertical = 2.5.dp),
+                        .background(Color.Black.copy(alpha = 0.50f))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
                         text = epText,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp,
                         ),
-                        color = Color.White.copy(alpha = 0.90f),
+                        color = Color.White.copy(alpha = 0.95f),
                     )
                 }
             }
 
-            // Row 1: Full-Width Episode Title
+            // Row 1: Full-Width Episode Title with refined shadow
             Text(
                 text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 19.sp,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.85f),
+                        blurRadius = 6f,
+                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                    ),
+                ),
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -420,7 +418,7 @@ fun EpisodeCard(
             // Subtle breathing room between Title and Description
             Spacer(modifier = Modifier.height(2.dp))
 
-            // Row 2: Synopsis / Plot with comfortable line height
+            // Row 2: Synopsis / Plot with comfortable line height and subtle shadow
             Text(
                 text = when {
                     shouldHideSpoilers -> "Description hidden."
@@ -428,15 +426,23 @@ fun EpisodeCard(
                     runTimeStr != null -> "Runtime: $runTimeStr"
                     else -> "No description available."
                 },
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp, lineHeight = 19.5.sp),
-                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.84f else 0.45f),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 14.5.sp,
+                    lineHeight = 20.5.sp,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.85f),
+                        blurRadius = 5f,
+                        offset = androidx.compose.ui.geometry.Offset(0f, 1f),
+                    ),
+                ),
+                color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.95f else 0.70f),
                 minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.run { if (shouldHideSpoilers && hasDesc) this.blur(5.dp) else this },
             )
 
-            // Row 3: Duration on Left & Air Date on Right (always maintains minimum baseline height to prevent synopsis from sagging)
+            // Row 3: Duration on Left & Air Date on Right
             Spacer(modifier = Modifier.height(2.dp))
             Row(
                 modifier = Modifier
@@ -448,8 +454,15 @@ fun EpisodeCard(
                 if (durationText != null) {
                     Text(
                         text = durationText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = Color.White.copy(alpha = 0.75f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 12.5.sp,
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.85f),
+                                blurRadius = 4f,
+                                offset = androidx.compose.ui.geometry.Offset(0f, 1f),
+                            ),
+                        ),
+                        color = Color.White.copy(alpha = 0.85f),
                         fontWeight = FontWeight.SemiBold,
                     )
                 } else {
@@ -459,29 +472,37 @@ fun EpisodeCard(
                 if (formattedDate != null) {
                     Text(
                         text = formattedDate,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        color = Color.White.copy(alpha = 0.65f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 12.5.sp,
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.85f),
+                                blurRadius = 4f,
+                                offset = androidx.compose.ui.geometry.Offset(0f, 1f),
+                            ),
+                        ),
+                        color = Color.White.copy(alpha = 0.85f),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
         }
 
-        // Bottom progress bar
+        // Bottom progress bar (floating higher inside the card)
         if (progress > 0f) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(Color.White.copy(alpha = 0.20f)),
+                    .padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
+                    .height(4.5.dp)
+                    .clip(RoundedCornerShape(2.5.dp))
+                    .background(Color.White.copy(alpha = 0.22f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progress)
                         .fillMaxHeight()
+                        .clip(RoundedCornerShape(2.5.dp))
                         .background(MaterialTheme.colorScheme.primary),
                 )
             }
@@ -489,6 +510,7 @@ fun EpisodeCard(
     }
 }
 
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: LoadResponse, onPlay: (com.lagradost.cloudstream3.Episode) -> Unit) {
     var isHovered by remember { mutableStateOf(false) }
@@ -519,8 +541,8 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
         shadowElevation = elevation.applyShadowMultiplier(),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            val epImg = provider.fixUrlNull(ep.posterUrl)?.takeIf { it.isNotBlank() }
-            val fallbackImg = provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
+            val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
+            val fallbackImg = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
 
             if (epImg != null || fallbackImg != null) {
                 val targetUrl = epImg ?: fallbackImg

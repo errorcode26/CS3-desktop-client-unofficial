@@ -1,55 +1,55 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.EaseInCubic
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lagradost.cloudstream3.Episode
+import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import com.lagradost.player.impl.PlayerLinkHandler
 
 enum class ContextMenuType {
     POSTER,
     WATCH_HISTORY,
+    EPISODE,
 }
 
 object GlobalContextMenuState {
@@ -61,9 +61,20 @@ object GlobalContextMenuState {
     var watchHistory: WatchHistory? by mutableStateOf(null)
     var provider: MainAPI? by mutableStateOf(null)
 
+    var episode: Episode? by mutableStateOf(null)
+    var loadResponse: LoadResponse? by mutableStateOf(null)
+    var isAntiSpoiler: Boolean by mutableStateOf(false)
+    var enableDownloadButtons: Boolean by mutableStateOf(false)
+
     var onRemove: (() -> Unit)? by mutableStateOf(null)
     var onDetailsClick: (() -> Unit)? by mutableStateOf(null)
     var onPlayClick: (() -> Unit)? by mutableStateOf(null)
+
+    var onPlayEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
+    var onDownloadEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
+    var onToggleWatched: ((Episode, Boolean) -> Unit)? by mutableStateOf(null)
+    var onRemoveEpisodeWatched: ((Episode) -> Unit)? by mutableStateOf(null)
+    var onMarkPreviousWatched: ((Episode) -> Unit)? by mutableStateOf(null)
 
     fun dismiss() {
         isActive = false
@@ -73,9 +84,18 @@ object GlobalContextMenuState {
         searchResponse = null
         watchHistory = null
         provider = null
+        episode = null
+        loadResponse = null
+        isAntiSpoiler = false
+        enableDownloadButtons = false
         onRemove = null
         onDetailsClick = null
         onPlayClick = null
+        onPlayEpisode = null
+        onDownloadEpisode = null
+        onToggleWatched = null
+        onRemoveEpisodeWatched = null
+        onMarkPreviousWatched = null
     }
 
     fun showForPoster(
@@ -111,9 +131,36 @@ object GlobalContextMenuState {
         this.menuType = ContextMenuType.WATCH_HISTORY
         this.isActive = true
     }
+
+    fun showForEpisode(
+        episode: Episode,
+        loadResponse: LoadResponse,
+        history: WatchHistory?,
+        provider: MainAPI?,
+        isAntiSpoiler: Boolean = false,
+        enableDownloadButtons: Boolean = false,
+        onPlay: (Episode) -> Unit,
+        onDownload: ((Episode) -> Unit)? = null,
+        onToggleWatched: (Episode, Boolean) -> Unit,
+        onRemoveEpisodeWatched: (Episode) -> Unit,
+        onMarkPreviousWatched: ((Episode) -> Unit)? = null,
+    ) {
+        this.episode = episode
+        this.loadResponse = loadResponse
+        this.watchHistory = history
+        this.provider = provider
+        this.isAntiSpoiler = isAntiSpoiler
+        this.enableDownloadButtons = enableDownloadButtons
+        this.onPlayEpisode = onPlay
+        this.onDownloadEpisode = onDownload
+        this.onToggleWatched = onToggleWatched
+        this.onRemoveEpisodeWatched = onRemoveEpisodeWatched
+        this.onMarkPreviousWatched = onMarkPreviousWatched
+        this.menuType = ContextMenuType.EPISODE
+        this.isActive = true
+    }
 }
 
-@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ContextMenuOverlay() {
     val state = GlobalContextMenuState
@@ -129,248 +176,378 @@ fun ContextMenuOverlay() {
     }
 
     if (isVisible) {
+        val isEpisode = state.menuType == ContextMenuType.EPISODE
+
+        // Sizable dimensions optimized for desktop screens
+        val posterWidth = if (isEpisode) 520.dp else 280.dp
+        val posterHeight = if (isEpisode) (520.dp * 9f / 16f) else (280.dp * 3f / 2f)
+        val actionCardWidth = if (isEpisode) 320.dp else 280.dp
+
+        val posterUrl = if (state.menuType == ContextMenuType.POSTER) {
+            state.searchResponse?.posterUrl
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
+            state.watchHistory?.posterUrl
+        } else {
+            state.episode?.posterUrl ?: state.loadResponse?.posterUrl
+        }
+
+        val titleText = if (state.menuType == ContextMenuType.POSTER) {
+            state.searchResponse?.name
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
+            state.watchHistory?.showName
+        } else {
+            state.episode?.let { ep ->
+                val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
+                val titleCleaned = rawTitle
+                    .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
+                    .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
+                    .trim()
+                if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
+            }
+        }
+
+        val subtitleText = if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
+            val ep = state.episode!!
+            if (ep.season != null && ep.episode != null) "S${ep.season} E${ep.episode}" else ep.episode?.let { "Episode $it" } ?: ""
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
+            val ep = state.watchHistory!!.episode
+            val s = state.watchHistory!!.season
+            if (s != null && ep != null) "S${s} E${ep}" else ep?.let { "Episode $it" } ?: state.watchHistory!!.apiName
+        } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
+            val item = state.searchResponse!!
+            val year = (item as? com.lagradost.cloudstream3.MovieSearchResponse)?.year
+                ?: (item as? com.lagradost.cloudstream3.TvSeriesSearchResponse)?.year
+                ?: (item as? com.lagradost.cloudstream3.AnimeSearchResponse)?.year
+            year?.toString() ?: state.provider?.name ?: ""
+        } else {
+            ""
+        }
+
+        val progress = if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
+            val history = state.watchHistory
+            if (history != null && history.duration > 0) {
+                if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
+                    1f
+                } else {
+                    (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+                }
+            } else {
+                0f
+            }
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
+            val history = state.watchHistory!!
+            if (history.duration > 0) {
+                if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
+                else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+        } else {
+            0f
+        }
+        val isWatched = progress > 0.9f
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.3f))
+                .background(Color.Black.copy(alpha = 0.78f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = { state.dismiss() },
                 ),
+            contentAlignment = Alignment.Center,
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
-                modifier = Modifier.fillMaxSize(),
-                enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.95f),
-                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.95f),
+                enter = fadeIn(tween(260)) + scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    initialScale = 0.82f,
+                ),
+                exit = fadeOut(tween(180)) + scaleOut(
+                    animationSpec = tween(180, easing = EaseInCubic),
+                    targetScale = 0.82f,
+                ),
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
+                Column(
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    val basePosterWidth = if (state.menuType == ContextMenuType.WATCH_HISTORY) 480.dp else 280.dp
-                    val basePosterHeight = if (state.menuType == ContextMenuType.WATCH_HISTORY) (480.dp * 9f / 16f) else (280.dp * 3f / 2f)
-                    val menuWidth = 300.dp
-                    val cardPadding = 16.dp
-
+                    // 1. Poster / Thumbnail Surface
                     Surface(
                         modifier = Modifier
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Transparent, // Transparent so cinematic background shows
-                        tonalElevation = 24.dp, // High elevation for premium feel
+                            .width(posterWidth)
+                            .height(posterHeight),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF18181A),
+                        tonalElevation = 24.dp,
+                        shadowElevation = 32.dp,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                     ) {
-                        // Main cinematic container
-                        Box(
-                            modifier = Modifier
-                                .width(basePosterWidth + cardPadding * 2 + menuWidth)
-                                .height(basePosterHeight + cardPadding * 2) // Fixed height tightly bound to poster with padding
-                                .clip(RoundedCornerShape(16.dp))
-                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
-                        ) {
-                            // Ambient Cinematic Background (Blurred poster filling the entire card)
-                            val posterUrl = if (state.menuType == ContextMenuType.POSTER) state.searchResponse?.posterUrl else state.watchHistory?.posterUrl
-                            AsyncImage(
-                                model = posterUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().blur(48.dp).alpha(0.85f),
-                            )
-                            // Darken the background for text readability
-                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)))
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (!posterUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = posterUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
 
-                            Row(modifier = Modifier.fillMaxSize()) {
-                                // Left side: Poster
+                            // Watched Check Badge (Top-Right)
+                            if (isWatched) {
                                 Box(
                                     modifier = Modifier
-                                        .width(basePosterWidth + cardPadding * 2)
-                                        .fillMaxHeight()
-                                        .padding(cardPadding),
+                                        .align(Alignment.TopEnd)
+                                        .padding(12.dp)
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE24A4A)),
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
-                                        PosterCard(
-                                            item = state.searchResponse!!,
-                                            provider = state.provider,
-                                            itemWidth = basePosterWidth,
-                                            isHoverEnabled = false,
-                                            onClick = {
-                                                state.dismiss()
-                                                state.onDetailsClick?.invoke()
-                                            },
-                                        )
-                                    } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
-                                        WatchHistoryCard(
-                                            history = state.watchHistory!!,
-                                            provider = state.provider,
-                                            modifier = Modifier.fillMaxSize(),
-                                            isContextMenuEnabled = false,
-                                            onRemove = {
-                                                state.dismiss()
-                                                state.onRemove?.invoke()
-                                            },
-                                            onClick = {
-                                                state.dismiss()
-                                                state.onDetailsClick?.invoke()
-                                            },
-                                        )
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Watched",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(15.dp),
+                                    )
+                                }
+                            }
+
+                            // Progress bar at bottom
+                            if (progress > 0f && !isWatched) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .background(Color.White.copy(alpha = 0.2f)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                            .fillMaxHeight()
+                                            .background(MaterialTheme.colorScheme.primary),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 2. Standalone Centered Title & Subtitle (outside action card)
+                    if (!titleText.isNullOrBlank()) {
+                        Text(
+                            text = titleText,
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            lineHeight = 22.sp,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = posterWidth).padding(horizontal = 8.dp),
+                        )
+                        if (subtitleText.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = subtitleText,
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 3. Floating Rounded Action List Pill
+                    Surface(
+                        modifier = Modifier
+                            .width(actionCardWidth)
+                            .wrapContentHeight(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1C1C1E).copy(alpha = 0.96f),
+                        tonalElevation = 16.dp,
+                        shadowElevation = 20.dp,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                        ) {
+                            if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
+                                val item = state.searchResponse!!
+                                val bookmarkId = if (state.provider != null) "${state.provider!!.name}_${item.url.hashCode()}" else ""
+                                val allBookmarks by BookmarksRepository.bookmarksFlow.collectAsState()
+                                val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
+                                var isLibraryExpanded by remember { mutableStateOf(false) }
+
+                                if (currentBookmark != null) {
+                                    ActionMenuItem(
+                                        text = "Remove from library",
+                                        icon = Icons.Default.Delete,
+                                        color = MaterialTheme.colorScheme.error,
+                                        onClick = {
+                                            state.dismiss()
+                                            BookmarksRepository.removeBookmark(bookmarkId)
+                                        },
+                                    )
+                                } else {
+                                    ActionMenuItem(
+                                        text = "Add to library",
+                                        icon = Icons.Default.Add,
+                                        onClick = {
+                                            isLibraryExpanded = !isLibraryExpanded
+                                        },
+                                    )
+
+                                    AnimatedVisibility(visible = isLibraryExpanded) {
+                                        Column(modifier = Modifier.padding(start = 12.dp)) {
+                                            DesktopWatchType.entries.forEach { watchType ->
+                                                ActionMenuItem(
+                                                    text = watchType.stringRes,
+                                                    icon = if (watchType == DesktopWatchType.WATCHING) Icons.Default.PlayArrow else Icons.Default.Add,
+                                                    onClick = {
+                                                        state.dismiss()
+                                                        if (state.provider != null) {
+                                                            val newBookmark = DesktopBookmark(
+                                                                id = bookmarkId,
+                                                                name = item.name,
+                                                                url = item.url,
+                                                                apiName = state.provider!!.name,
+                                                                posterUrl = item.posterUrl,
+                                                                watchType = watchType.id,
+                                                            )
+                                                            BookmarksRepository.addBookmark(newBookmark)
+                                                        }
+                                                    },
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 
-                                // Right side: Context Menu (Scrollable, Glassmorphism)
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .background(
-                                            androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.4f),
-                                                    Color.Black.copy(alpha = 0.7f)
-                                                ),
-                                            ),
-                                        )
-                                        .padding(vertical = 16.dp, horizontal = 12.dp),
-                                ) {
-                                    val scrollState = androidx.compose.foundation.rememberScrollState()
-                                    Column(
-                                        modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
-                                        verticalArrangement = Arrangement.Center,
-                                    ) {
-                                        val titleText = state.searchResponse?.name ?: state.watchHistory?.showName
-                                        if (!titleText.isNullOrBlank()) {
-                                            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                                                Text(
-                                                    text = titleText,
-                                                    color = Color.White.copy(alpha = 0.95f),
-                                                    style = MaterialTheme.typography.titleLarge,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    letterSpacing = 0.5.sp,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 16.dp)
-                                                        .height(1.dp)
-                                                        .background(Color.White.copy(alpha = 0.15f))
-                                                )
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                            }
+                                ActionMenuItem(
+                                    text = "Play",
+                                    icon = Icons.Default.PlayArrow,
+                                    onClick = {
+                                        state.dismiss()
+                                        if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
+                                    },
+                                )
+
+                                ActionMenuItem(
+                                    text = "Details",
+                                    icon = Icons.Default.Info,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onDetailsClick?.invoke()
+                                    },
+                                )
+                            } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
+                                val isUpNext = state.watchHistory?.duration == 0L && state.watchHistory?.position == 0L
+
+                                ActionMenuItem(
+                                    text = if (isUpNext) "Play next episode" else if (progress > 0f && progress < 0.9f) "Resume playing" else "Play",
+                                    icon = Icons.Default.PlayArrow,
+                                    onClick = {
+                                        state.dismiss()
+                                        if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
+                                    },
+                                )
+
+                                ActionMenuItem(
+                                    text = "Details",
+                                    icon = Icons.Default.Info,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onDetailsClick?.invoke()
+                                    },
+                                )
+
+                                ActionMenuItem(
+                                    text = "Remove from Continue Watching",
+                                    icon = Icons.Default.Delete,
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onRemove?.invoke()
+                                    },
+                                )
+                            } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
+                                val ep = state.episode!!
+
+                                ActionMenuItem(
+                                    text = if (isWatched) "Mark as unwatched" else "Mark as watched",
+                                    icon = if (isWatched) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
+                                    onClick = {
+                                        state.dismiss()
+                                        if (isWatched) {
+                                            state.onRemoveEpisodeWatched?.invoke(ep)
+                                        } else {
+                                            state.onToggleWatched?.invoke(ep, true)
                                         }
+                                    },
+                                )
 
+                                val season = ep.season
+                                if (season != null) {
+                                    ActionMenuItem(
+                                        text = "Mark Season $season as watched",
+                                        icon = Icons.Default.DoneAll,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onMarkPreviousWatched?.invoke(ep)
+                                        },
+                                    )
+                                } else if (state.onMarkPreviousWatched != null) {
+                                    ActionMenuItem(
+                                        text = "Mark previous as watched",
+                                        icon = Icons.Default.DoneAll,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onMarkPreviousWatched?.invoke(ep)
+                                        },
+                                    )
+                                }
 
-                                        if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
-                                            ContextMenuItem(
-                                                text = "Play",
-                                                icon = Icons.Default.PlayArrow,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
-                                                },
-                                            )
-                                            ContextMenuItem(
-                                                text = "Details",
-                                                icon = Icons.Default.Info,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    state.onDetailsClick?.invoke()
-                                                },
-                                            )
+                                ActionMenuItem(
+                                    text = if (progress > 0f && progress < 0.9f) "Resume episode" else "Play episode",
+                                    icon = Icons.Default.PlayArrow,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onPlayEpisode?.invoke(ep)
+                                    },
+                                )
 
-                                            val item = state.searchResponse!!
-                                            val bookmarkId = if (state.provider != null) "${state.provider!!.name}_${item.url.hashCode()}" else ""
-                                            val allBookmarks by BookmarksRepository.bookmarksFlow.collectAsState()
-                                            val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
+                                if (progress > 0f) {
+                                    ActionMenuItem(
+                                        text = "Clear watch progress",
+                                        icon = Icons.Default.Refresh,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onRemoveEpisodeWatched?.invoke(ep)
+                                        },
+                                    )
+                                }
 
-                                            var isLibraryExpanded by remember { mutableStateOf(false) }
-
-                                            if (currentBookmark != null) {
-                                                ContextMenuItem(
-                                                    text = "Remove from Library",
-                                                    icon = Icons.Default.Delete,
-                                                    color = MaterialTheme.colorScheme.error,
-                                                    onClick = {
-                                                        state.dismiss()
-                                                        BookmarksRepository.removeBookmark(bookmarkId)
-                                                    },
-                                                )
-                                            } else {
-                                                ContextMenuItem(
-                                                    text = "Add to Library",
-                                                    icon = Icons.Default.Add,
-                                                    onClick = {
-                                                        isLibraryExpanded = !isLibraryExpanded
-                                                    },
-                                                )
-
-                                                AnimatedVisibility(visible = isLibraryExpanded) {
-                                                    Column(modifier = Modifier.padding(start = 16.dp)) {
-                                                        DesktopWatchType.entries.forEach { watchType ->
-                                                            ContextMenuItem(
-                                                                text = watchType.stringRes,
-                                                                icon = if (watchType == DesktopWatchType.WATCHING) Icons.Default.PlayArrow else Icons.Default.Add,
-                                                                onClick = {
-                                                                    state.dismiss()
-                                                                    if (state.provider != null) {
-                                                                        val newBookmark = DesktopBookmark(
-                                                                            id = bookmarkId,
-                                                                            name = item.name,
-                                                                            url = item.url,
-                                                                            apiName = state.provider!!.name,
-                                                                            posterUrl = item.posterUrl,
-                                                                            watchType = watchType.id,
-                                                                        )
-                                                                        BookmarksRepository.addBookmark(newBookmark)
-                                                                    }
-                                                                },
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            ContextMenuItem(
-                                                text = "Copy Title",
-                                                icon = Icons.Default.ContentCopy,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    val selection = StringSelection(item.name)
-                                                    Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
-                                                },
-                                            )
-                                        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
-                                            ContextMenuItem(
-                                                text = "Resume Playing",
-                                                icon = Icons.Default.PlayArrow,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
-                                                },
-                                            )
-                                            ContextMenuItem(
-                                                text = "Details",
-                                                icon = Icons.Default.Info,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    state.onDetailsClick?.invoke()
-                                                },
-                                            )
-                                            ContextMenuItem(
-                                                text = "Remove from Continue Watching",
-                                                icon = Icons.Default.Delete,
-                                                color = MaterialTheme.colorScheme.error,
-                                                onClick = {
-                                                    state.dismiss()
-                                                    state.onRemove?.invoke()
-                                                },
-                                            )
-                                        }
-                                    }
+                                if (state.enableDownloadButtons && state.onDownloadEpisode != null) {
+                                    ActionMenuItem(
+                                        text = "Download episode",
+                                        icon = Icons.Default.Download,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onDownloadEpisode?.invoke(ep)
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -382,7 +559,7 @@ fun ContextMenuOverlay() {
 }
 
 @Composable
-private fun ContextMenuItem(
+private fun ActionMenuItem(
     text: String,
     icon: ImageVector,
     color: Color = Color.White.copy(alpha = 0.9f),
@@ -391,42 +568,35 @@ private fun ContextMenuItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    val bgColor by androidx.compose.animation.animateColorAsState(
-        targetValue = if (isHovered) Color.White.copy(alpha = 0.12f) else Color.Transparent,
-        animationSpec = tween(150),
-        label = "menuItemBg",
-    )
-
-    val iconOffsetX by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isHovered) 4f else 0f,
-        animationSpec = tween(150),
-        label = "menuItemIconOffset",
+    val bgColor by animateColorAsState(
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.09f) else Color.Transparent,
+        animationSpec = tween(120),
+        label = "actionItemBg",
     )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
-            .clickable(interactionSource = interactionSource, indication = androidx.compose.material3.ripple()) { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .clickable(interactionSource = interactionSource, indication = ripple()) { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            modifier = Modifier
-                .size(20.dp)
-                .offset(x = iconOffsetX.dp),
-            tint = color,
-        )
         Text(
             text = text,
             color = color,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.5.sp,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.2.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            modifier = Modifier.size(17.dp),
+            tint = color,
         )
     }
 }
