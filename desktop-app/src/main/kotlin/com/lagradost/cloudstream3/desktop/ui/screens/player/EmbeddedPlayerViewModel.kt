@@ -504,6 +504,16 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         linkRetries.clear()
         val currentData = uiState.value.launchData ?: return
 
+        val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
+        if (lockUnreleased) {
+            val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode)
+            if (status.isUnreleased) {
+                val toast = status.statusBadgeText ?: "This episode is unreleased."
+                sendEffect(PlayerUiEffect.ShowToast(toast))
+                return
+            }
+        }
+
         countdownJob?.cancel()
         loadLinksJob?.cancel()
         updateState {
@@ -637,6 +647,20 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
 
         if (nextEpisode != null) {
+            val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
+            if (lockUnreleased) {
+                val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEpisode)
+                if (status.isUnreleased) {
+                    updateState {
+                        copy(
+                            phase = PlayerPhase.Idle,
+                            countdownToNextEpisode = null,
+                        )
+                    }
+                    sendEffect(PlayerUiEffect.ShowToast("Next episode is unreleased (${status.statusBadgeText ?: "Upcoming"})"))
+                    return
+                }
+            }
             loadEpisode(nextEpisode)
         } else {
             updateState {

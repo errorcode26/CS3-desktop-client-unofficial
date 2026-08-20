@@ -25,22 +25,16 @@ import kotlinx.coroutines.launch
 fun SettingsAdvanced(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
-    CompositionLocalProvider(
-        LocalSettingsScrollState provides scrollState,
-        LocalScrollContainerCoordinates provides containerCoordinates,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { containerCoordinates = it }
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .onGloballyPositioned { containerCoordinates = it }
-                .verticalScroll(scrollState)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            SettingsGroupCard(title = "Storage Directories") {
+        SettingsGroupCard(title = "Storage Directories") {
                 Text("CloudStream stores its settings, caches, and extensions dynamically based on your operating system.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -339,4 +333,72 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
             }
         }
     }
+
+@Composable
+fun SettingsNetworkScreen(viewModel: SettingsViewModel) {
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsNetwork(viewModel = viewModel)
+        }
+    }
 }
+
+@Composable
+fun SettingsAdvancedScreen(viewModel: SettingsViewModel) {
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsAdvanced(viewModel = viewModel)
+        }
+    }
+}
+
+// Legacy combined screen — kept for reference but no longer used by the router
+@Composable
+fun SettingsAdvancedAndNetwork(viewModel: SettingsViewModel) {
+    val scrollState = rememberScrollState()
+    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    CompositionLocalProvider(
+        LocalSettingsScrollState provides scrollState,
+        LocalScrollContainerCoordinates provides containerCoordinates,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { containerCoordinates = it }
+                .verticalScroll(scrollState)
+                .padding(top = 20.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            SettingsAdvanced(viewModel = viewModel)
+            SettingsNetwork(viewModel = viewModel)
+        }
+    }
+}
+

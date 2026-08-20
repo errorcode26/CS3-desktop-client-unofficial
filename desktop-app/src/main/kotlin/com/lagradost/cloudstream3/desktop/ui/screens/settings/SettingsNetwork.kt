@@ -15,21 +15,14 @@ import com.lagradost.common.storage.DesktopDataStore
 @Composable
 fun SettingsNetwork(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-
-    val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
-    CompositionLocalProvider(
-        LocalSettingsScrollState provides scrollState,
-        LocalScrollContainerCoordinates provides containerCoordinates,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { containerCoordinates = it },
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .onGloballyPositioned { containerCoordinates = it }
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
             SettingsGroupCard(title = "DNS over HTTPS (DoH)") {
                 Text(
                     "Bypass ISP DNS blocking by encrypting your DNS queries. Changing this will instantly hot-reload the app's networking.",
@@ -105,4 +98,3 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             }
         }
     }
-}

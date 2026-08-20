@@ -76,7 +76,14 @@ data class PlayerUiState(
                     (currentData.history.season == null || it.season == currentData.history.season)
             }
         }
-        return currentIndex != -1 && currentIndex + 1 < eps.size
+        if (currentIndex == -1 || currentIndex + 1 >= eps.size) return false
+        val nextEp = eps[currentIndex + 1]
+        val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
+        if (lockUnreleased) {
+            val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEp)
+            if (status.isUnreleased) return false
+        }
+        return true
     }
 
     val nextEpisodeData: Episode? get() {
@@ -90,7 +97,14 @@ data class PlayerUiState(
                     (currentData.history.season == null || it.season == currentData.history.season)
             }
         }
-        return if (currentIndex != -1 && currentIndex + 1 < eps.size) eps[currentIndex + 1] else null
+        if (currentIndex == -1 || currentIndex + 1 >= eps.size) return null
+        val nextEp = eps[currentIndex + 1]
+        val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
+        if (lockUnreleased) {
+            val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEp)
+            if (status.isUnreleased) return null
+        }
+        return nextEp
     }
 
     val hasPrevEpisode: Boolean get() {

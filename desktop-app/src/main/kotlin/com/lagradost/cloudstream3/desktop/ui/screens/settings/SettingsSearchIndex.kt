@@ -10,91 +10,88 @@ data class SettingsSearchEntry(
 
 object SettingsSearchIndex {
     val searchIndex = listOf(
-        // Interface & Design
-        SettingsSearchEntry("Theme Preset", SettingsTab.APPEARANCE, listOf("preset", "theme", "color"), uiLabel = "Theme Presets", subScreen = SettingsSubScreen.THEME),
-        SettingsSearchEntry("Accent Color", SettingsTab.APPEARANCE, listOf("accent", "theme", "color"), uiLabel = "Theme & Colors", subScreen = SettingsSubScreen.THEME),
-        SettingsSearchEntry("Light Mode", SettingsTab.APPEARANCE, listOf("light", "dark", "theme"), uiLabel = "Light Theme", subScreen = SettingsSubScreen.THEME),
-        SettingsSearchEntry("App Background", SettingsTab.APPEARANCE, listOf("background", "wallpaper", "color"), uiLabel = "Theme & Colors", subScreen = SettingsSubScreen.THEME),
-        SettingsSearchEntry("App Font", SettingsTab.APPEARANCE, listOf("font", "text", "typeface"), uiLabel = "App Font", subScreen = SettingsSubScreen.THEME),
+        // Theme tab
+        SettingsSearchEntry("Theme Presets", LeafTab.THEME, listOf("preset", "theme", "cyberpunk", "nord", "dracula", "catppuccin", "amoled", "color"), uiLabel = "Theme Presets"),
+        SettingsSearchEntry("Accent Color", LeafTab.THEME, listOf("accent", "theme", "color", "purple", "blue", "green", "red", "orange", "hex"), uiLabel = "Accent Color"),
+        SettingsSearchEntry("Light Theme", LeafTab.THEME, listOf("light", "white", "day", "bright", "theme", "mode"), uiLabel = "Light Theme"),
+        SettingsSearchEntry("AMOLED Pure Black Mode", LeafTab.THEME, listOf("amoled", "oled", "pure black", "pitch black", "battery", "dark"), uiLabel = "AMOLED Pure Black Mode"),
+        SettingsSearchEntry("App Background Theme", LeafTab.THEME, listOf("background", "navy", "midnight", "slate", "mocha", "pure black", "custom"), uiLabel = "Theme & Colors"),
+        SettingsSearchEntry("Background Gradient", LeafTab.THEME, listOf("gradient", "radial", "linear", "background", "glow", "color"), uiLabel = "Background Gradient"),
+        SettingsSearchEntry("App Font / Typography", LeafTab.THEME, listOf("font", "text", "typeface", "typography", "inter", "roboto", "custom font"), uiLabel = "App Font"),
 
-        // Display & Layout
-        SettingsSearchEntry("Home Screen Spacing", SettingsTab.APPEARANCE, listOf("home", "spacing", "gap"), uiLabel = "Home Page Spacing", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Sidebar Dock Position", SettingsTab.APPEARANCE, listOf("sidebar", "dock", "left", "right"), uiLabel = "Dock Position", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Hero Carousel Banner", SettingsTab.APPEARANCE, listOf("hero", "carousel", "banner", "home"), uiLabel = "Enable Hero Slider", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Hero Auto-Slide Delay", SettingsTab.APPEARANCE, listOf("hero", "slide", "delay"), uiLabel = "Hero Auto-Slide Delay", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Poster Title Position", SettingsTab.APPEARANCE, listOf("poster", "title", "text"), uiLabel = "Poster Title Position", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Poster Width", SettingsTab.APPEARANCE, listOf("poster", "width", "size"), uiLabel = "Poster Width", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Poster Corner Rounding", SettingsTab.APPEARANCE, listOf("poster", "corner", "rounding", "radius"), uiLabel = "Poster Corner Radius", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Show Rating on Poster", SettingsTab.APPEARANCE, listOf("poster", "rating", "score", "star"), uiLabel = "Show Rating / Score", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Show Quality on Poster", SettingsTab.APPEARANCE, listOf("poster", "quality", "resolution"), uiLabel = "Show Quality (HD / 4K)", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Show Language on Poster", SettingsTab.APPEARANCE, listOf("poster", "language", "dub", "sub"), uiLabel = "Show Language (Sub / Dub)", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Text Drop Shadow", SettingsTab.APPEARANCE, listOf("text", "shadow", "drop"), uiLabel = "Enable Text Shadows", subScreen = SettingsSubScreen.LAYOUT),
-        SettingsSearchEntry("Element Drop Shadows", SettingsTab.APPEARANCE, listOf("element", "shadow", "drop"), uiLabel = "Enable UI Element Shadows", subScreen = SettingsSubScreen.LAYOUT),
+        // Layout tab
+        SettingsSearchEntry("Navigation Dock Position", LeafTab.LAYOUT, listOf("sidebar", "dock", "left", "right", "top", "bottom", "navigation"), uiLabel = "Dock Position"),
+        SettingsSearchEntry("Hero Carousel / Slider", LeafTab.LAYOUT, listOf("hero", "carousel", "banner", "home", "slider", "featured"), uiLabel = "Enable Hero Slider"),
+        SettingsSearchEntry("Details Page Sections & Layout", LeafTab.DETAILS, listOf("details", "order", "drag", "section", "layout", "modular", "time", "badges"), uiLabel = "Details Page Sections & Layout"),
+        SettingsSearchEntry("Lock Unreleased Episodes", LeafTab.DETAILS, listOf("lock", "unreleased", "episodes", "future", "upcoming", "air date", "countdown", "schedule", "anime", "protect"), uiLabel = "Lock Unreleased Episodes"),
+        SettingsSearchEntry("Anti-Spoiler Mode", LeafTab.DETAILS, listOf("spoiler", "anti-spoiler", "hide", "blur", "thumbnails", "descriptions", "episodes"), uiLabel = "Anti-Spoiler Mode"),
+        SettingsSearchEntry("Details Current & End Time Badges", LeafTab.DETAILS, listOf("time", "current", "end time", "badges", "details", "clock"), uiLabel = "Show Current / End Time"),
+        SettingsSearchEntry("Poster Layout Editor", LeafTab.LAYOUT, listOf("poster", "editor", "preview", "customize", "width", "spacing", "rounding"), uiLabel = "Poster Editor", subScreen = SettingsSubScreen.POSTER_EDITOR),
+        SettingsSearchEntry("Show Rating Badge", LeafTab.LAYOUT, listOf("poster", "rating", "score", "star", "badge"), uiLabel = "Show Rating / Score"),
+        SettingsSearchEntry("Show Quality Badge", LeafTab.LAYOUT, listOf("poster", "quality", "resolution", "hd", "4k", "badge"), uiLabel = "Show Quality (HD / 4K)"),
+        SettingsSearchEntry("Show Language Badge", LeafTab.LAYOUT, listOf("poster", "language", "dub", "sub", "badge"), uiLabel = "Show Language (Sub / Dub)"),
+        SettingsSearchEntry("UI Element Shadows", LeafTab.LAYOUT, listOf("element", "shadow", "drop", "ui", "depth", "elevation"), uiLabel = "Enable UI Element Shadows"),
+        SettingsSearchEntry("Text Drop Shadow", LeafTab.LAYOUT, listOf("text", "shadow", "drop", "readability", "blur"), uiLabel = "Enable Text Shadows"),
 
-        // Details Page Layout
-        SettingsSearchEntry("Details Page Section Reordering", SettingsTab.APPEARANCE, listOf("details", "order", "drag", "section", "layout"), uiLabel = "Details Page Sections & Layout", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
-        SettingsSearchEntry("Details Page Modular Sections", SettingsTab.APPEARANCE, listOf("details", "modular", "sections", "episodes", "cast", "trailer"), uiLabel = "Details Page Sections & Layout", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
+        // Effects tab
+        SettingsSearchEntry("Dynamic Backdrop Blur", LeafTab.EFFECTS, listOf("hero", "blur", "background", "backdrop", "frosted", "glass", "gaussian", "details"), uiLabel = "Header & Details Backdrop Blur"),
+        SettingsSearchEntry("Backdrop Blur Softness", LeafTab.EFFECTS, listOf("blur", "softness", "radius", "diffusion", "intensity"), uiLabel = "Backdrop Blur Softness"),
+        SettingsSearchEntry("Backdrop Darkening", LeafTab.EFFECTS, listOf("blur", "darkening", "overlay", "brightness", "contrast", "dim"), uiLabel = "Backdrop Darkening"),
+        SettingsSearchEntry("UI Container & Card Opacity", LeafTab.EFFECTS, listOf("glassmorphism", "opacity", "translucency", "card", "container", "transparent"), uiLabel = "UI Container & Card Opacity"),
+        SettingsSearchEntry("Ambient Glow", LeafTab.EFFECTS, listOf("ambient", "glow", "background", "aura", "position", "intensity"), uiLabel = "Ambient Glow"),
+        SettingsSearchEntry("Background Wallpaper", LeafTab.EFFECTS, listOf("background", "wallpaper", "image", "custom", "vignette", "tint"), uiLabel = "Background Wallpaper"),
+        SettingsSearchEntry("Screensaver / Clock & Date", LeafTab.EFFECTS, listOf("screensaver", "clock", "date", "time", "idle", "format"), uiLabel = "Clock & Date"),
 
-        // Visual Effects & Blur
-        SettingsSearchEntry("Header & Details Backdrop Blur", SettingsTab.APPEARANCE, listOf("hero", "blur", "background", "backdrop", "frosted"), uiLabel = "Header & Details Backdrop Blur", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Backdrop Blur Softness", SettingsTab.APPEARANCE, listOf("blur", "softness", "radius", "diffusion"), uiLabel = "Backdrop Blur Softness", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Backdrop Darkening", SettingsTab.APPEARANCE, listOf("blur", "darkening", "overlay", "brightness"), uiLabel = "Backdrop Darkening", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("UI Container Opacity", SettingsTab.APPEARANCE, listOf("glassmorphism", "opacity", "translucency", "card"), uiLabel = "UI Container Opacity", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Background Image Wallpaper", SettingsTab.APPEARANCE, listOf("background", "wallpaper", "image"), uiLabel = "Background Wallpaper", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Screensaver", SettingsTab.APPEARANCE, listOf("screensaver", "clock", "idle"), uiLabel = "Clock & Date", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Screensaver Clock Mode", SettingsTab.APPEARANCE, listOf("clock", "time", "date"), uiLabel = "Display Mode", subScreen = SettingsSubScreen.EFFECTS),
-        SettingsSearchEntry("Ambient Background Glow", SettingsTab.APPEARANCE, listOf("ambient", "glow", "background"), uiLabel = "Ambient Glow", subScreen = SettingsSubScreen.EFFECTS),
+        // Player tab
+        SettingsSearchEntry("Hardware Decoding", LeafTab.PLAYER, listOf("hwdec", "hardware", "decoding", "acceleration", "gpu", "mpv"), uiLabel = "Hardware Acceleration"),
+        SettingsSearchEntry("Preferred Stream Quality", LeafTab.PLAYER, listOf("quality", "resolution", "1080p", "720p", "4k", "stream"), uiLabel = "Preferred Stream Quality"),
+        SettingsSearchEntry("Auto Play Next Episode", LeafTab.PLAYER, listOf("auto", "play", "next", "episode", "binge"), uiLabel = "Auto Play"),
+        SettingsSearchEntry("Wait for Links before Auto Play", LeafTab.PLAYER, listOf("auto", "play", "wait", "links"), uiLabel = "Wait for links before Auto-playing"),
+        SettingsSearchEntry("Auto Play Timeout", LeafTab.PLAYER, listOf("auto", "play", "timeout", "delay"), uiLabel = "Playback Timeout"),
+        SettingsSearchEntry("Smooth Video / Interpolation", LeafTab.PLAYER, listOf("interpolation", "smooth", "motion", "video", "60fps"), uiLabel = "Smooth Video"),
+        SettingsSearchEntry("Volume Normalization", LeafTab.PLAYER, listOf("audio", "normalization", "volume", "loudness", "night mode"), uiLabel = "Volume Normalization (Stable Audio)"),
+        SettingsSearchEntry("Spatial Audio", LeafTab.PLAYER, listOf("audio", "spatializer", "surround", "3d", "stereo"), uiLabel = "Spatial Audio (Stereo Widener)"),
+        SettingsSearchEntry("Equalizer Profile", LeafTab.PLAYER, listOf("audio", "equalizer", "eq", "preset", "bass", "treble"), uiLabel = "Equalizer Profile"),
+        SettingsSearchEntry("Audio Sync / Delay Offset", LeafTab.PLAYER, listOf("audio", "delay", "sync", "offset", "lip sync"), uiLabel = "Audio Sync (Delay Offset)"),
+        SettingsSearchEntry("Intro & Outro Skipping", LeafTab.PLAYER, listOf("skip", "intro", "outro", "openings", "endings", "aniskip"), uiLabel = "Intro & Outro Skipping"),
+        SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.PLAYER, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling", subScreen = SettingsSubScreen.SUBTITLES),
 
-        // Playback & Media
-        SettingsSearchEntry("Hardware Decoding", SettingsTab.PLAYER, listOf("hwdec", "hardware", "decoding", "acceleration", "video"), uiLabel = "Hardware Acceleration", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Preferred Quality", SettingsTab.PLAYER, listOf("quality", "resolution", "1080p", "720p"), uiLabel = "Preferred Stream Quality", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Auto Play", SettingsTab.PLAYER, listOf("auto", "play", "next"), uiLabel = "Enable Download Buttons", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Wait for Links before Auto Play", SettingsTab.PLAYER, listOf("auto", "play", "wait", "links"), uiLabel = "Wait for links before Auto-playing", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Auto Play Timeout", SettingsTab.PLAYER, listOf("auto", "play", "timeout", "delay"), uiLabel = "Playback Timeout", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Video Interpolation", SettingsTab.PLAYER, listOf("interpolation", "smooth", "motion"), uiLabel = "Smooth Video", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Audio Normalization", SettingsTab.PLAYER, listOf("audio", "normalization", "volume", "loudness"), uiLabel = "Volume Normalization (Stable Audio)", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Audio Spatializer", SettingsTab.PLAYER, listOf("audio", "spatializer", "surround", "3d"), uiLabel = "Spatial Audio (Stereo Widener)", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Audio Equalizer Preset", SettingsTab.PLAYER, listOf("audio", "equalizer", "eq", "preset"), uiLabel = "Equalizer Profile", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
-        SettingsSearchEntry("Audio Delay", SettingsTab.PLAYER, listOf("audio", "delay", "sync"), uiLabel = "Audio Sync (Delay Offset)", subScreen = SettingsSubScreen.PLAYER_CONTROLS),
+        // Extensions > Extensions tab
+        SettingsSearchEntry("Browse Extensions", LeafTab.EXTENSIONS, listOf("extensions", "plugins", "browse", "install", "search", "add"), uiLabel = "Browse Extensions"),
+        SettingsSearchEntry("Installed Extensions", LeafTab.EXTENSIONS, listOf("extensions", "plugins", "installed", "manage", "update", "uninstall"), uiLabel = "Installed Extensions"),
+        SettingsSearchEntry("Extension Repositories", LeafTab.EXTENSIONS, listOf("repositories", "repos", "plugins", "extensions", "sources", "url"), uiLabel = "Repositories"),
 
-        // Subtitles
-        SettingsSearchEntry("Subtitle Font", SettingsTab.PLAYER, listOf("subtitle", "font", "text"), uiLabel = "Subtitle Appearance", subScreen = SettingsSubScreen.SUBTITLES),
-        SettingsSearchEntry("Subtitle Size", SettingsTab.PLAYER, listOf("subtitle", "size", "large", "small"), uiLabel = "Subtitle Appearance", subScreen = SettingsSubScreen.SUBTITLES),
-        SettingsSearchEntry("Subtitle Color", SettingsTab.PLAYER, listOf("subtitle", "color", "text"), uiLabel = "Subtitle Appearance", subScreen = SettingsSubScreen.SUBTITLES),
-        SettingsSearchEntry("Subtitle Background", SettingsTab.PLAYER, listOf("subtitle", "background", "bg"), uiLabel = "Subtitle Appearance", subScreen = SettingsSubScreen.SUBTITLES),
+        // Extensions > Accounts tab
+        SettingsSearchEntry("AniList Tracker", LeafTab.ACCOUNTS, listOf("anilist", "tracker", "anime", "sync", "scrobble", "login"), uiLabel = "AniList"),
+        SettingsSearchEntry("MAL / MyAnimeList Tracker", LeafTab.ACCOUNTS, listOf("mal", "myanimelist", "tracker", "anime", "sync", "login"), uiLabel = "MAL"),
+        SettingsSearchEntry("SIMKL Tracker", LeafTab.ACCOUNTS, listOf("simkl", "tracker", "anime", "shows", "movies", "sync"), uiLabel = "SIMKL"),
+        SettingsSearchEntry("Trakt Tracker", LeafTab.ACCOUNTS, listOf("trakt", "tracker", "movies", "shows", "sync", "scrobble"), uiLabel = "Trakt"),
+        SettingsSearchEntry("Discord Rich Presence", LeafTab.ACCOUNTS, listOf("discord", "rpc", "rich presence", "status", "activity"), uiLabel = "Discord Rich Presence"),
 
-        // Services & Sync
-        SettingsSearchEntry("AniList Tracker", SettingsTab.SERVICES, listOf("anilist", "tracker", "anime"), subScreen = SettingsSubScreen.TRACKERS),
-        SettingsSearchEntry("MAL", SettingsTab.SERVICES, listOf("mal", "myanimelist", "tracker", "anime"), subScreen = SettingsSubScreen.TRACKERS),
-        SettingsSearchEntry("SIMKL", SettingsTab.SERVICES, listOf("simkl", "tracker", "anime", "shows"), subScreen = SettingsSubScreen.TRACKERS),
-        SettingsSearchEntry("Trakt Tracker", SettingsTab.SERVICES, listOf("trakt", "tracker", "movies", "shows"), subScreen = SettingsSubScreen.TRACKERS),
+        // Extensions > Integrations tab
+        SettingsSearchEntry("TMDB API Key & Metadata", LeafTab.INTEGRATIONS, listOf("tmdb", "metadata", "api key", "backdrops", "logos", "cast", "posters"), uiLabel = "TMDB"),
+        SettingsSearchEntry("AniList Metadata", LeafTab.INTEGRATIONS, listOf("anilist", "anime", "metadata", "voice", "cast", "characters"), uiLabel = "AniList Metadata"),
+        SettingsSearchEntry("Kitsu Anime Metadata", LeafTab.INTEGRATIONS, listOf("kitsu", "anime", "metadata"), uiLabel = "Kitsu"),
+        SettingsSearchEntry("Custom Stremio Addon", LeafTab.INTEGRATIONS, listOf("stremio", "addon", "manifest", "metadata", "catalog", "cinemeta"), uiLabel = "Custom Stremio Addon"),
+        SettingsSearchEntry("Intro Skip Service API", LeafTab.INTEGRATIONS, listOf("skip", "intro", "outro", "aniskip", "introdb", "api"), uiLabel = "Intro & Outro Skipping"),
 
-        // Metadata & Integrations
-        SettingsSearchEntry("Integrations & Services", SettingsTab.SERVICES, listOf("integrations", "metadata", "services", "tmdb", "anilist", "kitsu", "stremio", "skip", "aniskip", "introdb"), subScreen = SettingsSubScreen.INTEGRATIONS),
-        SettingsSearchEntry("The Movie Database (TMDB)", SettingsTab.SERVICES, listOf("tmdb", "metadata", "api key", "4k", "backdrops", "logos", "cast"), subScreen = SettingsSubScreen.INTEGRATIONS),
-        SettingsSearchEntry("AniList Metadata", SettingsTab.SERVICES, listOf("anilist", "anime", "metadata", "voice", "cast"), subScreen = SettingsSubScreen.INTEGRATIONS),
-        SettingsSearchEntry("Custom Stremio Addon", SettingsTab.SERVICES, listOf("stremio", "addon", "manifest", "metadata", "catalog"), subScreen = SettingsSubScreen.INTEGRATIONS),
-        SettingsSearchEntry("Intro & Outro Skipping", SettingsTab.SERVICES, listOf("skip", "intro", "outro", "aniskip", "introdb", "openings", "endings"), subScreen = SettingsSubScreen.INTEGRATIONS),
+        // Network tab
+        SettingsSearchEntry("DNS over HTTPS (DoH)", LeafTab.NETWORK, listOf("dns", "https", "doh", "cloudflare", "quad9", "adguard", "google", "network", "isp", "bypass"), uiLabel = "DNS over HTTPS (DoH)"),
+        SettingsSearchEntry("Security & Browser Isolation", LeafTab.NETWORK, listOf("security", "browser", "isolation", "proxy", "vpn", "user agent", "cloudflare"), uiLabel = "Security & Browser Isolation"),
 
-        // Extensions
-        SettingsSearchEntry("Browse Extensions", SettingsTab.SERVICES, listOf("extensions", "plugins", "browse"), subScreen = SettingsSubScreen.EXTENSIONS),
-        SettingsSearchEntry("Installed Extensions", SettingsTab.SERVICES, listOf("extensions", "plugins", "installed"), subScreen = SettingsSubScreen.EXTENSIONS),
-        SettingsSearchEntry("Repositories", SettingsTab.SERVICES, listOf("repositories", "repos", "plugins", "extensions"), subScreen = SettingsSubScreen.EXTENSIONS),
+        // Advanced tab
+        SettingsSearchEntry("Storage Directories", LeafTab.ADVANCED, listOf("storage", "directory", "path", "files", "data", "appdata", "roaming"), uiLabel = "Storage Directories"),
+        SettingsSearchEntry("Clear Image Cache", LeafTab.ADVANCED, listOf("clear", "image", "cache", "storage", "disk", "free space"), uiLabel = "Clear Image Cache"),
+        SettingsSearchEntry("Cloned Sites & Custom Provider URLs", LeafTab.ADVANCED, listOf("clone", "provider", "custom", "url", "override", "mirror", "domain"), uiLabel = "Cloned Sites & Custom URLs"),
+        SettingsSearchEntry("Factory Reset / Danger Zone", LeafTab.ADVANCED, listOf("reset", "wipe", "delete", "factory", "clear all", "reinstall"), uiLabel = "Danger Zone"),
 
-        // Network
-        SettingsSearchEntry("DNS over HTTPS", SettingsTab.SYSTEM, listOf("dns", "https", "doh", "cloudflare"), uiLabel = "DNS over HTTPS (DoH)", subScreen = SettingsSubScreen.NETWORK),
-        SettingsSearchEntry("VPN Workaround", SettingsTab.SYSTEM, listOf("vpn", "workaround", "proxy"), uiLabel = "Allow Experimental Cloudflare Bypass", subScreen = SettingsSubScreen.NETWORK),
+        // Developer tab
+        SettingsSearchEntry("Provider Testing & Benchmarking", LeafTab.DEVELOPER, listOf("developer", "provider", "test", "debug", "benchmark", "extractor"), uiLabel = "Provider Testing"),
+        SettingsSearchEntry("Network Diagnostics", LeafTab.DEVELOPER, listOf("network", "diagnostics", "debug", "ping", "connectivity"), uiLabel = "Network Diagnostics"),
+        SettingsSearchEntry("Logcat Live Viewer", LeafTab.DEVELOPER, listOf("logcat", "logs", "debug", "crash", "console", "f12"), uiLabel = "Logcat Viewer"),
 
-        // Advanced & Storage
-        SettingsSearchEntry("Clear Image Cache", SettingsTab.SYSTEM, listOf("clear", "image", "cache", "storage"), uiLabel = "Data Management", subScreen = SettingsSubScreen.ADVANCED),
-        SettingsSearchEntry("Factory Reset", SettingsTab.SYSTEM, listOf("clear", "watch", "history", "delete", "reset"), uiLabel = "Danger Zone", subScreen = SettingsSubScreen.ADVANCED),
-
-        // Developer
-        SettingsSearchEntry("Developer Mode", SettingsTab.SYSTEM, listOf("developer", "mode", "debug"), subScreen = SettingsSubScreen.DEVELOPER),
-        SettingsSearchEntry("Logcat Viewer", SettingsTab.SYSTEM, listOf("logcat", "viewer", "logs", "debug"), subScreen = SettingsSubScreen.DEVELOPER),
-
-        // Updates & About
-        SettingsSearchEntry("App Updates", SettingsTab.SYSTEM, listOf("update", "version", "check", "new"), subScreen = SettingsSubScreen.UPDATES),
-        SettingsSearchEntry("About CloudStream", SettingsTab.SYSTEM, listOf("about", "version", "info", "license", "credits"), subScreen = SettingsSubScreen.ABOUT),
+        // About tab
+        SettingsSearchEntry("Check for App Updates", LeafTab.ABOUT, listOf("update", "version", "check", "new", "release", "download"), uiLabel = "Check for Updates"),
+        SettingsSearchEntry("About CloudStream Desktop", LeafTab.ABOUT, listOf("about", "version", "info", "license", "credits", "github"), uiLabel = "About"),
     )
 }

@@ -96,11 +96,13 @@ object AppearanceConfig {
     private const val PREF_UI_CARD_OPACITY = "pref_ui_card_opacity"
     private const val PREF_DETAILS_SHOW_CURRENT_TIME = "pref_details_show_current_time"
     private const val PREF_DETAILS_SHOW_END_TIME = "pref_details_show_end_time"
+    private const val PREF_LOCK_UNRELEASED_EPISODES = "pref_lock_unreleased_episodes"
     private const val PREF_DETAILS_SECTION_ORDER = "pref_details_section_order"
     private const val PREF_DETAILS_DISABLED_SECTIONS = "pref_details_disabled_sections"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
+    val lockUnreleasedEpisodes = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true)
     val detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
     val detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
     val detailsSectionOrder = MutableStateFlow(
@@ -403,6 +405,11 @@ object AppearanceConfig {
     fun setDetailsShowEndTime(enabled: Boolean) {
         detailsShowEndTime.value = enabled
         DesktopDataStore.setKey(PREF_DETAILS_SHOW_END_TIME, enabled)
+    }
+
+    fun setLockUnreleasedEpisodes(enabled: Boolean) {
+        lockUnreleasedEpisodes.value = enabled
+        DesktopDataStore.setKey(PREF_LOCK_UNRELEASED_EPISODES, enabled)
     }
 
     fun setBackgroundImagePath(path: String) {

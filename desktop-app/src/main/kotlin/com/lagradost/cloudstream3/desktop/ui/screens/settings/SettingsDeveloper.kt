@@ -104,7 +104,7 @@ fun SettingsDeveloper() {
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (selectedTabIndex) {
                 0 -> SettingsTesting(testState = testState, scope = scope)
                 1 -> SettingsDiagnostics()

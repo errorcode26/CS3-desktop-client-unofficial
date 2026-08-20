@@ -38,6 +38,89 @@ import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
+data class EpisodeReleaseStatus(
+    val isUnreleased: Boolean,
+    val formattedDate: String?,
+    val rawDate: String?,
+    val statusBadgeText: String?,
+    val daysUntilRelease: Long?,
+)
+
+private val EPISODE_DATE_REGEX = Regex("""\|\|DATE:(.*?)\|\|""")
+
+fun parseEpisodeReleaseStatus(ep: Episode): EpisodeReleaseStatus {
+    val rawDesc = ep.description ?: ""
+    val dateMatch = EPISODE_DATE_REGEX.find(rawDesc)
+    val rawDate = dateMatch?.groupValues?.get(1)?.trim()
+
+    if (rawDate.isNullOrBlank()) {
+        return EpisodeReleaseStatus(
+            isUnreleased = false,
+            formattedDate = null,
+            rawDate = null,
+            statusBadgeText = null,
+            daysUntilRelease = null,
+        )
+    }
+
+    val patterns = listOf(
+        "yyyy-MM-dd",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss",
+    )
+
+    var releaseEpochMs: Long? = null
+    var formattedOut: String? = null
+
+    for (pattern in patterns) {
+        try {
+            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(rawDate)
+            if (date != null) {
+                val outSdf = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
+                formattedOut = outSdf.format(date)
+                // If it's a date-only format (yyyy-MM-dd), add 24h so that episodes airing today aren't locked early
+                releaseEpochMs = if (pattern == "yyyy-MM-dd") {
+                    date.time + 86_400_000L
+                } else {
+                    date.time
+                }
+                break
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    val now = System.currentTimeMillis()
+    val rEpoch = releaseEpochMs
+    val isFuture = rEpoch != null && rEpoch > now
+    val daysUntil = if (rEpoch != null && rEpoch > now) {
+        val diffMs = rEpoch - now
+        maxOf(1L, diffMs / 86_400_000L)
+    } else {
+        null
+    }
+
+    val badgeText = when {
+        !isFuture -> null
+        daysUntil != null && daysUntil > 1 -> "Airs in $daysUntil days"
+        daysUntil == 1L -> "Airs tomorrow"
+        formattedOut != null -> "Airs $formattedOut"
+        else -> "Unreleased"
+    }
+
+    return EpisodeReleaseStatus(
+        isUnreleased = isFuture,
+        formattedDate = formattedOut ?: rawDate,
+        rawDate = rawDate,
+        statusBadgeText = badgeText,
+        daysUntilRelease = daysUntil,
+    )
+}
+
 @kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun EpisodeCard(
@@ -59,7 +142,12 @@ fun EpisodeCard(
     onMarkPreviousWatched: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
 ) {
     var isHovered by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isHovered && isContextMenuEnabled) 1.02f else 1f, animationSpec = tween(180))
+
+    val releaseStatus = remember(ep.description) { parseEpisodeReleaseStatus(ep) }
+    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
+
+    val scale by animateFloatAsState(if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 1.02f else 1f, animationSpec = tween(180))
 
     // thumbnailVersion is intentionally read here so Compose re-evaluates epImg when episode
     // thumbnails are enriched in-place (plain field mutations don't trigger recompose otherwise).
@@ -102,19 +190,8 @@ fun EpisodeCard(
     val heroColor = MaterialTheme.colorScheme.primary
 
     val rawDesc = ep.description ?: ""
-    val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
-    val releaseDate = dateMatch?.groupValues?.get(1)
-    val formattedDate = releaseDate?.let { raw ->
-        try {
-            val inFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-            val outFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
-            val parsed = inFormat.parse(raw)
-            if (parsed != null) outFormat.format(parsed) else raw
-        } catch (e: Exception) {
-            raw
-        }
-    }
-    val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
+    val formattedDate = releaseStatus.formattedDate
+    val cleanDesc = rawDesc.replace(EPISODE_DATE_REGEX, "").trim()
     val hasDesc = cleanDesc.isNotBlank()
 
     val durationText = if (history != null && history.duration > 0) {
@@ -146,7 +223,7 @@ fun EpisodeCard(
     Box(
         modifier = modifier
             .aspectRatio(16f / 9f)
-            .pointerInput(ep, isContextMenuEnabled) {
+            .pointerInput(ep, isContextMenuEnabled, isEpisodeLocked) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
@@ -172,7 +249,9 @@ fun EpisodeCard(
                                     }
                                 } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
                                     if (!event.changes.any { it.isConsumed }) {
-                                        onPlay(ep)
+                                        if (!isEpisodeLocked) {
+                                            onPlay(ep)
+                                        }
                                     }
                                 }
                             }
@@ -182,14 +261,14 @@ fun EpisodeCard(
             }
             .scale(scale)
             .shadow(
-                elevation = if (isHovered && isContextMenuEnabled) 16.dp else 6.dp,
+                elevation = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 16.dp else 6.dp,
                 shape = RoundedCornerShape(16.dp),
-                spotColor = if (isHovered && isContextMenuEnabled) heroColor else Color.Black,
-                ambientColor = if (isHovered && isContextMenuEnabled) heroColor else Color.Black,
+                spotColor = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) heroColor else Color.Black,
+                ambientColor = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) heroColor else Color.Black,
             )
             .border(
-                width = if (isHovered && isContextMenuEnabled) 1.5.dp else 0.5.dp,
-                color = if (isHovered && isContextMenuEnabled) heroColor else Color.White.copy(alpha = 0.18f),
+                width = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 1.5.dp else if (isEpisodeLocked) 1.dp else 0.5.dp,
+                color = if (isEpisodeLocked) Color(0xFFFFB74D).copy(alpha = 0.45f) else if (isHovered && isContextMenuEnabled) heroColor else Color.White.copy(alpha = 0.18f),
                 shape = RoundedCornerShape(16.dp),
             )
             .clip(RoundedCornerShape(16.dp)),
@@ -266,7 +345,7 @@ fun EpisodeCard(
         )
 
         // Anti-spoiler overlay
-        if (shouldHideSpoilers && !isHovered) {
+        if (shouldHideSpoilers && !isHovered && !isEpisodeLocked) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
@@ -276,6 +355,45 @@ fun EpisodeCard(
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 ) {
                     Text("Hidden by Anti-spoiler", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Lock & Unreleased Center Overlay
+        if (isEpisodeLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.50f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF1C1914).copy(alpha = 0.92f),
+                    border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(alpha = 0.70f)),
+                    shadowElevation = 8.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = "Unreleased",
+                            tint = Color(0xFFFFB74D),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = releaseStatus.statusBadgeText ?: "Unreleased",
+                            color = Color(0xFFFFB74D),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.3.sp,
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -314,8 +432,8 @@ fun EpisodeCard(
             }
         }
 
-        // Top-Right: Watched completion indicator
-        if (isWatched) {
+        // Top-Right: Watched completion indicator or Unreleased indicator
+        if (isWatched && !isEpisodeLocked) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -330,6 +448,36 @@ fun EpisodeCard(
                     tint = Color.White,
                     modifier = Modifier.size(14.dp),
                 )
+            }
+        } else if (isEpisodeLocked) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.70f))
+                    .border(0.5.dp, Color(0xFFFFB74D).copy(alpha = 0.60f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        tint = Color(0xFFFFB74D),
+                        modifier = Modifier.size(11.dp),
+                    )
+                    Text(
+                        text = "Upcoming",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = Color(0xFFFFB74D),
+                    )
+                }
             }
         }
 
@@ -646,6 +794,10 @@ fun EpisodeListItem(
 ) {
     var isHovered by remember { mutableStateOf(false) }
 
+    val releaseStatus = remember(ep.description) { parseEpisodeReleaseStatus(ep) }
+    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
+
     @Suppress("UNUSED_EXPRESSION")
     thumbnailVersion
     val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
@@ -684,25 +836,30 @@ fun EpisodeListItem(
     }
 
     val rawDesc = ep.description ?: ""
-    val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
-    val releaseDate = dateMatch?.groupValues?.get(1)
-    val formattedDate = releaseDate?.let { raw ->
-        try {
-            val inFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-            val outFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
-            val parsed = inFormat.parse(raw)
-            if (parsed != null) outFormat.format(parsed) else raw
-        } catch (e: Exception) {
-            raw
-        }
-    }
-    val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
+    val formattedDate = releaseStatus.formattedDate
+    val cleanDesc = rawDesc.replace(EPISODE_DATE_REGEX, "").trim()
     val hasDesc = cleanDesc.isNotBlank()
     val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
+    val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
+    val baseColor = MaterialTheme.colorScheme.surfaceVariant
     val heroColor = MaterialTheme.colorScheme.primary
-    val cardBg = if (isHovered) Color(0xFF202024) else Color(0xFF141416)
-    val borderColor = if (isHovered) heroColor.copy(alpha = 0.55f) else if (isLatest) heroColor.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.08f)
+    val cardBg = if (isEpisodeLocked) {
+        baseColor.copy(alpha = (uiCardOpacity * 0.7f).coerceAtLeast(0.35f))
+    } else if (isHovered) {
+        baseColor.copy(alpha = (uiCardOpacity + 0.15f).coerceAtMost(1f))
+    } else {
+        baseColor.copy(alpha = uiCardOpacity)
+    }
+    val borderColor = if (isEpisodeLocked) {
+        Color(0xFFFFB74D).copy(alpha = 0.35f)
+    } else if (isHovered) {
+        heroColor.copy(alpha = 0.55f)
+    } else if (isLatest) {
+        heroColor.copy(alpha = 0.35f)
+    } else {
+        Color.White.copy(alpha = 0.08f)
+    }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -710,7 +867,7 @@ fun EpisodeListItem(
         border = BorderStroke(1.dp, borderColor),
         modifier = modifier
             .fillMaxWidth()
-            .pointerInput(ep, isContextMenuEnabled) {
+            .pointerInput(ep, isContextMenuEnabled, isEpisodeLocked) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
@@ -736,7 +893,9 @@ fun EpisodeListItem(
                                     }
                                 } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
                                     if (!event.changes.any { it.isConsumed }) {
-                                        onPlay(ep)
+                                        if (!isEpisodeLocked) {
+                                            onPlay(ep)
+                                        }
                                     }
                                 }
                             }
@@ -769,12 +928,47 @@ fun EpisodeListItem(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .run { if (shouldHideSpoilers) this.blur(16.dp) else this },
+                            .run { if (shouldHideSpoilers) this.blur(16.dp) else this }
+                            .run { if (isEpisodeLocked) this.blur(4.dp) else this },
                     )
                 }
 
-                // Hover Play Icon Overlay
-                if (isHovered) {
+                // Lock Overlay or Hover Play Icon Overlay
+                if (isEpisodeLocked) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.50f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF1C1914).copy(alpha = 0.92f),
+                            border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(alpha = 0.70f)),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = "Unreleased",
+                                    tint = Color(0xFFFFB74D),
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Text(
+                                    text = releaseStatus.statusBadgeText ?: "Unreleased",
+                                    color = Color(0xFFFFB74D),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                } else if (isHovered) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -818,7 +1012,7 @@ fun EpisodeListItem(
                 }
 
                 // Watched Badge (Top-Right)
-                if (isWatched) {
+                if (isWatched && !isEpisodeLocked) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -835,10 +1029,40 @@ fun EpisodeListItem(
                             modifier = Modifier.size(16.dp),
                         )
                     }
+                } else if (isEpisodeLocked) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.70f))
+                            .border(0.5.dp, Color(0xFFFFB74D).copy(alpha = 0.60f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Locked",
+                                tint = Color(0xFFFFB74D),
+                                modifier = Modifier.size(11.dp),
+                            )
+                            Text(
+                                text = "Upcoming",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                                color = Color(0xFFFFB74D),
+                            )
+                        }
+                    }
                 }
 
                 // Bottom Progress Bar
-                if (progress > 0f && !isWatched) {
+                if (progress > 0f && !isWatched && !isEpisodeLocked) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -874,7 +1098,7 @@ fun EpisodeListItem(
                     Text(
                         text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-                        color = if (isHovered) heroColor else Color.White,
+                        color = if (isEpisodeLocked) Color.White.copy(alpha = 0.75f) else if (isHovered) heroColor else Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -899,7 +1123,7 @@ fun EpisodeListItem(
                     }
                 }
 
-                // Row 2: Metadata row (Episode label, Runtime, Release date)
+                // Row 2: Metadata row (Episode label, Runtime, Release date, Unreleased badge)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -924,8 +1148,29 @@ fun EpisodeListItem(
                         Text(
                             text = "•  $formattedDate",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp),
-                            color = Color.White.copy(alpha = 0.60f),
+                            color = if (isEpisodeLocked) Color(0xFFFFB74D) else Color.White.copy(alpha = 0.60f),
                         )
+                    }
+
+                    if (isEpisodeLocked) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFFFB74D).copy(alpha = 0.15f),
+                            border = BorderStroke(0.5.dp, Color(0xFFFFB74D).copy(alpha = 0.40f)),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(11.dp))
+                                Text(
+                                    text = releaseStatus.statusBadgeText ?: "Unreleased",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp, fontWeight = FontWeight.Bold),
+                                    color = Color(0xFFFFB74D),
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -947,7 +1192,7 @@ fun EpisodeListItem(
 
             // 3. Right Status Indicator (if watched)
             val isWatched = progress > 0.9f
-            if (isWatched) {
+            if (isWatched && !isEpisodeLocked) {
                 Box(
                     modifier = Modifier
                         .padding(start = 16.dp, end = 8.dp)

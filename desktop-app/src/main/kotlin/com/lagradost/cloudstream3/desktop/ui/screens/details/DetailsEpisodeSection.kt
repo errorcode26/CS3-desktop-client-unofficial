@@ -55,6 +55,7 @@ fun DetailsEpisodeSection(
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
+    onSetEpisodeViewMode: (Int) -> Unit = {},
 ) {
     val isEpisodesStackedView = uiState?.isEpisodesStackedView == true
     val coroutineScope = rememberCoroutineScope()
@@ -217,11 +218,19 @@ fun DetailsEpisodeSection(
                         minWidth = 70.dp
                     )
 
-                    // View Toggle (Single Button)
+                    // View Toggle (3-state cycle: 0=Carousel, 1=Grid, 2=List)
+                    val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
                     DesktopIconButton(
-                        icon = if (isEpisodesStackedView) Icons.AutoMirrored.Filled.List else Icons.Default.ViewModule,
+                        icon = when (currentMode) {
+                            0 -> Icons.AutoMirrored.Filled.List // Or some carousel icon
+                            1 -> Icons.Default.ViewModule
+                            else -> Icons.AutoMirrored.Filled.List
+                        },
                         contentDescription = "Toggle Episode View",
-                        onClick = { onToggleEpisodesStackedView(!isEpisodesStackedView) },
+                        onClick = {
+                            val nextMode = (currentMode + 1) % 3
+                            onSetEpisodeViewMode(nextMode)
+                        },
                         isActive = false
                     )
                 }
@@ -599,15 +608,17 @@ private fun RenderEpisodesSection(
         }
     }
 
-    if (isEpisodesStackedView) {
+    val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
+
+    if (currentMode == 1 || currentMode == 2) {
         // BoxWithConstraints gives us the real available pixel width so we can
         // pass an explicit width to each card instead of weight(1f).
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
             val desiredWidth = 560f
-            val columns = maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
+            val columns = if (currentMode == 2) 1 else maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
             val gapDp = 24.dp
             val totalGapDp = gapDp * (columns - 1)
-            val cardWidth = (maxWidth - totalGapDp - 1.dp) / columns
+            val cardWidth = if (currentMode == 2) maxWidth else (maxWidth - totalGapDp - 1.dp) / columns
 
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(
@@ -619,23 +630,43 @@ private fun RenderEpisodesSection(
                 allFilteredEpisodes.forEach { ep ->
                     val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                     val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
-                    EpisodeCard(
-                        ep = ep,
-                        isLatest = isLatest,
-                        history = history,
-                        provider = provider,
-                        data = data,
-                        uiState = uiState,
-                        isAntiSpoiler = isAntiSpoiler,
-                        thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
-                        modifier = Modifier.width(cardWidth),
-                        enableDownloadButtons = enableDownloadButtons,
-                        onPlay = onPlay,
-                        onDownload = onDownload,
-                        onToggleWatched = onToggleWatched,
-                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                        onMarkPreviousWatched = handleMarkPreviousWatched,
-                    )
+                    if (currentMode == 2) {
+                        EpisodeListItem(
+                            ep = ep,
+                            isLatest = isLatest,
+                            history = history,
+                            provider = provider,
+                            data = data,
+                            uiState = uiState,
+                            isAntiSpoiler = isAntiSpoiler,
+                            thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            enableDownloadButtons = enableDownloadButtons,
+                            onPlay = onPlay,
+                            onDownload = onDownload,
+                            onToggleWatched = onToggleWatched,
+                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                            onMarkPreviousWatched = handleMarkPreviousWatched,
+                        )
+                    } else {
+                        EpisodeCard(
+                            ep = ep,
+                            isLatest = isLatest,
+                            history = history,
+                            provider = provider,
+                            data = data,
+                            uiState = uiState,
+                            isAntiSpoiler = isAntiSpoiler,
+                            thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                            modifier = Modifier.width(cardWidth),
+                            enableDownloadButtons = enableDownloadButtons,
+                            onPlay = onPlay,
+                            onDownload = onDownload,
+                            onToggleWatched = onToggleWatched,
+                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                            onMarkPreviousWatched = handleMarkPreviousWatched,
+                        )
+                    }
                 }
             }
         }

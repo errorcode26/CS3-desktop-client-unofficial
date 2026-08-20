@@ -526,6 +526,11 @@ fun ContextMenuOverlay() {
                                 )
                             } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
                                 val ep = state.episode!!
+                                val epReleaseStatus = remember(ep.description) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(ep)
+                                }
+                                val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+                                val isEpisodeLocked = epReleaseStatus.isUnreleased && lockUnreleasedEpisodes
 
                                 ActionMenuItem(
                                     text = if (isWatched) "Mark as unwatched" else "Mark as watched",
@@ -561,16 +566,27 @@ fun ContextMenuOverlay() {
                                     )
                                 }
 
-                                ActionMenuItem(
-                                    text = if (progress > 0f && progress < 0.9f) "Resume episode" else "Play episode",
-                                    icon = Icons.Default.PlayArrow,
-                                    onClick = {
-                                        state.dismiss()
-                                        state.onPlayEpisode?.invoke(ep)
-                                    },
-                                )
+                                if (isEpisodeLocked) {
+                                    ActionMenuItem(
+                                        text = "Locked (${epReleaseStatus.statusBadgeText ?: "Unreleased"})",
+                                        icon = Icons.Default.Lock,
+                                        color = Color(0xFFFFB74D),
+                                        onClick = {
+                                            // Locked — cannot play
+                                        },
+                                    )
+                                } else {
+                                    ActionMenuItem(
+                                        text = if (progress > 0f && progress < 0.9f) "Resume episode" else "Play episode",
+                                        icon = Icons.Default.PlayArrow,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onPlayEpisode?.invoke(ep)
+                                        },
+                                    )
+                                }
 
-                                if (progress > 0f) {
+                                if (!isEpisodeLocked && progress > 0f) {
                                     ActionMenuItem(
                                         text = "Clear watch progress",
                                         icon = Icons.Default.Refresh,
@@ -582,7 +598,7 @@ fun ContextMenuOverlay() {
                                     )
                                 }
 
-                                if (state.enableDownloadButtons && state.onDownloadEpisode != null) {
+                                if (!isEpisodeLocked && state.enableDownloadButtons && state.onDownloadEpisode != null) {
                                     ActionMenuItem(
                                         text = "Download episode",
                                         icon = Icons.Default.Download,

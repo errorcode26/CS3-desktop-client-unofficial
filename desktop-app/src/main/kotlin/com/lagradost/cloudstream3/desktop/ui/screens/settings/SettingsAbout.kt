@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -106,5 +108,20 @@ private fun openUrl(url: String) {
         desktop.browse(uri)
     } catch (e: Exception) {
         com.lagradost.common.logging.AppLogger.e("Error opening link $url", e)
+    }
+}
+
+@Composable
+fun SettingsAboutAndUpdates() {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(top = 20.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        SettingsUpdates()
+        SettingsAbout()
     }
 }

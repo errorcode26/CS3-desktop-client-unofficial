@@ -105,8 +105,8 @@ fun SettingsGroupCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 content()
             }

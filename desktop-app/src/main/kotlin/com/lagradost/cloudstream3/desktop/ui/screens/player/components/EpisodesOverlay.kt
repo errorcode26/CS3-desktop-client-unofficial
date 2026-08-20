@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -312,12 +313,16 @@ fun EpisodesOverlay(
 
 @Composable
 fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Boolean = false, onClick: () -> Unit) {
+    val releaseStatus = remember(episode.description) { com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode) }
+    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (isCurrent) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-            .clickable(onClick = onClick)
+            .clickable(enabled = !isEpisodeLocked, onClick = onClick)
             .padding(if (isCurrent) 8.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -343,11 +348,27 @@ fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Bool
             } else {
                 // Placeholder
                 Icon(
-                    imageVector = Icons.Default.PlayArrow,
+                    imageVector = if (isEpisodeLocked) Icons.Default.Lock else Icons.Default.PlayArrow,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.3f),
+                    tint = if (isEpisodeLocked) Color(0xFFFFB74D).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.3f),
                     modifier = Modifier.align(Alignment.Center),
                 )
+            }
+
+            if (isEpisodeLocked) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        tint = Color(0xFFFFB74D),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
 
@@ -357,7 +378,7 @@ fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Bool
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "${episode.episode}. ${episode.name ?: "Episode ${episode.episode}"}",
-                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White,
+                color = if (isEpisodeLocked) Color.White.copy(alpha = 0.5f) else if (isCurrent) MaterialTheme.colorScheme.primary else Color.White,
                 fontSize = 14.sp,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 2,
@@ -365,9 +386,10 @@ fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Bool
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Jul 11, 2024", // Mocked date for now since Episode doesn't always have one
-                color = Color.White.copy(alpha = 0.5f),
+                text = if (isEpisodeLocked) (releaseStatus.statusBadgeText ?: "Unreleased") else (releaseStatus.formattedDate ?: "Episode ${episode.episode}"),
+                color = if (isEpisodeLocked) Color(0xFFFFB74D) else Color.White.copy(alpha = 0.5f),
                 fontSize = 12.sp,
+                fontWeight = if (isEpisodeLocked) FontWeight.SemiBold else FontWeight.Normal,
             )
         }
     }

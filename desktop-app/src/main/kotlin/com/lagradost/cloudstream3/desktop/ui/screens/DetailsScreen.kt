@@ -630,6 +630,7 @@ fun DetailsContent(
                                             onToggleSeasonWatched = onToggleSeasonWatched,
                                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                                             onToggleEpisodesStackedView = onToggleEpisodesStackedView,
+                                            onSetEpisodeViewMode = onSetEpisodeViewMode ?: {},
                                         )
                                     }
                                 }

@@ -1,5 +1,9 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,7 +12,12 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dashboard
@@ -17,22 +26,18 @@ import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.DragIndicator
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +56,8 @@ import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.SearchQuality
 import com.lagradost.common.storage.WatchHistory
+
+// Dead routing code removed during 10-tab restructure
 
 @Composable
 fun SettingsAppearanceThemeScreen() {
@@ -250,19 +257,19 @@ fun SettingsAppearanceThemeScreen() {
 
                 SettingsToggleItem(
                     label = "Light Theme",
-                    subtitle = "Use a bright white interface",
+                    subtitle = "Use a bright clean interface",
                     checked = isLightMode,
                     onCheckedChange = { AppearanceConfig.setLightMode(it) },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                SettingsSliderItem(
-                    label = "Card Translucency",
-                    subtitle = "Adjust the opacity of glassmorphic elements",
-                    value = uiCardOpacity,
-                    onValueChange = { AppearanceConfig.setUiCardOpacity(it) },
-                    valueRange = 0.0f..1.0f,
+                val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+                SettingsToggleItem(
+                    label = "AMOLED Pure Black Mode",
+                    subtitle = "Force deep pitch black (#000000) for OLED/AMOLED displays",
+                    checked = amoledMode,
+                    onCheckedChange = { AppearanceConfig.setAmoledMode(it) },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -488,6 +495,14 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsNavigationItem(
+                    label = "Details Page Sections & Layout",
+                    subtitle = "Customize time badges, info tags, and order of details page sections",
+                    onClick = { onNavigateToSubScreen(SettingsSubScreen.DETAILS_LAYOUT) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsNavigationItem(
                     label = "Poster Layout Editor",
                     subtitle = "Customize poster sizes, spacing, corner radius, and titles",
                     onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) },
@@ -601,234 +616,11 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
 }
 
 @Composable
-fun SettingsDetailsSectionsScreen() {
-    val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
-    val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
-    var draggingSectionKey by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey?>(null) }
-    var dragAccumulatedY by remember { mutableStateOf(0f) }
-    var dragInitialIndex by remember { mutableStateOf(0) }
-    var itemSlotHeightPx by remember { mutableStateOf(0f) }
-    val fallbackItemHeight = with(androidx.compose.ui.platform.LocalDensity.current) { 66.dp.toPx() }
-
-    val scrollState = rememberScrollState()
-    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
-
-    CompositionLocalProvider(
-        LocalSettingsScrollState provides scrollState,
-        LocalScrollContainerCoordinates provides containerCoordinates,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { containerCoordinates = it }
-                .verticalScroll(scrollState)
-                .padding(top = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            SettingsGroupCard(title = "Details Page Sections & Layout") {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "Hold and drag the grip icon on the left to pull and move sections freely anywhere in the list, or toggle visibility.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    val effectiveSlotHeight = if (itemSlotHeightPx > 0f) itemSlotHeightPx else fallbackItemHeight
-                    val currentTargetIndex = if (draggingSectionKey != null && effectiveSlotHeight > 0f) {
-                        (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
-                            .coerceIn(0, detailsSectionOrder.lastIndex)
-                    } else dragInitialIndex
-
-                    val currentOrder by rememberUpdatedState(detailsSectionOrder)
-                    val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
-                    val currentAccumulatedY by rememberUpdatedState(dragAccumulatedY)
-                    val currentInitialIndex by rememberUpdatedState(dragInitialIndex)
-
-                    val onDropSection by rememberUpdatedState {
-                        val fromIdx = currentInitialIndex
-                        val slotH = currentEffectiveSlotHeight
-                        val accY = currentAccumulatedY
-                        val toIdx = if (slotH > 0f) {
-                            (fromIdx + kotlin.math.round(accY / slotH).toInt())
-                                .coerceIn(0, currentOrder.lastIndex)
-                        } else fromIdx
-
-                        draggingSectionKey = null
-                        dragAccumulatedY = 0f
-
-                        if (fromIdx != toIdx && fromIdx in currentOrder.indices && toIdx in currentOrder.indices) {
-                            AppearanceConfig.moveDetailsSection(fromIdx, toIdx)
-                        }
-                    }
-
-                    detailsSectionOrder.forEachIndexed { index, sectionKey ->
-                        val isEnabled = sectionKey !in detailsDisabledSections
-                        val isFirst = index == 0
-                        val isLast = index == detailsSectionOrder.lastIndex
-                        val isDraggingThis = draggingSectionKey == sectionKey
-
-                        val targetShiftY = when {
-                            isDraggingThis -> dragAccumulatedY
-                            draggingSectionKey != null && dragInitialIndex < currentTargetIndex && index in (dragInitialIndex + 1)..currentTargetIndex -> -effectiveSlotHeight
-                            draggingSectionKey != null && dragInitialIndex > currentTargetIndex && index in currentTargetIndex until dragInitialIndex -> effectiveSlotHeight
-                            else -> 0f
-                        }
-                        val animatedShiftY by androidx.compose.animation.core.animateFloatAsState(
-                            targetValue = targetShiftY,
-                            animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
-                        )
-
-                        val elevation by animateDpAsState(if (isDraggingThis) 24.dp else 0.dp)
-                        val scale by animateFloatAsState(if (isDraggingThis) 1.03f else 1.0f)
-
-                        Surface(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                            color = if (isDraggingThis) {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isEnabled) 0.55f else 0.25f)
-                            },
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isDraggingThis) 2.dp else 1.dp,
-                                if (isDraggingThis) MaterialTheme.colorScheme.primary else if (isEnabled) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.06f),
-                            ),
-                            shadowElevation = elevation,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onGloballyPositioned { coordinates ->
-                                    if (itemSlotHeightPx == 0f && coordinates.size.height > 0) {
-                                        itemSlotHeightPx = coordinates.size.height.toFloat() + 8f
-                                    }
-                                }
-                                .zIndex(if (isDraggingThis) 100f else 1f)
-                                .scale(scale)
-                                .graphicsLayer {
-                                    translationY = if (isDraggingThis) dragAccumulatedY else animatedShiftY
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                // Drag Grip Handle
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                                        .background(if (isDraggingThis) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent)
-                                        .pointerInput(sectionKey) {
-                                            detectDragGestures(
-                                                onDragStart = {
-                                                    draggingSectionKey = sectionKey
-                                                    dragInitialIndex = currentOrder.indexOf(sectionKey)
-                                                    dragAccumulatedY = 0f
-                                                },
-                                                onDragEnd = {
-                                                    onDropSection()
-                                                },
-                                                onDragCancel = {
-                                                    draggingSectionKey = null
-                                                    dragAccumulatedY = 0f
-                                                },
-                                            ) { change, dragAmount ->
-                                                change.consume()
-                                                dragAccumulatedY += dragAmount.y
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Default.DragIndicator,
-                                        contentDescription = "Hold and drag to reorder",
-                                        tint = if (isDraggingThis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-
-                                // Quick step buttons (Up / Down)
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    IconButton(
-                                        onClick = { AppearanceConfig.moveDetailsSection(index, index - 1) },
-                                        enabled = !isFirst,
-                                        modifier = Modifier.size(28.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.KeyboardArrowUp,
-                                            contentDescription = "Move Up",
-                                            tint = if (!isFirst) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                                            modifier = Modifier.size(18.dp),
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { AppearanceConfig.moveDetailsSection(index, index + 1) },
-                                        enabled = !isLast,
-                                        modifier = Modifier.size(28.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "Move Down",
-                                            tint = if (!isLast) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                                            modifier = Modifier.size(18.dp),
-                                        )
-                                    }
-                                }
-
-                                // Section Title and description
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "${index + 1}. ${sectionKey.displayName}",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                                    )
-                                    Text(
-                                        text = sectionKey.description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    )
-                                }
-
-                                // Toggle Switch
-                                Switch(
-                                    checked = isEnabled,
-                                    onCheckedChange = { AppearanceConfig.toggleDetailsSection(sectionKey, it) },
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        OutlinedButton(
-                            onClick = { AppearanceConfig.resetDetailsSectionOrder() },
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                        ) {
-                            Text("Reset Layout to Default")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun SettingsAppearanceEffectsScreen() {
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
+    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
     val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
@@ -839,8 +631,6 @@ fun SettingsAppearanceEffectsScreen() {
     val clockMode by AppearanceConfig.clockMode.collectAsState()
     val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
-    val detailsShowCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
-    val detailsShowEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
     val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
     val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
     val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
@@ -850,10 +640,6 @@ fun SettingsAppearanceEffectsScreen() {
     val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
     val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
     val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
-    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
-    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -872,10 +658,10 @@ fun SettingsAppearanceEffectsScreen() {
                 .padding(top = 20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            SettingsGroupCard(title = "Glassmorphism & Dynamic Blur") {
+            SettingsGroupCard(title = "Header & Details Backdrop Blur") {
                 SettingsToggleItem(
-                    label = "Header & Details Backdrop Blur",
-                    subtitle = "Apply dynamic frosted glass blur to backdrop images on Details and Home screens",
+                    label = "Dynamic Backdrop Blur",
+                    subtitle = "Apply a real-time frosted glass blur on hero banners and details pages",
                     checked = heroBackgroundBlurEnabled,
                     onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
                 )
@@ -885,10 +671,10 @@ fun SettingsAppearanceEffectsScreen() {
 
                     SettingsSliderItem(
                         label = "Backdrop Blur Softness",
-                        subtitle = "Adjust how diffused or sharp the background frosted glass blur is (${heroBackdropBlurRadius.toInt()}dp)",
+                        subtitle = "Gaussian blur radius applied to the backdrop image",
                         value = heroBackdropBlurRadius,
-                        valueRange = 20f..150f,
-                        steps = 130,
+                        valueRange = 10f..200f,
+                        steps = 37,
                         onValueChange = { AppearanceConfig.setHeroBackdropBlurRadius(it) },
                     )
 
@@ -896,10 +682,10 @@ fun SettingsAppearanceEffectsScreen() {
 
                     SettingsSliderItem(
                         label = "Backdrop Darkening",
-                        subtitle = "Darken the background image to ensure text is always crystal clear on bright backdrops (${(heroBackdropDarkening * 100).toInt()}%)",
+                        subtitle = "Darkness overlay intensity for text contrast (0% = bright, 100% = maximum contrast)",
                         value = heroBackdropDarkening,
-                        valueRange = 0.20f..0.90f,
-                        steps = 70,
+                        valueRange = 0.0f..1.0f,
+                        steps = 100,
                         onValueChange = { AppearanceConfig.setHeroBackdropDarkening(it) },
                     )
                 }
@@ -907,11 +693,11 @@ fun SettingsAppearanceEffectsScreen() {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsSliderItem(
-                    label = "UI Container Opacity",
-                    subtitle = "Control the translucency of frosted glass cards, dialogs, and navigation panels",
+                    label = "UI Container & Card Opacity",
+                    subtitle = "Translucency level of glassmorphic menus and cards",
                     value = uiCardOpacity,
-                    valueRange = 0.3f..1.0f,
-                    steps = 70,
+                    valueRange = 0.0f..1.0f,
+                    steps = 100,
                     onValueChange = { AppearanceConfig.setUiCardOpacity(it) },
                 )
             }
@@ -1127,7 +913,7 @@ fun SettingsAppearanceEffectsScreen() {
 
             SettingsGroupCard("Clock & Date") {
                 SettingsDropdownItem(
-                    label = "Main Menu Display Mode",
+                    label = "Display Mode",
                     subtitle = "What to show in the top-left of the main menu",
                     options = listOf(
                         com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.HIDDEN to "Hidden",
@@ -1139,33 +925,8 @@ fun SettingsAppearanceEffectsScreen() {
                     onSelectionChanged = { AppearanceConfig.setClockMode(it) },
                 )
 
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-
-                SettingsToggleItem(
-                    label = "Show Current Time in Details",
-                    subtitle = "Displays the live clock badge on movie and episode details screens",
-                    checked = detailsShowCurrentTime,
-                    onCheckedChange = { AppearanceConfig.setDetailsShowCurrentTime(it) },
-                )
-
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-
-                SettingsToggleItem(
-                    label = "Show Estimated End Time in Details",
-                    subtitle = "Calculates what time playback will finish based on runtime and progress",
-                    checked = detailsShowEndTime,
-                    onCheckedChange = { AppearanceConfig.setDetailsShowEndTime(it) },
-                )
-
                 if (clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.TIME_ONLY ||
-                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH ||
-                    detailsShowCurrentTime || detailsShowEndTime
+                    clockMode == com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode.BOTH
                 ) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -1173,7 +934,7 @@ fun SettingsAppearanceEffectsScreen() {
                     )
                     SettingsDropdownItem(
                         label = "Time Format",
-                        subtitle = "Pattern used to format clocks and end time badges",
+                        subtitle = "Pattern used to format the clock",
                         options = listOf(
                             "HH:mm" to "24h  (14:30)",
                             "HH:mm:ss" to "24h + seconds  (14:30:00)",
@@ -1690,6 +1451,246 @@ fun SettingsPosterEditorScreen() {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
+    }
+}
+
+@Composable
+fun SettingsDetailsSectionsScreen() {
+    val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+    val antiSpoilerEnabled by AppearanceConfig.antiSpoilerEnabled.collectAsState()
+    val detailsShowCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
+    val detailsShowEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
+    val sectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
+    val disabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
+    val scrollState = rememberScrollState()
+
+    var draggingSectionKey by remember { mutableStateOf<DetailsSectionKey?>(null) }
+    var dragAccumulatedY by remember { mutableStateOf(0f) }
+    var dragInitialIndex by remember { mutableStateOf(0) }
+    var slotHeightPx by remember { mutableStateOf(0f) }
+    val fallbackSlotHeight = with(LocalDensity.current) { 64.dp.toPx() }
+    val effectiveSlotHeight = if (slotHeightPx > 0f) slotHeightPx else fallbackSlotHeight
+
+    val currentTargetIndex = if (draggingSectionKey != null && effectiveSlotHeight > 0f) {
+        (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
+            .coerceIn(0, sectionOrder.lastIndex)
+    } else dragInitialIndex
+
+    val currentSectionOrder by rememberUpdatedState(sectionOrder)
+    val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
+    val currentDragAccumulatedY by rememberUpdatedState(dragAccumulatedY)
+    val currentDragInitialIndex by rememberUpdatedState(dragInitialIndex)
+
+    val onDropSection by rememberUpdatedState {
+        val fromIdx = currentDragInitialIndex
+        val slotH = currentEffectiveSlotHeight
+        val accY = currentDragAccumulatedY
+        val toIdx = if (slotH > 0f) {
+            (fromIdx + kotlin.math.round(accY / slotH).toInt())
+                .coerceIn(0, currentSectionOrder.lastIndex)
+        } else fromIdx
+        draggingSectionKey = null
+        dragAccumulatedY = 0f
+        if (fromIdx != toIdx && fromIdx in currentSectionOrder.indices && toIdx in currentSectionOrder.indices) {
+            AppearanceConfig.moveDetailsSection(fromIdx, toIdx)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth().verticalScroll(scrollState).padding(top = 20.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        SettingsGroupCard(title = "Modular Sections & Order") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Arrange Details Page Sections",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Drag the handles (⠿) to reorder sections, or toggle them on and off",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(
+                    onClick = { AppearanceConfig.resetDetailsSectionOrder() },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Reset Order")
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                sectionOrder.forEachIndexed { index, sectionKey ->
+                    val isEnabled = sectionKey !in disabledSections
+                    val isDraggingThis = draggingSectionKey == sectionKey
+
+                    val targetShiftY = when {
+                        isDraggingThis -> dragAccumulatedY
+                        draggingSectionKey != null && dragInitialIndex < currentTargetIndex && index in (dragInitialIndex + 1)..currentTargetIndex -> -effectiveSlotHeight
+                        draggingSectionKey != null && dragInitialIndex > currentTargetIndex && index in currentTargetIndex until dragInitialIndex -> effectiveSlotHeight
+                        else -> 0f
+                    }
+                    val animatedShiftY by animateFloatAsState(
+                        targetValue = targetShiftY,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    )
+
+                    val elevation by animateDpAsState(if (isDraggingThis) 16.dp else 0.dp)
+                    val scale by animateFloatAsState(if (isDraggingThis) 1.02f else 1.0f)
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isDraggingThis) {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+                        } else if (isEnabled) {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
+                        },
+                        border = androidx.compose.foundation.BorderStroke(
+                            if (isDraggingThis) 1.5.dp else 0.5.dp,
+                            if (isDraggingThis) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
+                        ),
+                        shadowElevation = elevation,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                if (coordinates.size.height > 0 && slotHeightPx == 0f) {
+                                    slotHeightPx = coordinates.size.height.toFloat() + 8f
+                                }
+                            }
+                            .zIndex(if (isDraggingThis) 100f else 1f)
+                            .scale(scale)
+                            .graphicsLayer {
+                                translationY = if (isDraggingThis) dragAccumulatedY else animatedShiftY
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Drag grip handle
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isDraggingThis) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f))
+                                    .pointerInput(sectionKey) {
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                draggingSectionKey = sectionKey
+                                                dragInitialIndex = currentSectionOrder.indexOf(sectionKey)
+                                                dragAccumulatedY = 0f
+                                            },
+                                            onDragEnd = { onDropSection() },
+                                            onDragCancel = {
+                                                draggingSectionKey = null
+                                                dragAccumulatedY = 0f
+                                            },
+                                        ) { change, dragAmount ->
+                                            change.consume()
+                                            dragAccumulatedY += dragAmount.y
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DragHandle,
+                                    contentDescription = "Drag to reorder",
+                                    tint = if (isDraggingThis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Section info
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = sectionKey.displayName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = sectionKey.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Standard toggle switch with clean theme colors
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { AppearanceConfig.toggleDetailsSection(sectionKey, it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsGroupCard(title = "Episode Playback & Protection") {
+            SettingsToggleItem(
+                label = "Lock Unreleased Episodes",
+                subtitle = "Prevent clicking and playing future/unreleased episodes and display countdown/air date badges",
+                checked = lockUnreleasedEpisodes,
+                onCheckedChange = { AppearanceConfig.setLockUnreleasedEpisodes(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            SettingsToggleItem(
+                label = "Anti-Spoiler Mode",
+                subtitle = "Hide episode thumbnails, titles, and descriptions until watched",
+                checked = antiSpoilerEnabled,
+                onCheckedChange = { AppearanceConfig.setAntiSpoilerEnabled(it) },
+            )
+        }
+
+        SettingsGroupCard(title = "Time Badges & Meta Data") {
+            SettingsToggleItem(
+                label = "Show Current Time",
+                subtitle = "Display the current time on the details page",
+                checked = detailsShowCurrentTime,
+                onCheckedChange = { AppearanceConfig.setDetailsShowCurrentTime(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            SettingsToggleItem(
+                label = "Show End Time",
+                subtitle = "Display what time the movie/episode will end",
+                checked = detailsShowEndTime,
+                onCheckedChange = { AppearanceConfig.setDetailsShowEndTime(it) },
+            )
         }
     }
 }
