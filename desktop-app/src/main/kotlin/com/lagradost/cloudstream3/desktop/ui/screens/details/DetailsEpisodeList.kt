@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import coil3.compose.SubcomposeAsyncImage
+import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.common.storage.WatchHistory
@@ -47,6 +47,8 @@ data class EpisodeReleaseStatus(
 )
 
 private val EPISODE_DATE_REGEX = Regex("""\|\|DATE:(.*?)\|\|""")
+
+private val releaseStatusCache = java.util.concurrent.ConcurrentHashMap<String, EpisodeReleaseStatus>()
 
 fun parseEpisodeReleaseStatus(ep: Episode): EpisodeReleaseStatus {
     val rawDesc = ep.description ?: ""
@@ -63,6 +65,12 @@ fun parseEpisodeReleaseStatus(ep: Episode): EpisodeReleaseStatus {
         )
     }
 
+    return releaseStatusCache.getOrPut(rawDate) {
+        computeEpisodeReleaseStatus(rawDate)
+    }
+}
+
+private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
     val patterns = listOf(
         "yyyy-MM-dd",
         "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
@@ -276,48 +284,21 @@ fun EpisodeCard(
         // Background image
         if (epImg != null || fallbackImg != null) {
             val targetUrl = epImg ?: fallbackImg
-            SubcomposeAsyncImage(
-                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+            val context = coil3.compose.LocalPlatformContext.current
+            val imageRequest = remember(targetUrl) {
+                coil3.request.ImageRequest.Builder(context)
                     .data(targetUrl)
-                    .build(),
+                    .crossfade(true)
+                    .build()
+            }
+            AsyncImage(
+                model = imageRequest,
                 contentDescription = ep.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .run { if (shouldHideSpoilers) this.blur(16.dp) else this }
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-                loading = {
-                    if (fallbackImg != null) {
-                        AsyncImage(
-                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                .data(fallbackImg)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().blur(if (shouldHideSpoilers) 16.dp else 8.dp),
-                        )
-                    }
-                },
-                error = {
-                    if (fallbackImg != null) {
-                        AsyncImage(
-                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                .data(fallbackImg)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize()
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
-                        }
-                    }
-                },
             )
         } else {
             Box(
@@ -662,11 +643,16 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
 
             if (epImg != null || fallbackImg != null) {
                 val targetUrl = epImg ?: fallbackImg
-                SubcomposeAsyncImage(
-                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                val context = coil3.compose.LocalPlatformContext.current
+                val imageRequest = remember(targetUrl) {
+                    coil3.request.ImageRequest.Builder(context)
                         .data(targetUrl)
-                        .size(2560, 1440)
-                        .build(),
+                        .size(640, 360)
+                        .crossfade(true)
+                        .build()
+                }
+                AsyncImage(
+                    model = imageRequest,
                     contentDescription = ep.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().run {
@@ -674,33 +660,7 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                             (data as? LiveStreamLoadResponse)?.backgroundPosterUrl == null &&
                             (data as? TvSeriesLoadResponse)?.backgroundPosterUrl == null &&
                             (data as? AnimeLoadResponse)?.backgroundPosterUrl == null
-                        if (noBackdrop) this.blur(100.dp) else this
-                    },
-                    loading = {
-                        if (fallbackImg != null) {
-                            AsyncImage(
-                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                    .data(fallbackImg)
-                                    .size(2560, 1440)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().blur(8.dp),
-                            )
-                        }
-                    },
-                    error = {
-                        if (fallbackImg != null) {
-                            AsyncImage(
-                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                    .data(fallbackImg)
-                                    .size(2560, 1440)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
+                        if (noBackdrop) this.blur(32.dp) else this
                     },
                 )
                 // Gradient overlay so text is readable
@@ -920,10 +880,15 @@ fun EpisodeListItem(
             ) {
                 if (epImg != null || fallbackImg != null) {
                     val targetUrl = epImg ?: fallbackImg
-                    SubcomposeAsyncImage(
-                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    val context = coil3.compose.LocalPlatformContext.current
+                    val imageRequest = remember(targetUrl) {
+                        coil3.request.ImageRequest.Builder(context)
                             .data(targetUrl)
-                            .build(),
+                            .crossfade(true)
+                            .build()
+                    }
+                    AsyncImage(
+                        model = imageRequest,
                         contentDescription = ep.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier

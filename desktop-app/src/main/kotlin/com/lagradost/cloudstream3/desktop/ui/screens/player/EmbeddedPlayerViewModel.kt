@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.MovieLoadResponse
+import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
@@ -18,7 +20,6 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.runtime.executor.SafePluginInvoker
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,7 +32,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     val playerState = PlayerState()
     private var loadLinksJob: Job? = null
     private var saveJob: Job? = null
-    private var scrapeJob: Job? = null
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
 
@@ -70,7 +70,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 }
 
                 if (currentData != null) {
-                    val title = currentData.title ?: currentData.history.showName ?: "Media"
+                    val title = currentData.title ?: currentData.history.showName
                     val season = currentData.history.season
                     val episode = currentData.history.episode
                     val episodeInfo = when {
@@ -95,7 +95,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 val currentData = uiState.value.launchData ?: return@collect
                 val currentPosSec = playerState.positionMs.value / 1000L
                 val durSec = playerState.durationMs.value / 1000L
-                val title = currentData.title ?: currentData.history.showName ?: "Media"
+                val title = currentData.title ?: currentData.history.showName
                 val season = currentData.history.season
                 val episode = currentData.history.episode
                 val episodeInfo = when {
@@ -307,7 +307,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             val currentLink = currentState.launchData?.links?.find { it.url == failedUrl }
             if (currentLink != null) {
                 val currentPos = playerState.positionMs.value
-                val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
+                val startPos = if (currentPos > 0L) currentPos else currentState.launchData.startPositionMs
                 updateState {
                     copy(launchData = launchData?.copy(startPositionMs = startPos))
                 }
@@ -350,7 +350,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val link = currentState.launchData?.links?.find { it.url == url }
         if (link != null) {
             val currentPos = playerState.positionMs.value
-            val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
+            val startPos = if (currentPos > 0L) currentPos else currentState.launchData.startPositionMs
             updateState {
                 copy(launchData = launchData?.copy(startPositionMs = startPos))
             }
@@ -439,7 +439,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 viewModelScope.launch(Dispatchers.IO) {
                     try {
                         val apiName = adjustedData.history.apiName
-                        val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName ?: "")
+                        val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
                         if (provider != null) {
                             val res = provider.load(adjustedData.history.showUrl)
                             if (res is com.lagradost.cloudstream3.LoadResponse) {
@@ -462,7 +462,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             // Auto-scrape initial episode if links are empty
             if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
                 val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
-                val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName ?: "")
+                val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
                 if (provider != null) {
                     val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
                         this.name = adjustedData.history.showName
@@ -893,13 +893,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         val waitForLinks = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true
         val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        val targetQualityInt: Int? = when (prefQuality) {
-            "2160p (4K)" -> com.lagradost.cloudstream3.utils.Qualities.P2160.value
-            "1080p" -> com.lagradost.cloudstream3.utils.Qualities.P1080.value
-            "720p" -> com.lagradost.cloudstream3.utils.Qualities.P720.value
-            "480p", "480p / SD" -> com.lagradost.cloudstream3.utils.Qualities.P480.value
-            else -> null
-        }
 
         val result = SafePluginInvoker.invoke(
             tag = "EmbeddedPlayerViewModel:${provider.name}",
@@ -920,11 +913,11 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         if (!hasStartedPlaying.get()) {
                             copy(nextEpisodeSubtitles = newSubs)
                         } else {
-                            val current = launchData
-                            val updatedLaunch = if (current != null && current.history.episodeId == targetEpisodeId) {
-                                current.copy(subtitles = current.subtitles + sub)
+                            val cur = launchData
+                            val updatedLaunch = if (cur != null && cur.history.episodeId == targetEpisodeId) {
+                                cur.copy(subtitles = cur.subtitles + sub)
                             } else {
-                                current
+                                cur
                             }
                             copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                         }
@@ -1074,21 +1067,51 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 }
             }
 
-            if (bestLinkToProbe != null) {
-                updatePhase(PlayerPhase.Probing(bestLinkToProbe!!, false))
+            val linkToProbe = bestLinkToProbe
+            if (linkToProbe != null) {
+                updatePhase(PlayerPhase.Probing(linkToProbe, false))
             }
         } else {
             val ex = result.exceptionOrNull()
-            if (ex is CancellationException) {
-                throw ex
+            LinkCache.remove(targetEpisodeId)
+
+            val isJsonParseError = ex is com.fasterxml.jackson.core.JsonParseException ||
+                ex?.message?.contains("Unrecognized token") == true ||
+                ex?.cause is com.fasterxml.jackson.core.JsonParseException
+
+            val showUrl = current.loadResponse?.url ?: current.history.showUrl
+            if (isJsonParseError && targetEpisodeId.startsWith("http")) {
+                AppLogger.w("Plugin:${provider.name}", "Detected invalid episode data payload ($targetEpisodeId). Performing automatic self-healing re-fetch from $showUrl...")
+                val parentId = DesktopDataStore.watchHistoryId(provider.name, showUrl)
+                DesktopDataStore.removeEpisodeWatched(parentId, targetEpisodeId)
+                try {
+                    val freshResp = provider.load(showUrl)
+                    if (freshResp is MovieLoadResponse && freshResp.dataUrl.isNotBlank() && freshResp.dataUrl != targetEpisodeId) {
+                        val freshDataUrl = freshResp.dataUrl
+                        AppLogger.i("Plugin:${provider.name}", "Self-healing resolved valid movie data payload. Retrying scraping...")
+                        val newTargetEp = provider.newEpisode(freshDataUrl) {
+                            this.name = freshResp.name
+                            this.posterUrl = freshResp.posterUrl
+                        }
+                        val updatedLaunch = current.copy(
+                            loadResponse = freshResp,
+                            history = current.history.copy(episodeId = freshDataUrl),
+                        )
+                        scrapeAndPlay(provider, freshDataUrl, updatedLaunch, newTargetEp)
+                        return
+                    }
+                } catch (healEx: Throwable) {
+                    AppLogger.e("Plugin:${provider.name}", "Self-healing re-fetch failed: ${healEx.message}")
+                }
             }
+
             var bestFallbackToProbe: ExtractorLink? = null
             updateState {
-                if (!hasStartedPlaying.get() && nextEpisodeLinks.isNotEmpty()) {
-                    hasStartedPlaying.set(true)
-                    val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
-                    val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
-                    if (best != null) {
+                if (nextEpisodeLinks.isNotEmpty()) {
+                    if (!hasStartedPlaying.get()) {
+                        hasStartedPlaying.set(true)
+                        val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                        val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
                         bestFallbackToProbe = best
                         val launch = if (targetEpisodeData != null && newHistory != null) {
                             current.copy(
@@ -1160,10 +1183,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 }
             }
 
-            if (bestFallbackToProbe != null) {
-                updatePhase(PlayerPhase.Probing(bestFallbackToProbe!!, false))
+            val fallbackToProbe = bestFallbackToProbe
+            if (fallbackToProbe != null) {
+                updatePhase(PlayerPhase.Probing(fallbackToProbe, false))
             }
         }
     }
 }
-

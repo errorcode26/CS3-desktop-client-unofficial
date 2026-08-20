@@ -229,7 +229,7 @@ class DetailsViewModel(
         if (uiState.value.hasAutoPlayed) return
         updateState { copy(hasAutoPlayed = true) }
         viewModelScope.launch(Dispatchers.IO) {
-            val resp = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val resp = uiState.value.response ?: return@launch
 
             val allEpisodes = when (resp) {
                 is TvSeriesLoadResponse -> resp.episodes
@@ -281,6 +281,16 @@ class DetailsViewModel(
             showUrl = data.url,
         )
         val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+            ?: if (data is MovieLoadResponse && ep.data != data.url) {
+                DesktopDataStore.getEpisodeWatched(parentId, data.url)?.also { corrupted ->
+                    DesktopDataStore.setLastWatched(
+                        corrupted.copy(episodeId = ep.data),
+                    )
+                    DesktopDataStore.removeEpisodeWatched(parentId, data.url)
+                }
+            } else {
+                null
+            }
         val resumePos = com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(
             saved?.position ?: 0L,
             saved?.duration ?: 0L,
@@ -323,7 +333,7 @@ class DetailsViewModel(
 
     private fun handlePlayEpisode(ep: Episode) {
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val data = uiState.value.response ?: return@launch
             val history = buildWatchHistory(ep, data)
             val patchedData = patchEpisodeData(ep, data)
             handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = true)
@@ -332,7 +342,7 @@ class DetailsViewModel(
 
     private fun handleDownloadEpisode(ep: Episode) {
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val data = uiState.value.response ?: return@launch
             val history = buildWatchHistory(ep, data)
             val patchedData = patchEpisodeData(ep, data)
             handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = false)
@@ -340,7 +350,7 @@ class DetailsViewModel(
     }
 
     private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {
-        val data = uiState.value.response ?: uiState.value.fakeData ?: return
+        val data = uiState.value.response ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
             val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
@@ -350,7 +360,7 @@ class DetailsViewModel(
 
     private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val data = uiState.value.response ?: return@launch
             val parentId = DesktopDataStore.watchHistoryId(
                 apiName = provider.name,
                 showUrl = data.url,
@@ -416,7 +426,7 @@ class DetailsViewModel(
 
     private fun handleToggleSeasonWatched(episodes: List<Episode>, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: uiState.value.fakeData ?: return@launch
+            val data = uiState.value.response ?: return@launch
             val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
 
             if (isWatched) {
@@ -558,7 +568,7 @@ class DetailsViewModel(
                     append(" - E${linkHistory.episode}")
                 }
             }
-            val response = uiState.value.response ?: uiState.value.fakeData
+            val response = uiState.value.response
             val isLive = response?.type == TvType.Live
             val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
 

@@ -48,9 +48,11 @@ fun DesktopAppShell(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val posterCardStyle = com.lagradost.cloudstream3.desktop.ui.components.rememberPosterCardStyle()
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(com.lagradost.cloudstream3.desktop.ui.components.LocalPosterCardStyle provides posterCardStyle) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Box(Modifier.fillMaxSize()) {
             val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
             val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
             val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
@@ -376,6 +378,7 @@ fun DesktopAppShell(
             }
         }
     }
+}
 }
 
 @Composable

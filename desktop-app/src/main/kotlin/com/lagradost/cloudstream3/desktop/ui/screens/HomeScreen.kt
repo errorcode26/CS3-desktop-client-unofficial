@@ -58,12 +58,16 @@ fun ComposeHomeScreen(
                 modifier = Modifier.fillMaxSize(),
             ) { targetBgUrl ->
                 Box(modifier = Modifier.fillMaxSize()) {
-                    coil3.compose.AsyncImage(
-                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    val context = coil3.compose.LocalPlatformContext.current
+                    val imageRequest = remember(targetBgUrl) {
+                        coil3.request.ImageRequest.Builder(context)
                             .data(targetBgUrl)
-                            .size(2560, 1440)
+                            .size(320, 180)
                             .crossfade(true)
-                            .build(),
+                            .build()
+                    }
+                    coil3.compose.AsyncImage(
+                        model = imageRequest,
                         contentDescription = null,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         modifier = Modifier

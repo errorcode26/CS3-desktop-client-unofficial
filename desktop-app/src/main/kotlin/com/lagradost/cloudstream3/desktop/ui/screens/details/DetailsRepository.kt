@@ -27,6 +27,9 @@ object DetailsCache {
     fun remove(url: String) {
         _cache.remove(url)
     }
+    fun clear() {
+        _cache.clear()
+    }
     fun containsKey(url: String): Boolean = _cache.containsKey(url)
 }
 
@@ -38,12 +41,24 @@ object EnrichedDetailsCache {
             }
         },
     )
-    fun get(url: String): com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = _cache[url]
+    fun get(url: String): com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? {
+        val cached = _cache[url]
+        if (cached?.response == null || cached.fakeData != null) {
+            _cache.remove(url)
+            return null
+        }
+        return cached
+    }
     fun put(url: String, state: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState) {
-        _cache[url] = state
+        if (state.response != null && state.fakeData == null) {
+            _cache[url] = state
+        }
     }
     fun remove(url: String) {
         _cache.remove(url)
+    }
+    fun clear() {
+        _cache.clear()
     }
     fun containsKey(url: String): Boolean = _cache.containsKey(url)
 }

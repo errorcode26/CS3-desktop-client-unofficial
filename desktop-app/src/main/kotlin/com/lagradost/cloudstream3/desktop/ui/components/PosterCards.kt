@@ -43,6 +43,44 @@ import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
+@androidx.compose.runtime.Immutable
+data class PosterCardStyle(
+    val roundingDp: Int = 12,
+    val titlePosition: com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition = com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW,
+    val showRating: Boolean = true,
+    val showQuality: Boolean = true,
+    val showLanguage: Boolean = true,
+    val hoverGlowEnabled: Boolean = true,
+    val cardOpacity: Float = 1.0f,
+    val shadowMultiplier: Float = 1.0f,
+)
+
+val LocalPosterCardStyle = staticCompositionLocalOf { PosterCardStyle() }
+
+@Composable
+fun rememberPosterCardStyle(): PosterCardStyle {
+    val roundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
+    val titlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val showRating by AppearanceConfig.showPosterRating.collectAsState()
+    val showQuality by AppearanceConfig.showPosterQuality.collectAsState()
+    val showLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
+    val hoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+    val cardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+    val shadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
+    return remember(roundingDp, titlePosition, showRating, showQuality, showLanguage, hoverGlowEnabled, cardOpacity, shadowMultiplier) {
+        PosterCardStyle(
+            roundingDp = roundingDp,
+            titlePosition = titlePosition,
+            showRating = showRating,
+            showQuality = showQuality,
+            showLanguage = showLanguage,
+            hoverGlowEnabled = hoverGlowEnabled,
+            cardOpacity = cardOpacity,
+            shadowMultiplier = shadowMultiplier,
+        )
+    }
+}
+
 @kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PosterCard(
@@ -56,8 +94,8 @@ fun PosterCard(
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
 ) {
-    val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
-    val shape = RoundedCornerShape(posterCornerRadius.dp)
+    val style = LocalPosterCardStyle.current
+    val shape = remember(style.roundingDp) { RoundedCornerShape(style.roundingDp.dp) }
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
 
     val effectiveAspectRatio = aspectRatio
@@ -77,11 +115,11 @@ fun PosterCard(
     val isHoveredRaw by interactionSource.collectIsHoveredAsState()
     val isHovered = isHoveredRaw && isHoverEnabled
 
-    val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
-    val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
-    val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
-    val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
-    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+    val posterTitlePosition = style.titlePosition
+    val showPosterRating = style.showRating
+    val showPosterQuality = style.showQuality
+    val showPosterLanguage = style.showLanguage
+    val posterHoverGlowEnabled = style.hoverGlowEnabled
 
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
@@ -103,10 +141,13 @@ fun PosterCard(
                     .clip(shape)
                     .hoverable(interactionSource)
                     .onGloballyPositioned { coordinates ->
-                        bounds = Rect(
+                        val newBounds = Rect(
                             offset = coordinates.positionInWindow(),
                             size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                         )
+                        if (bounds != newBounds) {
+                            bounds = newBounds
+                        }
                     }
                     .pointerInput(Unit) {
                         awaitPointerEventScope {
@@ -139,10 +180,14 @@ fun PosterCard(
                 ) {
                     if (imgUrl != null) {
                         // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
-                        AsyncImage(
-                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        val context = coil3.compose.LocalPlatformContext.current
+                        val imageRequest = remember(imgUrl) {
+                            coil3.request.ImageRequest.Builder(context)
                                 .data(imgUrl)
-                                .build(),
+                                .build()
+                        }
+                        AsyncImage(
+                            model = imageRequest,
                             contentDescription = item.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -271,10 +316,10 @@ fun WatchHistoryCard(
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
 ) {
-    val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
-    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
-    val shape = RoundedCornerShape(posterCornerRadius.dp)
+    val style = LocalPosterCardStyle.current
+    val posterHoverGlowEnabled = style.hoverGlowEnabled
+    val uiCardOpacity = style.cardOpacity
+    val shape = remember(style.roundingDp) { RoundedCornerShape(style.roundingDp.dp) }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -329,10 +374,13 @@ fun WatchHistoryCard(
                 .clip(shape)
                 .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
-                    bounds = Rect(
+                    val newBounds = Rect(
                         offset = coordinates.positionInWindow(),
                         size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                     )
+                    if (bounds != newBounds) {
+                        bounds = newBounds
+                    }
                 }
                 .pointerInput(isContextMenuEnabled) {
                     awaitPointerEventScope {

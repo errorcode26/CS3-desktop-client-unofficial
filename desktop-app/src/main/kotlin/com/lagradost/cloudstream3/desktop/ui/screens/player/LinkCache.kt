@@ -27,6 +27,10 @@ object LinkCache {
         cache.remove(episodeId)
     }
 
+    fun clearAll() {
+        cache.clear()
+    }
+
     fun set(episodeId: String, links: List<ExtractorLink>, subtitles: List<SubtitleFile>) {
         cache[episodeId] = CachedLinks(
             links = links,
