@@ -281,9 +281,15 @@ fun DetailsMetadata(
                 .fillMaxWidth()
                 .padding(start = if (isNarrow) 24.dp else 64.dp, end = if (isNarrow) 24.dp else 64.dp, bottom = responsiveBottomPadding, top = responsiveTopPadding),
             mainContent = {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start,
+                ) {
                     if (isLoading) {
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.Start,
+                        ) {
                             Box(modifier = Modifier.fillMaxWidth(0.45f).height(48.dp).clip(RoundedCornerShape(8.dp)).shimmerBackground())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Box(modifier = Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(6.dp)).shimmerBackground())
@@ -309,7 +315,7 @@ fun DetailsMetadata(
                                         max = responsiveLogoMaxWidth,
                                     )
                                     .heightIn(max = responsiveLogoMaxHeight),
-                                contentAlignment = Alignment.BottomStart,
+                                contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                             ) {
                                 val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                     .data(activeLogoUrl)
@@ -331,7 +337,7 @@ fun DetailsMetadata(
                                             edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
                                         ),
                                     contentScale = ContentScale.Fit,
-                                    alignment = Alignment.BottomStart,
+                                    alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     colorFilter = DesktopDimens.LogoShadowFilter,
                                 )
                                 coil3.compose.SubcomposeAsyncImage(
@@ -339,13 +345,14 @@ fun DetailsMetadata(
                                     contentDescription = displayName,
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier.fillMaxSize(),
-                                    alignment = Alignment.BottomStart,
+                                    alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     error = {
                                         Text(
                                             text = displayName,
                                             style = MaterialTheme.typography.displayLarge,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color.White,
+                                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                                         )
                                     },
                                 )
@@ -357,6 +364,7 @@ fun DetailsMetadata(
                                 style = MaterialTheme.typography.displayLarge,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
+                                textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                             )
                         }
                     }
@@ -387,8 +395,26 @@ fun DetailsMetadata(
                             modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                         ) {
                             val metaItems = mutableListOf<String>()
-                            (uiState?.enrichedYear ?: data.year)?.let { metaItems.add(it.toString()) }
 
+                            // 1. Year / Multi-Year Span
+                            val yearSpan = if (data.type != TvType.Movie && data.type != TvType.AnimeMovie && !uiState?.enrichedReleaseDate.isNullOrBlank() && uiState!!.enrichedReleaseDate!!.contains("–")) {
+                                uiState.enrichedReleaseDate!!
+                            } else {
+                                (uiState?.enrichedYear ?: data.year)?.toString()
+                            }
+                            yearSpan?.let { metaItems.add(it) }
+
+                            // 2. Total Seasons & Episodes for TV / Anime
+                            val seasonsCount = uiState?.enrichedSeasonsCount
+                            val episodesCount = uiState?.enrichedEpisodesCount
+                            if (seasonsCount != null && seasonsCount > 0) {
+                                val epStr = if (episodesCount != null && episodesCount > 0) " (${episodesCount} Eps)" else ""
+                                metaItems.add("$seasonsCount ${if (seasonsCount == 1) "Season" else "Seasons"}$epStr")
+                            } else if (episodesCount != null && episodesCount > 0) {
+                                metaItems.add("$episodesCount Episodes")
+                            }
+
+                            // 3. Runtime Duration
                             val finalDuration = uiState?.enrichedDuration ?: data.duration
                             finalDuration?.takeIf { it > 0 }?.let { dur ->
                                 val mins = if (dur > 360) dur / 60 else dur
@@ -402,6 +428,7 @@ fun DetailsMetadata(
                                 metaItems.add(durationStr)
                             }
 
+                            // 4. Content Type
                             val typeStr = when (data.type) {
                                 TvType.TvSeries -> "TV Series"
                                 TvType.Anime -> "Anime"
@@ -443,14 +470,25 @@ fun DetailsMetadata(
                                 }
                             }
 
-                            uiState?.enrichedStatus?.takeIf { it.isNotBlank() }?.let { status ->
+                            val rawStatus = uiState?.enrichedStatus
+                                ?: (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.showStatus?.name
+                                ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.showStatus?.name
+
+                            if (!rawStatus.isNullOrBlank()) {
+                                val cleanStatus = when (rawStatus.trim().lowercase()) {
+                                    "returning series", "ongoing" -> "Ongoing"
+                                    "ended", "completed" -> "Ended"
+                                    "canceled", "cancelled" -> "Canceled"
+                                    "in production" -> "In Production"
+                                    else -> rawStatus
+                                }
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                                 ) {
                                     Text(
-                                        text = status,
+                                        text = cleanStatus,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
@@ -605,7 +643,6 @@ fun DetailsMetadata(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
-
                     if (!isLoading && !data.plot.isNullOrBlank()) {
                         Text(
                             text = data.plot ?: "",
@@ -615,6 +652,7 @@ fun DetailsMetadata(
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.widthIn(max = responsivePlotMaxWidth),
+                            textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                         )
                     }
 
@@ -623,151 +661,208 @@ fun DetailsMetadata(
                     val bookmarkId = "${provider.name}_${data.url.hashCode()}"
                     val allBookmarks = uiState?.bookmarks ?: emptyMap()
                     val currentBookmark = allBookmarks[bookmarkId]
-                    var showBookmarkMenu by remember { mutableStateOf(false) }
+                    var isEditingStatus by remember { mutableStateOf(false) }
 
-                    val libraryButton: @Composable (Modifier) -> Unit = { mod ->
-                        Box(modifier = mod) {
-                            androidx.compose.material3.IconButton(
-                                onClick = { showBookmarkMenu = true },
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .background(
-                                        if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.18f),
-                                        RoundedCornerShape(12.dp),
-                                    )
-                                    .border(
-                                        1.2.dp,
-                                        if (currentBookmark != null) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.35f),
-                                        RoundedCornerShape(12.dp),
-                                    ),
-                            ) {
-                                Icon(
-                                    imageVector = if (currentBookmark != null) Icons.Default.Check else Icons.Default.Add,
-                                    contentDescription = "Library",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(26.dp),
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showBookmarkMenu,
-                                onDismissRequest = { showBookmarkMenu = false },
-                                modifier = Modifier
-                                    .background(DesktopUi.SurfaceElevated, RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .padding(4.dp),
-                            ) {
-                                Text(
-                                    "Add to Library",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                )
-                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                    val isSelected = currentBookmark?.watchType == type.id
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                type.stringRes,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            )
-                                        },
-                                        onClick = {
-                                            val newBookmark = DesktopBookmark(
-                                                id = bookmarkId,
-                                                name = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: "",
-                                                url = data.url,
-                                                apiName = provider.name,
-                                                posterUrl = data.posterUrl,
-                                                watchType = type.id,
-                                            )
-                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
-                                            showBookmarkMenu = false
-                                        },
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
-                                    )
-                                }
-                                if (currentBookmark != null) {
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                                        },
-                                        onClick = {
-                                            com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
-                                            showBookmarkMenu = false
-                                        },
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                                    )
-                                }
-                            }
-                        }
+                    val activeWatchType = currentBookmark?.let { b ->
+                        com.lagradost.common.storage.DesktopWatchType.entries.find { it.id == b.watchType }
+                    } ?: com.lagradost.common.storage.DesktopWatchType.WATCHING
+
+                    val setWatchType: (com.lagradost.common.storage.DesktopWatchType) -> Unit = { type ->
+                        val newBookmark = DesktopBookmark(
+                            id = bookmarkId,
+                            name = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: "",
+                            url = data.url,
+                            apiName = provider.name,
+                            posterUrl = data.posterUrl,
+                            watchType = type.id,
+                        )
+                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+                        isEditingStatus = false
                     }
 
-                    val activeTrailerUrl = uiState?.enrichedTrailerUrl
-                        ?: uiState?.enrichedTrailers?.firstOrNull()?.url
+                    val removeBookmarkAction: () -> Unit = {
+                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+                        isEditingStatus = false
+                    }
 
-                    val trailerButton: (@Composable (Modifier) -> Unit)? = if (!activeTrailerUrl.isNullOrBlank() && onTrailerClick != null) {
-                        { mod ->
-                            OutlinedButton(
-                                onClick = { onTrailerClick(activeTrailerUrl) },
-                                modifier = mod.height(56.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.35f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.18f),
-                                    contentColor = Color.White,
-                                ),
+                    val libraryButton: @Composable (Modifier) -> Unit = { mod ->
+                        val isInLibrary = currentBookmark != null
+                        Surface(
+                            onClick = {
+                                if (!isInLibrary) {
+                                    setWatchType(com.lagradost.common.storage.DesktopWatchType.WATCHING)
+                                } else {
+                                    isEditingStatus = !isEditingStatus
+                                }
+                            },
+                            modifier = mod.height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.2.dp,
+                                if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f),
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 18.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.PlayArrow,
+                                    imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                                     contentDescription = null,
+                                    tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
                                     modifier = Modifier.size(20.dp),
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Trailer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(
+                                    text = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
+                                    color = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
                             }
                         }
-                    } else {
-                        null
                     }
 
                     if (isButtonsNarrow) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                         ) {
                             heroAction(Modifier.fillMaxWidth())
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                libraryButton(Modifier)
-                                trailerButton?.invoke(Modifier.weight(1f))
+                                Box(modifier = Modifier.weight(1f)) {
+                                    libraryButton(Modifier.fillMaxWidth())
+                                }
+                                downloadAction?.invoke(Modifier)
                             }
-                            downloadAction?.invoke(Modifier.fillMaxWidth())
+
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isEditingStatus,
+                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(200)),
+                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150)),
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF18181B).copy(alpha = 0.95f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    FlowRow(
+                                        modifier = Modifier.padding(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                            val isSelected = currentBookmark?.watchType == type.id
+                                            Surface(
+                                                onClick = { setWatchType(type) },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
+                                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                            ) {
+                                                Text(
+                                                    text = type.stringRes,
+                                                    color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
+                                        if (currentBookmark != null) {
+                                            Surface(
+                                                onClick = removeBookmarkAction,
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                            ) {
+                                                Text(
+                                                    text = "Remove",
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
+                            modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     heroAction(Modifier.fillMaxWidth())
                                 }
                                 libraryButton(Modifier)
-                                trailerButton?.invoke(Modifier)
+                                downloadAction?.invoke(Modifier)
                             }
-                            downloadAction?.invoke(Modifier.fillMaxWidth())
+
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isEditingStatus,
+                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(200)),
+                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150)),
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF18181B).copy(alpha = 0.95f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    FlowRow(
+                                        modifier = Modifier.padding(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                            val isSelected = currentBookmark?.watchType == type.id
+                                            Surface(
+                                                onClick = { setWatchType(type) },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
+                                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                            ) {
+                                                Text(
+                                                    text = type.stringRes,
+                                                    color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
+                                        if (currentBookmark != null) {
+                                            Surface(
+                                                onClick = removeBookmarkAction,
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                            ) {
+                                                Text(
+                                                    text = "Remove",
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -928,6 +1023,7 @@ fun DetailsCastSection(
     provider: MainAPI,
     onActorClick: (ActorData) -> Unit = {},
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
     val actors = uiState?.enrichedActors ?: data.actors ?: emptyList()
 
@@ -944,7 +1040,7 @@ fun DetailsCastSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = horizontalPadding, vertical = 8.dp),
         ) {
             val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
 
@@ -954,13 +1050,12 @@ fun DetailsCastSection(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     cast.take(18).forEach { actor ->
                         ActorCard(
@@ -985,13 +1080,12 @@ fun DetailsCastSection(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     directors.forEach { actor ->
                         ActorCard(
@@ -1217,64 +1311,166 @@ private fun ActorCard(
 }
 
 @OptIn(ExperimentalLayoutApi::class)
+fun hasDetailsStats(
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    data: LoadResponse? = null,
+): Boolean {
+    if (uiState == null && data == null) return false
+    val budget = uiState?.enrichedBudget
+    val revenue = uiState?.enrichedRevenue
+    val country = uiState?.enrichedCountry
+    val lang = uiState?.enrichedOriginalLanguage
+    val relDate = uiState?.enrichedReleaseDate ?: data?.year?.toString()
+    val status = uiState?.enrichedStatus ?: (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.showStatus?.name ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.showStatus?.name
+    val cert = data?.contentRating
+    val dur = data?.duration
+    val seasons = uiState?.enrichedSeasonsCount
+    val episodes = uiState?.enrichedEpisodesCount
+    val hasCompanies = uiState?.enrichedProductionCompanies?.isNotEmpty() == true ||
+        uiState?.enrichedNetworksList?.isNotEmpty() == true ||
+        uiState?.enrichedStudios?.isNotEmpty() == true ||
+        uiState?.enrichedNetworks?.isNotEmpty() == true
+
+    return budget != null || revenue != null || hasCompanies ||
+        !country.isNullOrBlank() || !lang.isNullOrBlank() || !status.isNullOrBlank() ||
+        !relDate.isNullOrBlank() || !cert.isNullOrBlank() || (dur ?: 0) > 0 ||
+        (seasons ?: 0) > 0 || (episodes ?: 0) > 0
+}
+
 @Composable
 fun DetailsStatsSection(
+    data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     modifier: Modifier = Modifier,
 ) {
-    if (uiState == null) return
+    val budget = uiState?.enrichedBudget
+    val revenue = uiState?.enrichedRevenue
+    val country = uiState?.enrichedCountry
+    val lang = uiState?.enrichedOriginalLanguage
+    val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
+    val status = uiState?.enrichedStatus ?: (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.showStatus?.name ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.showStatus?.name
+    val cert = data.contentRating
+    val seasons = uiState?.enrichedSeasonsCount
+    val episodes = uiState?.enrichedEpisodesCount
 
-    val budget = uiState.enrichedBudget
-    val revenue = uiState.enrichedRevenue
-    val networks = uiState.enrichedNetworks
-    val studios = uiState.enrichedStudios
-    val country = uiState.enrichedCountry
-    val lang = uiState.enrichedOriginalLanguage
-    val relDate = uiState.enrichedReleaseDate
-    val status = uiState.enrichedStatus
-    val seasons = uiState.enrichedSeasonsCount
-    val episodes = uiState.enrichedEpisodesCount
+    val dur = data.duration
+    val runtimeStr = if (dur != null && dur > 0) {
+        val mins = if (dur > 360) dur / 60 else dur
+        if (mins >= 60) {
+            val h = mins / 60
+            val m = mins % 60
+            if (m > 0) "${h}h ${m}m" else "${h}h"
+        } else {
+            "${mins}m"
+        }
+    } else null
 
-    val hasStats = budget != null || revenue != null || networks.isNotEmpty() || studios.isNotEmpty() || !country.isNullOrBlank() || !lang.isNullOrBlank() || !status.isNullOrBlank() || (seasons ?: 0) > 0 || (episodes ?: 0) > 0
+    val allCompanies = remember(uiState) {
+        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
+        if (uiState != null) {
+            list.addAll(uiState.enrichedProductionCompanies)
+            list.addAll(uiState.enrichedNetworksList)
+            if (list.isEmpty()) {
+                list.addAll(uiState.enrichedStudios.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
+                list.addAll(uiState.enrichedNetworks.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
+            }
+        }
+        list.distinctBy { it.name.trim().lowercase() }
+    }
 
-    if (hasStats) {
+    val detailRows = remember(data, uiState, budget, revenue, country, lang, relDate, status, cert, runtimeStr, seasons, episodes) {
+        val list = mutableListOf<Pair<String, String>>()
+        if (!status.isNullOrBlank()) {
+            list.add("Status" to status)
+        }
+        if (!relDate.isNullOrBlank()) {
+            list.add("Release Info" to relDate)
+        }
+        if (!runtimeStr.isNullOrBlank()) {
+            list.add("Runtime" to runtimeStr)
+        }
+        if (!cert.isNullOrBlank()) {
+            list.add("Certification" to cert)
+        }
+        if (!country.isNullOrBlank()) {
+            list.add("Origin Country" to country)
+        }
+        if (!lang.isNullOrBlank()) {
+            list.add("Original Language" to lang)
+        }
+        if (seasons != null && seasons > 0) {
+            val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
+            list.add("Seasons" to "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
+        }
+        if (budget != null && budget > 0) {
+            list.add("Budget" to formatCurrency(budget))
+        }
+        if (revenue != null && revenue > 0) {
+            list.add("Box Office" to formatCurrency(revenue))
+        }
+        list
+    }
+
+    if (detailRows.isNotEmpty() || allCompanies.isNotEmpty()) {
         Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
+            modifier = modifier.fillMaxWidth(),
         ) {
-            androidx.compose.foundation.layout.FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (seasons != null && seasons > 0) {
-                    val epStr = if (episodes != null && episodes > 0) " ($episodes Episodes)" else ""
-                    InfoStatItem(label = "Seasons", value = "$seasons ${if (seasons == 1) "Season" else "Seasons"}$epStr")
-                } else if (episodes != null && episodes > 0) {
-                    InfoStatItem(label = "Episodes", value = "$episodes ${if (episodes == 1) "Episode" else "Episodes"}")
+            if (detailRows.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    detailRows.forEachIndexed { index, (label, value) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                text = value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        if (index < detailRows.lastIndex) {
+                            HorizontalDivider(
+                                color = Color.White.copy(alpha = 0.08f),
+                                thickness = 0.5.dp,
+                            )
+                        }
+                    }
                 }
-                if (!status.isNullOrBlank()) {
-                    InfoStatItem(label = "Status", value = status)
-                }
-                if (!relDate.isNullOrBlank()) {
-                    InfoStatItem(label = "Release Date", value = relDate)
-                }
-                if (!country.isNullOrBlank() || !lang.isNullOrBlank()) {
-                    val combined = listOfNotNull(country, lang).joinToString(" • ")
-                    InfoStatItem(label = "Origin", value = combined)
-                }
-                if (budget != null && budget > 0) {
-                    InfoStatItem(label = "Budget", value = formatCurrency(budget))
-                }
-                if (revenue != null && revenue > 0) {
-                    InfoStatItem(label = "Box Office", value = formatCurrency(revenue))
-                }
-                if (networks.isNotEmpty()) {
-                    val label = if (networks.size > 1) "Networks" else "Network"
-                    InfoStatItem(label = label, value = networks.joinToString(", "))
-                }
-                if (studios.isNotEmpty()) {
-                    val label = if (studios.size > 1) "Production Companies" else "Production Company"
-                    InfoStatItem(label = label, value = studios.joinToString(", "))
+            }
+
+            // Production Studios & Networks Section (with Logos)
+            if (allCompanies.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
+                    Text(
+                        text = "STUDIOS & NETWORKS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        allCompanies.forEach { company ->
+                            ProductionCompanyCard(company = company)
+                        }
+                    }
                 }
             }
         }
@@ -1282,32 +1478,70 @@ fun DetailsStatsSection(
 }
 
 @Composable
-private fun InfoStatItem(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .widthIn(min = 120.dp, max = 240.dp)
-            .padding(end = 48.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.Top,
+fun ProductionCompanyCard(
+    company: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany,
+    modifier: Modifier = Modifier,
+) {
+    val hasLogo = !company.logoUrl.isNullOrBlank()
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+        modifier = modifier
+            .height(84.dp)
+            .widthIn(min = 200.dp, max = 320.dp),
     ) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
-            letterSpacing = 1.2.sp,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Medium,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            if (hasLogo) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 84.dp, height = 56.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.96f))
+                        .padding(6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AsyncImage(
+                        model = company.logoUrl,
+                        contentDescription = company.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f, fill = false),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = company.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (!company.originCountry.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = company.originCountry.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.8.sp,
+                    )
+                }
+            }
+        }
     }
 }
 

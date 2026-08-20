@@ -30,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopActionBadge
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopFilterChip
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopIconButton
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -166,73 +169,61 @@ fun DetailsEpisodeSection(
                             val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                             hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
                         }
-                        Button(
+                        DesktopActionBadge(
+                            text = if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched",
                             onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSeasonWatched) Color(0xFF1B4D2E).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                contentColor = if (isSeasonWatched) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                            ),
-                            border = BorderStroke(1.dp, if (isSeasonWatched) Color(0xFF4CAF50).copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.height(36.dp),
-                            elevation = null,
-                        ) {
-                            Text(if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                        }
+                            isActive = isSeasonWatched,
+                            activeColor = Color(0xFF4ADE80)
+                        )
                     }
 
                     // Anti-spoiler
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.height(36.dp),
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                        modifier = Modifier.height(40.dp)
                     ) {
-                        Text("Anti-spoiler", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = isAntiSpoiler,
-                            onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
-                            modifier = Modifier.scale(0.85f),
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            ),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            Text(
+                                "Anti-spoiler",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = isAntiSpoiler,
+                                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
+                                modifier = Modifier.scale(0.8f),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                ),
+                            )
+                        }
                     }
 
-                    // Sort
-                    Button(
+                    // Sort Button
+                    DesktopFilterChip(
+                        text = if (isSortAscending) "Sort ▼" else "Sort ▲",
+                        isSelected = false,
                         onClick = { isSortAscending = !isSortAscending },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.height(36.dp),
-                        elevation = null,
-                    ) {
-                        Text(if (isSortAscending) "Sort ▼" else "Sort ▲", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    }
+                        minWidth = 70.dp
+                    )
 
                     // View Toggle (Single Button)
-                    Button(
+                    DesktopIconButton(
+                        icon = if (isEpisodesStackedView) Icons.AutoMirrored.Filled.List else Icons.Default.ViewModule,
+                        contentDescription = "Toggle Episode View",
                         onClick = { onToggleEpisodesStackedView(!isEpisodesStackedView) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.size(36.dp),
-                        elevation = null,
-                    ) {
-                        Icon(
-                            imageVector = if (isEpisodesStackedView) Icons.AutoMirrored.Filled.List else Icons.Default.ViewModule,
-                            contentDescription = "Toggle Episode View",
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                        isActive = false
+                    )
                 }
             }
 
@@ -300,88 +291,11 @@ fun DetailsEpisodeSection(
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
                                             val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
 
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(
-                                                        if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary
-                                                        } else {
-                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                                        },
-                                                    )
-                                                    .border(
-                                                        width = 1.dp,
-                                                        color = if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary
-                                                        } else {
-                                                            Color.White.copy(alpha = 0.08f)
-                                                        },
-                                                        shape = RoundedCornerShape(8.dp),
-                                                    )
-                                                    .clickable {
-                                                        selectedSeason = season
-                                                    }
-                                                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    text = seasonName,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontSize = 13.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    ),
-                                                    color = if (isSelected) {
-                                                        MaterialTheme.colorScheme.onPrimary
-                                                    } else {
-                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                                                    },
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (chunks.size > 1) {
-                                var chunkMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Button(
-                                        onClick = { chunkMenuExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
-                                        elevation = null,
-                                        shape = RoundedCornerShape(8.dp),
-                                    ) {
-                                        val fEp = allFilteredEpisodes.firstOrNull()?.episode ?: "?"
-                                        val lEp = allFilteredEpisodes.lastOrNull()?.episode ?: "?"
-                                        Text(if (fEp == lEp) "Episode $fEp" else "Episodes $fEp-$lEp", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Range", modifier = Modifier.size(18.dp))
-                                    }
-                                    DropdownMenu(
-                                        expanded = chunkMenuExpanded,
-                                        onDismissRequest = { chunkMenuExpanded = false },
-                                    ) {
-                                        chunks.forEachIndexed { index, chunk ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    val fEp = chunk.firstOrNull()?.episode ?: "?"
-                                                    val lEp = chunk.lastOrNull()?.episode ?: "?"
-                                                    Text(if (fEp == lEp) "Episode $fEp" else "$fEp-$lEp")
-                                                },
-                                                onClick = {
-                                                    selectedEpisodeChunk = index
-                                                    chunkMenuExpanded = false
-                                                },
-                                                trailingIcon = if (selectedEpisodeChunk == index) {
-                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
-                                                } else {
-                                                    null
-                                                },
+                                            DesktopFilterChip(
+                                                text = seasonName,
+                                                isSelected = isSelected,
+                                                onClick = { selectedSeason = season },
+                                                minWidth = 90.dp
                                             )
                                         }
                                     }
@@ -393,13 +307,49 @@ fun DetailsEpisodeSection(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     if (allFilteredEpisodes.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("Coming Soon", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Episodes are not available yet. Please check back later.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+                            Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
+                        Column {
+                            RenderEpisodesSection(
+                                allFilteredEpisodes = allFilteredEpisodes,
+                                isEpisodesStackedView = isEpisodesStackedView,
+                                episodesScrollState = episodesScrollState,
+                                latestHistory = latestHistory,
+                                showHistory = showHistory,
+                                provider = provider,
+                                data = data,
+                                uiState = uiState,
+                                isAntiSpoiler = isAntiSpoiler,
+                                enableDownloadButtons = enableDownloadButtons,
+                                coroutineScope = coroutineScope,
+                                onPlay = onPlay,
+                                onDownload = onDownload,
+                                onToggleWatched = onToggleWatched,
+                                onToggleSeasonWatched = onToggleSeasonWatched,
+                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                            )
+
+                            // Pagination row
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                chunks.forEachIndexed { index, list ->
+                                    val isSelected = selectedEpisodeChunk == index
+                                    val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
+                                    val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
+                                    
+                                    DesktopFilterChip(
+                                        text = "$startEp - $endEp",
+                                        isSelected = isSelected,
+                                        onClick = { selectedEpisodeChunk = index },
+                                        height = 36.dp,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -412,8 +362,8 @@ fun DetailsEpisodeSection(
                             provider = provider,
                             data = data,
                             uiState = uiState,
-                            isAntiSpoiler = isAntiSpoiler,
                             enableDownloadButtons = enableDownloadButtons,
+                            isAntiSpoiler = isAntiSpoiler,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
                             onDownload = onDownload,
@@ -421,21 +371,21 @@ fun DetailsEpisodeSection(
                             onToggleSeasonWatched = onToggleSeasonWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
-                        if (!isEpisodesStackedView) {
+                        val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0
+                        if (showCarouselArrows) {
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                ) {
-                                    Row {
-                                        IconButton(onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }) {
-                                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                        IconButton(onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }) {
-                                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                    }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = "Scroll Left",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
+                                    )
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = "Scroll Right",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
+                                    )
                                 }
                             }
                         }
@@ -497,44 +447,12 @@ fun DetailsEpisodeSection(
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
                                             val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
 
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(
-                                                        if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary
-                                                        } else {
-                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                                                        },
-                                                    )
-                                                    .border(
-                                                        width = 1.dp,
-                                                        color = if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary
-                                                        } else {
-                                                            Color.White.copy(alpha = 0.08f)
-                                                        },
-                                                        shape = RoundedCornerShape(8.dp),
-                                                    )
-                                                    .clickable {
-                                                        selectedSeason = season
-                                                    }
-                                                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    text = seasonName,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontSize = 13.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    ),
-                                                    color = if (isSelected) {
-                                                        MaterialTheme.colorScheme.onPrimary
-                                                    } else {
-                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                                                    },
-                                                )
-                                            }
+                                            DesktopFilterChip(
+                                                text = seasonName,
+                                                isSelected = isSelected,
+                                                onClick = { selectedSeason = season },
+                                                minWidth = 90.dp
+                                            )
                                         }
                                     }
                                 }
@@ -544,65 +462,16 @@ fun DetailsEpisodeSection(
                                 Row(
                                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     dubStatuses.forEach { dub ->
                                         val isSelected = selectedDub == dub
-                                        Button(
+                                        DesktopFilterChip(
+                                            text = dub.name,
+                                            isSelected = isSelected,
                                             onClick = { selectedDub = dub },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                            ),
-                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                            elevation = null,
-                                        ) {
-                                            Text(dub.name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold)
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                            }
-
-                            if (chunks.size > 1) {
-                                var chunkMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    Button(
-                                        onClick = { chunkMenuExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                        elevation = null,
-                                    ) {
-                                        val fEp = allFilteredEpisodes.firstOrNull()?.episode ?: "?"
-                                        val lEp = allFilteredEpisodes.lastOrNull()?.episode ?: "?"
-                                        Text(if (fEp == lEp) "Episode $fEp" else "Episodes $fEp-$lEp", fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Range")
-                                    }
-                                    DropdownMenu(
-                                        expanded = chunkMenuExpanded,
-                                        onDismissRequest = { chunkMenuExpanded = false },
-                                    ) {
-                                        chunks.forEachIndexed { index, chunk ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    val fEp = chunk.firstOrNull()?.episode ?: "?"
-                                                    val lEp = chunk.lastOrNull()?.episode ?: "?"
-                                                    Text(if (fEp == lEp) "Episode $fEp" else "$fEp-$lEp")
-                                                },
-                                                onClick = {
-                                                    selectedEpisodeChunk = index
-                                                    chunkMenuExpanded = false
-                                                },
-                                                trailingIcon = if (selectedEpisodeChunk == index) {
-                                                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
-                                                } else {
-                                                    null
-                                                },
-                                            )
-                                        }
+                                            minWidth = 80.dp
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -613,13 +482,49 @@ fun DetailsEpisodeSection(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     if (allFilteredEpisodes.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("Coming Soon", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Episodes are not available yet. Please check back later.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+                            Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
+                        Column {
+                            RenderEpisodesSection(
+                                allFilteredEpisodes = allFilteredEpisodes,
+                                isEpisodesStackedView = isEpisodesStackedView,
+                                episodesScrollState = episodesScrollState,
+                                latestHistory = latestHistory,
+                                showHistory = showHistory,
+                                provider = provider,
+                                data = data,
+                                uiState = uiState,
+                                isAntiSpoiler = isAntiSpoiler,
+                                enableDownloadButtons = enableDownloadButtons,
+                                coroutineScope = coroutineScope,
+                                onPlay = onPlay,
+                                onDownload = onDownload,
+                                onToggleWatched = onToggleWatched,
+                                onToggleSeasonWatched = onToggleSeasonWatched,
+                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                            )
+
+                            // Pagination row
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                chunks.forEachIndexed { index, list ->
+                                    val isSelected = selectedEpisodeChunk == index
+                                    val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
+                                    val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
+                                    
+                                    DesktopFilterChip(
+                                        text = "$startEp - $endEp",
+                                        isSelected = isSelected,
+                                        onClick = { selectedEpisodeChunk = index },
+                                        height = 36.dp,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -641,21 +546,21 @@ fun DetailsEpisodeSection(
                             onToggleSeasonWatched = onToggleSeasonWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
-                        if (!isEpisodesStackedView) {
+                        val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0
+                        if (showCarouselArrows) {
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                ) {
-                                    Row {
-                                        IconButton(onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }) {
-                                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                        IconButton(onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }) {
-                                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                    }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = "Scroll Left",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
+                                    )
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = "Scroll Right",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
+                                    )
                                 }
                             }
                         }

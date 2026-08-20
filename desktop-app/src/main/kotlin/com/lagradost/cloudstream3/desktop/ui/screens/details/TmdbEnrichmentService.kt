@@ -156,7 +156,9 @@ object TmdbEnrichmentService {
             duration: Int?,
             tags: List<String>?,
             actors: List<com.lagradost.cloudstream3.ActorData>?,
-        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            productionCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>?,
+            networkCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>?,
+        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onRatingsLoaded: (imdb: Double?, tmdb: Double?, anilist: Double?) -> Unit = { _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
         onEpisodeThumbnailsEnriched: () -> Unit = {},
@@ -338,8 +340,9 @@ object TmdbEnrichmentService {
                         val neededSeasons = allLoadedEpisodes.mapNotNull { it.season }.distinct().ifEmpty { listOf(1) }
                         val targetSeasons = neededSeasons.filter { it in 1..25 }.take(6)
                         val seasonsAppend = if (!isMovie && targetSeasons.isNotEmpty()) ",${targetSeasons.joinToString(",") { "season/$it" }}" else ""
+                        val ratingsAppend = if (isMovie) ",release_dates" else ",content_ratings"
                         // Use a broad language param initially; we refine it after fetching the detail response.
-                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=$TMDB_API_KEY&append_to_response=images,credits,recommendations,translations,videos,reviews$seasonsAppend&language=en-US&include_image_language=en,en-US,null"
+                        val tmdbUrl = "https://api.themoviedb.org/3/$typeStr/$matchId?api_key=$TMDB_API_KEY&append_to_response=images,credits,recommendations,translations,videos,reviews$ratingsAppend$seasonsAppend&language=en-US&include_image_language=en,en-US,null"
 
                         val tmdbData = com.lagradost.cloudstream3.app.get(tmdbUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
                         if (tmdbData != null) {
@@ -353,19 +356,18 @@ object TmdbEnrichmentService {
                             val tagline = tmdbData.get("tagline")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                             val status = tmdbData.get("status")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                             val studios = mutableListOf<String>()
+                            val prodCompanies = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
                             val prodList = tmdbData.get("production_companies")
                             if (prodList != null && prodList.isArray) {
-                                prodList.take(2).forEach { s ->
+                                prodList.forEach { s ->
+                                    val sId = s.get("id")?.asInt() ?: 0
                                     val sName = s.get("name")?.asText()
-                                    if (!sName.isNullOrBlank() && sName != "null") studios.add(sName)
-                                }
-                            }
-                            if (studios.isEmpty() && !isMovie) {
-                                val netList = tmdbData.get("networks")
-                                if (netList != null && netList.isArray) {
-                                    netList.take(2).forEach { n ->
-                                        val nName = n.get("name")?.asText()
-                                        if (!nName.isNullOrBlank() && nName != "null") studios.add(nName)
+                                    val sLogoPath = s.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                                    val sLogoUrl = tmdbImageUrl(sLogoPath, "w300")
+                                    val sCountry = s.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                                    if (!sName.isNullOrBlank() && sName != "null") {
+                                        studios.add(sName)
+                                        prodCompanies.add(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(sId, sName, sLogoUrl, sCountry))
                                     }
                                 }
                             }
@@ -468,12 +470,18 @@ object TmdbEnrichmentService {
                             val revenue = tmdbData.get("revenue")?.asLong()?.takeIf { it > 0 }
 
                             val networksList = mutableListOf<String>()
+                            val netCompanies = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
                             val tmdbNetworks = tmdbData.get("networks")
                             if (tmdbNetworks != null && tmdbNetworks.isArray) {
                                 tmdbNetworks.forEach { net ->
+                                    val nId = net.get("id")?.asInt() ?: 0
                                     val netName = net.get("name")?.asText()
+                                    val nLogoPath = net.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                                    val nLogoUrl = tmdbImageUrl(nLogoPath, "w300")
+                                    val nCountry = net.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                                     if (!netName.isNullOrBlank() && netName != "null") {
                                         networksList.add(netName)
+                                        netCompanies.add(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(nId, netName, nLogoUrl, nCountry))
                                     }
                                 }
                             }
@@ -535,6 +543,26 @@ object TmdbEnrichmentService {
                                     if (episodeRunTime != null && episodeRunTime > 0 && (tempDuration == null || tempDuration == 0)) {
                                         tempDuration = episodeRunTime
                                     }
+                                }
+
+                                val cert = if (isMovie) {
+                                    val releaseDatesNode = tmdbData.get("release_dates")?.get("results")
+                                    if (releaseDatesNode != null && releaseDatesNode.isArray) {
+                                        val usEntry = releaseDatesNode.firstOrNull { it.get("iso_3166_1")?.asText() == "US" } ?: releaseDatesNode.firstOrNull()
+                                        val relDates = usEntry?.get("release_dates")
+                                        if (relDates != null && relDates.isArray) {
+                                            relDates.mapNotNull { it.get("certification")?.asText()?.takeIf { c -> c.isNotBlank() && c != "null" } }.firstOrNull()
+                                        } else null
+                                    } else null
+                                } else {
+                                    val contentRatingsNode = tmdbData.get("content_ratings")?.get("results")
+                                    if (contentRatingsNode != null && contentRatingsNode.isArray) {
+                                        val usEntry = contentRatingsNode.firstOrNull { it.get("iso_3166_1")?.asText() == "US" } ?: contentRatingsNode.firstOrNull()
+                                        usEntry?.get("rating")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                                    } else null
+                                }
+                                if (!cert.isNullOrBlank() && loaded.contentRating.isNullOrBlank()) {
+                                    loaded.contentRating = cert
                                 }
 
                                 val genres = tmdbData.get("genres")
@@ -652,6 +680,8 @@ object TmdbEnrichmentService {
                                 tempDuration,
                                 tempTags,
                                 tempActors,
+                                prodCompanies,
+                                netCompanies,
                             )
 
                             val recList = tmdbData.get("recommendations")?.get("results")
@@ -805,6 +835,7 @@ object TmdbEnrichmentService {
                                     val vName = v.get("name")?.asText() ?: "Official Trailer"
                                     val vOfficial = v.get("official")?.asBoolean() ?: false
                                     val vPublished = v.get("published_at")?.asText()
+                                    val vType = v.get("type")?.asText()?.takeIf { it.isNotBlank() } ?: "Trailer"
 
                                     val vUrl = if (vSite.equals("YouTube", ignoreCase = true)) {
                                         "https://www.youtube.com/watch?v=$vKey"
@@ -827,6 +858,7 @@ object TmdbEnrichmentService {
                                                 site = vSite,
                                                 isOfficial = vOfficial,
                                                 publishedAt = vPublished,
+                                                type = vType,
                                             ),
                                         )
                                     }
@@ -837,10 +869,10 @@ object TmdbEnrichmentService {
                                         .distinctBy { it.name.lowercase().trim() }
                                         .sortedWith(
                                             compareByDescending<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData> { it.isOfficial }
-                                                .thenByDescending { it.name.contains("Trailer", ignoreCase = true) }
-                                                .thenByDescending { it.name.contains("Teaser", ignoreCase = true) },
+                                                .thenByDescending { it.type.equals("Trailer", ignoreCase = true) }
+                                                .thenByDescending { it.type.equals("Teaser", ignoreCase = true) },
                                         )
-                                        .take(10)
+                                        .take(30)
                                     onTrailersLoaded(sortedTrailers)
                                 }
                             }

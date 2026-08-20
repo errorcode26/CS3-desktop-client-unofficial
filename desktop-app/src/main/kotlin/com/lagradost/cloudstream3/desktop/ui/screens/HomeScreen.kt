@@ -35,6 +35,8 @@ fun ComposeHomeScreen(
     val errorSnapshot = uiState.errorSnapshot
 
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
+    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
 
@@ -66,9 +68,9 @@ fun ComposeHomeScreen(
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                            .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
                     )
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = heroBackdropDarkening)))
                 }
             }
         }

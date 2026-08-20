@@ -30,7 +30,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsExtensions
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
 import com.lagradost.common.storage.WatchHistory
 
 data class VideoLaunchData(
@@ -131,11 +131,14 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                         if (currentVideo == null) {
                                             when (event.button) {
                                                 PointerButton.Back -> {
-                                                    rootComponent.pop()
+                                                    if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
+                                                        com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
+                                                    } else {
+                                                        rootComponent.pop()
+                                                    }
                                                 }
                                                 PointerButton.Forward -> {
                                                     // Decompose doesn't natively have forward stack out of the box unless implemented.
-                                                    // We can ignore forward for now or implement it later.
                                                 }
                                                 else -> {}
                                             }
@@ -253,9 +256,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                         )
                                     }
                                     is RootComponent.Child.Extensions -> {
-                                        SettingsExtensions(
-                                            onNavigate = { rootComponent.bringToFront(it) },
+                                        ComposeExtensionScreen(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
                                             initialTab = child.component.initialTab,
+                                            viewModel = child.component.viewModel,
                                         )
                                     }
                                     is RootComponent.Child.Library -> {

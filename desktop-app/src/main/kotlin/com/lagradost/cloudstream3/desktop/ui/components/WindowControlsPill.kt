@@ -68,7 +68,7 @@ fun WindowControlsPill(
         if (isHome && providers.isNotEmpty()) {
             // 1. Refresh Button Pill (BEFORE the selector)
             Surface(
-                shape = CircleShape,
+                shape = RoundedCornerShape(10.dp),
                 color = theme.SurfaceElevated.copy(alpha = 0.6f),
                 border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
                 shadowElevation = 8.dp.applyShadowMultiplier(),
@@ -81,7 +81,7 @@ fun WindowControlsPill(
                         }
                         homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh)
                     },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(38.dp),
                 ) {
                     Icon(
                         Icons.Default.Refresh,
@@ -102,7 +102,7 @@ fun WindowControlsPill(
             }
 
             Surface(
-                shape = CircleShape,
+                shape = RoundedCornerShape(10.dp),
                 color = theme.SurfaceElevated.copy(alpha = 0.6f),
                 border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
                 shadowElevation = 8.dp.applyShadowMultiplier(),
@@ -110,9 +110,9 @@ fun WindowControlsPill(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(10.dp))
                         .clickable { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowHomeManagement(true)) }
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
                     if (activeIconUrl != null) {
                         coil3.compose.AsyncImage(
@@ -150,9 +150,9 @@ fun WindowControlsPill(
             }
         }
 
-        // 3. Disconnected Fullscreen Pill
+        // 3. Fullscreen Button
         Surface(
-            shape = CircleShape,
+            shape = RoundedCornerShape(10.dp),
             color = theme.SurfaceElevated.copy(alpha = 0.6f),
             border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
             shadowElevation = 8.dp.applyShadowMultiplier(),
@@ -169,7 +169,7 @@ fun WindowControlsPill(
                         }
                     }
                 },
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(38.dp),
             ) {
                 Icon(
                     if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,

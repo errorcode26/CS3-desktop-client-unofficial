@@ -69,6 +69,8 @@ fun ComposeDetailsScreen(
     val activeLinkData = uiState.activeLinkData
     val screenshots = uiState.screenshots
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
+    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
 
     var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
@@ -93,6 +95,9 @@ fun ComposeDetailsScreen(
     }
     val handleToggleEpisodesStackedView: (Boolean) -> Unit = { isStacked ->
         viewModel.onEvent(DetailsUiEvent.OnToggleEpisodesStackedView(isStacked))
+    }
+    val handleSetEpisodeViewMode: (Int) -> Unit = { viewMode ->
+        viewModel.onEvent(DetailsUiEvent.OnSetEpisodeViewMode(viewMode))
     }
 
     LaunchedEffect(viewModel.effectFlow) {
@@ -154,15 +159,15 @@ fun ComposeDetailsScreen(
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(80.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                                .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
                         )
-                        Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f)))
+                        Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = heroBackdropDarkening)))
                     }
                 }
             }
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = onBack,
@@ -171,7 +176,7 @@ fun ComposeDetailsScreen(
                     )
                 }
             } else if (response != null) {
-                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -272,6 +277,7 @@ fun DetailsContent(
     onToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit,
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
+    onSetEpisodeViewMode: ((Int) -> Unit)? = null,
     dynamicColorEnabled: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
@@ -295,6 +301,9 @@ fun DetailsContent(
             (data is com.lagradost.cloudstream3.TvSeriesLoadResponse && data.episodes.size == 1) ||
             (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
     }
+
+    val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
+    val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -598,128 +607,167 @@ fun DetailsContent(
                 }
             }
 
-            if (!isMovieLike) {
-                item(key = "Episodes") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
-                            provider = provider,
-                            data = data,
-                            showHistory = showHistory,
-                            latestHistory = latestHistory,
-                            isMovieLike = isMovieLike,
-                            isLoading = isLoading,
-                            uiState = uiState,
-                            enableDownloadButtons = enableDownloadButtons,
-                            onPlay = onPlay,
-                            onDownload = onDownload,
-                            onToggleWatched = onToggleWatched,
-                            onToggleSeasonWatched = onToggleSeasonWatched,
-                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                            onToggleEpisodesStackedView = onToggleEpisodesStackedView,
-                        )
-                    }
-                }
-            }
-
-            item(key = "Cast") {
-                BoxWithConstraints {
-                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
-                    Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
-                            data = data,
-                            provider = provider,
-                            uiState = uiState,
-                            onActorClick = { actor -> selectedActor = actor },
-                        )
-                    }
-                }
-            }
-
-            item(key = "Info") {
-                BoxWithConstraints {
-                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
-                    Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        Text(
-                            "Details & Info",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = hPadding).padding(bottom = 16.dp),
-                        )
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
-                            uiState = uiState,
-                            modifier = Modifier.padding(horizontal = hPadding),
-                        )
-                    }
-                }
-            }
-
-            val enrichedTrailers = uiState?.enrichedTrailers ?: emptyList()
-            if (enrichedTrailers.isNotEmpty()) {
-                item(key = "Trailers") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsTrailersSection(
-                            trailers = enrichedTrailers,
-                            trailersExpanded = trailersExpanded,
-                            onToggleExpand = { trailersExpanded = !trailersExpanded },
-                            onTrailerClick = { url ->
-                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
-                                    pendingExternalUrl = it
+            detailsSectionOrder.filter { it !in detailsDisabledSections }.forEach { sectionKey ->
+                when (sectionKey) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.EPISODES -> {
+                        if (!isMovieLike) {
+                            item(key = "Episodes") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
+                                            provider = provider,
+                                            data = data,
+                                            showHistory = showHistory,
+                                            latestHistory = latestHistory,
+                                            isMovieLike = isMovieLike,
+                                            isLoading = isLoading,
+                                            uiState = uiState,
+                                            enableDownloadButtons = enableDownloadButtons,
+                                            onPlay = onPlay,
+                                            onDownload = onDownload,
+                                            onToggleWatched = onToggleWatched,
+                                            onToggleSeasonWatched = onToggleSeasonWatched,
+                                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                            onToggleEpisodesStackedView = onToggleEpisodesStackedView,
+                                        )
+                                    }
                                 }
-                            },
-                        )
+                            }
+                        }
                     }
-                }
-            }
-
-            if (!screenshots.isNullOrEmpty()) {
-                item(key = "Screenshots") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
-                            screenshots = screenshots,
-                            screenshotsExpanded = screenshotsExpanded,
-                            onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
-                            onScreenshotClick = { selectedScreenshot = it },
-                        )
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.CAST -> {
+                        item(key = "Cast") {
+                            BoxWithConstraints {
+                                val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
+                                        data = data,
+                                        provider = provider,
+                                        uiState = uiState,
+                                        onActorClick = { actor -> selectedActor = actor },
+                                        horizontalPadding = hPadding,
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-            }
-
-            val collName = uiState?.enrichedCollectionName
-            val collBg = uiState?.enrichedCollectionBackdrop
-            val collItems = uiState?.enrichedCollectionItems ?: emptyList()
-            if (!collName.isNullOrBlank()) {
-                item(key = "Collection") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
-                            collName = collName,
-                            collBg = collBg,
-                            collItems = collItems,
-                            provider = provider,
-                            onNavigate = onNavigate,
-                        )
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.INFO -> {
+                        if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasDetailsStats(uiState, data)) {
+                            item(key = "Info") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    val isMovie = data.type == TvType.Movie || data.type == TvType.AnimeMovie
+                                    val sectionTitle = if (isMovie) "Movie Details" else "Show Details"
+                                    Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        Text(
+                                            sectionTitle,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = hPadding).padding(bottom = 16.dp),
+                                        )
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
+                                            data = data,
+                                            uiState = uiState,
+                                            modifier = Modifier.padding(horizontal = hPadding),
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
-            }
-
-            val validRecs = data.recommendations?.filterIsInstance<com.lagradost.cloudstream3.SearchResponse>()?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
-            if (validRecs.isNotEmpty()) {
-                item(key = "Recommendations") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
-                            validRecs = validRecs,
-                            onNavigate = onNavigate,
-                        )
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.TRAILERS -> {
+                        val enrichedTrailers = uiState?.enrichedTrailers ?: emptyList()
+                        if (enrichedTrailers.isNotEmpty()) {
+                            item(key = "Trailers") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsTrailersSection(
+                                            trailers = enrichedTrailers,
+                                            trailersExpanded = trailersExpanded,
+                                            onToggleExpand = { trailersExpanded = !trailersExpanded },
+                                            onTrailerClick = { url ->
+                                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
+                                                    pendingExternalUrl = it
+                                                }
+                                            },
+                                            horizontalPadding = hPadding,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                }
-            }
-
-            if (uiState?.enrichedReviews?.isNotEmpty() == true) {
-                item(key = "Reviews") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
-                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsReviewsSection(
-                            reviews = uiState.enrichedReviews,
-                        )
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.SCREENSHOTS -> {
+                        if (!screenshots.isNullOrEmpty()) {
+                            item(key = "Screenshots") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
+                                            screenshots = screenshots,
+                                            screenshotsExpanded = screenshotsExpanded,
+                                            onToggleExpand = { screenshotsExpanded = !screenshotsExpanded },
+                                            onScreenshotClick = { selectedScreenshot = it },
+                                            horizontalPadding = hPadding,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.COLLECTION -> {
+                        val collName = uiState?.enrichedCollectionName
+                        val collBg = uiState?.enrichedCollectionBackdrop
+                        val collItems = uiState?.enrichedCollectionItems ?: emptyList()
+                        if (!collName.isNullOrBlank()) {
+                            item(key = "Collection") {
+                                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
+                                        collName = collName,
+                                        collBg = collBg,
+                                        collItems = collItems,
+                                        provider = provider,
+                                        onNavigate = onNavigate,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.RECOMMENDATIONS -> {
+                        val validRecs = data.recommendations?.filterIsInstance<com.lagradost.cloudstream3.SearchResponse>()
+                            ?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
+                        if (validRecs.isNotEmpty()) {
+                            item(key = "Recommendations") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
+                                            validRecs = validRecs,
+                                            onNavigate = onNavigate,
+                                            horizontalPadding = hPadding,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.REVIEWS -> {
+                        if (uiState?.enrichedReviews?.isNotEmpty() == true) {
+                            item(key = "Reviews") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsReviewsSection(
+                                            reviews = uiState.enrichedReviews,
+                                            horizontalPadding = hPadding,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

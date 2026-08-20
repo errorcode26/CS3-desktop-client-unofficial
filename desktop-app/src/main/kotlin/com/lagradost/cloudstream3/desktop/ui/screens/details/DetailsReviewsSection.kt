@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DetailsReviewsSection(
     reviews: List<ReviewData>,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -41,20 +42,62 @@ fun DetailsReviewsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
-        Text(
-            text = "User Reviews",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
-        )
+        // Section Header Row with scroll buttons
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "User Reviews",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            if (reviews.size > 2) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                ) {
+                    Row {
+                        IconButton(
+                            onClick = { coroutineScope.launch { scrollState.animateScrollBy(-500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "Scroll Left",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        IconButton(
+                            onClick = { coroutineScope.launch { scrollState.animateScrollBy(500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Scroll Right",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val maxCardWidth = minOf(400.dp, maxWidth - 48.dp)
             LazyRow(
                 state = scrollState,
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
                     detectHorizontalDragGestures { change, dragAmount ->
@@ -68,23 +111,6 @@ fun DetailsReviewsSection(
                         review = review,
                         modifier = Modifier.width(maxCardWidth),
                     )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ) {
-                Row {
-                    IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(-500f) } }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(500f) } }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                    }
                 }
             }
         }

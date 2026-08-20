@@ -3,6 +3,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -16,9 +19,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
@@ -255,6 +265,38 @@ fun HomeManagementDialog(
                                     Text("No active providers", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             } else {
+                                var draggingProviderName by remember { mutableStateOf<String?>(null) }
+                                var providerDragAccumulatedY by remember { mutableStateOf(0f) }
+                                var providerDragInitialIndex by remember { mutableStateOf(0) }
+                                var providerSlotHeightPx by remember { mutableStateOf(0f) }
+                                val fallbackProviderHeight = with(LocalDensity.current) { 68.dp.toPx() }
+
+                                val effectiveSlotHeight = if (providerSlotHeightPx > 0f) providerSlotHeightPx else fallbackProviderHeight
+                                val currentTargetIndex = if (draggingProviderName != null && effectiveSlotHeight > 0f) {
+                                    (providerDragInitialIndex + kotlin.math.round(providerDragAccumulatedY / effectiveSlotHeight).toInt())
+                                        .coerceIn(0, activeProviders.lastIndex)
+                                } else providerDragInitialIndex
+
+                                val currentActiveProviders by rememberUpdatedState(activeProviders)
+                                val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
+                                val currentProviderDragAccumulatedY by rememberUpdatedState(providerDragAccumulatedY)
+                                val currentProviderDragInitialIndex by rememberUpdatedState(providerDragInitialIndex)
+
+                                val onDropProvider by rememberUpdatedState {
+                                    val fromIdx = currentProviderDragInitialIndex
+                                    val slotH = currentEffectiveSlotHeight
+                                    val accY = currentProviderDragAccumulatedY
+                                    val toIdx = if (slotH > 0f) {
+                                        (fromIdx + kotlin.math.round(accY / slotH).toInt())
+                                            .coerceIn(0, currentActiveProviders.lastIndex)
+                                    } else fromIdx
+                                    draggingProviderName = null
+                                    providerDragAccumulatedY = 0f
+                                    if (fromIdx != toIdx && fromIdx in currentActiveProviders.indices && toIdx in currentActiveProviders.indices) {
+                                        onMoveProvider(fromIdx, toIdx)
+                                    }
+                                }
+
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -262,6 +304,19 @@ fun HomeManagementDialog(
                                     itemsIndexed(activeProviders, key = { _, name -> name }) { index, providerName ->
                                         val provider = allProviders.find { it.name == providerName }
                                         if (provider != null) {
+                                            val isDraggingThis = draggingProviderName == providerName
+
+                                            val targetShiftY = when {
+                                                isDraggingThis -> providerDragAccumulatedY
+                                                draggingProviderName != null && providerDragInitialIndex < currentTargetIndex && index in (providerDragInitialIndex + 1)..currentTargetIndex -> -effectiveSlotHeight
+                                                draggingProviderName != null && providerDragInitialIndex > currentTargetIndex && index in currentTargetIndex until providerDragInitialIndex -> effectiveSlotHeight
+                                                else -> 0f
+                                            }
+                                            val animatedShiftY by androidx.compose.animation.core.animateFloatAsState(
+                                                targetValue = targetShiftY,
+                                                animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
+                                            )
+
                                             ActiveProviderItem(
                                                 index = index,
                                                 totalActive = activeProviders.size,
@@ -269,6 +324,28 @@ fun HomeManagementDialog(
                                                 iconUrl = fuzzyMatchIcon(providerName),
                                                 disabledCatalogs = disabledCatalogs[providerName] ?: emptySet(),
                                                 isAdvancedMode = isAdvancedMode,
+                                                isDraggingThis = isDraggingThis,
+                                                dragOffsetY = if (isDraggingThis) providerDragAccumulatedY else animatedShiftY,
+                                                onHeightMeasured = { h ->
+                                                    if (providerSlotHeightPx == 0f && h > 0f) {
+                                                        providerSlotHeightPx = h + 8f
+                                                    }
+                                                },
+                                                onDragStart = {
+                                                    draggingProviderName = providerName
+                                                    providerDragInitialIndex = currentActiveProviders.indexOf(providerName)
+                                                    providerDragAccumulatedY = 0f
+                                                },
+                                                onDragEnd = {
+                                                    onDropProvider()
+                                                },
+                                                onDragCancel = {
+                                                    draggingProviderName = null
+                                                    providerDragAccumulatedY = 0f
+                                                },
+                                                onDragDelta = { dy ->
+                                                    providerDragAccumulatedY += dy
+                                                },
                                                 onMoveUp = { onMoveProvider(index, index - 1) },
                                                 onMoveDown = { onMoveProvider(index, index + 1) },
                                                 onRemove = { onToggleProviderActive(providerName, false) },
@@ -376,81 +453,145 @@ private fun ActiveProviderItem(
     iconUrl: String?,
     disabledCatalogs: Set<String>,
     isAdvancedMode: Boolean,
+    isDraggingThis: Boolean = false,
+    dragOffsetY: Float = 0f,
+    onHeightMeasured: (Float) -> Unit = {},
+    onDragStart: () -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {},
+    onDragDelta: (Float) -> Unit = {},
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
     onToggleCatalog: (String, Boolean) -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    val elevation by animateDpAsState(if (isDraggingThis) 24.dp else 0.dp)
+    val scale by animateFloatAsState(if (isDraggingThis) 1.03f else 1.0f)
 
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface).clickable(enabled = isAdvancedMode) { isExpanded = !isExpanded },
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
+    val currentOnDragDelta by rememberUpdatedState(onDragDelta)
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isDraggingThis) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f) else MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            if (isDraggingThis) 2.dp else 0.5.dp,
+            if (isDraggingThis) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
+        ),
+        shadowElevation = elevation,
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.size.height > 0) {
+                    onHeightMeasured(coordinates.size.height.toFloat())
+                }
+            }
+            .zIndex(if (isDraggingThis) 100f else 1f)
+            .scale(scale)
+            .graphicsLayer {
+                translationY = dragOffsetY
+            },
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth().clickable(enabled = isAdvancedMode && !isDraggingThis) { isExpanded = !isExpanded },
         ) {
-            Text(
-                text = "${index + 1}.",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 12.dp, start = 8.dp),
-            )
-
-            if (iconUrl != null) {
-                coil3.compose.AsyncImage(
-                    model = iconUrl,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-            } else {
-                Box(
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(provider.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (isAdvancedMode) {
-                    Text("Catalogs: ${provider.mainPage.size - disabledCatalogs.size}/${provider.mainPage.size} active", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            if (isAdvancedMode) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(50))
-                        .padding(horizontal = 4.dp),
-                ) {
-                    IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.ArrowUpward, contentDescription = "Move Up", modifier = Modifier.size(18.dp))
+                    // Drag Grip Handle
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isDraggingThis) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent)
+                            .pointerInput(provider.name) {
+                                detectDragGestures(
+                                    onDragStart = { currentOnDragStart() },
+                                    onDragEnd = { currentOnDragEnd() },
+                                    onDragCancel = { currentOnDragCancel() },
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    currentOnDragDelta(dragAmount.y)
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.DragIndicator,
+                            contentDescription = "Hold and drag to reorder",
+                            tint = if (isDraggingThis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
-                    IconButton(onClick = onMoveDown, enabled = index < totalActive - 1, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.ArrowDownward, contentDescription = "Move Down", modifier = Modifier.size(18.dp))
-                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Expand",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp),
+                Text(
+                    text = "${index + 1}.",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 10.dp, start = 4.dp),
                 )
-            }
 
-            IconButton(onClick = onRemove, modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f), RoundedCornerShape(50))) {
-                Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onErrorContainer)
+                if (iconUrl != null) {
+                    coil3.compose.AsyncImage(
+                        model = iconUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                } else {
+                    Box(
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(provider.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    if (isAdvancedMode) {
+                        Text("Catalogs: ${provider.mainPage.size - disabledCatalogs.size}/${provider.mainPage.size} active", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                if (isAdvancedMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(50))
+                            .padding(horizontal = 4.dp),
+                    ) {
+                        IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.ArrowUpward, contentDescription = "Move Up", modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = onMoveDown, enabled = index < totalActive - 1, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.ArrowDownward, contentDescription = "Move Down", modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                }
+
+                IconButton(onClick = onRemove, modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f), RoundedCornerShape(50))) {
+                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onErrorContainer)
+                }
             }
-        }
 
         // Expandable Catalogs Section
         if (isExpanded && isAdvancedMode) {
@@ -492,4 +633,5 @@ private fun ActiveProviderItem(
             }
         }
     }
+}
 }

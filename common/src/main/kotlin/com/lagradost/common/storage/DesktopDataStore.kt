@@ -442,6 +442,11 @@ object DesktopDataStore {
         pluginUpdatesFlow.value++
     }
 
+    fun clearUpdatesHistory() {
+        DatabaseFactory.database.cloudstreamDBQueries.deleteAllPluginUpdates()
+        pluginUpdatesFlow.value++
+    }
+
     fun hasUnreadUpdates(): Boolean {
         return getKey<Boolean>(UNREAD_UPDATES_KEY) ?: false
     }

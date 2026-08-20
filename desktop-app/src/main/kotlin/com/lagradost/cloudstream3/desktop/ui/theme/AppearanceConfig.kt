@@ -50,6 +50,8 @@ object AppearanceConfig {
     private const val PREF_AMBIENT_GLOW_INTENSITY = "pref_ambient_glow_intensity"
     private const val PREF_AMBIENT_GLOW_POSITION = "pref_ambient_glow_position"
     private const val PREF_HERO_BACKGROUND_BLUR = "pref_hero_background_blur"
+    private const val PREF_HERO_BACKDROP_BLUR_RADIUS = "pref_hero_backdrop_blur_radius"
+    private const val PREF_HERO_BACKDROP_DARKENING = "pref_hero_backdrop_darkening"
     private const val PREF_DOCK_POSITION = "pref_dock_position"
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
@@ -94,11 +96,23 @@ object AppearanceConfig {
     private const val PREF_UI_CARD_OPACITY = "pref_ui_card_opacity"
     private const val PREF_DETAILS_SHOW_CURRENT_TIME = "pref_details_show_current_time"
     private const val PREF_DETAILS_SHOW_END_TIME = "pref_details_show_end_time"
+    private const val PREF_DETAILS_SECTION_ORDER = "pref_details_section_order"
+    private const val PREF_DETAILS_DISABLED_SECTIONS = "pref_details_disabled_sections"
 
     val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
     val detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
     val detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
+    val detailsSectionOrder = MutableStateFlow(
+        com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(
+            DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER)
+        )
+    )
+    val detailsDisabledSections = MutableStateFlow(
+        com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseDisabled(
+            DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS)
+        )
+    )
     val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
     val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
     val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
@@ -106,6 +120,8 @@ object AppearanceConfig {
     val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
     val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
     val heroBackgroundBlurEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true)
+    val heroBackdropBlurRadius = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f)
+    val heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
     val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
@@ -222,6 +238,16 @@ object AppearanceConfig {
     fun setHeroBackgroundBlurEnabled(enabled: Boolean) {
         heroBackgroundBlurEnabled.value = enabled
         DesktopDataStore.setKey(PREF_HERO_BACKGROUND_BLUR, enabled)
+    }
+
+    fun setHeroBackdropBlurRadius(radius: Float) {
+        heroBackdropBlurRadius.value = radius
+        DesktopDataStore.setKey(PREF_HERO_BACKDROP_BLUR_RADIUS, radius)
+    }
+
+    fun setHeroBackdropDarkening(darkening: Float) {
+        heroBackdropDarkening.value = darkening
+        DesktopDataStore.setKey(PREF_HERO_BACKDROP_DARKENING, darkening)
     }
 
     fun setDockPosition(position: DockPosition) {
@@ -485,5 +511,42 @@ object AppearanceConfig {
         setBackgroundGradientEnabled(preset.backgroundGradientEnabled)
         setBackgroundGradientType(preset.backgroundGradientType)
         setBackgroundGradientIntensity(preset.backgroundGradientIntensity)
+    }
+
+    fun setDetailsSectionOrder(order: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>) {
+        detailsSectionOrder.value = order
+        DesktopDataStore.setKey(
+            PREF_DETAILS_SECTION_ORDER,
+            com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(order),
+        )
+    }
+
+    fun toggleDetailsSection(key: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey, enabled: Boolean) {
+        val current = detailsDisabledSections.value.toMutableSet()
+        if (enabled) {
+            current.remove(key)
+        } else {
+            current.add(key)
+        }
+        detailsDisabledSections.value = current
+        DesktopDataStore.setKey(
+            PREF_DETAILS_DISABLED_SECTIONS,
+            com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(current),
+        )
+    }
+
+    fun moveDetailsSection(fromIndex: Int, toIndex: Int) {
+        val current = detailsSectionOrder.value.toMutableList()
+        if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+            setDetailsSectionOrder(current)
+        }
+    }
+
+    fun resetDetailsSectionOrder() {
+        setDetailsSectionOrder(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.defaultOrder)
+        detailsDisabledSections.value = emptySet()
+        DesktopDataStore.removeKey(PREF_DETAILS_DISABLED_SECTIONS)
     }
 }

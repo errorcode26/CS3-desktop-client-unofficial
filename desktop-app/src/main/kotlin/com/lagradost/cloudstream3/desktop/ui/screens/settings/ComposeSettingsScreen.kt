@@ -33,22 +33,33 @@ import androidx.compose.ui.graphics.vector.ImageVector
 enum class SettingsTab(val title: String, val icon: ImageVector) {
     APPEARANCE("Appearance", Icons.Default.Palette),
     PLAYER("Player", Icons.Default.PlayCircle),
-    NETWORK("Network", Icons.Default.Wifi),
-    INTEGRATIONS("Integrations", Icons.Default.AutoAwesome),
-    TRACKERS("Trackers", Icons.Default.Sync),
-    EXTENSIONS("Extensions", Icons.Default.Extension),
-    ADVANCED("Advanced", Icons.Default.Settings),
-    DEVELOPER("Developer", Icons.Default.Code),
-    UPDATES("Updates", Icons.Default.Update),
-    ABOUT("About", Icons.Default.Info),
+    SERVICES("Services", Icons.Default.Hub),
+    SYSTEM("System", Icons.Default.Settings),
 }
 
 enum class SettingsSubScreen(val title: String) {
-    APPEARANCE_THEME("Theme & Typography"),
-    APPEARANCE_LAYOUT("Display & Layout"),
-    APPEARANCE_EFFECTS("Effects & Clock"),
-    SUBTITLE_EDITOR("Subtitle Appearance"),
+    // Appearance
+    THEME("Theme & Colors"),
+    LAYOUT("Display & Layout"),
+    DETAILS_LAYOUT("Details Page Layout"),
+    EFFECTS("Effects & Blur"),
     POSTER_EDITOR("Poster Editor"),
+
+    // Player
+    PLAYER_CONTROLS("Player & Controls"),
+    SUBTITLES("Subtitle Styling"),
+
+    // Services
+    TRACKERS("Accounts & Trackers"),
+    INTEGRATIONS("Metadata & Services"),
+    EXTENSIONS("Extensions & Plugins"),
+
+    // System
+    NETWORK("Network & Connection"),
+    ADVANCED("Storage & Advanced"),
+    DEVELOPER("Developer & Logs"),
+    UPDATES("Updates"),
+    ABOUT("About"),
 }
 
 object SettingsSession {
@@ -73,7 +84,7 @@ fun ComposeSettingsScreen(
         // Left Pane
         Column(
             modifier = Modifier
-                .width(260.dp)
+                .width(270.dp)
                 .fillMaxHeight()
                 .padding(end = 16.dp),
         ) {
@@ -146,7 +157,7 @@ fun ComposeSettingsScreen(
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(
-                                        text = result.tab.title,
+                                        text = "${result.tab.title} > ${result.subScreen?.title ?: ""}",
                                         color = MaterialTheme.colorScheme.primary,
                                         style = MaterialTheme.typography.labelMedium,
                                         modifier = Modifier.padding(top = 2.dp),
@@ -157,9 +168,12 @@ fun ComposeSettingsScreen(
                     }
                 }
             } else {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                Column(
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     SettingsTab.values().forEach { tab ->
-                        val isSelected = selectedTab == tab && activeSubScreen == null
+                        val isSelected = selectedTab == tab
                         Surface(
                             onClick = {
                                 selectedTab = tab
@@ -167,23 +181,23 @@ fun ComposeSettingsScreen(
                             },
                             shape = MaterialTheme.shapes.medium,
                             color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
                                     imageVector = tab.icon,
                                     contentDescription = tab.title,
-                                    modifier = Modifier.size(22.dp),
+                                    modifier = Modifier.size(20.dp),
                                     tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                 )
                                 Spacer(modifier = Modifier.width(14.dp))
                                 Text(
                                     text = tab.title,
                                     color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
                             }
@@ -242,15 +256,24 @@ fun ComposeSettingsScreen(
                                 )
                             }
                             when (currentSubScreen) {
-                                SettingsSubScreen.APPEARANCE_THEME -> SettingsAppearanceThemeScreen()
-                                SettingsSubScreen.APPEARANCE_LAYOUT -> SettingsAppearanceLayoutScreen(
-                                    onNavigateToSubScreen = { screen ->
-                                        activeSubScreen = screen
-                                    },
-                                )
-                                SettingsSubScreen.APPEARANCE_EFFECTS -> SettingsAppearanceEffectsScreen()
-                                SettingsSubScreen.SUBTITLE_EDITOR -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                SettingsSubScreen.THEME -> SettingsAppearanceThemeScreen()
+                                SettingsSubScreen.LAYOUT -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                SettingsSubScreen.DETAILS_LAYOUT -> SettingsDetailsSectionsScreen()
+                                SettingsSubScreen.EFFECTS -> SettingsAppearanceEffectsScreen()
                                 SettingsSubScreen.POSTER_EDITOR -> SettingsPosterEditorScreen()
+                                
+                                SettingsSubScreen.PLAYER_CONTROLS -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                SettingsSubScreen.SUBTITLES -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                
+                                SettingsSubScreen.TRACKERS -> SettingsAccounts(viewModel = settingsViewModel)
+                                SettingsSubScreen.INTEGRATIONS -> SettingsIntegrations()
+                                SettingsSubScreen.EXTENSIONS -> SettingsExtensions(onNavigate = onNavigate)
+                                
+                                SettingsSubScreen.NETWORK -> SettingsNetwork(viewModel = settingsViewModel)
+                                SettingsSubScreen.ADVANCED -> SettingsAdvanced(viewModel = settingsViewModel)
+                                SettingsSubScreen.DEVELOPER -> SettingsDeveloper()
+                                SettingsSubScreen.UPDATES -> SettingsUpdates()
+                                SettingsSubScreen.ABOUT -> SettingsAbout()
                             }
                         }
                     } else {
@@ -260,21 +283,10 @@ fun ComposeSettingsScreen(
                             label = "settings_crossfade",
                         ) { tab ->
                             when (tab) {
-                                SettingsTab.INTEGRATIONS -> SettingsIntegrations()
-                                SettingsTab.TRACKERS -> SettingsAccounts(viewModel = settingsViewModel)
-                                SettingsTab.EXTENSIONS -> SettingsExtensions(onNavigate = onNavigate)
-                                SettingsTab.APPEARANCE -> SettingsAppearance(
-                                    onNavigateToSubScreen = { activeSubScreen = it },
-                                )
-                                SettingsTab.PLAYER -> SettingsPlayer(
-                                    viewModel = settingsViewModel,
-                                    onNavigateToSubScreen = { activeSubScreen = it },
-                                )
-                                SettingsTab.NETWORK -> SettingsNetwork(viewModel = settingsViewModel)
-                                SettingsTab.ADVANCED -> SettingsAdvanced(viewModel = settingsViewModel)
-                                SettingsTab.DEVELOPER -> SettingsDeveloper()
-                                SettingsTab.UPDATES -> SettingsUpdates()
-                                SettingsTab.ABOUT -> SettingsAbout()
+                                SettingsTab.APPEARANCE -> SettingsAppearanceMainScreen(onNavigate = { activeSubScreen = it })
+                                SettingsTab.PLAYER -> SettingsPlayerMainScreen(onNavigate = { activeSubScreen = it })
+                                SettingsTab.SERVICES -> SettingsServicesMainScreen(onNavigate = { activeSubScreen = it })
+                                SettingsTab.SYSTEM -> SettingsSystemMainScreen(onNavigate = { activeSubScreen = it })
                             }
                         }
                     }

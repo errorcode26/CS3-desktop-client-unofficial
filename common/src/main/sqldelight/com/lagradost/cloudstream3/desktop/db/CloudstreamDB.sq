@@ -100,3 +100,6 @@ DELETE FROM PluginUpdateHistory WHERE rowid NOT IN (SELECT rowid FROM PluginUpda
 
 deletePluginUpdate:
 DELETE FROM PluginUpdateHistory WHERE pluginName = ?;
+
+deleteAllPluginUpdates:
+DELETE FROM PluginUpdateHistory;

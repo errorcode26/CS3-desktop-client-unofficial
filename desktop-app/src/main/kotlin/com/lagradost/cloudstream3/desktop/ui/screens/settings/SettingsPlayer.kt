@@ -433,7 +433,7 @@ fun SettingsPlayer(
                 SettingsNavigationItem(
                     label = "Subtitle Appearance",
                     subtitle = "Customize colors, fonts, borders, and shadows",
-                    onClick = { onNavigateToSubScreen(SettingsSubScreen.SUBTITLE_EDITOR) },
+                    onClick = { onNavigateToSubScreen(SettingsSubScreen.SUBTITLES) },
                 )
             }
         }

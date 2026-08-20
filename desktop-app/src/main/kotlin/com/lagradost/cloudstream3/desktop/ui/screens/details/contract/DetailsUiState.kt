@@ -46,6 +46,8 @@ data class DetailsUiState(
     val enrichedTagline: String? = null,
     val enrichedStatus: String? = null,
     val enrichedStudios: List<String> = emptyList(),
+    val enrichedProductionCompanies: List<ProductionCompany> = emptyList(),
+    val enrichedNetworksList: List<ProductionCompany> = emptyList(),
     val enrichedCollectionName: String? = null,
     val enrichedCollectionBackdrop: String? = null,
     val enrichedSeasonsCount: Int? = null,
@@ -76,7 +78,59 @@ data class DetailsUiState(
     val isInitialized: Boolean = false,
     val backupSeasonHistory: Map<String, WatchHistory> = emptyMap(),
     val isEpisodesStackedView: Boolean = false,
+    val episodeViewMode: Int = 0,
     // Bumped each time episode thumbnail URLs are mutated in-place by enrichment.
     // Compose observes this to trigger recomposition of episode cards.
     val episodeThumbnailVersion: Int = 0,
 ) : UiState
+
+data class ProductionCompany(
+    val id: Int = 0,
+    val name: String,
+    val logoUrl: String? = null,
+    val originCountry: String? = null,
+)
+
+enum class DetailsSectionKey(val displayName: String, val description: String) {
+    EPISODES("Episodes & Content", "Episode grid, season selector, and watch progress"),
+    CAST("Cast & Crew", "Actors, characters, directors, and creators"),
+    TRAILERS("Videos & Trailers", "Categorized trailers, teasers, and clips"),
+    SCREENSHOTS("Screenshots Gallery", "High-resolution production backdrops"),
+    COLLECTION("Franchise Collection", "Franchise sequels, prequels, and sagas"),
+    RECOMMENDATIONS("Similar Content", "Recommendations and similar media"),
+    INFO("Details & Technical Info", "Studios, networks, release date, status, budget, and language"),
+    REVIEWS("Community Reviews", "User star ratings and written reviews");
+
+    companion object {
+        val defaultOrder = listOf(
+            EPISODES,
+            CAST,
+            TRAILERS,
+            SCREENSHOTS,
+            COLLECTION,
+            RECOMMENDATIONS,
+            INFO,
+            REVIEWS,
+        )
+
+        fun parseOrder(raw: String?): List<DetailsSectionKey> {
+            if (raw.isNullOrBlank()) return defaultOrder
+            val list = raw.split(",").mapNotNull { name ->
+                entries.find { it.name.equals(name.trim(), ignoreCase = true) }
+            }
+            val missing = defaultOrder.filter { it !in list }
+            return (list + missing).distinct()
+        }
+
+        fun parseDisabled(raw: String?): Set<DetailsSectionKey> {
+            if (raw.isNullOrBlank()) return emptySet()
+            return raw.split(",").mapNotNull { name ->
+                entries.find { it.name.equals(name.trim(), ignoreCase = true) }
+            }.toSet()
+        }
+
+        fun serialize(list: Collection<DetailsSectionKey>): String {
+            return list.joinToString(",") { it.name }
+        }
+    }
+}

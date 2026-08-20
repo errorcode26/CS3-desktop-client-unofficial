@@ -74,9 +74,16 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
             } else if (keyEvent.key == Key.F12 && keyEvent.type == KeyEventType.KeyDown) {
                 com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState.toggle()
                 true
-            } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown && controller.isFullscreen) {
-                toggleFunc()
-                true
+            } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown) {
+                if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
+                    com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
+                    true
+                } else if (controller.isFullscreen) {
+                    toggleFunc()
+                    true
+                } else {
+                    false
+                }
             } else if (keyEvent.key == Key.F5 && keyEvent.type == KeyEventType.KeyDown) {
                 com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
                 true

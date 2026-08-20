@@ -42,7 +42,9 @@ object HybridEnrichmentService {
             duration: Int?,
             tags: List<String>?,
             actors: List<ActorData>?,
-        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            productionCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>?,
+            networkCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>?,
+        ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
         onEnrichmentComplete: () -> Unit = {},
         onEpisodeThumbnailsEnriched: () -> Unit = {},
     ) {

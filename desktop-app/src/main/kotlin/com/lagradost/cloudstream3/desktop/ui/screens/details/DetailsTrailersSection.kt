@@ -70,14 +70,41 @@ fun DetailsTrailersSection(
     onToggleExpand: () -> Unit,
     onTrailerClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
-    val displayTrailers = remember(trailers) {
+    val cleanTrailers = remember(trailers) {
         trailers
             .distinctBy { it.rawKey }
             .distinctBy { it.name.lowercase().trim() }
-            .take(10)
     }
-    if (displayTrailers.isEmpty()) return
+    if (cleanTrailers.isEmpty()) return
+
+    // Group videos by category
+    val categoriesMap = remember(cleanTrailers) {
+        val map = linkedMapOf<String, MutableList<TrailerData>>()
+        cleanTrailers.forEach { t ->
+            val cat = when {
+                t.type.contains("Teaser", ignoreCase = true) -> "Teasers"
+                t.type.contains("Behind", ignoreCase = true) || t.type.contains("Bts", ignoreCase = true) -> "Behind the Scenes"
+                t.type.contains("Featurette", ignoreCase = true) -> "Featurettes"
+                t.type.contains("Clip", ignoreCase = true) -> "Clips"
+                t.type.contains("Blooper", ignoreCase = true) -> "Bloopers"
+                else -> "Trailers"
+            }
+            map.getOrPut(cat) { mutableListOf() }.add(t)
+        }
+        map
+    }
+
+    var selectedCategory by remember(cleanTrailers) { mutableStateOf("All") }
+
+    val displayTrailers = remember(selectedCategory, cleanTrailers, categoriesMap) {
+        if (selectedCategory == "All") {
+            cleanTrailers
+        } else {
+            categoriesMap[selectedCategory].orEmpty()
+        }
+    }
 
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -85,25 +112,27 @@ fun DetailsTrailersSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
-        // Section Header
+        // Section Header Row
         Row(
             modifier = Modifier
-                .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onToggleExpand() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Trailers & Clips",
+                    text = "Videos & Trailers",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -113,11 +142,11 @@ fun DetailsTrailersSection(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                 ) {
                     Text(
-                        text = "${displayTrailers.size}",
+                        text = "${cleanTrailers.size}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                     )
                 }
                 Icon(
@@ -127,6 +156,29 @@ fun DetailsTrailersSection(
                     modifier = Modifier.rotate(if (trailersExpanded) 180f else 0f),
                 )
             }
+
+            // Scroll arrows
+            if (trailersExpanded && displayTrailers.size > 2) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                ) {
+                    Row {
+                        IconButton(
+                            onClick = { coroutineScope.launch { scrollState.animateScrollBy(-500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(
+                            onClick = { coroutineScope.launch { scrollState.animateScrollBy(500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
         }
 
         AnimatedVisibility(
@@ -135,10 +187,37 @@ fun DetailsTrailersSection(
             exit = fadeOut(tween(200)) + androidx.compose.animation.shrinkVertically(tween(200)),
         ) {
             Column {
+                // Category Filter Chips
+                if (categoriesMap.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalPadding)
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // "All" chip
+                        CategoryFilterChip(
+                            label = "All (${cleanTrailers.size})",
+                            isSelected = selectedCategory == "All",
+                            onClick = { selectedCategory = "All" },
+                        )
+                        // Individual category chips
+                        categoriesMap.forEach { (catName, list) ->
+                            CategoryFilterChip(
+                                label = "$catName (${list.size})",
+                                isSelected = selectedCategory == catName,
+                                onClick = { selectedCategory = catName },
+                            )
+                        }
+                    }
+                }
+
                 LazyRow(
                     state = scrollState,
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .pointerInput(Unit) {
@@ -155,31 +234,31 @@ fun DetailsTrailersSection(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    ) {
-                        Row {
-                            IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(-500f) } }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            IconButton(onClick = { coroutineScope.launch { scrollState.animateScrollBy(500f) } }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun CategoryFilterChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() },
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
     }
 }
 
@@ -194,7 +273,7 @@ private fun TrailerCard(
 
     Surface(
         modifier = Modifier
-            .width(360.dp)
+            .width(320.dp)
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(12.dp))
             .border(
@@ -241,9 +320,9 @@ private fun TrailerCard(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.35f),
+                                Color.Black.copy(alpha = 0.4f),
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.85f),
+                                Color.Black.copy(alpha = 0.88f),
                             ),
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY,
@@ -255,7 +334,7 @@ private fun TrailerCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -281,25 +360,17 @@ private fun TrailerCard(
 
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = Color.Black.copy(alpha = 0.65f),
+                    color = Color.Black.copy(alpha = 0.7f),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    Text(
+                        text = trailer.type.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                        ),
+                        color = Color.White.copy(alpha = 0.9f),
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                    ) {
-                        Text(
-                            text = trailer.site,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White.copy(alpha = 0.9f),
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = "External Link",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(11.dp),
-                        )
-                    }
+                    )
                 }
             }
 

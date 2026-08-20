@@ -9,4 +9,5 @@ data class TrailerData(
     val site: String = "YouTube",
     val isOfficial: Boolean = true,
     val publishedAt: String? = null,
+    val type: String = "Trailer",
 )

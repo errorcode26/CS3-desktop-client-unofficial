@@ -1372,10 +1372,17 @@
         let audioHtml = '';
         const renderedAudioNames = new Set();
 
+        const sanitizeTrackTitle = (rawName, fallback) => {
+            if (!rawName) return fallback;
+            let n = rawName.replace(/(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|site|vip|link|xyz|top|app|in|tv|co)\b)/gi, '').trim();
+            n = n.replace(/^\[.*?\]\s*|\s*\[.*?\]$/g, '').replace(/^[-_:|\s]+|[-_:|\s]+$/g, '').trim();
+            return (n.length >= 2 && !/^\d+$/.test(n)) ? n : fallback;
+        };
+
         // 1. Native MPV Audio Tracks (already attached to MPV engine)
         if (meta.audioTracks && meta.audioTracks.length > 0) {
             for (const t of meta.audioTracks) {
-                const displayName = t.name || ('Track ' + t.id);
+                const displayName = sanitizeTrackTitle(t.name, 'Track ' + t.id);
                 renderedAudioNames.add(displayName.toLowerCase().trim());
                 audioHtml += `
                     <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
@@ -1461,24 +1468,31 @@
                     <span class="check-icon">${SVGS.check}</span>
                 </div>`;
         if (meta.subTracks && meta.subTracks.length > 0) {
+            const sanitizeTrackTitle = (rawName, fallback) => {
+                if (!rawName) return fallback;
+                let n = rawName.replace(/(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|site|vip|link|xyz|top|app|in|tv|co)\b)/gi, '').trim();
+                n = n.replace(/^\[.*?\]\s*|\s*\[.*?\]$/g, '').replace(/^[-_:|\s]+|[-_:|\s]+$/g, '').trim();
+                return (n.length >= 2 && !/^\d+$/.test(n)) ? n : fallback;
+            };
+
             // Deduplicate tracks with the exact same name (MPV native vs CloudStream proxy overlap)
             const uniqueSubTracks = [];
             const seenNames = new Set();
             for (const t of meta.subTracks) {
-                const displayName = t.name || ('Track ' + t.id);
+                const displayName = sanitizeTrackTitle(t.name, 'Track ' + t.id);
                 if (!seenNames.has(displayName)) {
                     seenNames.add(displayName);
-                    uniqueSubTracks.push(t);
+                    uniqueSubTracks.push({ ...t, cleanName: displayName });
                 } else if (t.isSelected) {
                     // If this duplicate is the currently selected one, swap it in so the checkmark shows correctly!
-                    const existingIndex = uniqueSubTracks.findIndex(existing => (existing.name || ('Track ' + existing.id)) === displayName);
-                    if (existingIndex !== -1) uniqueSubTracks[existingIndex] = t;
+                    const existingIndex = uniqueSubTracks.findIndex(existing => existing.cleanName === displayName);
+                    if (existingIndex !== -1) uniqueSubTracks[existingIndex] = { ...t, cleanName: displayName };
                 }
             }
 
             subHtml += uniqueSubTracks.map(t => `
                 <div class="sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setSubtitleTrack','${t.id}');closeAllPanels();">
-                    <span class="sub-name">${t.name || ('Track ' + t.id)}</span>
+                    <span class="sub-name">${t.cleanName}</span>
                     <span class="check-icon">${SVGS.check}</span>
                 </div>`).join('');
         }

@@ -432,6 +432,12 @@ object AniListMetadataProvider : MetadataProvider {
 
                 // Studios
                 val studiosList = media.studios?.nodes?.mapNotNull { it.name } ?: emptyList()
+                val aniListCompanies = studiosList.map { sName ->
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(
+                        name = sName,
+                        originCountry = "JP",
+                    )
+                }
 
                 callbacks.onMetadataLoaded(
                     null, // tagline
@@ -453,6 +459,8 @@ object AniListMetadataProvider : MetadataProvider {
                     loaded.duration,
                     media.genres,
                     actorsList,
+                    aniListCompanies,
+                    aniListCompanies,
                 )
             }
 

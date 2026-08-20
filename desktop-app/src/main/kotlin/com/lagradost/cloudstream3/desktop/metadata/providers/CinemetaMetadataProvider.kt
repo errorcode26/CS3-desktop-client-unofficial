@@ -199,7 +199,7 @@ object CinemetaMetadataProvider : MetadataProvider {
             null, // episodesCount
             null, // seasonsMetadata
             null, // originalLang
-            null, // releaseDate
+            cinemetaData?.releaseInfo, // releaseDate
             null, // country
             emptyList(), // collectionItems
             null, // budget
@@ -209,6 +209,8 @@ object CinemetaMetadataProvider : MetadataProvider {
             loaded.duration,
             match.genres,
             loaded.actors,
+            null,
+            null,
         )
 
         return true

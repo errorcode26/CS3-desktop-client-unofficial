@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
@@ -251,12 +252,13 @@ fun CategoryRowWithHeader(
                 if (onViewAll != null) {
                     Surface(
                         onClick = onViewAll,
-                        shape = CircleShape,
-                        color = DesktopUi.SurfaceElevated.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                         shadowElevation = 2.dp,
                     ) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Text("View All", color = DesktopUi.Accent, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -309,23 +311,24 @@ private fun ScrollChevron(
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {
-    val alpha = if (enabled) 1f else 0.35f
+    val alpha = if (enabled) 0.6f else 0.25f
     Surface(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
             .padding(horizontal = 2.dp)
-            .size(40.dp),
-        shape = CircleShape,
-        color = DesktopUi.SurfaceElevated.copy(alpha = alpha),
+            .size(38.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
+        border = BorderStroke(1.dp, if (enabled) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.04f)),
         shadowElevation = (if (enabled) 4.dp else 0.dp).applyShadowMultiplier(),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) DesktopUi.Accent else DesktopUi.TextMuted,
-                modifier = Modifier.size(28.dp),
+                tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                modifier = Modifier.size(22.dp),
             )
         }
     }

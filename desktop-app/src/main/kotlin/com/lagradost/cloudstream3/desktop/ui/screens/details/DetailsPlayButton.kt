@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -185,30 +187,22 @@ fun DetailsDownloadButton(
         }
     }
 
-    Box(
-        modifier = modifier
-            .height(56.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.18f))
-            .border(1.2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-            .clickable { targetActionEp?.let { onDownload(it) } }
-            .padding(horizontal = 24.dp),
-        contentAlignment = Alignment.Center,
+    Surface(
+        onClick = { targetActionEp?.let { onDownload(it) } },
+        modifier = modifier.size(56.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        border = BorderStroke(1.2.dp, Color.White.copy(alpha = 0.28f)),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
                 Icons.Default.Download,
                 contentDescription = "Download",
                 tint = Color.White,
                 modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = "Download",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
             )
         }
     }

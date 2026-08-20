@@ -41,6 +41,7 @@ fun DetailsScreenshotsSection(
     screenshotsExpanded: Boolean,
     onToggleExpand: () -> Unit,
     onScreenshotClick: (String) -> Unit,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
     val screenshotsScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -48,20 +49,22 @@ fun DetailsScreenshotsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
         // Collapsible Screenshots header row
         Row(
             modifier = Modifier
-                .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding, vertical = 0.dp)
+                .padding(bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onToggleExpand() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -80,7 +83,7 @@ fun DetailsScreenshotsSection(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                     )
                 }
                 Icon(
@@ -89,6 +92,28 @@ fun DetailsScreenshotsSection(
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.rotate(if (screenshotsExpanded) 180f else 0f),
                 )
+            }
+
+            if (screenshotsExpanded && screenshots.size > 2) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                ) {
+                    Row {
+                        IconButton(
+                            onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(-500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(
+                            onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
             }
         }
         AnimatedVisibility(
@@ -101,8 +126,8 @@ fun DetailsScreenshotsSection(
                     val maxCardWidth = minOf(480.dp, maxWidth - 48.dp)
                     LazyRow(
                         state = screenshotsScrollState,
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
                         modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
                             detectHorizontalDragGestures { change, dragAmount ->
                                 change.consume()
@@ -131,23 +156,6 @@ fun DetailsScreenshotsSection(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    ) {
-                        Row {
-                            IconButton(onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(-500f) } }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            IconButton(onClick = { coroutineScope.launch { screenshotsScrollState.animateScrollBy(500f) } }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }

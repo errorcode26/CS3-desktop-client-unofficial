@@ -52,10 +52,12 @@ class DetailsViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
             val isStacked = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false
+            val viewMode = DesktopDataStore.getKey<Int>("pref_episodes_view_mode") ?: if (isStacked) 1 else 0
             updateState {
                 copy(
                     autoPlayEnabled = autoPlay,
                     isEpisodesStackedView = isStacked,
+                    episodeViewMode = viewMode,
                 )
             }
         }
@@ -96,6 +98,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnRemoveEpisodeWatched -> handleRemoveEpisodeWatched(event.ep)
             is DetailsUiEvent.OnToggleSeasonWatched -> handleToggleSeasonWatched(event.episodes, event.isWatched)
             is DetailsUiEvent.OnToggleEpisodesStackedView -> handleToggleEpisodesStackedView(event.isStacked)
+            is DetailsUiEvent.OnSetEpisodeViewMode -> handleSetEpisodeViewMode(event.viewMode)
         }
     }
 
@@ -176,6 +179,8 @@ class DetailsViewModel(
                                 enrichedTagline = update.tagline,
                                 enrichedStatus = update.status,
                                 enrichedStudios = update.studios,
+                                enrichedProductionCompanies = update.productionCompanies ?: enrichedProductionCompanies,
+                                enrichedNetworksList = update.networkCompanies ?: enrichedNetworksList,
                                 enrichedCollectionName = update.collName,
                                 enrichedCollectionBackdrop = update.collBg,
                                 enrichedSeasonsCount = update.seasons,
@@ -524,8 +529,19 @@ class DetailsViewModel(
     }
 
     private fun handleToggleEpisodesStackedView(isStacked: Boolean) {
-        updateState { copy(isEpisodesStackedView = isStacked) }
+        val viewMode = if (isStacked) 1 else 0
+        updateState { copy(isEpisodesStackedView = isStacked, episodeViewMode = viewMode) }
         viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey("pref_episodes_stacked_view", isStacked)
+            DesktopDataStore.setKey("pref_episodes_view_mode", viewMode)
+        }
+    }
+
+    private fun handleSetEpisodeViewMode(viewMode: Int) {
+        val isStacked = viewMode != 0
+        updateState { copy(episodeViewMode = viewMode, isEpisodesStackedView = isStacked) }
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey("pref_episodes_view_mode", viewMode)
             DesktopDataStore.setKey("pref_episodes_stacked_view", isStacked)
         }
     }

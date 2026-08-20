@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
@@ -22,13 +23,15 @@ fun ComposeExtensionScreen(
     onNavigate: (Config) -> Unit,
     initialTab: Int = 0,
     viewModel: ExtensionsViewModel,
+    isInsideSettings: Boolean = false,
 ) {
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
-    val tabs = listOf("Browse", "Installed", "Repositories")
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 3)) }
+    val tabs = listOf("Browse Catalog", "Installed Plugins", "Repositories & Sources", "Update History")
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val syncGen = uiState.syncGeneration
     val inspectedRepoName = uiState.inspectedRepoName
+    var isSyncing by remember { mutableStateOf(false) }
 
     LaunchedEffect(inspectedRepoName) {
         if (!inspectedRepoName.isNullOrBlank()) {
@@ -41,9 +44,6 @@ fun ComposeExtensionScreen(
         viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
     }
 
-    // Collect one-shot effects from the ViewModel.
-    // ClearActiveProvider: the ViewModel detected the removed plugin owned the active provider,
-    // so we do the actual DataStore write here in the UI layer to stay within MVI boundaries.
     LaunchedEffect(viewModel.effectFlow) {
         viewModel.effectFlow.collect { effect ->
             when (effect) {
@@ -60,112 +60,98 @@ fun ComposeExtensionScreen(
         }
     }
 
-    Row(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 32.dp),
-        horizontalArrangement = Arrangement.Center,
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(if (isInsideSettings) PaddingValues(0.dp) else PaddingValues(horizontal = 24.dp, vertical = 16.dp)),
     ) {
-        Row(modifier = Modifier.widthIn(max = 1600.dp).fillMaxSize()) {
-            // Left Pane: Sidebar Navigation
-            Column(
-                modifier = Modifier
-                    .width(220.dp)
-                    .fillMaxHeight()
-                    .padding(end = 24.dp),
+        // Horizontal Top Bar: Tabs as Rows on Top + Sync All Action
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                var isSyncing by remember { mutableStateOf(false) }
-
-                Text(
-                    text = "Extensions",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp, start = 8.dp),
-                )
-                Button(
-                    onClick = {
-                        if (isSyncing) return@Button
-                        coroutineScope.launch(Dispatchers.IO) {
-                            isSyncing = true
-                            try {
-                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
-                            } catch (e: Exception) {
-                                // ignore
-                            } finally {
-                                isSyncing = false
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                ) {
-                    if (isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Syncing...")
-                    } else {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Sync All")
-                    }
-                }
-                HorizontalDivider(
-                    modifier = Modifier.padding(bottom = 12.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                )
-
                 tabs.forEachIndexed { index, title ->
                     val isSelected = selectedTab == index
                     Surface(
                         onClick = { selectedTab = index },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isSelected) {
+                            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        } else null,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = title,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
+                        Text(
+                            text = title,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                        )
                     }
                 }
             }
 
-            // Vertical Divider
-            VerticalDivider(
-                modifier = Modifier.fillMaxHeight().padding(vertical = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Right Pane: Content area
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(start = 32.dp),
-            ) {
-                androidx.compose.animation.Crossfade(
-                    targetState = selectedTab,
-                    animationSpec = androidx.compose.animation.core.tween(200),
-                    label = "extensions_crossfade",
-                ) { tabIndex ->
-                    when (tabIndex) {
-                        0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                        1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
-                        2 -> RepositoriesTab(viewModel = viewModel)
+            // Sync All Action Button
+            FilledTonalButton(
+                onClick = {
+                    if (isSyncing) return@FilledTonalButton
+                    coroutineScope.launch(Dispatchers.IO) {
+                        isSyncing = true
+                        try {
+                            viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
+                        } catch (e: Exception) {
+                            // ignore
+                        } finally {
+                            isSyncing = false
+                        }
                     }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Syncing...")
+                } else {
+                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Sync All")
+                }
+            }
+        }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(bottom = 16.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
+
+        // Full Width Content Area
+        Box(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) {
+            androidx.compose.animation.Crossfade(
+                targetState = selectedTab,
+                animationSpec = androidx.compose.animation.core.tween(200),
+                label = "extensions_crossfade",
+            ) { tabIndex ->
+                when (tabIndex) {
+                    0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
+                    1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
+                    2 -> RepositoriesTab(viewModel = viewModel)
+                    3 -> UpdateHistoryTab()
                 }
             }
         }

@@ -17,8 +17,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -178,11 +180,6 @@ fun ContextMenuOverlay() {
     if (isVisible) {
         val isEpisode = state.menuType == ContextMenuType.EPISODE
 
-        // Sizable dimensions optimized for desktop screens
-        val posterWidth = if (isEpisode) 520.dp else 280.dp
-        val posterHeight = if (isEpisode) (520.dp * 9f / 16f) else (280.dp * 3f / 2f)
-        val actionCardWidth = if (isEpisode) 320.dp else 280.dp
-
         val posterUrl = if (state.menuType == ContextMenuType.POSTER) {
             state.searchResponse?.posterUrl
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
@@ -245,37 +242,58 @@ fun ContextMenuOverlay() {
         }
         val isWatched = progress > 0.9f
 
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.78f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { state.dismiss() },
-                ),
+                .background(Color.Black.copy(alpha = 0.78f)),
             contentAlignment = Alignment.Center,
         ) {
-            AnimatedVisibility(
-                visibleState = transitionState,
-                enter = fadeIn(tween(260)) + scaleIn(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow,
+            val screenMaxHeight = maxHeight
+
+            // Sizable dimensions adapt dynamically to available window height
+            val posterWidth = when {
+                screenMaxHeight < 720.dp -> if (isEpisode) 280.dp else 130.dp
+                screenMaxHeight < 860.dp -> if (isEpisode) 360.dp else 170.dp
+                else -> if (isEpisode) 440.dp else 210.dp
+            }
+            val posterHeight = if (isEpisode) (posterWidth * 9f / 16f) else (posterWidth * 3f / 2f)
+            val actionCardWidth = when {
+                screenMaxHeight < 720.dp -> if (isEpisode) 300.dp else 260.dp
+                else -> if (isEpisode) 340.dp else 280.dp
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { state.dismiss() },
                     ),
-                    initialScale = 0.82f,
-                ),
-                exit = fadeOut(tween(180)) + scaleOut(
-                    animationSpec = tween(180, easing = EaseInCubic),
-                    targetScale = 0.82f,
-                ),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                AnimatedVisibility(
+                    visibleState = transitionState,
+                    enter = fadeIn(tween(260)) + scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                        initialScale = 0.82f,
+                    ),
+                    exit = fadeOut(tween(180)) + scaleOut(
+                        animationSpec = tween(180, easing = EaseInCubic),
+                        targetScale = 0.82f,
+                    ),
                 ) {
+                    Column(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .padding(vertical = 24.dp)
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                     // 1. Poster / Thumbnail Surface
                     Surface(
                         modifier = Modifier
@@ -337,34 +355,34 @@ fun ContextMenuOverlay() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // 2. Standalone Centered Title & Subtitle (outside action card)
                     if (!titleText.isNullOrBlank()) {
                         Text(
                             text = titleText,
                             color = Color.White,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
-                            lineHeight = 22.sp,
+                            lineHeight = 20.sp,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = posterWidth).padding(horizontal = 8.dp),
+                            modifier = Modifier.widthIn(max = posterWidth.coerceAtLeast(actionCardWidth)).padding(horizontal = 8.dp),
                         )
                         if (subtitleText.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = subtitleText,
                                 color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 13.sp,
+                                fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Normal,
                                 textAlign = TextAlign.Center,
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // 3. Floating Rounded Action List Pill
                     Surface(
@@ -409,26 +427,51 @@ fun ContextMenuOverlay() {
                                     )
 
                                     AnimatedVisibility(visible = isLibraryExpanded) {
-                                        Column(modifier = Modifier.padding(start = 12.dp)) {
-                                            DesktopWatchType.entries.forEach { watchType ->
-                                                ActionMenuItem(
-                                                    text = watchType.stringRes,
-                                                    icon = if (watchType == DesktopWatchType.WATCHING) Icons.Default.PlayArrow else Icons.Default.Add,
-                                                    onClick = {
-                                                        state.dismiss()
-                                                        if (state.provider != null) {
-                                                            val newBookmark = DesktopBookmark(
-                                                                id = bookmarkId,
-                                                                name = item.name,
-                                                                url = item.url,
-                                                                apiName = state.provider!!.name,
-                                                                posterUrl = item.posterUrl,
-                                                                watchType = watchType.id,
-                                                            )
-                                                            BookmarksRepository.addBookmark(newBookmark)
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            val chunks = DesktopWatchType.entries.chunked(2)
+                                            chunks.forEach { rowTypes ->
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                ) {
+                                                    rowTypes.forEach { watchType ->
+                                                        val icon = when (watchType) {
+                                                            DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                                                            DesktopWatchType.COMPLETED -> Icons.Default.Check
+                                                            DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                                                            DesktopWatchType.DROPPED -> Icons.Default.Close
+                                                            DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                                                            DesktopWatchType.REWATCHING -> Icons.Default.Refresh
                                                         }
-                                                    },
-                                                )
+                                                        LibraryStatusChip(
+                                                            text = watchType.stringRes,
+                                                            icon = icon,
+                                                            modifier = Modifier.weight(1f),
+                                                            onClick = {
+                                                                state.dismiss()
+                                                                if (state.provider != null) {
+                                                                    val newBookmark = DesktopBookmark(
+                                                                        id = bookmarkId,
+                                                                        name = item.name,
+                                                                        url = item.url,
+                                                                        apiName = state.provider!!.name,
+                                                                        posterUrl = item.posterUrl,
+                                                                        watchType = watchType.id,
+                                                                    )
+                                                                    BookmarksRepository.addBookmark(newBookmark)
+                                                                }
+                                                            },
+                                                        )
+                                                    }
+                                                    if (rowTypes.size == 1) {
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -557,6 +600,7 @@ fun ContextMenuOverlay() {
         }
     }
 }
+}
 
 @Composable
 private fun ActionMenuItem(
@@ -598,5 +642,52 @@ private fun ActionMenuItem(
             modifier = Modifier.size(17.dp),
             tint = color,
         )
+    }
+}
+
+@Composable
+private fun LibraryStatusChip(
+    text: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val bgColor by animateColorAsState(
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f),
+        animationSpec = tween(120),
+        label = "chipBg",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+        border = BorderStroke(1.dp, if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)),
+        modifier = modifier.height(34.dp),
+        interactionSource = interactionSource,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = text,
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

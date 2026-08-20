@@ -39,6 +39,8 @@ sealed interface EnrichmentUpdate {
         val duration: Int?,
         val tags: List<String>?,
         val actors: List<com.lagradost.cloudstream3.ActorData>?,
+        val productionCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>? = null,
+        val networkCompanies: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>? = null,
     ) : EnrichmentUpdate
     data class RatingsLoaded(
         val imdb: Double? = null,
@@ -98,10 +100,10 @@ object GetEnrichedDetailsUseCase {
                     onRatingsLoaded = { imdb, tmdb, anilist ->
                         trySend(EnrichmentUpdate.RatingsLoaded(imdb = imdb, tmdb = tmdb, anilist = anilist))
                     },
-                    onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors ->
+                    onMetadataLoaded = { tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors, productionCompanies, networkCompanies ->
                         trySend(
                             EnrichmentUpdate.MetadataLoaded(
-                                tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors,
+                                tagline, status, studios, collName, collBg, seasonsCount, episodesCount, seasonsMetadata, origLang, releaseDate, country, collItems, budget, revenue, networks, year, duration, tags, actors, productionCompanies, networkCompanies,
                             ),
                         )
                     },

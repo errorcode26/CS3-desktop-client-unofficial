@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -170,7 +171,9 @@ fun EpisodeCard(
                                         )
                                     }
                                 } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
-                                    onPlay(ep)
+                                    if (!event.changes.any { it.isConsumed }) {
+                                        onPlay(ep)
+                                    }
                                 }
                             }
                         }
@@ -311,55 +314,20 @@ fun EpisodeCard(
             }
         }
 
-        // Top-Right: Mark as Watched toggle + optional Download button
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (enableDownloadButtons && onDownload != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
-                        .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape)
-                        .clickable { onDownload(ep) }
-                        .padding(7.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-
+        // Top-Right: Watched completion indicator
+        if (isWatched) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isWatched) {
-                            Color(0xFF4CAF50).copy(alpha = 0.90f)
-                        } else {
-                            Color.Black.copy(alpha = 0.45f)
-                        },
-                    )
-                    .clickable {
-                        if (isWatched) {
-                            onRemoveEpisodeWatched(ep)
-                        } else {
-                            onToggleWatched(ep, true)
-                        }
-                    }
+                    .background(Color(0xFF4CAF50).copy(alpha = 0.92f))
                     .padding(6.dp),
             ) {
                 Icon(
                     Icons.Default.Check,
-                    contentDescription = if (isWatched) "Unmark as watched" else "Mark as watched",
-                    tint = if (isWatched) Color.White else Color.White.copy(alpha = 0.6f),
+                    contentDescription = "Watched",
+                    tint = Color.White,
                     modifier = Modifier.size(14.dp),
                 )
             }
@@ -649,6 +617,349 @@ fun MoviePlayCard(ep: Episode, history: WatchHistory?, provider: MainAPI, data: 
                         position = history.position,
                         duration = history.duration,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+fun EpisodeListItem(
+    ep: Episode,
+    isLatest: Boolean,
+    history: WatchHistory?,
+    provider: MainAPI,
+    data: LoadResponse,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    isAntiSpoiler: Boolean = false,
+    thumbnailVersion: Int = 0,
+    modifier: Modifier = Modifier,
+    enableDownloadButtons: Boolean = false,
+    isContextMenuEnabled: Boolean = true,
+    onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
+    onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,
+    onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
+    onMarkPreviousWatched: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
+) {
+    var isHovered by remember { mutableStateOf(false) }
+
+    @Suppress("UNUSED_EXPRESSION")
+    thumbnailVersion
+    val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
+    val fallbackImg = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
+
+    val progress = if (history != null && history.duration > 0) {
+        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
+            1f
+        } else {
+            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+        }
+    } else {
+        0f
+    }
+
+    val isWatched = progress > 0.9f
+    val shouldHideSpoilers = isAntiSpoiler && !isWatched
+
+    val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
+    val titleCleaned = rawTitle
+        .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
+        .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
+        .trim()
+    val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
+
+    val epRunTime = ep.runTime ?: data.duration
+    val runTimeStr = epRunTime?.let { dur ->
+        val mins = if (dur > 1000) dur / 60 else dur
+        if (mins >= 60) {
+            val h = mins / 60
+            val m = mins % 60
+            if (m > 0) "${h}h ${m}m" else "${h}h"
+        } else {
+            "${mins}m"
+        }
+    }
+
+    val rawDesc = ep.description ?: ""
+    val dateMatch = Regex("\\|\\|DATE:(.*?)\\|\\|").find(rawDesc)
+    val releaseDate = dateMatch?.groupValues?.get(1)
+    val formattedDate = releaseDate?.let { raw ->
+        try {
+            val inFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            val outFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
+            val parsed = inFormat.parse(raw)
+            if (parsed != null) outFormat.format(parsed) else raw
+        } catch (e: Exception) {
+            raw
+        }
+    }
+    val cleanDesc = rawDesc.replace(Regex("\\|\\|DATE:(.*?)\\|\\|"), "").trim()
+    val hasDesc = cleanDesc.isNotBlank()
+    val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
+
+    val heroColor = MaterialTheme.colorScheme.primary
+    val cardBg = if (isHovered) Color(0xFF202024) else Color(0xFF141416)
+    val borderColor = if (isHovered) heroColor.copy(alpha = 0.55f) else if (isLatest) heroColor.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.08f)
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = cardBg,
+        border = BorderStroke(1.dp, borderColor),
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(ep, isContextMenuEnabled) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        when (event.type) {
+                            androidx.compose.ui.input.pointer.PointerEventType.Enter -> isHovered = true
+                            androidx.compose.ui.input.pointer.PointerEventType.Exit -> isHovered = false
+                            androidx.compose.ui.input.pointer.PointerEventType.Release -> {
+                                if (event.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
+                                    if (isContextMenuEnabled) {
+                                        com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForEpisode(
+                                            episode = ep,
+                                            loadResponse = data,
+                                            history = history,
+                                            provider = provider,
+                                            isAntiSpoiler = isAntiSpoiler,
+                                            enableDownloadButtons = enableDownloadButtons,
+                                            onPlay = onPlay,
+                                            onDownload = onDownload,
+                                            onToggleWatched = onToggleWatched,
+                                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                            onMarkPreviousWatched = onMarkPreviousWatched,
+                                        )
+                                    }
+                                } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
+                                    if (!event.changes.any { it.isConsumed }) {
+                                        onPlay(ep)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 1. Large 16:9 Thumbnail (340dp x 191dp)
+            Box(
+                modifier = Modifier
+                    .width(340.dp)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                if (epImg != null || fallbackImg != null) {
+                    val targetUrl = epImg ?: fallbackImg
+                    SubcomposeAsyncImage(
+                        model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                            .data(targetUrl)
+                            .build(),
+                        contentDescription = ep.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .run { if (shouldHideSpoilers) this.blur(16.dp) else this },
+                    )
+                }
+
+                // Hover Play Icon Overlay
+                if (isHovered) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(heroColor.copy(alpha = 0.95f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Episode Number Badge (Top-Left)
+                ep.episode?.let { epNum ->
+                    val epText = if (ep.season != null) "S${ep.season}E$epNum" else "EP $epNum"
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.75f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = epText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                        )
+                    }
+                }
+
+                // Watched Badge (Top-Right)
+                if (isWatched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF4CAF50)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Watched",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+
+                // Bottom Progress Bar
+                if (progress > 0f && !isWatched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(heroColor),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(24.dp))
+
+            // 2. Middle Content (Title, Metadata chips, Paragraph-bounded Synopsis)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Row 1: Title + Gold Star Rating
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                        color = if (isHovered) heroColor else Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+
+                    if (rating10p != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFFFD700).copy(alpha = 0.15f))
+                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(13.dp))
+                            Text(
+                                text = String.format(java.util.Locale.US, "%.1f", rating10p),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Bold),
+                                color = Color(0xFFFFD700),
+                            )
+                        }
+                    }
+                }
+
+                // Row 2: Metadata row (Episode label, Runtime, Release date)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ep.episode?.let { epNum ->
+                        Text(
+                            text = if (ep.season != null) "Season ${ep.season} Episode $epNum" else "Episode $epNum",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold),
+                            color = heroColor.copy(alpha = 0.9f),
+                        )
+                    }
+
+                    if (runTimeStr != null) {
+                        Text(
+                            text = "•  $runTimeStr",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp),
+                            color = Color.White.copy(alpha = 0.60f),
+                        )
+                    }
+
+                    if (formattedDate != null) {
+                        Text(
+                            text = "•  $formattedDate",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp),
+                            color = Color.White.copy(alpha = 0.60f),
+                        )
+                    }
+                }
+
+                // Row 3: Synopsis - Strictly constrained to a max-width paragraph box (max 750dp)
+                Box(modifier = Modifier.widthIn(max = 750.dp)) {
+                    Text(
+                        text = when {
+                            shouldHideSpoilers -> "Description hidden by Anti-spoiler."
+                            hasDesc -> cleanDesc
+                            else -> "No description available for this episode."
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, lineHeight = 21.5.sp),
+                        color = Color.White.copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.78f else 0.45f),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            // 3. Right Status Indicator (if watched)
+            val isWatched = progress > 0.9f
+            if (isWatched) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF4CAF50).copy(alpha = 0.92f))
+                        .padding(8.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Watched",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }

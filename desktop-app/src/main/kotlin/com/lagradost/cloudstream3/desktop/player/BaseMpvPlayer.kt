@@ -15,6 +15,86 @@ import java.awt.Color
 import java.awt.event.*
 import java.io.File
 
+private val ISO_639_LANG_MAP = mapOf(
+    "eng" to "English", "en" to "English",
+    "spa" to "Spanish", "es" to "Spanish",
+    "fra" to "French", "fre" to "French", "fr" to "French",
+    "deu" to "German", "ger" to "German", "de" to "German",
+    "hin" to "Hindi", "hi" to "Hindi",
+    "tam" to "Tamil", "ta" to "Tamil",
+    "tel" to "Telugu", "te" to "Telugu",
+    "mal" to "Malayalam", "ml" to "Malayalam",
+    "kan" to "Kannada", "kn" to "Kannada",
+    "kor" to "Korean", "ko" to "Korean",
+    "jpn" to "Japanese", "ja" to "Japanese",
+    "rus" to "Russian", "ru" to "Russian",
+    "ara" to "Arabic", "ar" to "Arabic",
+    "zho" to "Chinese", "chi" to "Chinese", "zh" to "Chinese",
+    "ita" to "Italian", "it" to "Italian",
+    "por" to "Portuguese", "pt" to "Portuguese",
+    "tur" to "Turkish", "tr" to "Turkish",
+    "vie" to "Vietnamese", "vi" to "Vietnamese",
+    "tha" to "Thai", "th" to "Thai",
+    "ind" to "Indonesian", "id" to "Indonesian",
+    "pol" to "Polish", "pl" to "Polish",
+    "nld" to "Dutch", "dut" to "Dutch", "nl" to "Dutch",
+    "swe" to "Swedish", "sv" to "Swedish",
+    "nor" to "Norwegian", "no" to "Norwegian",
+    "dan" to "Danish", "da" to "Danish",
+    "fin" to "Finnish", "fi" to "Finnish",
+    "ell" to "Greek", "gre" to "Greek", "el" to "Greek",
+    "heb" to "Hebrew", "he" to "Hebrew",
+    "hun" to "Hungarian", "hu" to "Hungarian",
+    "ces" to "Czech", "cze" to "Czech", "cs" to "Czech",
+    "ron" to "Romanian", "rum" to "Romanian", "ro" to "Romanian",
+    "ukr" to "Ukrainian", "uk" to "Ukrainian",
+    "ben" to "Bengali", "bn" to "Bengali",
+    "fil" to "Filipino", "tl" to "Filipino",
+    "msa" to "Malay", "may" to "Malay", "ms" to "Malay",
+    "fas" to "Persian", "per" to "Persian", "fa" to "Persian",
+    "und" to "Undetermined",
+)
+
+private val URL_AND_DOMAIN_REGEX = Regex("""(?i)(https?://\S+|www\.\S+|(\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|me|tv|cx|ws|site|top|club|vip|app|link|xyz|info|biz|co|in|live|stream|xyz)\b))""")
+private val JUNK_PREFIX_REGEX = Regex("""(?i)^\s*(\[.*?\]|\(.*?\)|Encoded by.*|Downloaded from.*|Rip by.*|Subtitles by.*|Synced by.*|www\..*?|-)\s*""")
+
+internal fun cleanTrackDisplayName(type: String, id: Int, rawTitle: String?, rawLang: String?): String {
+    val cleanLang = rawLang?.trim()?.lowercase()
+    val resolvedLang = if (!cleanLang.isNullOrBlank()) {
+        ISO_639_LANG_MAP[cleanLang] ?: try {
+            val loc = java.util.Locale(cleanLang)
+            val d = loc.getDisplayLanguage(java.util.Locale.ENGLISH)
+            if (d.isNotBlank() && !d.equals(cleanLang, ignoreCase = true)) d else cleanLang.uppercase()
+        } catch (_: Throwable) {
+            cleanLang.uppercase()
+        }
+    } else null
+
+    var title = rawTitle?.trim() ?: ""
+
+    // Strip URLs and Domain references (e.g. www.sitename.com, site.org)
+    title = URL_AND_DOMAIN_REGEX.replace(title, "").trim()
+    title = JUNK_PREFIX_REGEX.replace(title, "").trim()
+    title = title.replace(Regex("""^[-\s_–—:|\[\](){}]+|[-\s_–—:|\[\](){}]+$"""), "").trim()
+
+    // If title is blank, just numbers, or just junk after stripping URLs
+    if (title.isBlank() || title.length < 2 || title.matches(Regex("""^\d+$"""))) {
+        return resolvedLang ?: (if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id")
+    }
+
+    // If we resolved a language code (e.g. "English"), make sure the language name is shown prominently
+    if (resolvedLang != null) {
+        val lowerTitle = title.lowercase()
+        val lowerLang = resolvedLang.lowercase()
+        // If title does not already contain the language name (e.g. title is "SDH" or "Full" or "Forced")
+        if (!lowerTitle.contains(lowerLang)) {
+            title = "$resolvedLang ($title)"
+        }
+    }
+
+    return title
+}
+
 @Composable
 fun BaseMpvPlayer(
     link: ExtractorLink?,
@@ -97,11 +177,7 @@ fun BaseMpvPlayer(
                         val title = MpvLibrary.getPropertyString(handle, "track-list/$i/title")
                         val selected = MpvLibrary.getPropertyString(handle, "track-list/$i/selected") == "yes"
 
-                        val name = when {
-                            !title.isNullOrBlank() -> title
-                            !lang.isNullOrBlank() -> lang.uppercase()
-                            else -> if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id"
-                        }
+                        val name = cleanTrackDisplayName(type, id, title, lang)
                         if (type == "audio") {
                             audioTracks.add(PlayerState.VideoTrack(id, name, selected))
                         } else if (type == "sub") {

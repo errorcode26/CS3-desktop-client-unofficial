@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
 fun DetailsRecommendationsSection(
     validRecs: List<SearchResponse>,
     onNavigate: (Config) -> Unit,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
     val similarScrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -37,18 +39,60 @@ fun DetailsRecommendationsSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
     ) {
-        Text(
-            text = "Similar Content",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
-        )
+        // Section Header Row with scroll buttons
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding)
+                .padding(bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Similar Content",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            if (validRecs.size > 3) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                ) {
+                    Row {
+                        IconButton(
+                            onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(-500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "Scroll Left",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        IconButton(
+                            onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(500f) } },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Scroll Right",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         LazyRow(
             state = similarScrollState,
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
                 detectHorizontalDragGestures { change, dragAmount ->
@@ -71,23 +115,6 @@ fun DetailsRecommendationsSection(
                             onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, true))
                         },
                     )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ) {
-                Row {
-                    IconButton(onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(-500f) } }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Scroll Left", tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = { coroutineScope.launch { similarScrollState.animateScrollBy(500f) } }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Scroll Right", tint = MaterialTheme.colorScheme.onSurface)
-                    }
                 }
             }
         }
