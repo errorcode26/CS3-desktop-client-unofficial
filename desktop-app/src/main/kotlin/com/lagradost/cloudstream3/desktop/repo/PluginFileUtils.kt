@@ -45,20 +45,55 @@ internal object PluginFileUtils {
         val tempFile = File.createTempFile(destFile.name, ".tmp", getExtensionsDir())
 
         try {
-            val request = Request.Builder().url(plugin.url).build()
-            PluginNetworkClient.redirectClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw Exception("Failed to download plugin")
-                val body = response.body
-                FileOutputStream(tempFile).use { out ->
-                    body.byteStream().copyTo(out)
+            // Primary download URL first, followed by any alternate repository mirrors for this plugin
+            val candidateUrls = mutableListOf(plugin.url)
+            DesktopRepositoryManager.getAllPlugins()
+                .filter { it.second.internalName == plugin.internalName && it.second.url != plugin.url && it.second.url.startsWith("http") }
+                .forEach { candidateUrls.add(it.second.url) }
+
+            var downloadSuccess = false
+            for (candidateUrl in candidateUrls) {
+                try {
+                    val request = Request.Builder().url(candidateUrl).build()
+                    PluginNetworkClient.redirectClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw Exception("HTTP ${response.code} downloading from $candidateUrl")
+                        val body = response.body
+                        val contentLength = body.contentLength()
+                        if (contentLength > 64 * 1024 * 1024L) {
+                            throw IllegalStateException("Plugin package exceeded 64 MB maximum buffer limit")
+                        }
+                        FileOutputStream(tempFile).use { out ->
+                            val buffer = ByteArray(8192)
+                            var totalBytes = 0L
+                            val input = body.byteStream()
+                            var read = input.read(buffer)
+                            while (read != -1) {
+                                totalBytes += read
+                                if (totalBytes > 64 * 1024 * 1024L) {
+                                    throw IllegalStateException("Plugin package exceeded 64 MB maximum buffer limit")
+                                }
+                                out.write(buffer, 0, read)
+                                read = input.read(buffer)
+                            }
+                        }
+                    }
+
+                    if (plugin.fileHash != null && candidateUrl == plugin.url) {
+                        val downloadHash = sha256(tempFile)
+                        if (plugin.fileHash != downloadHash) {
+                            throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
+                        }
+                    }
+
+                    downloadSuccess = true
+                    break
+                } catch (e: Exception) {
+                    AppLogger.w("Failed to download '${plugin.internalName}' from $candidateUrl: ${e.message}. Trying next mirror if available...")
                 }
             }
 
-            if (plugin.fileHash != null) {
-                val downloadHash = sha256(tempFile)
-                if (plugin.fileHash != downloadHash) {
-                    throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
-                }
+            if (!downloadSuccess) {
+                return@withContext null
             }
 
             try {
@@ -85,8 +120,23 @@ internal object PluginFileUtils {
                     val jvmRequest = Request.Builder().url(plugin.jarUrl).build()
                     PluginNetworkClient.redirectClient.newCall(jvmRequest).execute().use { response ->
                         if (response.isSuccessful) {
+                            val body = response.body
+                            if (body.contentLength() > 64 * 1024 * 1024L) {
+                                throw IllegalStateException("JVM plugin exceeded 64 MB maximum buffer limit")
+                            }
                             FileOutputStream(jvmTempFile).use { out ->
-                                response.body.byteStream().copyTo(out)
+                                val buffer = ByteArray(8192)
+                                var totalBytes = 0L
+                                val input = body.byteStream()
+                                var read = input.read(buffer)
+                                while (read != -1) {
+                                    totalBytes += read
+                                    if (totalBytes > 64 * 1024 * 1024L) {
+                                        throw IllegalStateException("JVM plugin exceeded 64 MB maximum buffer limit")
+                                    }
+                                    out.write(buffer, 0, read)
+                                    read = input.read(buffer)
+                                }
                             }
 
                             val downloadHash = sha256(jvmTempFile)

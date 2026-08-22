@@ -5,58 +5,58 @@ import com.lagradost.common.logging.AppLogger
 object RuntimeStub {
     @JvmStatic
     fun exec(runtime: Runtime, command: String): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec($command)")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec($command)")
         return null
     }
 
     @JvmStatic
     fun exec(runtime: Runtime, cmdarray: Array<String>): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec(${cmdarray.joinToString()})")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec(${cmdarray.joinToString()})")
         return null
     }
 
     @JvmStatic
     fun exec(runtime: Runtime, cmdarray: Array<String>, envp: Array<String>?): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec(${cmdarray.joinToString()})")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec(${cmdarray.joinToString()})")
         return null
     }
 
     @JvmStatic
     fun exec(runtime: Runtime, cmdarray: Array<String>, envp: Array<String>?, dir: java.io.File?): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec(${cmdarray.joinToString()})")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec(${cmdarray.joinToString()})")
         return null
     }
 
     @JvmStatic
     fun exec(runtime: Runtime, command: String, envp: Array<String>?): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec($command)")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec($command)")
         return null
     }
 
     @JvmStatic
     fun exec(runtime: Runtime, command: String, envp: Array<String>?, dir: java.io.File?): Process? {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exec($command)")
+        AppLogger.i("Plugin Security: Blocked Runtime.exec($command)")
         return null
     }
 
     @JvmStatic
     fun loadLibrary(runtime: Runtime, libname: String) {
-        AppLogger.i("Security Sandbox: Blocked Runtime.loadLibrary($libname)")
+        AppLogger.i("Plugin Security: Blocked Runtime.loadLibrary($libname)")
     }
 
     @JvmStatic
     fun load(runtime: Runtime, filename: String) {
-        AppLogger.i("Security Sandbox: Blocked Runtime.load($filename)")
+        AppLogger.i("Plugin Security: Blocked Runtime.load($filename)")
     }
 
     @JvmStatic
     fun exit(runtime: Runtime, status: Int) {
-        AppLogger.i("Security Sandbox: Blocked Runtime.exit($status)")
+        AppLogger.i("Plugin Security: Blocked Runtime.exit($status)")
     }
 
     @JvmStatic
     fun halt(runtime: Runtime, status: Int) {
-        AppLogger.i("Security Sandbox: Blocked Runtime.halt($status)")
+        AppLogger.i("Plugin Security: Blocked Runtime.halt($status)")
     }
 
     @JvmStatic

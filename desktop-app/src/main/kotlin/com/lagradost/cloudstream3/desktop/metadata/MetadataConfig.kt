@@ -1,9 +1,11 @@
 package com.lagradost.cloudstream3.desktop.metadata
 
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * User configuration and persistent preferences for Metadata, Addons, and Skip Integrations.
@@ -50,49 +52,67 @@ object MetadataConfig {
 
     fun setTmdbEnabled(enabled: Boolean) {
         _tmdbEnabled.value = enabled
-        DesktopDataStore.setKey(KEY_TMDB_ENABLED, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_TMDB_ENABLED, enabled)
+        }
     }
 
     fun setCustomTmdbApiKey(key: String) {
         val trimmed = key.trim()
         _customTmdbApiKey.value = trimmed
-        DesktopDataStore.setKey(KEY_TMDB_API_KEY, trimmed)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_TMDB_API_KEY, trimmed)
+        }
     }
 
     fun setAniListEnabled(enabled: Boolean) {
         _anilistEnabled.value = enabled
-        DesktopDataStore.setKey(KEY_ANILIST_ENABLED, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_ANILIST_ENABLED, enabled)
+        }
     }
 
     fun setKitsuEnabled(enabled: Boolean) {
         _kitsuEnabled.value = enabled
-        DesktopDataStore.setKey(KEY_KITSU_ENABLED, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_KITSU_ENABLED, enabled)
+        }
     }
 
     fun setStremioAddonEnabled(enabled: Boolean) {
         _stremioAddonEnabled.value = enabled
-        DesktopDataStore.setKey(KEY_STREMIO_ADDON_ENABLED, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_STREMIO_ADDON_ENABLED, enabled)
+        }
     }
 
     fun setStremioAddonUrl(url: String) {
         val trimmed = url.trim()
         _stremioAddonUrl.value = trimmed
-        DesktopDataStore.setKey(KEY_STREMIO_ADDON_URL, trimmed)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_STREMIO_ADDON_URL, trimmed)
+        }
     }
 
     fun setSkipIntervalsEnabled(enabled: Boolean) {
         _skipIntervalsEnabled.value = enabled
-        DesktopDataStore.setKey(KEY_ENABLE_SKIP_INTERVALS, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_ENABLE_SKIP_INTERVALS, enabled)
+        }
     }
 
     fun setAutoSkipIntro(enabled: Boolean) {
         _autoSkipIntro.value = enabled
-        DesktopDataStore.setKey(KEY_AUTO_SKIP_INTRO, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_AUTO_SKIP_INTRO, enabled)
+        }
     }
 
     fun setAutoSkipOutro(enabled: Boolean) {
         _autoSkipOutro.value = enabled
-        DesktopDataStore.setKey(KEY_AUTO_SKIP_OUTRO, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(KEY_AUTO_SKIP_OUTRO, enabled)
+        }
     }
 
     fun isProviderEnabled(providerId: String): Boolean {

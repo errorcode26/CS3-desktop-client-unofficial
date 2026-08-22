@@ -88,6 +88,10 @@ private fun loadInstalledPlugins() {
             failed++
             AppLogger.e("Failed to load plugin: ${jarFile.name}", e)
             ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showPluginQuarantined(
+                pluginName = jarFile.nameWithoutExtension.removeSuffix("-jvm"),
+                reason = e.message ?: e.javaClass.simpleName,
+            )
         }
     }
 

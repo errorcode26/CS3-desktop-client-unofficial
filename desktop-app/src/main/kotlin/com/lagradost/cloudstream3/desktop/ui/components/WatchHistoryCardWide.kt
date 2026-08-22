@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -183,7 +182,7 @@ fun WatchHistoryCardWide(
             ) {
                 // Top area: Title and Tags
                 Column(
-                    modifier = Modifier.align(Alignment.TopStart).padding(end = 32.dp)
+                    modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
                 ) {
                     Text(
                         text = history.showName,
@@ -231,24 +230,6 @@ fun WatchHistoryCardWide(
                             }
                         }
                     }
-                }
-
-                // Close Button
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { onRemove() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove from history",
-                        tint = Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
                 }
 
                 // Bottom area: Episode & Progress

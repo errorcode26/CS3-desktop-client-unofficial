@@ -75,29 +75,29 @@ fun ComposeDetailsScreen(
     var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
 
-    val handlePlay: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
-        viewModel.onEvent(DetailsUiEvent.OnPlayEpisode(ep))
+    val handlePlay: (com.lagradost.cloudstream3.Episode) -> Unit = remember(viewModel) {
+        { ep -> viewModel.onEvent(DetailsUiEvent.OnPlayEpisode(ep)) }
     }
 
-    val handleDownload: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
-        viewModel.onEvent(DetailsUiEvent.OnDownloadEpisode(ep))
+    val handleDownload: (com.lagradost.cloudstream3.Episode) -> Unit = remember(viewModel) {
+        { ep -> viewModel.onEvent(DetailsUiEvent.OnDownloadEpisode(ep)) }
     }
 
-    val handleToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit = { ep, isWatched ->
-        viewModel.onEvent(DetailsUiEvent.OnToggleEpisodeWatched(ep, isWatched))
+    val handleToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit = remember(viewModel) {
+        { ep, isWatched -> viewModel.onEvent(DetailsUiEvent.OnToggleEpisodeWatched(ep, isWatched)) }
     }
 
-    val handleToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit = { episodes, isWatched ->
-        viewModel.onEvent(DetailsUiEvent.OnToggleSeasonWatched(episodes, isWatched))
+    val handleToggleSeasonWatched: (List<com.lagradost.cloudstream3.Episode>, Boolean) -> Unit = remember(viewModel) {
+        { episodes, isWatched -> viewModel.onEvent(DetailsUiEvent.OnToggleSeasonWatched(episodes, isWatched)) }
     }
-    val handleRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit = { ep ->
-        viewModel.onEvent(DetailsUiEvent.OnRemoveEpisodeWatched(ep))
+    val handleRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit = remember(viewModel) {
+        { ep -> viewModel.onEvent(DetailsUiEvent.OnRemoveEpisodeWatched(ep)) }
     }
-    val handleToggleEpisodesStackedView: (Boolean) -> Unit = { isStacked ->
-        viewModel.onEvent(DetailsUiEvent.OnToggleEpisodesStackedView(isStacked))
+    val handleToggleEpisodesStackedView: (Boolean) -> Unit = remember(viewModel) {
+        { isStacked -> viewModel.onEvent(DetailsUiEvent.OnToggleEpisodesStackedView(isStacked)) }
     }
-    val handleSetEpisodeViewMode: (Int) -> Unit = { viewMode ->
-        viewModel.onEvent(DetailsUiEvent.OnSetEpisodeViewMode(viewMode))
+    val handleSetEpisodeViewMode: (Int) -> Unit = remember(viewModel) {
+        { viewMode -> viewModel.onEvent(DetailsUiEvent.OnSetEpisodeViewMode(viewMode)) }
     }
 
     LaunchedEffect(viewModel.effectFlow) {
@@ -105,7 +105,7 @@ fun ComposeDetailsScreen(
             when (effect) {
                 is DetailsUiEffect.NavigateToPlayer -> playVideo(effect.launchData)
                 is DetailsUiEffect.ShowErrorDialog -> playbackError = effect.message
-                is DetailsUiEffect.ShowToast -> {} // Handled elsewhere or not needed
+                is DetailsUiEffect.ShowToast -> com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
             }
         }
     }
@@ -134,7 +134,7 @@ fun ComposeDetailsScreen(
             }
         }
 
-        val bgUrl = remember(response, uiState) {
+        val bgUrl = remember(response?.backgroundPosterUrl, response?.posterUrl, uiState.enrichedBackdropUrl, provider) {
             uiState.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.posterUrl)?.takeIf { it.isNotBlank() }

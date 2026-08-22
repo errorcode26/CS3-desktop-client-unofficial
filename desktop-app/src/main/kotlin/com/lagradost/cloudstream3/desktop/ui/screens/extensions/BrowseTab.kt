@@ -13,8 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -90,7 +90,7 @@ fun BrowseTab(
     }
 
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
-    val extMinSize = (posterWidthDp * 1.65f).dp
+    val extMinSize = (posterWidthDp * 2.2f).coerceAtLeast(320f).dp
 
     Column(modifier = Modifier.fillMaxSize()) {
         // ── Modern Glassmorphic Search Toolbar ──────────────────────
@@ -413,7 +413,7 @@ fun BrowseTab(
                                 ) {
                                     Text("Go to Repositories", fontSize = 12.sp)
                                     Spacer(Modifier.width(4.dp))
-                                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
                                 }
                             }
                             Spacer(Modifier.height(4.dp))
@@ -558,26 +558,73 @@ fun BrowseTab(
         }
 
         // ── Security & Permission Dialogs ───────────────────────────
-        pluginRequiringBypass?.let { (bypassRepo, bypassPlugin) ->
+        pluginRequiringBypass?.let { (bypassRepo, bypassPlugin, reason) ->
             var isDialogInstalling by remember { mutableStateOf(false) }
+            val cleanReason = reason
+                .removePrefix("Plugin Security Notice: ")
+                .removePrefix("Plugin Security: ")
+                .trim()
+
             CloudstreamAlertDialog(
                 show = true,
                 onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
-                title = { Text("Unverified Repository") },
+                title = { Text("Trust & Install Extension?") },
                 text = {
                     if (isDialogInstalling) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        ) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(16.dp))
                             Text("Installing, please wait...")
                         }
                     } else {
-                        Text("The repository '$bypassRepo' is not in the verified repository list.\n\nInstalling third-party extensions can pose security risks. Do you want to proceed?")
+                        val devInfo = bypassPlugin.authorName?.let { " by $it" } ?: ""
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "You are installing '${bypassPlugin.name}'$devInfo from repository '$bypassRepo'.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            Surface(
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = "⚠️ Flagged API Access",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        text = cleanReason,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "If you trust this developer and repository, click 'Trust & Install' to proceed.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 confirmButton = {
                     if (!isDialogInstalling) {
-                        TextButton(
+                        Button(
                             onClick = {
                                 isDialogInstalling = true
                                 viewModel.onEvent(
@@ -586,14 +633,15 @@ fun BrowseTab(
                                     },
                                 )
                             },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         ) {
-                            Text("Trust & Install", color = MaterialTheme.colorScheme.primary)
+                            Text("Trust & Install")
                         }
                     }
                 },
                 dismissButton = {
                     if (!isDialogInstalling) {
-                        TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
+                        OutlinedButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
                             Text("Cancel")
                         }
                     }

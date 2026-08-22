@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun ExtensionCard(
@@ -67,16 +68,17 @@ fun ExtensionCard(
     val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
 
     Card(
-        modifier = modifier.fillMaxWidth().height(156.dp),
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 172.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // TOP SECTION: Icon + Full Title & Subtitle + Settings
+            // TOP SECTION: Checkbox + Icon + Title/Version/Repo + Settings
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -85,8 +87,8 @@ fun ExtensionCard(
                     Checkbox(
                         checked = isChecked,
                         onCheckedChange = onCheckedChange,
+                        modifier = Modifier.padding(end = 4.dp),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
                 }
 
                 val resolvedIconUrl = iconUrl?.replace("%size%", "32")
@@ -97,36 +99,38 @@ fun ExtensionCard(
                             .size(128, 128)
                             .build(),
                         contentDescription = null,
-                        modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
+                        modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         loading = {
-                            PluginPlaceholderAvatar(name, internalName)
+                            PluginPlaceholderAvatar(name, internalName, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
                         },
                         error = {
                             com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.markIconFailed(resolvedIconUrl)
-                            PluginPlaceholderAvatar(name, internalName)
+                            PluginPlaceholderAvatar(name, internalName, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
                         },
                     )
                 } else {
-                    PluginPlaceholderAvatar(name, internalName)
+                    PluginPlaceholderAvatar(name, internalName, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         Text(
                             text = name,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f, fill = false),
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
                         FlagImage(language)
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -141,6 +145,7 @@ fun ExtensionCard(
                             text = "v$version" + if (sizeStr.isNotEmpty()) " • $sizeStr" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
                         )
                         if (onRepoClick != null) {
                             Surface(
@@ -170,26 +175,33 @@ fun ExtensionCard(
                             )
                         }
                     }
-                    if (!description.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                    }
                 }
 
                 if (showSettings) {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp))
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // MIDDLE SECTION: Description
+            if (!description.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    lineHeight = 16.sp,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // BOTTOM SECTION: Category Chips (Left) & Actions (Right)
             Row(
@@ -206,13 +218,14 @@ fun ExtensionCard(
                     if (!tvTypes.isNullOrEmpty()) {
                         tvTypes.take(3).forEach { type ->
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                             ) {
                                 Text(
                                     text = type,
                                     style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
@@ -221,54 +234,49 @@ fun ExtensionCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                // Actions Column / Row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (installStatus == "Installed" || isInstalled) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = androidx.compose.ui.graphics.Color(0xFF1B4D2E).copy(alpha = 0.5f),
-                        ) {
+                // Actions
+                if (onUninstallClick != null && isInstalled) {
+                    OutlinedButton(
+                        onClick = { showConfirmDialog = true },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text("Uninstall", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                } else if (isInstalled || installStatus == "Installed") {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = androidx.compose.ui.graphics.Color(0xFF1B4D2E).copy(alpha = 0.6f),
+                    ) {
+                        Text(
+                            text = "Installed ✓",
+                            color = androidx.compose.ui.graphics.Color(0xFF81C784),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = onInstallClick,
+                        enabled = !isInstalling,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp),
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        if (isInstalling) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                        } else {
                             Text(
-                                text = "Installed ✓",
-                                color = androidx.compose.ui.graphics.Color(0xFF81C784),
+                                "+ Install",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             )
-                        }
-
-                        if (onUninstallClick != null) {
-                            OutlinedButton(
-                                onClick = { showConfirmDialog = true },
-                                modifier = Modifier.height(34.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
-                            ) {
-                                Text("Uninstall", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    } else {
-                        FilledTonalButton(
-                            onClick = onInstallClick,
-                            enabled = !isInstalling,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                            modifier = Modifier.height(34.dp),
-                        ) {
-                            if (isInstalling) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text(
-                                    "+ Install",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
                         }
                     }
                 }
@@ -281,8 +289,8 @@ fun ExtensionCard(
 fun PluginPlaceholderAvatar(
     name: String,
     internalName: String,
-    modifier: Modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
-    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge,
+    modifier: Modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)),
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium,
 ) {
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
 
@@ -294,7 +302,7 @@ fun PluginPlaceholderAvatar(
             text = initial,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = textStyle,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Bold,
         )
     }
 }

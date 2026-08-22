@@ -12,6 +12,13 @@ import java.io.File
 
 private val playerObjectMapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
 
+private val EMPTY_LIST_FLOW = kotlinx.coroutines.flow.flowOf(emptyList<Nothing>())
+private val FALSE_FLOW = kotlinx.coroutines.flow.flowOf(false)
+private val MINUS_ONE_FLOW = kotlinx.coroutines.flow.flowOf(-1)
+private val NONE_FLOW = kotlinx.coroutines.flow.flowOf("None")
+private val NULL_STRING_FLOW = kotlinx.coroutines.flow.flowOf<String?>(null)
+private val NULL_SKIP_INTERVAL_FLOW = kotlinx.coroutines.flow.flowOf<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?>(null)
+
 @Composable
 fun ComposeNativeWebPlayer(
     modifier: Modifier = Modifier.fillMaxSize(),
@@ -70,12 +77,12 @@ fun ComposeNativeWebPlayer(
     val currentOnFullscreenToggle by rememberUpdatedState(onFullscreenToggle)
 
     var isUiReady by remember { mutableStateOf(false) }
-    val audioTracks by (playerState?.audioTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
-    val subtitleTracks by (playerState?.subtitleTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
-    val videoTracks by (playerState?.videoTracks ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
-    val chapters by (playerState?.chapters ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
-    val currentChapterIndex by (playerState?.currentChapterIndex ?: kotlinx.coroutines.flow.flowOf(-1)).collectAsState(-1)
-    val isBuffering by (playerState?.isBuffering ?: kotlinx.coroutines.flow.flowOf(false)).collectAsState(false)
+    val audioTracks by (playerState?.audioTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val subtitleTracks by (playerState?.subtitleTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val videoTracks by (playerState?.videoTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val chapters by (playerState?.chapters ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val currentChapterIndex by (playerState?.currentChapterIndex ?: MINUS_ONE_FLOW).collectAsState(-1)
+    val isBuffering by (playerState?.isBuffering ?: FALSE_FLOW).collectAsState(false)
 
     val proxyAudioTracks by com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.collectAsState()
     val proxySubtitleTracks by com.lagradost.player.impl.proxy.LocalStreamProxyState.lazySubtitleTracks.collectAsState()
@@ -83,13 +90,17 @@ fun ComposeNativeWebPlayer(
 
     val currentIsLoading by rememberUpdatedState(isLoading)
     val currentLoadingStatusText by rememberUpdatedState(loadingStatusText)
-    val activeShader by (playerState?.activeShader ?: kotlinx.coroutines.flow.flowOf("None")).collectAsState("None")
-    val activeLazyVideoTrackUrl by (playerState?.activeLazyVideoTrackUrl ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
-    val activeLazyAudioTrackUrl by (playerState?.activeLazyAudioTrackUrl ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
-    val activeSkipInterval by (playerState?.activeSkipInterval ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
-    val skipIntervals by (playerState?.skipIntervals ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsState(emptyList())
-    val resolution by (playerState?.resolution ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
-    val activeSubtitleOverrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
+    val activeShader by (playerState?.activeShader ?: NONE_FLOW).collectAsState("None")
+    val activeLazyVideoTrackUrl by (playerState?.activeLazyVideoTrackUrl ?: NULL_STRING_FLOW).collectAsState(null)
+    val activeLazyAudioTrackUrl by (playerState?.activeLazyAudioTrackUrl ?: NULL_STRING_FLOW).collectAsState(null)
+    val activeSkipInterval by (playerState?.activeSkipInterval ?: NULL_SKIP_INTERVAL_FLOW).collectAsState(null)
+    val skipIntervals by (playerState?.skipIntervals ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val resolution by (playerState?.resolution ?: NULL_STRING_FLOW).collectAsState(null)
+    val activeSubtitleOverrideEnabled by produceState(false) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
+        }
+    }
 
     var hasAutoSelectedQuality by remember(link) { mutableStateOf(false) }
 
@@ -543,9 +554,9 @@ fun ComposeNativeWebPlayer(
                             MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
                         }
                         "togglePip" -> {
-                            com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
-                            val isPip = com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
-                            NativePlayerBridge.executeScript("if(window.setPipUi) window.setPipUi($isPip);")
+                            val nextPip = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
+                            com.lagradost.cloudstream3.desktop.ui.PipState.setPipMode(nextPip)
+                            NativePlayerBridge.executeScript("if(window.setPipUi) window.setPipUi($nextPip);")
                         }
                         "startWindowDrag" -> {
                             val hwnd = com.sun.jna.Native.getComponentID(window)
@@ -902,6 +913,11 @@ fun ComposeNativeWebPlayer(
                     videoCanvas.removeComponentListener(componentListener)
                     NativePlayerBridge.resizeWebView(0, 0)
                     NativePlayerBridge.stopMpvSync()
+                    NativePlayerBridge.setEventListener(null)
+
+                    if (com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value) {
+                        com.lagradost.cloudstream3.desktop.ui.PipState.setPipMode(false)
+                    }
 
                     // Push the heavy WebView teardown to a background daemon thread
                     // to prevent blocking the Compose EDT on first exit.

@@ -197,7 +197,10 @@ class DesktopMpvEngine(
         val handle = mpvHandle ?: return
         scope.launch(Dispatchers.IO) {
             val sec = (positionMs / 1000.0).toString()
-            MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
+            val res = MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute+exact")
+            if (res != 0) {
+                MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
+            }
         }
     }
 

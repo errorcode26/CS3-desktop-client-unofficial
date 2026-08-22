@@ -10,7 +10,7 @@ data class ExtensionsUiState(
     val statusText: String = "Press Sync (sidebar) or Fetch below to load plugins from your repositories.",
     val plugins: List<Pair<String, SitePlugin>> = emptyList(),
     val installedPlugins: List<LocalPlugin> = emptyList(),
-    val pluginRequiringBypass: Pair<String, SitePlugin>? = null,
+    val pluginRequiringBypass: Triple<String, SitePlugin, String>? = null,
     val pluginRequiringPermission: Triple<String, SitePlugin, String>? = null,
     val inspectedRepoName: String? = null,
     val savedRepositories: List<com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData> = emptyList(),

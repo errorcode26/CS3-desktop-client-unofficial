@@ -13,9 +13,9 @@ class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean 
         // Enforce Default Deny (Whitelist-Only) security policy
         val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
         val hasSocketPerm = com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS) || com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)
-        if (!com.lagradost.runtime.security.SandboxSecurityPolicy.isClassAllowed(name, hasSocketPerm, isTrusted)) {
+        if (!com.lagradost.runtime.security.PluginSecurityPolicy.isClassAllowed(name, hasSocketPerm, isTrusted)) {
             if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)) {
-                throw SecurityException("Security Sandbox: Access to class '$name' is blocked by Default Deny policy.")
+                throw SecurityException("Plugin Security: Access to class '$name' is blocked by Default Deny policy.")
             }
         }
         return try {

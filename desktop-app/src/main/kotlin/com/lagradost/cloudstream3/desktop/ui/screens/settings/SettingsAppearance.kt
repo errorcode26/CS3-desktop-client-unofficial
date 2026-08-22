@@ -74,16 +74,18 @@ fun SettingsAppearanceThemeScreen() {
 
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var newPresetName by remember { mutableStateOf("") }
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
 
-    val accentColors = listOf(
-        "Purple" to Color(0xFF7C6BFF),
-        "Blue" to Color(0xFF3B82F6),
-        "Green" to Color(0xFF10B981),
-        "Red" to Color(0xFFEF4444),
-        "Orange" to Color(0xFFF59E0B),
-        "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(AppearanceConfig.customThemeAccent.value, Color(0xFF7C6BFF)),
-    )
+    val accentColors = remember(customThemeAccent) {
+        listOf(
+            "Purple" to Color(0xFF7C6BFF),
+            "Blue" to Color(0xFF3B82F6),
+            "Green" to Color(0xFF10B981),
+            "Red" to Color(0xFFEF4444),
+            "Orange" to Color(0xFFF59E0B),
+            "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customThemeAccent, Color(0xFF7C6BFF)),
+        )
+    }
 
     val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }

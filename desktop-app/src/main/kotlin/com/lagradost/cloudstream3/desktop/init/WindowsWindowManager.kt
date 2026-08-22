@@ -117,6 +117,7 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
     try {
         val hwnd = com.sun.jna.Native.getComponentID(window)
         if (enable) {
+            prePipBounds = window.bounds
             val bounds = window.graphicsConfiguration.bounds
             val scaleX = window.graphicsConfiguration.defaultTransform.scaleX
             val scaleY = window.graphicsConfiguration.defaultTransform.scaleY
@@ -164,15 +165,29 @@ fun setNativePipMode(window: java.awt.Window, enable: Boolean) {
             )
             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
             val hwndNoTopMost = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(-2L))
-            com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
-                hWin,
-                hwndNoTopMost,
-                0,
-                0,
-                0,
-                0,
-                0x0003,
-            )
+            val prev = prePipBounds
+            if (prev != null) {
+                com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
+                    hWin,
+                    hwndNoTopMost,
+                    prev.x,
+                    prev.y,
+                    prev.width,
+                    prev.height,
+                    0x0040,
+                )
+                prePipBounds = null
+            } else {
+                com.sun.jna.platform.win32.User32.INSTANCE.SetWindowPos(
+                    hWin,
+                    hwndNoTopMost,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0x0003,
+                )
+            }
         }
     } catch (e: Throwable) {
         com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "setNativePipMode failed", e)

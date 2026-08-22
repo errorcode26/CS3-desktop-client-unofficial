@@ -125,7 +125,7 @@ fun SearchResults(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp, start = 20.dp, end = 20.dp),
                 ) {
-                    items(filteredGrouped.size) { index ->
+                    items(filteredGrouped.size, key = { filteredGrouped[it].first.name }) { index ->
                         val (provider, items) = filteredGrouped[index]
                         CategoryRowWithHeader(
                             title = provider.name,
@@ -133,8 +133,8 @@ fun SearchResults(
                             isInfinite = false,
                             onViewAll = { onViewAll(provider, provider.name, items) },
                         ) {
-                            items(items.size) { index ->
-                                val item = items[index]
+                            items(items.size, key = { "${provider.name}_${items[it].url}" }) { innerIndex ->
+                                val item = items[innerIndex]
                                 val heroMeta = heroMetaMap[item.url]
                                 PosterCard(
                                     item = item,

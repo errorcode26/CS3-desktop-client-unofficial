@@ -58,14 +58,12 @@ fun HomeHeroCarousel(
 ) {
     if (items.isEmpty()) return
 
-    val displayItems by remember(items, heroMetaMap) {
-        derivedStateOf {
-            items.filter { item ->
-                val meta = heroMetaMap[item.url]
-                // Keep if still loading (null) OR if it successfully found a backdrop
-                meta == null || meta.backdropUrl != null
-            }.take(10)
-        }
+    val displayItems = remember(items, heroMetaMap) {
+        items.filter { item ->
+            val meta = heroMetaMap[item.url]
+            // Keep if still loading (null) OR if it successfully found a backdrop
+            meta == null || meta.backdropUrl != null
+        }.take(10)
     }
 
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()

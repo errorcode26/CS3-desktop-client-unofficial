@@ -321,8 +321,11 @@ object DesktopRepositoryManager {
                             }
                             updatedCount++
                         }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         AppLogger.e("Failed to auto-update plugin $internalName", e)
+                        try {
+                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(jar)
+                        } catch (_: Throwable) {}
                     }
                 }
             }
@@ -383,29 +386,43 @@ object DesktopRepositoryManager {
         updates.size
     }
 
-    suspend fun rebuildRemotePluginCatalog(): Int = withContext(Dispatchers.IO) {
+    suspend fun rebuildRemotePluginCatalog(onRepoFetched: (suspend (repoName: String, completed: Int, total: Int) -> Unit)? = null): Int = withContext(Dispatchers.IO) {
         val iconMap = java.util.concurrent.ConcurrentHashMap<String, String>()
         val total = java.util.concurrent.atomic.AtomicInteger(0)
+        val savedRepos = getSavedRepositories()
+        val completedCounter = java.util.concurrent.atomic.AtomicInteger(0)
 
         coroutineScope {
-            getSavedRepositories().map { saved ->
+            savedRepos.map { saved ->
                 async {
-                    val repo = PluginNetworkClient.fetchRepository(saved.url) ?: return@async
-                    repoCache[saved.url] = repo
-                    repo.pluginLists.map { listUrl ->
-                        async {
-                            val plugins = PluginNetworkClient.fetchPlugins(listUrl)
-                            pluginsCache[listUrl] = plugins
-                            plugins.forEach { plugin ->
-                                val icon = plugin.iconUrl
-                                if (!icon.isNullOrEmpty()) {
-                                    iconMap[plugin.internalName] = icon
-                                    iconMap[plugin.name] = icon
+                    try {
+                        val repo = PluginNetworkClient.fetchRepository(saved.url)
+                        if (repo != null) {
+                            repoCache[saved.url] = repo
+                            repo.pluginLists.map { listUrl ->
+                                async {
+                                    try {
+                                        val plugins = PluginNetworkClient.fetchPlugins(listUrl)
+                                        pluginsCache[listUrl] = plugins
+                                        plugins.forEach { plugin ->
+                                            val icon = plugin.iconUrl
+                                            if (!icon.isNullOrEmpty()) {
+                                                iconMap[plugin.internalName] = icon
+                                                iconMap[plugin.name] = icon
+                                            }
+                                        }
+                                        total.addAndGet(plugins.size)
+                                    } catch (_: Exception) {}
                                 }
-                            }
-                            total.addAndGet(plugins.size)
+                            }.awaitAll()
                         }
-                    }.awaitAll()
+                    } catch (_: Exception) {
+                    } finally {
+                        val done = completedCounter.incrementAndGet()
+                        _remotePluginIcons.value = iconMap + scanLocalPluginIcons()
+                        _syncGeneration.update { it + 1 }
+                        onRepoFetched?.invoke(saved.name, done, savedRepos.size)
+                    }
                 }
             }.awaitAll()
         }
@@ -441,30 +458,49 @@ object DesktopRepositoryManager {
                     remotePlugins.forEach { remotePlugin ->
                         val localJar = File(repoDir, "${remotePlugin.internalName}.jar")
                         if (localJar.exists()) {
-                            val manifest = readPluginManifest(localJar)
-                            val localVersion = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
-
+                            val localManifest = readPluginManifest(localJar)
+                            val localVersion = localManifest?.get("version")?.toString()?.toIntOrNull() ?: 0
                             if (remotePlugin.version > localVersion) {
-                                val iconUrl = remotePlugin.iconUrl ?: _remotePluginIcons.value[remotePlugin.internalName] ?: saved.iconUrl
-                                updatedList.add(
-                                    com.lagradost.common.storage.PluginUpdateRecord(
-                                        pluginName = remotePlugin.name,
-                                        version = remotePlugin.version,
-                                        iconUrl = iconUrl,
-                                    ),
-                                )
-                                com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
-                                localJar.delete()
-                                File(repoDir, "${remotePlugin.internalName}-jvm.jar").delete()
-                                File(repoDir, "${remotePlugin.internalName}.dex").delete()
-
-                                val newJar = downloadPlugin(repo.name, remotePlugin)
-                                if (newJar != null && newJar.exists()) {
-                                    try {
+                                AppLogger.i("Auto-updating ${remotePlugin.internalName} from v$localVersion to v${remotePlugin.version}...")
+                                try {
+                                    val newJar = downloadPlugin(saved.name, remotePlugin)
+                                    if (newJar != null) {
+                                        com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
                                         com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
-                                    } catch (e: Exception) {
-                                        if (e is kotlinx.coroutines.CancellationException) throw e
+                                        updatedList.add(
+                                            com.lagradost.common.storage.PluginUpdateRecord(
+                                                pluginName = remotePlugin.name,
+                                                version = remotePlugin.version,
+                                                iconUrl = remotePlugin.iconUrl,
+                                                timestamp = System.currentTimeMillis(),
+                                                isSuccess = true,
+                                                errorMessage = null,
+                                            )
+                                        )
+                                    } else {
+                                        updatedList.add(
+                                            com.lagradost.common.storage.PluginUpdateRecord(
+                                                pluginName = remotePlugin.name,
+                                                version = remotePlugin.version,
+                                                iconUrl = remotePlugin.iconUrl,
+                                                timestamp = System.currentTimeMillis(),
+                                                isSuccess = false,
+                                                errorMessage = "Download failed (network or server error)",
+                                            )
+                                        )
                                     }
+                                } catch (e: Exception) {
+                                    AppLogger.e("Failed to auto-update ${remotePlugin.internalName}", e)
+                                    updatedList.add(
+                                        com.lagradost.common.storage.PluginUpdateRecord(
+                                            pluginName = remotePlugin.name,
+                                            version = remotePlugin.version,
+                                            iconUrl = remotePlugin.iconUrl,
+                                            timestamp = System.currentTimeMillis(),
+                                            isSuccess = false,
+                                            errorMessage = e.message ?: "Failed to install update",
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -481,6 +517,11 @@ object DesktopRepositoryManager {
         }
     }
 
+    /**
+     * Returns all remote plugins across all active repositories.
+     * When multiple repositories host the same plugin, intelligent deduplication selects
+     * the candidate with a valid HTTPS download URL and the highest version.
+     */
     fun getAllPlugins(): List<Pair<String, SitePlugin>> {
         val list = mutableListOf<Pair<String, SitePlugin>>()
         for (saved in getSavedRepositories()) {
@@ -489,13 +530,22 @@ object DesktopRepositoryManager {
                 pluginsCache[listUrl]?.forEach { list.add(Pair(saved.name, it)) }
             }
         }
-        return list.distinctBy { it.second.internalName }
+        return list.groupBy { it.second.internalName }
+            .values
+            .mapNotNull { candidates ->
+                candidates.maxWithOrNull(
+                    compareBy<Pair<String, SitePlugin>> { it.second.url.startsWith("http") }
+                        .thenBy { it.second.version }
+                )
+            }
     }
 
-    suspend fun syncAll(): SyncReport = withContext(Dispatchers.IO) {
+    suspend fun syncAll(onProgress: (suspend (completed: Int, total: Int) -> Unit)? = null): SyncReport = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             val reposRefreshed = refreshAllRepositoryMetadata()
-            val catalogPlugins = rebuildRemotePluginCatalog()
+            val catalogPlugins = rebuildRemotePluginCatalog { _, done, total ->
+                onProgress?.invoke(done, total)
+            }
             val pluginsUpdated = autoUpdatePlugins()
             val newPluginsLoaded = com.lagradost.runtime.loader.ExtensionLoader.rescanAndLoadNewPlugins(getExtensionsDir())
             val iconsCached = _remotePluginIcons.value.size

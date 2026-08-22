@@ -21,12 +21,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +52,14 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiS
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
+
+private val CARD_TITLE_SCRIM_BRUSH = Brush.verticalGradient(
+    colorStops = arrayOf(
+        0f to Color.Transparent,
+        0.35f to Color.Black.copy(alpha = 0.7f),
+        1f to Color.Black.copy(alpha = 0.92f),
+    ),
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,7 +152,7 @@ fun ComposeLibraryScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
-                        items(filteredBookmarks) { bookmark ->
+                        items(filteredBookmarks, key = { it.id }) { bookmark ->
                             BookmarkCard(
                                 bookmark = bookmark,
                                 onClick = {
@@ -243,7 +251,7 @@ fun LibraryActionBar(
                 modifier = Modifier.height(52.dp),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Icon(Icons.Default.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(uiState.sortOption.title, maxLines = 1)
                 Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -268,7 +276,7 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val posterCornerRadius by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterRoundingDp.collectAsState()
-    val shape = RoundedCornerShape(posterCornerRadius.dp)
+    val shape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp) }
     val primary = MaterialTheme.colorScheme.primary
 
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -363,15 +371,7 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0f to Color.Transparent,
-                                        0.35f to Color.Black.copy(alpha = 0.7f),
-                                        1f to Color.Black.copy(alpha = 0.92f),
-                                    ),
-                                ),
-                            )
+                            .background(CARD_TITLE_SCRIM_BRUSH)
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                     ) {
                         Column {

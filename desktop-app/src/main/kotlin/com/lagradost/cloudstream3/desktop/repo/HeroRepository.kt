@@ -12,6 +12,7 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -168,5 +169,5 @@ object HeroRepository {
         }
         close()
         awaitClose { }
-    }
+    }.flowOn(Dispatchers.IO)
 }

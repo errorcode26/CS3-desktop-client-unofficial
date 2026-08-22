@@ -5,7 +5,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.ExtensionOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -119,7 +119,7 @@ fun InstalledTab(
         }
 
         val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
-        val extMinSize = (posterWidthDp * 1.8f).dp
+        val extMinSize = (posterWidthDp * 2.2f).coerceAtLeast(320f).dp
 
         if (installedPlugins.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -165,7 +165,7 @@ fun InstalledTab(
                         ) {
                             Text("Browse Catalog", fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                             Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }

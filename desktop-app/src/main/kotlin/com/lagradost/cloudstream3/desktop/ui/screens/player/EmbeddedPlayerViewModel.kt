@@ -15,6 +15,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEve
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
@@ -206,7 +207,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val available = links.filter { it.url !in failed }
         if (available.isEmpty()) return null
         val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        return sortLinks(available, prefQuality).firstOrNull()
+        return sortLinks(available, prefQuality, startPositionMs).firstOrNull()
     }
 
     private fun updatePhase(phase: PlayerPhase, newFailedLinks: Map<String, String>? = null) {
@@ -441,7 +442,12 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         val apiName = adjustedData.history.apiName
                         val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
                         if (provider != null) {
-                            val res = provider.load(adjustedData.history.showUrl)
+                            val res = SafePluginInvoker.invokeOrNull(
+                                tag = "HistoryLaunch:${provider.name}",
+                                timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                            ) {
+                                provider.load(adjustedData.history.showUrl)
+                            }
                             if (res is com.lagradost.cloudstream3.LoadResponse) {
                                 updateState {
                                     val currentLaunch = launchData
@@ -453,7 +459,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 }
                             }
                         }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                     }
                 }
@@ -781,11 +787,11 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
-    private fun sortLinks(links: List<ExtractorLink>, preferredQuality: String): List<ExtractorLink> {
-        if (preferredQuality == "Auto" || preferredQuality == "Auto / Highest" || preferredQuality == "Highest Available") {
-            return links.sortedByDescending { it.quality }
-        }
-
+    private fun sortLinks(
+        links: List<ExtractorLink>,
+        preferredQuality: String,
+        startPositionMs: Long = 0L,
+    ): List<ExtractorLink> {
         val targetQuality = when (preferredQuality) {
             "2160p (4K)" -> Qualities.P2160.value
             "1080p" -> Qualities.P1080.value
@@ -794,11 +800,26 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             else -> Qualities.Unknown.value
         }
 
+        val isAuto = preferredQuality == "Auto" || preferredQuality == "Auto / Highest" || preferredQuality == "Highest Available"
+        val isResuming = startPositionMs > 5000L
+
         return links.sortedWith(
-            compareByDescending<ExtractorLink> {
-                it.quality == targetQuality
-            }.thenByDescending {
-                it.quality
+            compareByDescending<ExtractorLink> { link ->
+                if (isResuming) {
+                    val urlLower = link.url.lowercase()
+                    val isSeekable = link.isM3u8 || link.type == ExtractorLinkType.M3U8 ||
+                        link.isDash || link.type == ExtractorLinkType.DASH ||
+                        urlLower.contains(".m3u8") || urlLower.contains(".mpd") ||
+                        urlLower.contains(".mp4") || urlLower.contains(".mkv") ||
+                        link.type == ExtractorLinkType.VIDEO
+                    if (isSeekable) 1 else 0
+                } else {
+                    0
+                }
+            }.thenByDescending { link ->
+                if (isAuto) 0 else if (link.quality == targetQuality) 1 else 0
+            }.thenByDescending { link ->
+                link.quality
             },
         )
     }
@@ -1085,7 +1106,12 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 val parentId = DesktopDataStore.watchHistoryId(provider.name, showUrl)
                 DesktopDataStore.removeEpisodeWatched(parentId, targetEpisodeId)
                 try {
-                    val freshResp = provider.load(showUrl)
+                    val freshResp = SafePluginInvoker.invokeOrNull(
+                        tag = "SelfHealing:${provider.name}",
+                        timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                    ) {
+                        provider.load(showUrl)
+                    }
                     if (freshResp is MovieLoadResponse && freshResp.dataUrl.isNotBlank() && freshResp.dataUrl != targetEpisodeId) {
                         val freshDataUrl = freshResp.dataUrl
                         AppLogger.i("Plugin:${provider.name}", "Self-healing resolved valid movie data payload. Retrying scraping...")

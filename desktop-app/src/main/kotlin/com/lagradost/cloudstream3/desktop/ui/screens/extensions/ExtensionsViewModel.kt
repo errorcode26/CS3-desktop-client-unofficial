@@ -102,7 +102,17 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         viewModelScope.launch {
             updateState { copy(isFetching = true, statusText = "Syncing repositories...") }
             try {
-                withContext(Dispatchers.IO) { DesktopRepositoryManager.syncAll() }
+                withContext(Dispatchers.IO) {
+                    DesktopRepositoryManager.syncAll { done, total ->
+                        val currentPlugins = DesktopRepositoryManager.getAllPlugins()
+                        updateState {
+                            copy(
+                                plugins = currentPlugins,
+                                statusText = "Syncing repositories ($done/$total)...",
+                            )
+                        }
+                    }
+                }
                 val allPlugins = DesktopRepositoryManager.getAllPlugins()
                 updateState { copy(plugins = allPlugins, statusText = "Sync completed successfully.") }
             } catch (e: Throwable) {
@@ -122,7 +132,15 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    DesktopRepositoryManager.syncAll()
+                    DesktopRepositoryManager.syncAll { done, total ->
+                        val currentPlugins = DesktopRepositoryManager.getAllPlugins()
+                        updateState {
+                            copy(
+                                plugins = currentPlugins,
+                                statusText = "Fetching repositories ($done/$total)...",
+                            )
+                        }
+                    }
                 }
                 val allPlugins = DesktopRepositoryManager.getAllPlugins()
                 val text = "Fetched ${allPlugins.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
@@ -176,68 +194,116 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
 
     private fun installPlugin(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
         viewModelScope.launch {
+            val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val targetDir = java.io.File(DesktopRepositoryManager.getExtensionsDir(), repoCleanName)
+            val jarFile = java.io.File(targetDir, "${plugin.internalName}.jar")
+            val jvmJarFile = java.io.File(targetDir, "${plugin.internalName}-jvm.jar")
+            val dexFile = java.io.File(targetDir, "${plugin.internalName}.dex")
+
+            val cleanupFailedArtifacts = {
+                try {
+                    ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+                    if (jarFile.exists()) jarFile.delete()
+                    if (jvmJarFile.exists()) jvmJarFile.delete()
+                    if (dexFile.exists()) dexFile.delete()
+                } catch (_: Throwable) {}
+            }
+
             try {
-                val jarFile = withContext(Dispatchers.IO) {
+                val downloadedFile = withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.downloadPlugin(repoName, plugin)
                 }
-                if (jarFile != null) {
+                if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
-                        ExtensionLoader.loadAndInit(jarFile)
+                        ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
+                        ExtensionLoader.loadAndInit(downloadedFile)
                     }
                     onResult("Installed")
                     refreshInstalled()
                     DesktopRepositoryManager.incrementSyncGeneration()
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
+                        "Installed '${plugin.name}' (v${plugin.version})"
+                    )
                 } else {
+                    cleanupFailedArtifacts()
                     onResult("Failed")
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                        "Failed to download '${plugin.name}': Network or server error"
+                    )
                 }
             } catch (e: com.lagradost.runtime.security.RequiresPermissionException) {
                 com.lagradost.common.logging.AppLogger.e("Permission required for plugin", e)
                 updateState { copy(pluginRequiringPermission = Triple(repoName, plugin, e.permissionName)) }
                 onResult("Requires Permission")
             } catch (e: java.lang.SecurityException) {
-                com.lagradost.common.logging.AppLogger.e("Security exception removing plugin", e)
-                updateState { copy(pluginRequiringBypass = Pair(repoName, plugin)) }
+                cleanupFailedArtifacts()
+                com.lagradost.common.logging.AppLogger.e("Security notice installing plugin", e)
+                val reason = e.message ?: "Suspicious bytecode or unverified class access detected."
+                updateState { copy(pluginRequiringBypass = Triple(repoName, plugin, reason)) }
                 onResult("Blocked (Security)")
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
+                    "Security Notice: '${plugin.name}' - $reason"
+                )
             } catch (e: Throwable) {
+                cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
-                try {
-                    val jarFile = java.io.File(DesktopRepositoryManager.getExtensionsDir(), "${repoName.replace(" ", "_")}/${plugin.internalName}.jar")
-                    if (jarFile.exists()) {
-                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
-                    }
-                } catch (_: Throwable) {}
                 onResult("Error")
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                    "Failed to install '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
+                )
             }
         }
     }
 
     private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
         viewModelScope.launch {
+            val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val targetDir = java.io.File(DesktopRepositoryManager.getExtensionsDir(), repoCleanName)
+            val jarFile = java.io.File(targetDir, "${plugin.internalName}.jar")
+            val jvmJarFile = java.io.File(targetDir, "${plugin.internalName}-jvm.jar")
+            val dexFile = java.io.File(targetDir, "${plugin.internalName}.dex")
+
+            val cleanupFailedArtifacts = {
+                try {
+                    ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+                    if (jarFile.exists()) jarFile.delete()
+                    if (jvmJarFile.exists()) jvmJarFile.delete()
+                    if (dexFile.exists()) dexFile.delete()
+                } catch (_: Throwable) {}
+            }
+
             try {
-                val jarFile = withContext(Dispatchers.IO) {
+                // Persist trust
+                com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(plugin.internalName, true)
+
+                val downloadedFile = withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.downloadPlugin(repoName, plugin)
                 }
-                if (jarFile != null) {
+                if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
-                        ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true)
+                        ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
+                        ExtensionLoader.loadAndInit(downloadedFile, forceBypassSecurity = true)
                     }
                     onResult("Installed")
                     refreshInstalled()
                     DesktopRepositoryManager.incrementSyncGeneration()
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
+                        "Trusted and installed '${plugin.name}'"
+                    )
                 } else {
+                    cleanupFailedArtifacts()
                     onResult("Failed")
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                        "Failed to download '${plugin.name}'"
+                    )
                 }
             } catch (e: Throwable) {
+                cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
-                try {
-                    val jarFile = java.io.File(DesktopRepositoryManager.getExtensionsDir(), "${repoName.replace(" ", "_")}/${plugin.internalName}.jar")
-                    if (jarFile.exists()) {
-                        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
-                    }
-                } catch (_: Throwable) {}
                 onResult("Error")
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                    "Failed to load '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
+                )
             } finally {
                 updateState { copy(pluginRequiringBypass = null) }
             }
@@ -309,6 +375,9 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                             com.lagradost.common.logging.AppLogger.i("Delete '${f.name}': ok=$ok")
                         }
                     }
+
+                    // Step 5: Revoke persistent trust so future fresh re-installs require re-verification
+                    ExtensionLoader.removeTrusted(plugin.file, plugin.internalName)
 
                     com.lagradost.common.logging.AppLogger.i("Uninstalled plugin '${plugin.name}' successfully.")
                 } catch (e: Throwable) {

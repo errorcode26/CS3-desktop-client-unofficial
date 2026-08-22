@@ -5,9 +5,11 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.metadata.MetadataEnrichmentCallbacks
 import com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
 sealed interface EnrichmentUpdate {
@@ -123,5 +125,5 @@ object GetEnrichedDetailsUseCase {
         awaitClose {
             enrichJob.cancel()
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }

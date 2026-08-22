@@ -182,12 +182,11 @@ class PlayerState {
             lastSeekTime = System.currentTimeMillis()
             targetSeekMs = positionMs
             val posSec = positionMs / 1000.0
-            // Use the seek command instead of setting time-pos directly.
-            // For HLS with force-seekable=yes, mpv_set_property_string(time-pos) silently
-            // no-ops when the target segment isn't in the demuxer cache — the slider moves
-            // but the video doesn't. mpv_command_string(seek absolute) forces a demuxer
-            // flush and a real network segment re-request.
-            MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute")
+            // Use seek absolute+exact first, falling back to seek absolute for HLS/DASH streams
+            val res = MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute+exact")
+            if (res != 0) {
+                MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute")
+            }
             this._positionMs.value = positionMs
         }
     }
@@ -233,8 +232,10 @@ class PlayerState {
             _activeSkipInterval.value = matching
 
             if (matching != null && !isSeekingInProgress()) {
-                val autoSkipIntro = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_INTRO) ?: false
-                val autoSkipOutro = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_OUTRO) ?: false
+                val autoSkipIntro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipIntro.value
+                    || (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_INTRO) ?: false)
+                val autoSkipOutro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipOutro.value
+                    || (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_OUTRO) ?: false)
 
                 val shouldAutoSkip = when (matching.type) {
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.OPENING,
@@ -363,8 +364,10 @@ class PlayerState {
     }
 
     fun setInterpolation(enabled: Boolean) {
-        com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
         _isInterpolationEnabled.value = enabled
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
+        }
         mpvHandle?.let {
             if (enabled) {
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-sync", "display-resample")
@@ -403,7 +406,9 @@ class PlayerState {
     }
 
     fun setSubtitleOverrideEnabled(enabled: Boolean) {
-        com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, enabled)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, enabled)
+        }
         mpvHandle?.let {
             if (enabled) {
                 MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")
@@ -452,11 +457,13 @@ class PlayerState {
     }
 
     fun setShader(shaderName: String) {
-        com.lagradost.common.storage.DesktopDataStore.setKey(
-            com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
-            shaderName,
-        )
         _activeShader.value = shaderName
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(
+                com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER,
+                shaderName,
+            )
+        }
 
         mpvHandle?.let { handle ->
             if (shaderName.isBlank() || shaderName == "None") {

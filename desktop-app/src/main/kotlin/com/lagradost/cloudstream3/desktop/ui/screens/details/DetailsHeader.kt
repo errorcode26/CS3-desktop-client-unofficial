@@ -8,13 +8,20 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -397,8 +404,9 @@ fun DetailsMetadata(
                             val metaItems = mutableListOf<String>()
 
                             // 1. Year / Multi-Year Span
-                            val yearSpan = if (data.type != TvType.Movie && data.type != TvType.AnimeMovie && !uiState?.enrichedReleaseDate.isNullOrBlank() && uiState!!.enrichedReleaseDate!!.contains("–")) {
-                                uiState.enrichedReleaseDate!!
+                            val enrichedDate = uiState?.enrichedReleaseDate
+                            val yearSpan = if (data.type != TvType.Movie && data.type != TvType.AnimeMovie && !enrichedDate.isNullOrBlank() && enrichedDate.contains("–")) {
+                                enrichedDate
                             } else {
                                 (uiState?.enrichedYear ?: data.year)?.toString()
                             }
@@ -688,13 +696,7 @@ fun DetailsMetadata(
                     val libraryButton: @Composable (Modifier) -> Unit = { mod ->
                         val isInLibrary = currentBookmark != null
                         Surface(
-                            onClick = {
-                                if (!isInLibrary) {
-                                    setWatchType(com.lagradost.common.storage.DesktopWatchType.WATCHING)
-                                } else {
-                                    isEditingStatus = !isEditingStatus
-                                }
-                            },
+                            onClick = { isEditingStatus = true },
                             modifier = mod.height(56.dp),
                             shape = RoundedCornerShape(12.dp),
                             color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
@@ -724,6 +726,110 @@ fun DetailsMetadata(
                         }
                     }
 
+                    CloudstreamAlertDialog(
+                        show = isEditingStatus,
+                        onDismissRequest = { isEditingStatus = false },
+                        title = {
+                            Text(
+                                text = if (currentBookmark != null) "Library Status" else "Add to Library",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                            )
+                        },
+                        text = {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            ) {
+                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                                    val isSelected = currentBookmark?.watchType == type.id
+                                    val icon = when (type) {
+                                        com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                                        com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
+                                        com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                                        com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
+                                        com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                                        com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
+                                    }
+                                    Surface(
+                                        onClick = { setWatchType(type) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = null,
+                                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Text(
+                                                text = type.stringRes,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 14.sp,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (currentBookmark != null) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Surface(
+                                        onClick = removeBookmarkAction,
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Text(
+                                                text = "Remove from Library",
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {},
+                        dismissButton = {
+                            TextButton(onClick = { isEditingStatus = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                    )
+
                     if (isButtonsNarrow) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -739,59 +845,6 @@ fun DetailsMetadata(
                                     libraryButton(Modifier.fillMaxWidth())
                                 }
                                 downloadAction?.invoke(Modifier)
-                            }
-
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = isEditingStatus,
-                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(200)),
-                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150)),
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFF18181B).copy(alpha = 0.95f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    FlowRow(
-                                        modifier = Modifier.padding(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                            val isSelected = currentBookmark?.watchType == type.id
-                                            Surface(
-                                                onClick = { setWatchType(type) },
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
-                                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                            ) {
-                                                Text(
-                                                    text = type.stringRes,
-                                                    color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                )
-                                            }
-                                        }
-                                        if (currentBookmark != null) {
-                                            Surface(
-                                                onClick = removeBookmarkAction,
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                                            ) {
-                                                Text(
-                                                    text = "Remove",
-                                                    color = MaterialTheme.colorScheme.error,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     } else {
@@ -809,59 +862,6 @@ fun DetailsMetadata(
                                 }
                                 libraryButton(Modifier)
                                 downloadAction?.invoke(Modifier)
-                            }
-
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = isEditingStatus,
-                                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(200)),
-                                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(150)),
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFF18181B).copy(alpha = 0.95f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    FlowRow(
-                                        modifier = Modifier.padding(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                            val isSelected = currentBookmark?.watchType == type.id
-                                            Surface(
-                                                onClick = { setWatchType(type) },
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
-                                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                            ) {
-                                                Text(
-                                                    text = type.stringRes,
-                                                    color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                )
-                                            }
-                                        }
-                                        if (currentBookmark != null) {
-                                            Surface(
-                                                onClick = removeBookmarkAction,
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                                            ) {
-                                                Text(
-                                                    text = "Remove",
-                                                    color = MaterialTheme.colorScheme.error,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -945,8 +945,11 @@ fun DetailsMetadata(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        isRightColumnPinned = !isRightColumnPinned
-                                        com.lagradost.common.storage.DesktopDataStore.setKey("DETAILS_RIGHT_COLUMN_PINNED", isRightColumnPinned)
+                                        val nextPinned = !isRightColumnPinned
+                                        isRightColumnPinned = nextPinned
+                                        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            com.lagradost.common.storage.DesktopDataStore.setKey("DETAILS_RIGHT_COLUMN_PINNED", nextPinned)
+                                        }
                                     },
                                     modifier = Modifier.size(36.dp),
                                 ) {

@@ -179,8 +179,9 @@ object PluginBytecodeTransformer {
                             reader.accept(visitor, ClassReader.SKIP_FRAMES)
                             zos.write(writer.toByteArray())
                         } catch (t: Throwable) {
-                            AppLogger.w("Failed to transform bytecode for ${entry.name}: ${t.message}. Keeping raw bytecode.")
-                            zos.write(bytes)
+                            tempFile.delete()
+                            AppLogger.e("Plugin Security: Failed to verify and transform bytecode for ${entry.name}: ${t.message}", t)
+                            throw SecurityException("Plugin Security: Failed to parse and verify bytecode for ${entry.name}. Unverified or obfuscated bytecode cannot be loaded.", t)
                         }
                     } else {
                         zos.write(bytes)

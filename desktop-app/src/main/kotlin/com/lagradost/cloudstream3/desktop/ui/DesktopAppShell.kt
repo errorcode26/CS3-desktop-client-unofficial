@@ -31,8 +31,7 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-// Removed DesktopUiState globally!
-val LocalSafeArea = staticCompositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
+val LocalSafeArea = compositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
 
 @Composable
 fun DesktopAppShell(

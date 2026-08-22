@@ -8,7 +8,7 @@ object URLStub {
     @JvmStatic
     fun openConnection(url: URL): URLConnection {
         if (url.protocol == "file") {
-            throw SecurityException("Security Sandbox: file:// URLs are blocked!")
+            throw SecurityException("Plugin Security: file:// URLs are blocked!")
         }
         return url.openConnection()
     }
@@ -16,7 +16,7 @@ object URLStub {
     @JvmStatic
     fun openStream(url: URL): InputStream {
         if (url.protocol == "file") {
-            throw SecurityException("Security Sandbox: file:// URLs are blocked!")
+            throw SecurityException("Plugin Security: file:// URLs are blocked!")
         }
         return url.openStream()
     }
@@ -24,7 +24,7 @@ object URLStub {
     @JvmStatic
     fun getContent(url: URL): Any {
         if (url.protocol == "file") {
-            throw SecurityException("Security Sandbox: file:// URLs are blocked!")
+            throw SecurityException("Plugin Security: file:// URLs are blocked!")
         }
         return url.content
     }

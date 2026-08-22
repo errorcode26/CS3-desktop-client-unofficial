@@ -70,31 +70,34 @@ fun parseEpisodeReleaseStatus(ep: Episode): EpisodeReleaseStatus {
     }
 }
 
-private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
-    val patterns = listOf(
-        "yyyy-MM-dd",
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
-        "yyyy-MM-dd'T'HH:mm:ssXXX",
-        "yyyy-MM-dd'T'HH:mm:ss",
-    )
+private val OUTPUT_DATE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US)
+    .withZone(java.time.ZoneOffset.UTC)
 
+private val ISO_DATE_FORMATTERS = listOf(
+    java.time.format.DateTimeFormatter.ISO_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
+    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
+    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
+    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE.withZone(java.time.ZoneOffset.UTC) to true,
+)
+
+private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
     var releaseEpochMs: Long? = null
     var formattedOut: String? = null
 
-    for (pattern in patterns) {
+    for ((formatter, isDateOnly) in ISO_DATE_FORMATTERS) {
         try {
-            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
-            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
-            val date = sdf.parse(rawDate)
-            if (date != null) {
-                val outSdf = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
-                formattedOut = outSdf.format(date)
-                // If it's a date-only format (yyyy-MM-dd), add 24h so that episodes airing today aren't locked early
-                releaseEpochMs = if (pattern == "yyyy-MM-dd") {
-                    date.time + 86_400_000L
+            val temporal = formatter.parseBest(rawDate, java.time.Instant::from, java.time.LocalDate::from)
+            val instant = when (temporal) {
+                is java.time.Instant -> temporal
+                is java.time.LocalDate -> temporal.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+                else -> null
+            }
+            if (instant != null) {
+                formattedOut = OUTPUT_DATE_FORMATTER.format(instant)
+                releaseEpochMs = if (isDateOnly) {
+                    instant.toEpochMilli() + 86_400_000L
                 } else {
-                    date.time
+                    instant.toEpochMilli()
                 }
                 break
             }

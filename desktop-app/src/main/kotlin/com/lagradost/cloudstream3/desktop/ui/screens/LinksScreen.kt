@@ -78,7 +78,9 @@ fun LinksSidePanel(
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->
             when (effect) {
-                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.ShowToast -> {} // Implement if needed
+                is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.ShowToast -> {
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
+                }
                 is com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect.NotifyLaunching -> {
                     isLaunchingPlayer = effect.isLaunching
                 }

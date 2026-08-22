@@ -46,18 +46,10 @@ data class VideoLaunchData(
 )
 
 val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoLaunchData?) -> Unit> { { } }
-val LocalVideoPlayerActive = androidx.compose.runtime.staticCompositionLocalOf<Boolean> { false }
+val LocalVideoPlayerActive = androidx.compose.runtime.compositionLocalOf<Boolean> { false }
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
 
-@androidx.compose.runtime.Stable
-class SearchUiState(
-    isSearchForced: Boolean = false,
-    searchFocusTrigger: Int = 0,
-) {
-    var isSearchForced by androidx.compose.runtime.mutableStateOf(isSearchForced)
-    var searchFocusTrigger by androidx.compose.runtime.mutableStateOf(searchFocusTrigger)
-}
 
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
@@ -292,6 +284,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                     // Context Menu Overlay (unblurred)
                     com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
+
+                    // Global Toast & Notification Overlay
+                    com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
 
                     // The Embedded Video Player Overlay
                     currentVideo?.let { launchData ->

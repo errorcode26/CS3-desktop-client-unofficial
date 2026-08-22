@@ -5,21 +5,21 @@ import com.lagradost.common.logging.AppLogger
 object SystemStub {
     @JvmStatic
     fun exit(status: Int) {
-        AppLogger.i("Security Sandbox: Blocked System.exit($status)")
+        AppLogger.i("Plugin Security: Blocked System.exit($status)")
     }
 
     @JvmStatic
     fun loadLibrary(libname: String) {
-        AppLogger.i("Security Sandbox: Blocked System.loadLibrary($libname)")
+        AppLogger.i("Plugin Security: Blocked System.loadLibrary($libname)")
     }
 
     @JvmStatic
     fun load(filename: String) {
-        AppLogger.i("Security Sandbox: Blocked System.load($filename)")
+        AppLogger.i("Plugin Security: Blocked System.load($filename)")
     }
 
     @JvmStatic
     fun setSecurityManager(s: SecurityManager?) {
-        AppLogger.i("Security Sandbox: Blocked System.setSecurityManager()")
+        AppLogger.i("Plugin Security: Blocked System.setSecurityManager()")
     }
 }

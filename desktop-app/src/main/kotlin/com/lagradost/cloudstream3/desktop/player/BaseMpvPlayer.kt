@@ -352,7 +352,40 @@ fun BaseMpvPlayer(
                                         playbackStartedAt = System.currentTimeMillis()
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Playback active (MPV_EVENT_FILE_LOADED / RESTART)")
 
-                                        if (startPositionMs > 0) {
+                                        if (startPositionMs > 2000L) {
+                                            val isSeekable = MpvLibrary.getPropertyString(h, "seekable") != "no"
+                                            if (!isSeekable && startPositionMs >= 10_000L) {
+                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream reports seekable=no and resume was requested at $startPositionMs ms. Notifying failover to next candidate link...")
+                                                currentOnPlaybackError("Stream is non-seekable (Cannot resume from saved position)")
+                                                break
+                                            }
+
+                                            val currentLoadedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
+                                            val targetSec = startPositionMs / 1000.0
+                                            if (currentLoadedPos < 1.0 || kotlin.math.abs(currentLoadedPos - targetSec) > 3.0) {
+                                                com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial start position ($targetSec s) not reached by demuxer (current=$currentLoadedPos s). Executing fallback seek...")
+                                                val seekRes = MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute+exact")
+                                                if (seekRes != 0) {
+                                                    MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute")
+                                                }
+                                            }
+                                            playerState?._positionMs?.value = startPositionMs
+
+                                            // Thread verification check after brief buffer phase
+                                            Thread({
+                                                try {
+                                                    Thread.sleep(600)
+                                                    val verifiedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
+                                                    if (verifiedPos < 1.0 && startPositionMs >= 3000L) {
+                                                        com.lagradost.common.logging.AppLogger.w("Player:MPV", "Initial start position retry: still at $verifiedPos s. Re-attempting seek to $targetSec s")
+                                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute")
+                                                    }
+                                                } catch (_: InterruptedException) { }
+                                            }, "cs3-seek-verify").apply {
+                                                isDaemon = true
+                                                start()
+                                            }
+                                        } else if (startPositionMs > 0) {
                                             com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial playback started at $startPositionMs ms")
                                             playerState?._positionMs?.value = startPositionMs
                                         }

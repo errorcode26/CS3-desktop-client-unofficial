@@ -52,15 +52,15 @@ fun String?.toColor(): Color {
 fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SIZE) ?: "45"
-    val subColor = uiState.stringSettings[PlayerConfig.PREF_SUB_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF"
-    val subBg = uiState.stringSettings[PlayerConfig.PREF_SUB_BG] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000"
-    val subFont = uiState.stringSettings[PlayerConfig.PREF_SUB_FONT] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_FONT) ?: "Inter"
-    val subBorderColor = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_COLOR) ?: "#000000"
-    val subBorderSize = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_SIZE] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_SIZE) ?: "3"
-    val subShadowColor = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_COLOR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_COLOR) ?: "#00000000"
-    val subShadowOffset = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_OFFSET] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_OFFSET) ?: "0"
-    val subBlur = uiState.stringSettings[PlayerConfig.PREF_SUB_BLUR] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BLUR) ?: "0"
+    val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: "45"
+    val subColor = uiState.stringSettings[PlayerConfig.PREF_SUB_COLOR] ?: "#FFFFFF"
+    val subBg = uiState.stringSettings[PlayerConfig.PREF_SUB_BG] ?: "#00000000"
+    val subFont = uiState.stringSettings[PlayerConfig.PREF_SUB_FONT] ?: "Inter"
+    val subBorderColor = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_COLOR] ?: "#000000"
+    val subBorderSize = uiState.stringSettings[PlayerConfig.PREF_SUB_BORDER_SIZE] ?: "3"
+    val subShadowColor = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_COLOR] ?: "#00000000"
+    val subShadowOffset = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_OFFSET] ?: "0"
+    val subBlur = uiState.stringSettings[PlayerConfig.PREF_SUB_BLUR] ?: "0"
 
     val parseSize = subSize.toFloatOrNull() ?: 45f
     val parseBorderSize = subBorderSize.toFloatOrNull() ?: 3f
@@ -94,8 +94,8 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
-                val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+                val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: "no"
+                val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: "no"
 
                 val textStyle = TextStyle(
                     fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(subFont),

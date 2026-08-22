@@ -613,11 +613,11 @@
         }
 
         // ── Real-time Active Skip Button Evaluation ─────────────────────
-        if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
-            const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
-            const skipBtn = document.getElementById('skipBtn');
-            const skipBtnLabel = document.getElementById('skipBtnLabel');
-            if (skipBtn) {
+        const skipBtn = document.getElementById('skipBtn');
+        const skipBtnLabel = document.getElementById('skipBtnLabel');
+        if (skipBtn) {
+            if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
+                const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
                 if (activeInv) {
                     if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
                     if (skipBtn.style.display !== 'flex') {
@@ -638,6 +638,10 @@
                     skipBtn.classList.remove('idle-faded');
                     window._skipBtnActiveSince = 0;
                 }
+            } else {
+                skipBtn.style.display = 'none';
+                skipBtn.classList.remove('idle-faded');
+                window._skipBtnActiveSince = 0;
             }
         }
         
@@ -712,7 +716,9 @@
 
         if (wasPlaying !== globalIsPlaying) {
             playPauseBtn.classList.toggle('is-playing', globalIsPlaying);
-
+            if (typeof window.updatePipPlayPauseIcon === 'function') {
+                window.updatePipPlayPauseIcon();
+            }
 
             // Only show controls on actual play/pause toggle, not on every rapid state_update
             // Throttled to prevent flicker when MPV toggles pause rapidly during buffering
@@ -2564,14 +2570,12 @@
         const r = document.getElementById('resumeOverlay');
         if (r) r.style.display = 'none';
         const sBtn = document.getElementById('skipBtn');
-        if (sBtn) sBtn.style.display = 'none';
-
-        if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
-            const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
-            if (activeInv) {
-                send('seekTo', activeInv.endMs + 100);
-            }
+        if (sBtn) {
+            sBtn.style.display = 'none';
+            sBtn.classList.remove('idle-faded');
+            window._skipBtnActiveSince = 0;
         }
+
         send('skipInterval');
     };
 
@@ -3320,10 +3324,15 @@
                 if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
                 videoEndedSubtext.innerText = 'Playing next episode soon...';
                 
+                if (endCountdownTimer) {
+                    clearInterval(endCountdownTimer);
+                    endCountdownTimer = null;
+                }
                 endCountdownTimer = setInterval(() => {
                     currentEndCountdown--;
                     if (currentEndCountdown <= 0) {
                         clearInterval(endCountdownTimer);
+                        endCountdownTimer = null;
                         triggerNextEpisode();
                     } else {
                         if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
@@ -3335,10 +3344,18 @@
             }
             
             btnNextEpisode.onclick = () => {
+                if (endCountdownTimer) {
+                    clearInterval(endCountdownTimer);
+                    endCountdownTimer = null;
+                }
                 triggerNextEpisode();
             };
             if (videoEndedNextCard) {
                 videoEndedNextCard.onclick = () => {
+                    if (endCountdownTimer) {
+                        clearInterval(endCountdownTimer);
+                        endCountdownTimer = null;
+                    }
                     triggerNextEpisode();
                 };
             }
@@ -3350,7 +3367,10 @@
         }
         
         btnReplay.onclick = () => {
-            if (endCountdownTimer) clearInterval(endCountdownTimer);
+            if (endCountdownTimer) {
+                clearInterval(endCountdownTimer);
+                endCountdownTimer = null;
+            }
             send('hideVideoEnded', '1');
             videoEndedOverlay.style.display = 'none';
             evaluateUIStates();
@@ -3360,7 +3380,10 @@
         };
         
         btnExitPlayer.onclick = () => {
-            if (endCountdownTimer) clearInterval(endCountdownTimer);
+            if (endCountdownTimer) {
+                clearInterval(endCountdownTimer);
+                endCountdownTimer = null;
+            }
             triggerExit();
         };
     };
@@ -3374,9 +3397,25 @@
 
 
     // ── PiP Mode UI Logic ────────────────────────────────────────────────
+    const pipPlayIcon = document.getElementById('pipPlayIcon');
+    const pipPauseIcon = document.getElementById('pipPauseIcon');
+    const updatePipPlayPauseIcon = () => {
+        if (pipPlayIcon && pipPauseIcon) {
+            if (globalIsPlaying) {
+                pipPlayIcon.style.display = 'none';
+                pipPauseIcon.style.display = 'block';
+            } else {
+                pipPlayIcon.style.display = 'block';
+                pipPauseIcon.style.display = 'none';
+            }
+        }
+    };
+    window.updatePipPlayPauseIcon = updatePipPlayPauseIcon;
+
     window.setPipUi = (active) => {
         if (active) {
             document.body.classList.add('is-pip');
+            updatePipPlayPauseIcon();
         } else {
             document.body.classList.remove('is-pip');
         }
@@ -3414,21 +3453,6 @@
             triggerActionFeedback(SVGS.forward10, 'right');
         });
     }
-
-    // Listen for state updates to sync the play/pause button icon in PiP overlay
-    const pipPlayIcon = document.getElementById('pipPlayIcon');
-    const pipPauseIcon = document.getElementById('pipPauseIcon');
-    setInterval(() => {
-        if (pipPlayIcon && pipPauseIcon) {
-            if (globalIsPlaying) {
-                pipPlayIcon.style.display = 'none';
-                pipPauseIcon.style.display = 'block';
-            } else {
-                pipPlayIcon.style.display = 'block';
-                pipPauseIcon.style.display = 'none';
-            }
-        }
-    }, 500);
 
     // ── Window Dragging via IPC ──────────────────────────────────────────
     const pipOverlay = document.getElementById('pipOverlay');

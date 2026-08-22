@@ -2,50 +2,55 @@
 
 > [!CAUTION]
 > **PURELY EXPERIMENTAL - NOT FOR REGULAR USERS**  
-> This project is a massive, highly experimental sandbox. It is **NOT** a stable release, it is **NOT** meant for regular users, and it is **NOT** ready for daily use. Expect crashes, broken features, and missing functionality. This is strictly a developer playground and proof-of-concept for running Android plugins natively on the desktop. 
-> 
-> *Also, this project contains AI-generated code, so beware: it might not make sense sometimes because the dev is very lazy and too stupid to write their own code.*
+> This project is a desktop JVM port and developer playground designed to run Android plugins natively on the desktop. It is actively evolving and intended for developers and contributors exploring Kotlin Multiplatform (KMP), Compose for Desktop, and bytecode transpilation.
 
-Welcome to the CloudStream Desktop project. This is a native **Compose for Desktop** application designed to run CloudStream Android plugins natively in a desktop JVM environment.
+Welcome to the CloudStream Desktop project. This is a native **Compose for Desktop** application designed to run CloudStream Android plugins natively in a desktop JVM environment without an Android emulator.
 
 ---
 
 ## 🏗️ Multi-Module Architecture
 
-The project is structured into modular layers to cleanly separate concerns and allow the Android-specific plugin code to execute on the desktop:
+The project is structured into modular layers to cleanly separate concerns and allow Android-targeted plugins to execute seamlessly on the desktop:
 
-*   **`:library` (android-reference)**: A submodule copy of the core Android CloudStream library. It contains the primary data models, scrapers, and extension interfaces.
-*   **`:android-stubs`**: Compatibility mock stubs for Android platform APIs (e.g., `Context`, `SharedPreferences`, `ActivityThread`). This allows standard JVM compilation of Android-targeted plugin code.
-*   **`:common`**: The persistence and settings layer. It uses **SQLDelight** for local database management and Jackson-based file serialization, remaining completely decoupled from the UI.
-*   **`:player-abstraction`**: Abstracts media playback. It hosts native wrappers for **MPV** (JNA bindings) and **VLC** (process wrappers), and embeds a local Ktor Netty proxy (`LocalStreamProxy`) to rewrite HLS segment headers for CDN requests.
-*   **`:desktop-app`**: The main entry point. It hosts the Compose for Desktop UI, navigation, theme controls, and window chrome.
-*   **`:plugin-runtime` / `:plugin-sandbox`**: Handles isolated plugin loading and basic bytecode sandboxing to protect local files.
+*   **`:library` (android-reference)**: A submodule copy of the core Android CloudStream library containing primary data models, scrapers, and extension interfaces.
+*   **`:android-stubs`**: Compatibility mock stubs for Android platform APIs (e.g., `Context`, `SharedPreferences`, `ActivityThread`). This allows standard JVM compilation and runtime execution of Android-targeted plugin code.
+*   **`:common`**: The persistence and shared settings layer. Uses **SQLDelight** for local database management, watch history, settings persistence, and update records.
+*   **`:player-abstraction`**: Abstracts media playback across engines. Hosts native wrappers for **MPV** (via JNA `libmpv` bindings), **WebView2** (via C++ JNI bridge), and embeds a local Ktor Netty proxy (`LocalStreamProxy`) to handle HLS segment header rewriting for CDN requests.
+*   **`:plugin-runtime`**: The plugin execution and security engine. Handles:
+    *   **Dalvik DEX $\rightarrow$ JVM Transpilation:** Real-time DEX translation (`Dex2jar`) allowing Android `.cs3` and `.jar` extensions to run on JVM.
+    *   **Plugin Security Policy:** Enforces a strict Default Deny whitelist policy ([`PluginSecurityPolicy.kt`](plugin-runtime/src/main/kotlin/com/lagradost/runtime/security/PluginSecurityPolicy.kt)) and blocks unauthorized reflection or desktop system calls.
+    *   **Bytecode Rewriting:** Automatic ASM instruction transformation ([`PluginBytecodeTransformer.kt`](plugin-runtime/src/main/kotlin/com/lagradost/runtime/loader/PluginBytecodeTransformer.kt)) replacing dangerous system calls with safe runtime stubs.
+    *   **JavaScript Security:** Global Rhino `ClassShutter` ([`RhinoSecurity.kt`](plugin-runtime/src/main/kotlin/com/lagradost/runtime/security/RhinoSecurity.kt)) preventing embedded JavaScript scrapers from reflecting into host JVM classes.
+    *   **Crash Immunity:** `SafePluginInvoker` supervisor coroutine wrappers with strict execution timeouts to ensure third-party plugins cannot crash the main application.
+*   **`:desktop-app`**: The primary Compose for Desktop application. Houses the MVI presentation layer, Unified Dialog System, Amoled Pure Black theme engine, Dev Studio LogCat, and the Global Floating Toast notification system.
 
 ---
 
 ## ✨ Core Capabilities
 
-*   **Native Compose UI:** Built entirely in Compose for Desktop with rich cinematic header fades, responsive hero layouts, dynamic color extraction, and multi-mode search (persistent overlays & quick-clear controls).
-*   **Android Plugin Compatibility:** Runs standard Android plugins directly on the JVM through custom compatibility stubs (`android.*`, `androidx.*`) and isolated class loaders.
-*   **Advanced Media Abstraction (`:player-abstraction`):** Native MPV decoding (via JNA `libmpv` bindings) and fallback web/process wrappers, backed by an embedded Ktor Netty proxy (`LocalStreamProxy`) for HLS segment header rewriting and CDN bypasses.
-*   **Modular Storage & Synchronization:** SQLDelight local database management decoupled from the presentation layer, with built-in multi-provider watch tracking and history sync.
+*   **Native Compose for Desktop UI:** Rich cinematic hero banners, responsive media grids, multi-mode search with persistent overlays, and custom Amoled Pure Black dark mode.
+*   **Unified Dialog Architecture:** Strictly encapsulated dialog system (`CloudstreamAlertDialog` and `CloudstreamCustomDialog`) ensuring desktop-first sizing and consistent elevation across all dialogs and popups.
+*   **In-Process Fault Tolerance & Crash Shielding:** All plugin API calls (search, load, link extraction) are fully shielded by supervisor scopes and execution timeouts to prevent UI freezes or crashes.
+*   **Automatic Plugin Management & Update Diagnostics:** Background update checks, visual success/failure badges in the Update History tab, and automated cleanup of unverified files.
+*   **Global Toast Overlay:** Floating glassmorphic toast notification system with spam debouncing and detailed failure diagnostics for plugin operations and background workers.
+*   **Advanced Media Playback:** Native MPV hardware-accelerated video decoding with subtitle formatting, custom keybindings, and fallback WebView2 player support.
 
 ---
 
 ## 🛠️ Setup & Development Workflow
 
 ### Prerequisites
-Make sure you have all of these installed before you start:
+Make sure you have the following installed:
 *   **JDK 21** or higher — [Download Temurin](https://adoptium.net/)
-*   **Git** — needed for cloning with submodules ([Download](https://git-scm.com/))
-*   **MinGW-w64 / g++** — only needed if you plan to modify the C++ JNI bridge (`compile_jni.ps1`). Make sure `g++` is available in your `PATH` ([Download via MSYS2](https://www.msys2.org/))
-*   **Inno Setup 6** — only needed if you want to build the `.exe` installer locally ([Download](https://jrsoftware.org/isdl.php))
+*   **Git** — needed for cloning with recursive submodules ([Download](https://git-scm.com/))
+*   **MinGW-w64 / g++** — only needed if modifying the C++ JNI bridge (`compile_jni.ps1`) ([Download via MSYS2](https://www.msys2.org/))
+*   **Inno Setup 6** — only needed for building the `.exe` setup installer locally ([Download](https://jrsoftware.org/isdl.php))
 
 > [!NOTE]
-> You do **not** need Android Studio or any Android SDK. This is a pure JVM/Desktop project.
+> You do **not** need Android Studio or the Android SDK. This is a pure JVM/Desktop project.
 
 ### 1. Clone the Repository
-You **must** use Git clone with recursive submodules so the Android core library references are pulled correctly:
+You **must** use Git clone with recursive submodules so the core library references are pulled correctly:
 ```bash
 git clone --recursive https://github.com/errorcode26/CS3-desktop-client-unofficial.git
 cd CS3-desktop-client-unofficial
@@ -55,12 +60,12 @@ cd CS3-desktop-client-unofficial
 
 ### 2. Download Native Binaries
 Before running, you need a local copy of the `libmpv` shared library for video decoding:
-1. Download the latest `mpv-dev` Windows build (e.g., from SourceForge).
-2. Extract and place `libmpv-2.dll` (or `mpv-2.dll`) directly inside the following folder:
+1. Download the latest `mpv-dev` Windows build (e.g., from SourceForge or official mpv builds).
+2. Extract and place `libmpv-2.dll` (or `mpv-2.dll`) directly inside:
    `desktop-app/appResources/windows/mpv/`
 
 ### 3. Run Locally
-To launch the desktop application, simply run the unified launcher script:
+To launch the desktop application, run the launcher script:
 ```bat
 .\launch.bat
 ```
@@ -75,7 +80,7 @@ Or specify direct command-line targets:
 > [!TIP]
 > Press **F12** anywhere inside the app to toggle the live Dev Studio LogCat console.
 
-To quickly run only the isolated media player test harness (without starting the entire app UI):
+To run only the isolated media player test harness (without starting the entire app UI):
 ```bash
 # For WebView player testing:
 .\gradlew.bat :desktop-app:runTestWebViewPlayer
@@ -85,69 +90,43 @@ To quickly run only the isolated media player test harness (without starting the
 ```
 
 ### 4. Working on the Native C++ Bridge
-If you are tweaking the raw C++ code for the WebView2 JNI player bridge (`desktop-app/src/main/cpp`), you do not need to memorize the 15+ GCC compiler/linking flags. Simply run the included PowerShell script to instantly recompile the `.dll`:
+If you modify the C++ code for the WebView2 JNI player bridge (`desktop-app/src/main/cpp`), recompile the `.dll` using the PowerShell script:
 ```powershell
 .\compile_jni.ps1
 ```
 
 > [!IMPORTANT]
-> The CI/CD pipeline does **not** recompile the C++ bridge automatically. After running the script, make sure you **commit the updated `player_bridge.dll`** along with your C++ changes before pushing. Otherwise the CI build will ship the old binary.
+> The CI/CD pipeline does **not** recompile the C++ bridge automatically. After running the script, make sure you **commit the updated `player_bridge.dll`** along with your C++ changes.
 
-> [!NOTE]
-> **Want a new UI feature that uses native Windows functionality?** If the feature you want doesn't already exist in the C++ bridge (e.g., a new WebView2 control, a new window event, a new native dialog), you **must** add the corresponding JNI method to `player_bridge.cpp` first and recompile the `.dll`. The Kotlin/Compose UI layer can only call native capabilities that are already exposed through the JNI bridge — there is no other way to add them.
-
-### 5. Build Installer (Optional)
-If you need to generate a standalone Windows `.exe` setup installer for testing:
-1. Run `launch.bat build` to clean and compile the latest executable binaries.
+### 5. Build Standalone Installer
+To generate a standalone Windows `.exe` installer:
+1. Run `.\launch.bat build` to compile the release executable.
 2. Open Inno Setup Compiler and compile [installer/setup.iss](installer/setup.iss).
-
-The compiled setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.
-
-### 6. Automated GitHub Releases (CI/CD)
-The project is configured to automatically build and publish a Windows `.exe` installer directly to GitHub Releases whenever a new version tag is pushed to `main`. 
-To trigger a new public release:
-1. Bump `APP_VERSION` in `gradle.properties` (e.g., from `0.1.2` to `0.1.3`).
-2. Commit the change to the `main` branch.
-3. Create and push a version tag matching the version number:
-   ```bash
-   git tag v0.1.3
-   git push origin v0.1.3
-   ```
-GitHub Actions will automatically spin up a Windows runner, compile the JVM binaries, package the Inno Setup executable, and draft the release notes for you!
+3. The setup installer will be generated at `desktop-app\build\outputs\CloudStream-Setup.exe`.
 
 ---
 
 ## 🧪 Testing & Code Quality
-This architecture is built for rapid iteration. We have a lightweight test harness, but our focus is on active developer validation:
-*   Use isolated experimental/feature branches for development to keep the `dev` branch clean.
-*   To run the standard automated unit test suite (verifies math, updaters, and API parsers):
+
+*   **Kotlin Compilation Check:**
+    ```bash
+    .\gradlew.bat compileKotlin
+    ```
+*   **Automated Unit Test Suite:**
     ```bash
     .\gradlew.bat :desktop-app:test
-    ```
-*   To test changes on the video player directly without booting the full app shell, use the isolated harnesses:
-    ```bash
-    .\gradlew.bat :desktop-app:runTestWebViewPlayer
-    .\gradlew.bat :desktop-app:runTestMpvPlayer
     ```
 
 ---
 
-## 🤝 Contributing & Issues
+## 🤝 Contributing & Pull Requests
 
-### Reporting Issues
-Found a bug or got a cool feature idea? Just open an issue! Keep it simple and to the point:
-1. **What were you trying to do?** (e.g., "I clicked the play button...")
-2. **What actually happened?** (e.g., "...and the app crashed.") If things blew up, drop the error logs or a screenshot.
-3. **How can we reproduce it?** (Step-by-step is super helpful so we can see the bug ourselves).
-
-### Pull Requests (PRs)
-Want to build a feature yourself? Awesome! We love PRs.
-1. Fork the repo and create your own branch off the `dev` branch.
-2. Build your feature. Be sure to test it locally using the test commands above!
-3. **Important:** Don't touch the version numbers in `gradle.properties` (we handle version bumping when we merge).
-4. Open a PR, give it a quick description of what you added and why it's cool, and we'll take a look!
+1. Fork the repo and create your feature branch off `work` or create a new branch.
+2. Ensure code builds locally with `.\gradlew.bat compileKotlin`.
+3. Follow the project's **Unified Dialog Protocol** (`CloudstreamAlertDialog` / `CloudstreamCustomDialog`) and **MVI architecture** patterns.
+4. Open a Pull Request with a clear description of the changes.
 
 ---
 
 ## Disclaimer
-This repository acts purely as a blank-slate media shell. The application does not ship with any plugins, media files, or pre-configured content sources. The developers hold no responsibility or liability for how users choose to utilize this software.
+This repository acts purely as a blank-slate media shell and plugin runtime environment. The application does not ship with any plugins, media files, or pre-configured content sources. The developers hold no responsibility or liability for how users choose to utilize this software.

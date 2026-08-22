@@ -241,13 +241,24 @@ fun UpdateHistoryTab() {
                                         }
                                     }
 
-                                    Text(
-                                        text = "Auto-updated via repository sync",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    if (update.isSuccess) {
+                                        Text(
+                                            text = "Auto-updated via repository sync",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    } else {
+                                        Text(
+                                            text = update.errorMessage ?: "Failed to install update",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
 
@@ -256,7 +267,7 @@ fun UpdateHistoryTab() {
                                 thickness = 1.dp,
                             )
 
-                            // Bottom Row: Timestamp + Installed Pill
+                            // Bottom Row: Timestamp + Status Pill
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -280,12 +291,18 @@ fun UpdateHistoryTab() {
                                     )
                                 }
 
+                                val isSuccess = update.isSuccess
+                                val badgeBg = if (isSuccess) Color(0xFF4CAF50).copy(alpha = 0.14f) else MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
+                                val badgeBorder = if (isSuccess) Color(0xFF4CAF50).copy(alpha = 0.35f) else MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                                val badgeColor = if (isSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                                val badgeText = if (isSuccess) "Updated" else "Failed"
+
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFF4CAF50).copy(alpha = 0.14f),
+                                    color = badgeBg,
                                     border = androidx.compose.foundation.BorderStroke(
                                         1.dp,
-                                        Color(0xFF4CAF50).copy(alpha = 0.35f),
+                                        badgeBorder,
                                     ),
                                 ) {
                                     Row(
@@ -297,11 +314,11 @@ fun UpdateHistoryTab() {
                                             modifier = Modifier
                                                 .size(5.dp)
                                                 .clip(CircleShape)
-                                                .background(Color(0xFF4CAF50)),
+                                                .background(badgeColor),
                                         )
                                         Text(
-                                            text = "Installed",
-                                            color = Color(0xFF4CAF50),
+                                            text = badgeText,
+                                            color = badgeColor,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                         )

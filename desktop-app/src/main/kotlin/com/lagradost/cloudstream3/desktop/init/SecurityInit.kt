@@ -14,6 +14,9 @@ fun initSecurity() {
     // Uncaught exception handler
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         DesktopErrorReporter.report("Unhandled exception in ${thread.name}", throwable)
+        if (thread.name.contains("Plugin", ignoreCase = true) || thread.name.contains("Worker", ignoreCase = true)) {
+            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("⚠️ Background task failed: ${throwable.message ?: throwable.javaClass.simpleName}")
+        }
     }
 
     // Conscrypt security provider (BoringSSL - matches Chrome JA3 TLS fingerprint)
@@ -32,4 +35,7 @@ fun initSecurity() {
     // Force initialization of DataStore BEFORE plugins are loaded.
     // This prevents plugins from triggering <clinit> which causes the SecurityManager to block File.mkdirs()
     DesktopDataStore.init()
+
+    // Rhino JavaScript Security ClassShutter (prevents plugins from reflecting/importing Java classes in JS)
+    com.lagradost.runtime.security.RhinoSecurity.init()
 }

@@ -328,7 +328,8 @@ public:
 
         g_webviewController = controller;
         g_webviewController->AddRef();
-        g_webviewController->put_IsVisible(TRUE);
+        // Keep controller hidden initially to prevent opaque white window painting on cold start
+        g_webviewController->put_IsVisible(FALSE);
 
         g_webviewController->get_CoreWebView2(&g_webview);
 
@@ -338,7 +339,7 @@ public:
         g_webviewController->put_Bounds(bounds);
 
         // Transparent background
-        // Makes WebView2 background fully transparent so MPV video shows through.
+        // Sets WebView2 background fully transparent before any visual frame is rendered.
         ICoreWebView2Controller2* controller2 = nullptr;
         if (SUCCEEDED(g_webviewController->QueryInterface(IID_ICoreWebView2Controller2, (void**)&controller2))) {
             COREWEBVIEW2_COLOR transparent = {0, 0, 0, 0};
@@ -363,7 +364,10 @@ public:
         g_webviewReady = true;
         LOG_TO_FILE("[NativeBridge] WebView2 Initialized Successfully!");
 
-        // Bring the WebView2 overlay above the MPV render window immediately
+        // Fallback safety timer: show controller after 400ms if ui_ready was not received
+        SetTimer(g_messageHwnd, 0x4E52, 400, nullptr);
+
+        // Bring the WebView2 overlay above the MPV render window
         SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 

@@ -32,6 +32,9 @@ dependencies {
     implementation("org.ow2.asm:asm:9.6")
     implementation("org.ow2.asm:asm-tree:9.6")
 
+    // Rhino JS Engine Sandbox
+    implementation(libs.rhino)
+
     // AXML Parser for plugin settings discovery
     implementation("net.dongliu:apk-parser:2.6.10")
 

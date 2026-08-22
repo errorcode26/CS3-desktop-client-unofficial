@@ -136,31 +136,36 @@ object ExtensionLoader {
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Transpiling Dalvik DEX -> JVM JAR for ${jarFile.name}...")
                     val dexFile = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".dex")
-                    zip.getInputStream(dexEntry).use { input ->
-                        Files.copy(input, dexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                    }
-
                     try {
-                        AppLogger.i("[PluginLoader] Starting Dex2Jar translation...")
-                        Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
-                        AppLogger.i("[PluginLoader] Dex2Jar translation finished.")
-                    } catch (e: Exception) {
-                        AppLogger.e("[PluginLoader] Dex2jarCmd().doMain failed. Trying fallback...", e)
-                        try {
-                            Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
-                            AppLogger.i("[PluginLoader] Dex2Jar fallback translation finished.")
-                        } catch (e2: Exception) {
-                            AppLogger.e("[PluginLoader] Dex2Jar fallback completely failed!", e2)
-                            throw e2
+                        zip.getInputStream(dexEntry).use { input ->
+                            Files.copy(input, dexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
                         }
-                    }
 
-                    if (!convertedJar.exists()) {
-                        AppLogger.e("[PluginLoader] Dex2Jar finished but no JAR was produced at ${convertedJar.absolutePath}")
-                    } else {
-                        PluginBytecodeTransformer.transform(convertedJar)
+                        try {
+                            AppLogger.i("[PluginLoader] Starting Dex2Jar translation...")
+                            Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
+                            AppLogger.i("[PluginLoader] Dex2Jar translation finished.")
+                        } catch (t: Throwable) {
+                            AppLogger.e("[PluginLoader] Dex2jarCmd().doMain failed. Trying fallback...", t)
+                            try {
+                                Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", convertedJar.absolutePath)
+                                AppLogger.i("[PluginLoader] Dex2Jar fallback translation finished.")
+                            } catch (t2: Throwable) {
+                                AppLogger.e("[PluginLoader] Dex2Jar fallback completely failed!", t2)
+                                convertedJar.delete()
+                                throw IllegalStateException("Failed to transpile Dalvik DEX to JVM bytecode for ${jarFile.name}: ${t2.message}", t2)
+                            }
+                        }
+
+                        if (!convertedJar.exists() || convertedJar.length() == 0L) {
+                            convertedJar.delete()
+                            throw IllegalStateException("Dex2Jar translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
+                        } else {
+                            PluginBytecodeTransformer.transform(convertedJar)
+                        }
+                    } finally {
+                        try { dexFile.delete() } catch (_: Throwable) {}
                     }
-                    dexFile.delete()
                 } else {
                     AppLogger.i("[PluginLoader] Using cached JVM JAR: ${convertedJar.name}")
                 }
@@ -177,9 +182,9 @@ object ExtensionLoader {
 
         AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
-        val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad)
+        val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad, finalInternalName)
         if (forceBypassSecurity) {
-            addTrusted(jarToLoad)
+            addTrusted(jarToLoad, finalInternalName)
         }
 
         AppLogger.i("Running static bytecode security verification on ${jarToLoad.name} (Trusted: $isPluginTrusted)...")
@@ -190,7 +195,6 @@ object ExtensionLoader {
             AppLogger.i("Intercepted plugin $pluginClassName! Injecting native JVM implementation.")
             nativeIntercept
         } else {
-            val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad)
             val safeParentLoader = SafePluginClassLoader(this::class.java.classLoader, isPluginTrusted)
             val classLoader = CompatPluginClassLoader(arrayOf(jarToLoad.toURI().toURL()), safeParentLoader)
             val pluginClass = classLoader.loadClass(pluginClassName)
@@ -380,19 +384,60 @@ object ExtensionLoader {
         }
     }
 
-    private fun isTrusted(jarFile: File): Boolean {
+    fun isTrusted(jarFile: File, internalName: String? = null): Boolean {
         val name = jarFile.nameWithoutExtension.removeSuffix("-jvm")
-        return getTrustedList().contains(name)
+        val list = getTrustedList()
+        val inList = list.contains(name) || (internalName != null && list.contains(internalName))
+        val inDataStore = com.lagradost.common.storage.DesktopDataStore.isPluginTrusted(name) ||
+            (internalName != null && com.lagradost.common.storage.DesktopDataStore.isPluginTrusted(internalName))
+        return inList || inDataStore
     }
 
-    private fun addTrusted(jarFile: File) {
+    fun addTrusted(jarFile: File, internalName: String? = null) {
         val name = jarFile.nameWithoutExtension.removeSuffix("-jvm")
         val trusted = getTrustedList()
+        var changed = false
         if (!trusted.contains(name)) {
             trusted.add(name)
+            changed = true
+        }
+        if (internalName != null && !trusted.contains(internalName)) {
+            trusted.add(internalName)
+            changed = true
+        }
+        if (changed) {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
             prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
+        }
+        com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(name, true)
+        if (internalName != null) {
+            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(internalName, true)
+        }
+    }
+
+    fun removeTrusted(jarFile: File? = null, internalName: String? = null) {
+        val name = jarFile?.nameWithoutExtension?.removeSuffix("-jvm")
+        val trusted = getTrustedList()
+        var changed = false
+        if (name != null && trusted.contains(name)) {
+            trusted.remove(name)
+            changed = true
+        }
+        if (internalName != null && trusted.contains(internalName)) {
+            trusted.remove(internalName)
+            changed = true
+        }
+        if (changed) {
+            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+            val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
+            prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
+        }
+        if (name != null) {
+            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(name, false)
+        }
+        if (internalName != null) {
+            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(internalName, false)
         }
     }
 

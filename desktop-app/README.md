@@ -1,13 +1,14 @@
 # CloudStream Desktop App
 
-This module contains the primary CloudStream Desktop client, built using Compose Desktop.
+This module contains the primary CloudStream Desktop client, built using Compose for Desktop and Kotlin Multiplatform.
 
 ## Overview
 
-Unlike the Android application, this module operates in a JVM desktop environment. To run plugins that were designed exclusively for Android, this module includes an extension loader and custom Android API stubs (`android.*`, `androidx.*`) that mimic the Android framework on Windows.
+Unlike the Android application, this module operates in a standard JVM desktop environment. To run plugins designed for Android, the client integrates with `:plugin-runtime` for Dalvik DEX-to-JVM transpilation and `:android-stubs` for Android platform compatibility.
 
-## Development
+## Architecture Guidelines
 
-- All UI is written in Compose Multiplatform.
-- Android APIs utilized by plugins (such as `android.view.View` and `android.content.Context`) must be manually stubbed here if they do not yet exist.
-- Always use `compile.bat` in the root workspace to compile the `.exe`.
+- **UI Framework:** All UI is written in Compose Multiplatform following an MVI architecture with reactive StateFlows.
+- **Unified Dialog System:** All popups and dialogs MUST use `CloudstreamAlertDialog` or `CloudstreamCustomDialog` from `com.lagradost.cloudstream3.desktop.ui.components.CloudstreamDialogs` to maintain visual consistency and Amoled Pure Black theme support.
+- **Thread Safety:** Database writes and file I/O must always run on background dispatchers (`Dispatchers.IO`).
+- **Compilation:** Use `launch.bat` (or `launch.bat dev` / `launch.bat build`) in the root directory for development and packaging.

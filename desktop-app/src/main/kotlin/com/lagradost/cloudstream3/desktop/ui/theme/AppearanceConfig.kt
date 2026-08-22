@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.theme
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 enum class PosterTitlePosition {
     INSIDE,
@@ -100,78 +102,128 @@ object AppearanceConfig {
     private const val PREF_DETAILS_SECTION_ORDER = "pref_details_section_order"
     private const val PREF_DETAILS_DISABLED_SECTIONS = "pref_details_disabled_sections"
 
-    val themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
-    val antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
-    val lockUnreleasedEpisodes = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true)
-    val detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
-    val detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
-    val detailsSectionOrder = MutableStateFlow(
+    private val _themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
+    val themeAccent: StateFlow<String> = _themeAccent.asStateFlow()
+    private val _antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
+    val antiSpoilerEnabled: StateFlow<Boolean> = _antiSpoilerEnabled.asStateFlow()
+    private val _lockUnreleasedEpisodes = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true)
+    val lockUnreleasedEpisodes: StateFlow<Boolean> = _lockUnreleasedEpisodes.asStateFlow()
+    private val _detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
+    val detailsShowCurrentTime: StateFlow<Boolean> = _detailsShowCurrentTime.asStateFlow()
+    private val _detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
+    val detailsShowEndTime: StateFlow<Boolean> = _detailsShowEndTime.asStateFlow()
+    private val _detailsSectionOrder = MutableStateFlow(
         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(
             DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER)
         )
     )
-    val detailsDisabledSections = MutableStateFlow(
+    val detailsSectionOrder: StateFlow<List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>> = _detailsSectionOrder.asStateFlow()
+    private val _detailsDisabledSections = MutableStateFlow(
         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseDisabled(
             DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS)
         )
     )
-    val amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
-    val isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
-    val gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
-    val ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
-    val ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
-    val ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
-    val heroBackgroundBlurEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true)
-    val heroBackdropBlurRadius = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f)
-    val heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
-    val dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
-    val selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
-    val screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
-    val heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
-    val continueWatchingStyle = MutableStateFlow(ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE)))
-    val posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
-    val posterTitlePosition = MutableStateFlow(PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION)))
-    val homeSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12)
-    val homeVerticalSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_VERTICAL_SPACING_DP) ?: 0)
-    val posterWidthDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190)
-    val posterRoundingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12)
-    val customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF")
-    val appThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy")
-    val customAppThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_APP_THEME_BACKGROUND) ?: "#0C0C16")
-    val heroEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_ENABLED) ?: true)
-    val showPosterRating = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_RATING) ?: true)
-    val showPosterQuality = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_QUALITY) ?: true)
-    val showPosterLanguage = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true)
-    val textDropShadowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true)
-    val textDropShadowBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f)
-    val elementShadowsEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true)
-    val elementShadowMultiplier = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f)
-
-    val appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk")
-    val backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
-    val backgroundGradientType = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial")
-    val backgroundGradientIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f)
-
-    val clockMode = MutableStateFlow(ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE)))
-    val clockTimeFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_TIME_FORMAT) ?: "HH:mm")
-    val clockDateFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_DATE_FORMAT) ?: "EEE, dd MMM")
-
-    // Background image wallpaper
-    val backgroundImagePath = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_PATH) ?: "")
-    val backgroundImageBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BLUR) ?: 20f)
-    val backgroundImageBrightness = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BRIGHTNESS) ?: 0.35f)
-    val backgroundImageOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_OPACITY) ?: 1.0f)
-    val backgroundImageSaturation = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_SATURATION) ?: 1.0f)
-    val backgroundImageVignetteEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_VIGNETTE) ?: false)
-    val backgroundImageVignetteIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_VIGNETTE_INTENSITY) ?: 0.7f)
-    val backgroundImageTintEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_TINT_ENABLED) ?: false)
-    val backgroundImageTintColor = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_TINT_COLOR) ?: "#7C6BFF")
-    val backgroundImageTintAlpha = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_TINT_ALPHA) ?: 0.3f)
-
-    val uiCardOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_UI_CARD_OPACITY) ?: 0.4f)
-
+    val detailsDisabledSections: StateFlow<Set<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>> = _detailsDisabledSections.asStateFlow()
+    private val _amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
+    val amoledMode: StateFlow<Boolean> = _amoledMode.asStateFlow()
+    private val _isLightMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false)
+    val isLightMode: StateFlow<Boolean> = _isLightMode.asStateFlow()
+    private val _gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
+    val gridScale: StateFlow<String> = _gridScale.asStateFlow()
+    private val _ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
+    val ambientGlowEnabled: StateFlow<Boolean> = _ambientGlowEnabled.asStateFlow()
+    private val _ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
+    val ambientGlowIntensity: StateFlow<Float> = _ambientGlowIntensity.asStateFlow()
+    private val _ambientGlowPositions = MutableStateFlow((DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet())
+    val ambientGlowPositions: StateFlow<Set<String>> = _ambientGlowPositions.asStateFlow()
+    private val _heroBackgroundBlurEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true)
+    val heroBackgroundBlurEnabled: StateFlow<Boolean> = _heroBackgroundBlurEnabled.asStateFlow()
+    private val _heroBackdropBlurRadius = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f)
+    val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
+    private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
+    val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
+    private val _dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
+    val dockPosition: StateFlow<DockPosition> = _dockPosition.asStateFlow()
+    private val _selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
+    val selectedFont: StateFlow<String> = _selectedFont.asStateFlow()
+    private val _screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
+    val screensaverEnabled: StateFlow<Boolean> = _screensaverEnabled.asStateFlow()
+    private val _heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
+    val heroAutoSlideDelaySeconds: StateFlow<Int> = _heroAutoSlideDelaySeconds.asStateFlow()
+    private val _continueWatchingStyle = MutableStateFlow(ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE)))
+    val continueWatchingStyle: StateFlow<ContinueWatchingStyle> = _continueWatchingStyle.asStateFlow()
+    private val _posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
+    val posterHoverGlowEnabled: StateFlow<Boolean> = _posterHoverGlowEnabled.asStateFlow()
+    private val _posterTitlePosition = MutableStateFlow(PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION)))
+    val posterTitlePosition: StateFlow<PosterTitlePosition> = _posterTitlePosition.asStateFlow()
+    private val _homeSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12)
+    val homeSpacingDp: StateFlow<Int> = _homeSpacingDp.asStateFlow()
+    private val _homeVerticalSpacingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HOME_VERTICAL_SPACING_DP) ?: 0)
+    val homeVerticalSpacingDp: StateFlow<Int> = _homeVerticalSpacingDp.asStateFlow()
+    private val _posterWidthDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190)
+    val posterWidthDp: StateFlow<Int> = _posterWidthDp.asStateFlow()
+    private val _posterRoundingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12)
+    val posterRoundingDp: StateFlow<Int> = _posterRoundingDp.asStateFlow()
+    private val _customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF")
+    val customThemeAccent: StateFlow<String> = _customThemeAccent.asStateFlow()
+    private val _appThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy")
+    val appThemeBackground: StateFlow<String> = _appThemeBackground.asStateFlow()
+    private val _customAppThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_APP_THEME_BACKGROUND) ?: "#0C0C16")
+    val customAppThemeBackground: StateFlow<String> = _customAppThemeBackground.asStateFlow()
+    private val _heroEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HERO_ENABLED) ?: true)
+    val heroEnabled: StateFlow<Boolean> = _heroEnabled.asStateFlow()
+    private val _showPosterRating = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_RATING) ?: true)
+    val showPosterRating: StateFlow<Boolean> = _showPosterRating.asStateFlow()
+    private val _showPosterQuality = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_QUALITY) ?: true)
+    val showPosterQuality: StateFlow<Boolean> = _showPosterQuality.asStateFlow()
+    private val _showPosterLanguage = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true)
+    val showPosterLanguage: StateFlow<Boolean> = _showPosterLanguage.asStateFlow()
+    private val _textDropShadowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true)
+    val textDropShadowEnabled: StateFlow<Boolean> = _textDropShadowEnabled.asStateFlow()
+    private val _textDropShadowBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f)
+    val textDropShadowBlur: StateFlow<Float> = _textDropShadowBlur.asStateFlow()
+    private val _elementShadowsEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true)
+    val elementShadowsEnabled: StateFlow<Boolean> = _elementShadowsEnabled.asStateFlow()
+    private val _elementShadowMultiplier = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f)
+    val elementShadowMultiplier: StateFlow<Float> = _elementShadowMultiplier.asStateFlow()
+    private val _appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk")
+    val appPresetTheme: StateFlow<String> = _appPresetTheme.asStateFlow()
+    private val _backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
+    val backgroundGradientEnabled: StateFlow<Boolean> = _backgroundGradientEnabled.asStateFlow()
+    private val _backgroundGradientType = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial")
+    val backgroundGradientType: StateFlow<String> = _backgroundGradientType.asStateFlow()
+    private val _backgroundGradientIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f)
+    val backgroundGradientIntensity: StateFlow<Float> = _backgroundGradientIntensity.asStateFlow()
+    private val _clockMode = MutableStateFlow(ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE)))
+    val clockMode: StateFlow<ClockDisplayMode> = _clockMode.asStateFlow()
+    private val _clockTimeFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_TIME_FORMAT) ?: "HH:mm")
+    val clockTimeFormat: StateFlow<String> = _clockTimeFormat.asStateFlow()
+    private val _clockDateFormat = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CLOCK_DATE_FORMAT) ?: "EEE, dd MMM")
+    val clockDateFormat: StateFlow<String> = _clockDateFormat.asStateFlow()
+    private val _backgroundImagePath = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_PATH) ?: "")
+    val backgroundImagePath: StateFlow<String> = _backgroundImagePath.asStateFlow()
+    private val _backgroundImageBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BLUR) ?: 20f)
+    val backgroundImageBlur: StateFlow<Float> = _backgroundImageBlur.asStateFlow()
+    private val _backgroundImageBrightness = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BRIGHTNESS) ?: 0.35f)
+    val backgroundImageBrightness: StateFlow<Float> = _backgroundImageBrightness.asStateFlow()
+    private val _backgroundImageOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_OPACITY) ?: 1.0f)
+    val backgroundImageOpacity: StateFlow<Float> = _backgroundImageOpacity.asStateFlow()
+    private val _backgroundImageSaturation = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_SATURATION) ?: 1.0f)
+    val backgroundImageSaturation: StateFlow<Float> = _backgroundImageSaturation.asStateFlow()
+    private val _backgroundImageVignetteEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_VIGNETTE) ?: false)
+    val backgroundImageVignetteEnabled: StateFlow<Boolean> = _backgroundImageVignetteEnabled.asStateFlow()
+    private val _backgroundImageVignetteIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_VIGNETTE_INTENSITY) ?: 0.7f)
+    val backgroundImageVignetteIntensity: StateFlow<Float> = _backgroundImageVignetteIntensity.asStateFlow()
+    private val _backgroundImageTintEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_TINT_ENABLED) ?: false)
+    val backgroundImageTintEnabled: StateFlow<Boolean> = _backgroundImageTintEnabled.asStateFlow()
+    private val _backgroundImageTintColor = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BG_IMAGE_TINT_COLOR) ?: "#7C6BFF")
+    val backgroundImageTintColor: StateFlow<String> = _backgroundImageTintColor.asStateFlow()
+    private val _backgroundImageTintAlpha = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_TINT_ALPHA) ?: 0.3f)
+    val backgroundImageTintAlpha: StateFlow<Float> = _backgroundImageTintAlpha.asStateFlow()
+    private val _uiCardOpacity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_UI_CARD_OPACITY) ?: 0.4f)
+    val uiCardOpacity: StateFlow<Float> = _uiCardOpacity.asStateFlow()
     private val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
-    val customPresets = MutableStateFlow(
+    private val _customPresets = MutableStateFlow(
         try {
             com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
                 .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -180,28 +232,29 @@ object AppearanceConfig {
             emptyList()
         },
     )
+    val customPresets: StateFlow<List<ThemePreset>> = _customPresets.asStateFlow()
 
     fun setThemeAccent(colorName: String) {
-        themeAccent.value = colorName
+        _themeAccent.value = colorName
         DesktopDataStore.setKey(PREF_THEME_ACCENT, colorName)
     }
 
     fun setAntiSpoilerEnabled(enabled: Boolean) {
-        antiSpoilerEnabled.value = enabled
+        _antiSpoilerEnabled.value = enabled
         DesktopDataStore.setKey(PREF_ANTI_SPOILER_ENABLED, enabled)
     }
 
     fun setAmoledMode(enabled: Boolean) {
-        amoledMode.value = enabled
+        _amoledMode.value = enabled
         DesktopDataStore.setKey(PREF_AMOLED_MODE, enabled)
     }
 
     fun setLightMode(enabled: Boolean) {
-        if (isLightMode.value == enabled) return
-        isLightMode.value = enabled
+        if (_isLightMode.value == enabled) return
+        _isLightMode.value = enabled
         DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
 
-        val currentPreset = (com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets + customPresets.value).find { it.id == appPresetTheme.value }
+        val currentPreset = (com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets + _customPresets.value).find { it.id == _appPresetTheme.value }
         if (currentPreset != null && currentPreset.isLightMode != enabled) {
             val defaultPreset = com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets.firstOrNull { it.isLightMode == enabled }
             if (defaultPreset != null) {
@@ -211,285 +264,285 @@ object AppearanceConfig {
     }
 
     fun setGridScale(scale: String) {
-        gridScale.value = scale
+        _gridScale.value = scale
         DesktopDataStore.setKey(PREF_GRID_SCALE, scale)
     }
 
     fun setAmbientGlowEnabled(enabled: Boolean) {
-        ambientGlowEnabled.value = enabled
+        _ambientGlowEnabled.value = enabled
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW, enabled)
     }
 
     fun setAmbientGlowIntensity(intensity: Float) {
-        ambientGlowIntensity.value = intensity
+        _ambientGlowIntensity.value = intensity
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW_INTENSITY, intensity)
     }
 
     fun toggleAmbientGlowPosition(position: String) {
-        val current = ambientGlowPositions.value.toMutableSet()
+        val current = _ambientGlowPositions.value.toMutableSet()
         if (current.contains(position)) {
             current.remove(position)
         } else {
             current.add(position)
         }
         if (current.isEmpty()) current.add("Center")
-        ambientGlowPositions.value = current
+        _ambientGlowPositions.value = current
         DesktopDataStore.setKey(PREF_AMBIENT_GLOW_POSITION, current.joinToString(","))
     }
 
     fun setHeroBackgroundBlurEnabled(enabled: Boolean) {
-        heroBackgroundBlurEnabled.value = enabled
+        _heroBackgroundBlurEnabled.value = enabled
         DesktopDataStore.setKey(PREF_HERO_BACKGROUND_BLUR, enabled)
     }
 
     fun setHeroBackdropBlurRadius(radius: Float) {
-        heroBackdropBlurRadius.value = radius
+        _heroBackdropBlurRadius.value = radius
         DesktopDataStore.setKey(PREF_HERO_BACKDROP_BLUR_RADIUS, radius)
     }
 
     fun setHeroBackdropDarkening(darkening: Float) {
-        heroBackdropDarkening.value = darkening
+        _heroBackdropDarkening.value = darkening
         DesktopDataStore.setKey(PREF_HERO_BACKDROP_DARKENING, darkening)
     }
 
     fun setDockPosition(position: DockPosition) {
-        dockPosition.value = position
+        _dockPosition.value = position
         DesktopDataStore.setKey(PREF_DOCK_POSITION, position.label)
     }
 
     fun setSelectedFont(font: String) {
-        selectedFont.value = font
+        _selectedFont.value = font
         DesktopDataStore.setKey(PREF_FONT, font)
     }
 
     fun setScreensaverEnabled(enabled: Boolean) {
-        screensaverEnabled.value = enabled
+        _screensaverEnabled.value = enabled
         DesktopDataStore.setKey(PREF_SCREENSAVER_ENABLED, enabled)
     }
 
     fun setHeroAutoSlideDelaySeconds(seconds: Int) {
-        heroAutoSlideDelaySeconds.value = seconds
+        _heroAutoSlideDelaySeconds.value = seconds
         DesktopDataStore.setKey(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
     }
 
     fun setHomeSpacingDp(dp: Int) {
-        homeSpacingDp.value = dp
+        _homeSpacingDp.value = dp
         DesktopDataStore.setKey(PREF_HOME_SPACING_DP, dp)
     }
 
     fun setHomeVerticalSpacingDp(dp: Int) {
-        homeVerticalSpacingDp.value = dp
+        _homeVerticalSpacingDp.value = dp
         DesktopDataStore.setKey(PREF_HOME_VERTICAL_SPACING_DP, dp)
     }
 
     fun setPosterWidthDp(width: Int) {
-        posterWidthDp.value = width
+        _posterWidthDp.value = width
         DesktopDataStore.setKey(PREF_POSTER_WIDTH, width)
     }
 
     fun setPosterRoundingDp(dp: Int) {
-        posterRoundingDp.value = dp
+        _posterRoundingDp.value = dp
         DesktopDataStore.setKey(PREF_POSTER_ROUNDING, dp)
     }
 
     fun setCustomThemeAccent(hex: String) {
-        customThemeAccent.value = hex
+        _customThemeAccent.value = hex
         DesktopDataStore.setKey(PREF_CUSTOM_THEME_ACCENT, hex)
     }
 
     fun setAppThemeBackground(themeName: String) {
-        appThemeBackground.value = themeName
+        _appThemeBackground.value = themeName
         DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, themeName)
     }
 
     fun setCustomAppThemeBackground(hex: String) {
-        customAppThemeBackground.value = hex
+        _customAppThemeBackground.value = hex
         DesktopDataStore.setKey(PREF_CUSTOM_APP_THEME_BACKGROUND, hex)
     }
 
     fun setHeroEnabled(enabled: Boolean) {
-        heroEnabled.value = enabled
+        _heroEnabled.value = enabled
         DesktopDataStore.setKey(PREF_HERO_ENABLED, enabled)
     }
 
     fun setContinueWatchingStyle(style: ContinueWatchingStyle) {
-        continueWatchingStyle.value = style
+        _continueWatchingStyle.value = style
         DesktopDataStore.setKey(PREF_CONTINUE_WATCHING_STYLE, style.name)
     }
 
     fun setPosterHoverGlowEnabled(enabled: Boolean) {
-        posterHoverGlowEnabled.value = enabled
+        _posterHoverGlowEnabled.value = enabled
         DesktopDataStore.setKey(PREF_POSTER_HOVER_GLOW_ENABLED, enabled)
     }
 
     fun setPosterTitlePosition(position: PosterTitlePosition) {
-        posterTitlePosition.value = position
+        _posterTitlePosition.value = position
         DesktopDataStore.setKey(PREF_POSTER_TITLE_POSITION, position.name)
     }
 
     fun setShowPosterRating(enabled: Boolean) {
-        showPosterRating.value = enabled
+        _showPosterRating.value = enabled
         DesktopDataStore.setKey(PREF_SHOW_POSTER_RATING, enabled)
     }
 
     fun setShowPosterQuality(enabled: Boolean) {
-        showPosterQuality.value = enabled
+        _showPosterQuality.value = enabled
         DesktopDataStore.setKey(PREF_SHOW_POSTER_QUALITY, enabled)
     }
 
     fun setShowPosterLanguage(show: Boolean) {
-        showPosterLanguage.value = show
+        _showPosterLanguage.value = show
         DesktopDataStore.setKey(PREF_SHOW_POSTER_LANGUAGE, show)
     }
 
     fun setTextDropShadowEnabled(enabled: Boolean) {
-        textDropShadowEnabled.value = enabled
+        _textDropShadowEnabled.value = enabled
         DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_ENABLED, enabled)
     }
 
     fun setTextDropShadowBlur(blur: Float) {
-        textDropShadowBlur.value = blur
+        _textDropShadowBlur.value = blur
         DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_BLUR, blur)
     }
 
     fun setElementShadowsEnabled(enabled: Boolean) {
-        elementShadowsEnabled.value = enabled
+        _elementShadowsEnabled.value = enabled
         DesktopDataStore.setKey(PREF_ELEMENT_SHADOWS_ENABLED, enabled)
     }
 
     fun setElementShadowMultiplier(multiplier: Float) {
-        elementShadowMultiplier.value = multiplier
+        _elementShadowMultiplier.value = multiplier
         DesktopDataStore.setKey(PREF_ELEMENT_SHADOW_MULTIPLIER, multiplier)
     }
 
     fun setAppPresetTheme(presetId: String) {
-        appPresetTheme.value = presetId
+        _appPresetTheme.value = presetId
         DesktopDataStore.setKey(PREF_APP_PRESET_THEME, presetId)
     }
 
     fun setBackgroundGradientEnabled(enabled: Boolean) {
-        backgroundGradientEnabled.value = enabled
+        _backgroundGradientEnabled.value = enabled
         DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_ENABLED, enabled)
     }
 
     fun setBackgroundGradientType(type: String) {
-        backgroundGradientType.value = type
+        _backgroundGradientType.value = type
         DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_TYPE, type)
     }
 
     fun setBackgroundGradientIntensity(intensity: Float) {
-        backgroundGradientIntensity.value = intensity
+        _backgroundGradientIntensity.value = intensity
         DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_INTENSITY, intensity)
     }
 
     fun setClockMode(mode: ClockDisplayMode) {
-        clockMode.value = mode
+        _clockMode.value = mode
         DesktopDataStore.setKey(PREF_CLOCK_MODE, mode.name)
     }
 
     fun setClockTimeFormat(format: String) {
-        clockTimeFormat.value = format
+        _clockTimeFormat.value = format
         DesktopDataStore.setKey(PREF_CLOCK_TIME_FORMAT, format)
     }
 
     fun setClockDateFormat(format: String) {
-        clockDateFormat.value = format
+        _clockDateFormat.value = format
         DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
     }
 
     fun setDetailsShowCurrentTime(enabled: Boolean) {
-        detailsShowCurrentTime.value = enabled
+        _detailsShowCurrentTime.value = enabled
         DesktopDataStore.setKey(PREF_DETAILS_SHOW_CURRENT_TIME, enabled)
     }
 
     fun setDetailsShowEndTime(enabled: Boolean) {
-        detailsShowEndTime.value = enabled
+        _detailsShowEndTime.value = enabled
         DesktopDataStore.setKey(PREF_DETAILS_SHOW_END_TIME, enabled)
     }
 
     fun setLockUnreleasedEpisodes(enabled: Boolean) {
-        lockUnreleasedEpisodes.value = enabled
+        _lockUnreleasedEpisodes.value = enabled
         DesktopDataStore.setKey(PREF_LOCK_UNRELEASED_EPISODES, enabled)
     }
 
     fun setBackgroundImagePath(path: String) {
-        backgroundImagePath.value = path
+        _backgroundImagePath.value = path
         DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, path)
     }
 
     fun setBackgroundImageBlur(blur: Float) {
-        backgroundImageBlur.value = blur
+        _backgroundImageBlur.value = blur
         DesktopDataStore.setKey(PREF_BG_IMAGE_BLUR, blur)
     }
 
     fun setBackgroundImageBrightness(brightness: Float) {
-        backgroundImageBrightness.value = brightness
+        _backgroundImageBrightness.value = brightness
         DesktopDataStore.setKey(PREF_BG_IMAGE_BRIGHTNESS, brightness)
     }
 
     fun clearBackgroundImage() {
-        backgroundImagePath.value = ""
+        _backgroundImagePath.value = ""
         DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, "")
     }
 
     fun setBackgroundImageOpacity(opacity: Float) {
-        backgroundImageOpacity.value = opacity
+        _backgroundImageOpacity.value = opacity
         DesktopDataStore.setKey(PREF_BG_IMAGE_OPACITY, opacity)
     }
 
     fun setBackgroundImageSaturation(saturation: Float) {
-        backgroundImageSaturation.value = saturation
+        _backgroundImageSaturation.value = saturation
         DesktopDataStore.setKey(PREF_BG_IMAGE_SATURATION, saturation)
     }
 
     fun setBackgroundImageVignetteEnabled(enabled: Boolean) {
-        backgroundImageVignetteEnabled.value = enabled
+        _backgroundImageVignetteEnabled.value = enabled
         DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE, enabled)
     }
 
     fun setBackgroundImageVignetteIntensity(intensity: Float) {
-        backgroundImageVignetteIntensity.value = intensity
+        _backgroundImageVignetteIntensity.value = intensity
         DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE_INTENSITY, intensity)
     }
 
     fun setBackgroundImageTintEnabled(enabled: Boolean) {
-        backgroundImageTintEnabled.value = enabled
+        _backgroundImageTintEnabled.value = enabled
         DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ENABLED, enabled)
     }
 
     fun setBackgroundImageTintColor(hex: String) {
-        backgroundImageTintColor.value = hex
+        _backgroundImageTintColor.value = hex
         DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_COLOR, hex)
     }
 
     fun setBackgroundImageTintAlpha(alpha: Float) {
-        backgroundImageTintAlpha.value = alpha
+        _backgroundImageTintAlpha.value = alpha
         DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ALPHA, alpha)
     }
 
     fun setUiCardOpacity(opacity: Float) {
-        uiCardOpacity.value = opacity
+        _uiCardOpacity.value = opacity
         DesktopDataStore.setKey(PREF_UI_CARD_OPACITY, opacity)
     }
 
     fun saveCustomPreset(preset: ThemePreset) {
-        val currentList = customPresets.value.toMutableList()
+        val currentList = _customPresets.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == preset.id }
         if (index != -1) {
             currentList[index] = preset
         } else {
             currentList.add(preset)
         }
-        customPresets.value = currentList
+        _customPresets.value = currentList
         saveCustomPresetsToDisk(currentList)
         setAppPresetTheme(preset.id)
     }
 
     fun deleteCustomPreset(id: String) {
-        val currentList = customPresets.value.filter { it.id != id }
-        customPresets.value = currentList
+        val currentList = _customPresets.value.filter { it.id != id }
+        _customPresets.value = currentList
         saveCustomPresetsToDisk(currentList)
-        if (appPresetTheme.value == id) {
+        if (_appPresetTheme.value == id) {
             setAppPresetTheme("preset_cyberpunk")
         }
     }
@@ -521,7 +574,7 @@ object AppearanceConfig {
     }
 
     fun setDetailsSectionOrder(order: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>) {
-        detailsSectionOrder.value = order
+        _detailsSectionOrder.value = order
         DesktopDataStore.setKey(
             PREF_DETAILS_SECTION_ORDER,
             com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(order),
@@ -529,13 +582,13 @@ object AppearanceConfig {
     }
 
     fun toggleDetailsSection(key: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey, enabled: Boolean) {
-        val current = detailsDisabledSections.value.toMutableSet()
+        val current = _detailsDisabledSections.value.toMutableSet()
         if (enabled) {
             current.remove(key)
         } else {
             current.add(key)
         }
-        detailsDisabledSections.value = current
+        _detailsDisabledSections.value = current
         DesktopDataStore.setKey(
             PREF_DETAILS_DISABLED_SECTIONS,
             com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(current),
@@ -543,7 +596,7 @@ object AppearanceConfig {
     }
 
     fun moveDetailsSection(fromIndex: Int, toIndex: Int) {
-        val current = detailsSectionOrder.value.toMutableList()
+        val current = _detailsSectionOrder.value.toMutableList()
         if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
             val item = current.removeAt(fromIndex)
             current.add(toIndex, item)
@@ -553,7 +606,7 @@ object AppearanceConfig {
 
     fun resetDetailsSectionOrder() {
         setDetailsSectionOrder(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.defaultOrder)
-        detailsDisabledSections.value = emptySet()
+        _detailsDisabledSections.value = emptySet()
         DesktopDataStore.removeKey(PREF_DETAILS_DISABLED_SECTIONS)
     }
 }

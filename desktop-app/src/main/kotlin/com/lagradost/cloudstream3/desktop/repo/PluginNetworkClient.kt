@@ -72,6 +72,24 @@ internal object PluginNetworkClient {
         return@withContext fixedUrl
     }
 
+    /**
+     * Resolves a relative or absolute URL string against a base URL.
+     * Guarantees a fully qualified HTTPS/HTTP URL.
+     */
+    fun resolveUrl(baseUrl: String, relativeOrAbsolute: String): String {
+        val trimmed = relativeOrAbsolute.trim()
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            return trimmed
+        }
+        return try {
+            val baseUri = java.net.URI(baseUrl)
+            baseUri.resolve(trimmed).toString()
+        } catch (_: Exception) {
+            val base = baseUrl.substringBeforeLast('/')
+            "$base/${trimmed.removePrefix("./").removePrefix("/")}"
+        }
+    }
+
     /** Fetches and parses a [Repository] manifest JSON from [url]. Returns null on failure. */
     suspend fun fetchRepository(url: String): Repository? = withContext(Dispatchers.IO) {
         val finalUrl = parseRepoUrl(url)
@@ -86,7 +104,15 @@ internal object PluginNetworkClient {
                     AppLogger.i("Repo fetch from $url returned HTML — likely behind a WAF.")
                     return@withContext null
                 }
-                return@withContext mapper.readValue(body, Repository::class.java)
+                val rawRepo = mapper.readValue(body, Repository::class.java)
+                val resolvedLists = rawRepo.pluginLists.map { listUrl ->
+                    resolveUrl(finalUrl, listUrl)
+                }
+                val resolvedIcon = rawRepo.iconUrl?.takeIf { it.isNotBlank() }?.let { resolveUrl(finalUrl, it) }
+                return@withContext rawRepo.copy(
+                    iconUrl = resolvedIcon,
+                    pluginLists = resolvedLists,
+                )
             }
         } catch (e: Exception) {
             AppLogger.i("Failed to fetch repository $url: ${e.message}")
@@ -105,9 +131,19 @@ internal object PluginNetworkClient {
                     AppLogger.i("Plugin list from $pluginListUrl returned HTML — likely behind a WAF.")
                     return@withContext emptyList()
                 }
-                return@withContext mapper
-                    .readValue(body, object : TypeReference<List<SitePlugin>>() {})
+                val rawPlugins = mapper.readValue(body, object : TypeReference<List<SitePlugin>>() {})
+                return@withContext rawPlugins
                     .filter { it.status != 0 }
+                    .map { plugin ->
+                        val resolvedUrl = resolveUrl(pluginListUrl, plugin.url)
+                        val resolvedJarUrl = plugin.jarUrl?.takeIf { it.isNotBlank() }?.let { resolveUrl(pluginListUrl, it) }
+                        val resolvedIconUrl = plugin.iconUrl?.takeIf { it.isNotBlank() }?.let { resolveUrl(pluginListUrl, it) }
+                        plugin.copy(
+                            url = resolvedUrl,
+                            jarUrl = resolvedJarUrl,
+                            iconUrl = resolvedIconUrl,
+                        )
+                    }
             }
         } catch (e: Exception) {
             AppLogger.i("Failed to fetch or parse plugins from $pluginListUrl: ${e.message}")

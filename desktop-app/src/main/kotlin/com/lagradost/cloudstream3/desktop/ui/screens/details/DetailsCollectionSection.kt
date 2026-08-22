@@ -99,7 +99,7 @@ fun DetailsCollectionSection(
                                 }
                             },
                     ) {
-                        items(collItems) { partItem ->
+                        items(collItems, key = { "${it.apiName}_${it.url}" }) { partItem ->
                             PosterCard(
                                 item = partItem,
                                 provider = provider,

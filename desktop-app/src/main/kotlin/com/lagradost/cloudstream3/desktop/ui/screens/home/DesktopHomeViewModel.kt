@@ -198,7 +198,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    fun prefetchHeroItem(provider: MainAPI?, item: SearchResponse) {
+    private fun prefetchHeroItem(provider: MainAPI?, item: SearchResponse) {
         viewModelScope.launch {
             com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchHeroItem(provider, item)
                 .collect { update ->
@@ -218,21 +218,21 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    fun clearHistory() {
+    private fun clearHistory() {
         viewModelScope.launch(Dispatchers.IO) {
             DesktopDataStore.clearAllWatchHistory()
         }
         updateState { copy(historyList = emptyList()) }
     }
 
-    fun removeHistoryItem(parentId: String) {
+    private fun removeHistoryItem(parentId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             DesktopDataStore.removeWatchHistory(parentId)
         }
         updateHistory()
     }
 
-    fun reloadProvider() {
+    private fun reloadProvider() {
         com.lagradost.cloudstream3.desktop.ui.screens.home.HomeCategorySectionCache.clear()
         val current = uiState.value.activeProviders
         if (current.isNotEmpty()) {

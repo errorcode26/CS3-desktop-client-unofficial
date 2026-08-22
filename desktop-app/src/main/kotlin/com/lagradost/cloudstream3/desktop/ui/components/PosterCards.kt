@@ -89,12 +89,14 @@ fun PosterCard(
     modifier: Modifier = Modifier,
     itemWidth: androidx.compose.ui.unit.Dp? = null,
     aspectRatio: Float? = null,
-    gridScale: String = AppearanceConfig.gridScale.value,
+    gridScale: String? = null,
     isHoverEnabled: Boolean = true,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
 ) {
     val style = LocalPosterCardStyle.current
+    val currentGridScale by AppearanceConfig.gridScale.collectAsState()
+    val effectiveGridScale = gridScale ?: currentGridScale
     val shape = remember(style.roundingDp) { RoundedCornerShape(style.roundingDp.dp) }
     val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
 
@@ -105,7 +107,7 @@ fun PosterCard(
             2f / 3f
         }
 
-    val width = itemWidth ?: when (gridScale) {
+    val width = itemWidth ?: when (effectiveGridScale) {
         "Compact" -> if (effectiveAspectRatio > 1f) 220.dp else 150.dp
         "Large" -> if (effectiveAspectRatio > 1f) 320.dp else 220.dp
         else -> if (effectiveAspectRatio > 1f) 270.dp else 190.dp
@@ -352,6 +354,13 @@ fun WatchHistoryCard(
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
 
+    val currentHistory by rememberUpdatedState(history)
+    val currentBounds by rememberUpdatedState(bounds)
+    val currentProvider by rememberUpdatedState(provider)
+    val currentOnRemove by rememberUpdatedState(onRemove)
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnPlayClick by rememberUpdatedState(onPlayClick)
+
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -389,15 +398,15 @@ fun WatchHistoryCard(
                             if (event.type == PointerEventType.Release) {
                                 if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
                                     GlobalContextMenuState.showForWatchHistory(
-                                        bounds = bounds,
-                                        history = history,
-                                        provider = provider,
-                                        onRemove = onRemove,
-                                        onClick = onClick,
-                                        onPlayClick = onPlayClick,
+                                        bounds = currentBounds,
+                                        history = currentHistory,
+                                        provider = currentProvider,
+                                        onRemove = currentOnRemove,
+                                        onClick = currentOnClick,
+                                        onPlayClick = currentOnPlayClick,
                                     )
                                 } else if (event.button == PointerButton.Primary) {
-                                    onClick()
+                                    currentOnClick()
                                 }
                             }
                         }

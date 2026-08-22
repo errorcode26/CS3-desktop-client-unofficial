@@ -50,11 +50,10 @@ private fun ClockWidget() {
     val timeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val dateFormat by AppearanceConfig.clockDateFormat.collectAsState()
 
-    var now by remember { mutableStateOf(java.time.LocalDateTime.now()) }
-    LaunchedEffect(Unit) {
+    val now by produceState(initialValue = java.time.LocalDateTime.now()) {
         while (true) {
-            now = java.time.LocalDateTime.now()
             delay(1000)
+            value = java.time.LocalDateTime.now()
         }
     }
 

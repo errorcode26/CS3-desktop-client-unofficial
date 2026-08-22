@@ -40,8 +40,8 @@ object ReflectionStub {
     @JvmStatic
     fun invoke(method: Method, obj: Any?, args: Array<Any?>?): Any? {
         if (isDangerous(method.declaringClass.name, method.name)) {
-            AppLogger.i("Security Sandbox: Blocked reflection invoke on ${method.declaringClass.name}.${method.name}")
-            throw SecurityException("Security Sandbox: Reflection invoke on ${method.declaringClass.name}.${method.name} is blocked.")
+            AppLogger.i("Plugin Security: Blocked reflection invoke on ${method.declaringClass.name}.${method.name}")
+            throw SecurityException("Plugin Security: Reflection invoke on ${method.declaringClass.name}.${method.name} is blocked.")
         }
         return method.invoke(obj, *(args ?: emptyArray()))
     }
@@ -49,8 +49,8 @@ object ReflectionStub {
     @JvmStatic
     fun get(field: Field, obj: Any?): Any? {
         if (isDangerous(field.declaringClass.name)) {
-            AppLogger.i("Security Sandbox: Blocked reflection get on ${field.declaringClass.name}.${field.name}")
-            throw SecurityException("Security Sandbox: Reflection get on ${field.declaringClass.name}.${field.name} is blocked.")
+            AppLogger.i("Plugin Security: Blocked reflection get on ${field.declaringClass.name}.${field.name}")
+            throw SecurityException("Plugin Security: Reflection get on ${field.declaringClass.name}.${field.name} is blocked.")
         }
         return field.get(obj)
     }
@@ -58,8 +58,8 @@ object ReflectionStub {
     @JvmStatic
     fun set(field: Field, obj: Any?, value: Any?) {
         if (isDangerous(field.declaringClass.name)) {
-            AppLogger.i("Security Sandbox: Blocked reflection set on ${field.declaringClass.name}.${field.name}")
-            throw SecurityException("Security Sandbox: Reflection set on ${field.declaringClass.name}.${field.name} is blocked.")
+            AppLogger.i("Plugin Security: Blocked reflection set on ${field.declaringClass.name}.${field.name}")
+            throw SecurityException("Plugin Security: Reflection set on ${field.declaringClass.name}.${field.name} is blocked.")
         }
         field.set(obj, value)
     }
@@ -67,8 +67,8 @@ object ReflectionStub {
     @JvmStatic
     fun newInstance(constructor: Constructor<*>, args: Array<Any?>?): Any {
         if (isDangerous(constructor.declaringClass.name)) {
-            AppLogger.i("Security Sandbox: Blocked reflection newInstance on ${constructor.declaringClass.name}")
-            throw SecurityException("Security Sandbox: Reflection newInstance on ${constructor.declaringClass.name} is blocked.")
+            AppLogger.i("Plugin Security: Blocked reflection newInstance on ${constructor.declaringClass.name}")
+            throw SecurityException("Plugin Security: Reflection newInstance on ${constructor.declaringClass.name} is blocked.")
         }
         return constructor.newInstance(*(args ?: emptyArray()))
     }
@@ -76,15 +76,17 @@ object ReflectionStub {
     @JvmStatic
     fun setAccessible(accessibleObject: java.lang.reflect.AccessibleObject, flag: Boolean) {
         val declaringClass = when (accessibleObject) {
-            is Method -> accessibleObject.declaringClass
+            is Method -> declaringClassOf(accessibleObject)
             is Field -> accessibleObject.declaringClass
             is Constructor<*> -> accessibleObject.declaringClass
             else -> null
         }
         if (declaringClass != null && isDangerous(declaringClass.name)) {
-            AppLogger.i("Security Sandbox: Blocked setAccessible on ${declaringClass.name}")
-            throw SecurityException("Security Sandbox: Reflection setAccessible on ${declaringClass.name} is blocked.")
+            AppLogger.i("Plugin Security: Blocked setAccessible on ${declaringClass.name}")
+            throw SecurityException("Plugin Security: Reflection setAccessible on ${declaringClass.name} is blocked.")
         }
         accessibleObject.isAccessible = flag
     }
+
+    private fun declaringClassOf(method: Method): Class<*> = method.declaringClass
 }

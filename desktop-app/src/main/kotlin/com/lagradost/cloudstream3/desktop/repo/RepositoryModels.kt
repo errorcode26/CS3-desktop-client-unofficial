@@ -26,5 +26,11 @@ data class SitePlugin(
     @JsonProperty("jarHash") val jarHash: String? = null,
     @JsonProperty("fileSize") val fileSize: Long? = null,
     @JsonProperty("language") val language: String? = null,
+    @JsonProperty("authors") val authors: List<String>? = null,
+    @JsonProperty("author") val author: String? = null,
     @JsonProperty("tvTypes") val tvTypes: List<String>? = null,
-)
+) {
+    val authorName: String?
+        get() = authors?.filter { it.isNotBlank() }?.joinToString(", ") { "@$it" }
+            ?: author?.takeIf { it.isNotBlank() }?.let { "@$it" }
+}

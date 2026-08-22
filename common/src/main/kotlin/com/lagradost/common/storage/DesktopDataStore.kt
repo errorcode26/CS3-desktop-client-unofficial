@@ -51,6 +51,8 @@ data class PluginUpdateRecord(
     val version: Int,
     val iconUrl: String?,
     val timestamp: Long = System.currentTimeMillis(),
+    val isSuccess: Boolean = true,
+    val errorMessage: String? = null,
 )
 
 object DesktopDataStore {
@@ -466,4 +468,24 @@ object DesktopDataStore {
     const val PREF_DISCORD_RPC_SHOW_PROGRESS = "DISCORD_RPC_SHOW_PROGRESS"
     const val PREF_DISCORD_RPC_SHOW_BROWSING = "DISCORD_RPC_SHOW_BROWSING"
     const val PREF_DISCORD_CUSTOM_APP_ID = "DISCORD_CUSTOM_APP_ID"
+
+    private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
+
+    fun getTrustedPlugins(): Set<String> {
+        return getKey<Set<String>>(TRUSTED_PLUGINS_KEY) ?: emptySet()
+    }
+
+    fun isPluginTrusted(internalName: String): Boolean {
+        return getTrustedPlugins().contains(internalName)
+    }
+
+    fun setPluginTrusted(internalName: String, trusted: Boolean) {
+        val current = getTrustedPlugins().toMutableSet()
+        if (trusted) {
+            current.add(internalName)
+        } else {
+            current.remove(internalName)
+        }
+        setKey(TRUSTED_PLUGINS_KEY, current)
+    }
 }

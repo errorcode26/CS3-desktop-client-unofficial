@@ -175,6 +175,12 @@ object DetailsRepository {
                 if (attempt < 2) kotlinx.coroutines.delay(500L * (attempt + 1)) // 0.5s then 1s backoff
             }
         }
+
+        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showPluginError(
+            pluginName = targetProvider.name,
+            action = "Details fetch",
+            error = "Server unreachable or returned empty response",
+        )
         return null
     }
 }

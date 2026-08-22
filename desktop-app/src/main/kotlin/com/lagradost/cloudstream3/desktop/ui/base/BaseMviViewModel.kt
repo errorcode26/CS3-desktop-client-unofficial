@@ -18,17 +18,20 @@ import kotlinx.coroutines.launch
  * Marker interface for all UI States.
  * Must represent an immutable snapshot of the screen at any given millisecond.
  */
+@androidx.compose.runtime.Immutable
 interface UiState
 
 /**
  * Marker interface for all UI Events / Intents.
  * Represents user actions dispatched from Compose UI to the ViewModel.
  */
+@androidx.compose.runtime.Immutable
 interface UiEvent
 
 /**
  * Marker interface for one-shot UI side effects (e.g., navigation, toast alerts, dialog triggers).
  */
+@androidx.compose.runtime.Immutable
 interface UiEffect
 
 /**

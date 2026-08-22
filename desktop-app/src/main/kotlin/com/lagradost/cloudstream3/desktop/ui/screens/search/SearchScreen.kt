@@ -40,6 +40,16 @@ import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 
+private val SANITIZE_NAME_REGEX = Regex("[^a-z0-9]")
+
+private val SEARCH_CATEGORIES = listOf(
+    TvType.Movie to "Movies",
+    TvType.TvSeries to "Series",
+    TvType.Anime to "Anime",
+    TvType.Documentary to "Documentaries",
+    TvType.Live to "Live",
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeSearchScreen(
@@ -59,21 +69,13 @@ fun ComposeSearchScreen(
     var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
 
     fun fuzzyMatchIcon(providerName: String): String? {
-        val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+        val pName = providerName.lowercase().replace(SANITIZE_NAME_REGEX, "").replace("provider", "").replace("plugin", "")
         return pluginIcons.entries.firstOrNull { (k, _) ->
-            val kName = k.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+            val kName = k.lowercase().replace(SANITIZE_NAME_REGEX, "").replace("provider", "").replace("plugin", "")
             if (kName.length < 3) return@firstOrNull false
             pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
         }?.value
     }
-
-    val categories = listOf(
-        TvType.Movie to "Movies",
-        TvType.TvSeries to "Series",
-        TvType.Anime to "Anime",
-        TvType.Documentary to "Documentaries",
-        TvType.Live to "Live",
-    )
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -364,7 +366,7 @@ fun ComposeSearchScreen(
                         )
                     }
 
-                    items(categories) { (type, label) ->
+                    items(SEARCH_CATEGORIES, key = { it.first.name }) { (type, label) ->
                         AnimatedCategoryTab(
                             selected = type in selectedCategories,
                             label = label,

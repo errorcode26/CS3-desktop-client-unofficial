@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -262,7 +264,7 @@ private fun DevStudioTopBar(
                     modifier = Modifier.size(30.dp),
                 ) {
                     Icon(
-                        if (isDetached) Icons.Default.VerticalAlignBottom else Icons.Default.OpenInNew,
+                        if (isDetached) Icons.Default.VerticalAlignBottom else Icons.AutoMirrored.Filled.OpenInNew,
                         contentDescription = "Toggle Window Mode",
                         tint = Color.LightGray,
                         modifier = Modifier.size(16.dp),
@@ -1902,7 +1904,7 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color.Gray,
                         modifier = Modifier.size(14.dp),
@@ -1951,7 +1953,7 @@ private fun JsonNodeViewer(node: JsonNode, depth: Int = 0) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color.Gray,
                         modifier = Modifier.size(14.dp),
