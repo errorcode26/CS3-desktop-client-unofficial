@@ -31,10 +31,12 @@ fun initSecurity() {
     java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 2)
     AppLogger.i("Registered BouncyCastle Security Provider")
 
-    // Pre-initialize DataStore
-    // Force initialization of DataStore BEFORE plugins are loaded.
-    // This prevents plugins from triggering <clinit> which causes the SecurityManager to block File.mkdirs()
+    // Pre-initialize DataStore & ProfileManager
     DesktopDataStore.init()
+    com.lagradost.cloudstream3.desktop.profile.ProfileManager.init()
+    DesktopDataStore.activeProfileProvider = { com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfileId }
+    com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.reloadFromDataStore()
+    com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.reloadFromDataStore()
 
     // Rhino JavaScript Security ClassShutter (prevents plugins from reflecting/importing Java classes in JS)
     com.lagradost.runtime.security.RhinoSecurity.init()

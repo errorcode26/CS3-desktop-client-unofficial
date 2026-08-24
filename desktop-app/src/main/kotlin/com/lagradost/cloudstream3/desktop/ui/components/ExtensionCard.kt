@@ -91,7 +91,7 @@ fun ExtensionCard(
                     )
                 }
 
-                val resolvedIconUrl = iconUrl?.replace("%size%", "32")
+                val resolvedIconUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceIconUrl(iconUrl)
                 if (!resolvedIconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(resolvedIconUrl)) {
                     coil3.compose.SubcomposeAsyncImage(
                         model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
@@ -101,6 +101,7 @@ fun ExtensionCard(
                         contentDescription = null,
                         modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                         loading = {
                             PluginPlaceholderAvatar(name, internalName, modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)))
                         },

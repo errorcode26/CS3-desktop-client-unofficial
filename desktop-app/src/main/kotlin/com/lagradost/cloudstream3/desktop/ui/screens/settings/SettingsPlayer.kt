@@ -50,6 +50,7 @@ fun SettingsPlayer(
         ) {
             val videoPlayerLauncher = LocalVideoPlayer.current
             var showNetworkStreamDialog by remember { mutableStateOf(false) }
+            var showSourcePriorityDialog by remember { mutableStateOf(false) }
             var streamUrl by remember { mutableStateOf("") }
 
             CloudstreamAlertDialog(
@@ -126,17 +127,19 @@ fun SettingsPlayer(
                     label = "Open Local File",
                     subtitle = "Browse your computer for a video file",
                     onClick = {
-                        val dialog = FileDialog(null as? Frame, "Select Video File", FileDialog.LOAD)
-                        dialog.isVisible = true
-                        if (dialog.directory != null && dialog.file != null) {
-                            val filePath = File(dialog.directory, dialog.file).absolutePath
+                        val selectedFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                            title = "Select Video File",
+                            allowedExtensions = listOf(".mp4", ".mkv", ".m3u8", ".webm", ".avi", ".mov", ".ts", ".flv"),
+                        )
+                        if (selectedFile != null && selectedFile.exists()) {
+                            val filePath = selectedFile.absolutePath
                             scope.launch(Dispatchers.IO) {
                                 videoPlayerLauncher(
                                     VideoLaunchData(
                                         links = listOf(
                                             newExtractorLink(
                                                 source = "Local File",
-                                                name = dialog.file,
+                                                name = selectedFile.name,
                                                 url = filePath,
                                                 type = if (filePath.contains(".m3u8", ignoreCase = true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO,
                                             ) {
@@ -144,12 +147,12 @@ fun SettingsPlayer(
                                             },
                                         ),
                                         initialIndex = 0,
-                                        title = dialog.file,
+                                        title = selectedFile.name,
                                         subtitles = emptyList(),
                                         startPositionMs = 0L,
                                         history = WatchHistory(
                                             parentId = "local",
-                                            showName = dialog.file,
+                                            showName = selectedFile.name,
                                             showUrl = filePath,
                                             apiName = "Local",
                                             posterUrl = null,
@@ -264,6 +267,12 @@ fun SettingsPlayer(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     defaultValue = false,
+                )
+
+                SettingsNavigationItem(
+                    label = "Source & Quality Priorities",
+                    subtitle = "Customize automatic stream ranking, resolution preferences, and server priorities",
+                    onClick = { showSourcePriorityDialog = true },
                 )
 
                 MviSettingsDropdown(
@@ -436,6 +445,11 @@ fun SettingsPlayer(
                     onClick = { onNavigateToSubScreen(SettingsSubScreen.SUBTITLES) },
                 )
             }
+
+            com.lagradost.cloudstream3.desktop.ui.screens.player.SourcePriorityDialog(
+                show = showSourcePriorityDialog,
+                onDismissRequest = { showSourcePriorityDialog = false },
+            )
         }
     }
 }

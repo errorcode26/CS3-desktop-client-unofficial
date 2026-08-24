@@ -954,7 +954,9 @@ object TmdbEnrichmentService {
                 com.lagradost.common.logging.AppLogger.e("Error enriching TMDB data", t)
             }
         }
-        DetailsCache.put(url, loaded)
+        if (!url.startsWith("dummy_")) {
+            DetailsCache.put(url, loaded)
+        }
         onEnrichmentComplete()
     }
 

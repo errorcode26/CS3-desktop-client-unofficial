@@ -114,15 +114,26 @@ fun loadClonedSites() {
             if (list.isEmpty()) return
 
             synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
-                list.forEach { custom ->
+                list.distinctBy { "${it.name}_${it.url.trimEnd('/')}" }.forEach { custom ->
+                    val cleanUrl = custom.url.trimEnd('/')
                     com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull { it.javaClass.simpleName == custom.parentJavaClass }?.let { baseProvider ->
-                        val clone = baseProvider.javaClass.getDeclaredConstructor().newInstance()
-                        clone.name = custom.name
-                        clone.lang = custom.lang
-                        clone.mainUrl = custom.url.trimEnd('/')
-                        clone.canBeOverridden = false
-                        com.lagradost.cloudstream3.APIHolder.allProviders.add(clone)
-                        com.lagradost.cloudstream3.APIHolder.addPluginMapping(clone)
+                        // If the clone points to the exact same URL as the base provider, skip it!
+                        if (baseProvider.mainUrl.trimEnd('/') == cleanUrl) {
+                            AppLogger.i("Skipping redundant clone '${custom.name}' (matches base provider URL: $cleanUrl)")
+                            return@forEach
+                        }
+                        val alreadyExists = com.lagradost.cloudstream3.APIHolder.allProviders.any {
+                            it.name == custom.name && it.mainUrl.trimEnd('/') == cleanUrl
+                        }
+                        if (!alreadyExists) {
+                            val clone = baseProvider.javaClass.getDeclaredConstructor().newInstance()
+                            clone.name = custom.name
+                            clone.lang = custom.lang
+                            clone.mainUrl = cleanUrl
+                            clone.canBeOverridden = false
+                            com.lagradost.cloudstream3.APIHolder.allProviders.add(clone)
+                            com.lagradost.cloudstream3.APIHolder.addPluginMapping(clone)
+                        }
                     }
                 }
             }

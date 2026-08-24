@@ -72,7 +72,9 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
                 toggleFunc()
                 true
             } else if (keyEvent.key == Key.F12 && keyEvent.type == KeyEventType.KeyDown) {
-                com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState.toggle()
+                if (com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.isEnabled) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState.toggle()
+                }
                 true
             } else if (keyEvent.key == Key.Escape && keyEvent.type == KeyEventType.KeyDown) {
                 if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
@@ -87,9 +89,26 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
             } else if (keyEvent.key == Key.F5 && keyEvent.type == KeyEventType.KeyDown) {
                 com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
                 true
-            } else if (keyEvent.isCtrlPressed && keyEvent.key == Key.R && keyEvent.type == KeyEventType.KeyDown) {
-                com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
-                true
+            } else if (keyEvent.isCtrlPressed && keyEvent.type == KeyEventType.KeyDown) {
+                when (keyEvent.key) {
+                    Key.Equals, Key.Plus, Key.NumPadAdd -> {
+                        com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.zoomIn()
+                        true
+                    }
+                    Key.Minus, Key.NumPadSubtract -> {
+                        com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.zoomOut()
+                        true
+                    }
+                    Key.Zero, Key.NumPad0 -> {
+                        com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.resetZoom()
+                        true
+                    }
+                    Key.R -> {
+                        com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
+                        true
+                    }
+                    else -> false
+                }
             } else {
                 false
             }

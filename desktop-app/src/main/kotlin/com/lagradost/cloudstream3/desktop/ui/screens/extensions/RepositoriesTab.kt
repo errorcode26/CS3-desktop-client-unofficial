@@ -233,12 +233,15 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         ?: uiState.remotePluginIcons[plugin.internalName]
                                         ?: uiState.remotePluginIcons[plugin.name]
 
-                                    val isInstalled = remember(plugin, installedPlugins) {
+                                    val isInstalled = remember(plugin, installedPlugins, repo.name) {
                                         val ext = uiState.extensionsDir
-                                        val subDir = java.io.File(ext, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+                                        val cleanRepo = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                                        val subDir = java.io.File(ext, cleanRepo)
                                         java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
-                                            java.io.File(ext, "${plugin.internalName}.jar").exists() ||
-                                            installedPlugins.any { it.internalName == plugin.internalName || it.name.equals(plugin.name, ignoreCase = true) }
+                                            java.io.File(subDir, "${plugin.internalName}-jvm.jar").exists() ||
+                                            installedPlugins.any {
+                                                it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repo.name)
+                                            }
                                     }
                                     var isInstalling by remember(plugin.internalName) { mutableStateOf(false) }
                                     var installStatus by remember(plugin.internalName, isInstalled) {
@@ -267,7 +270,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                             )
                                         },
                                         onUninstallClick = {
-                                            viewModel.onEvent(ExtensionsUiEvent.OnUninstallByInternalName(plugin.internalName))
+                                            viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugin(repo.name, plugin.internalName))
                                             installStatus = ""
                                         },
                                         description = plugin.description,

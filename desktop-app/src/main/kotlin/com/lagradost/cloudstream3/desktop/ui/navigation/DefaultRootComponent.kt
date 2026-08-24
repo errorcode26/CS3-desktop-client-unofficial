@@ -5,6 +5,7 @@ import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.bringToFront
 import com.arkivanov.decompose.router.stack.childStack
+import com.arkivanov.decompose.router.stack.navigate
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.popTo
 import com.arkivanov.decompose.router.stack.push
@@ -78,6 +79,23 @@ class DefaultRootComponent(
     }
 
     override fun bringToFront(config: Config) {
-        navigation.bringToFront(config)
+        when (config) {
+            is Config.Home -> {
+                navigation.replaceAll(Config.Home)
+            }
+            is Config.Search,
+            is Config.Library,
+            is Config.History,
+            is Config.Extensions,
+            is Config.Settings,
+            -> {
+                // Top-level Dock destinations are anchored directly to Home.
+                // Pressing Back on any top-level tab cleanly returns to Home!
+                navigation.navigate { listOf(Config.Home, config) }
+            }
+            else -> {
+                navigation.bringToFront(config)
+            }
+        }
     }
 }

@@ -20,5 +20,14 @@ data class HomeUiState(
     val showHomeManagement: Boolean = false,
 ) : UiState {
     val activeProviderApis: List<MainAPI>
-        get() = activeProviders.mapNotNull { name -> providers.firstOrNull { it.name == name } }
+        get() = activeProviders.mapNotNull { key ->
+            providers.firstOrNull { p ->
+                val pKey = if (p.sourcePlugin != null && p.sourcePlugin != "built-in") {
+                    "${java.io.File(p.sourcePlugin).parentFile?.name ?: ""}::${p.name}"
+                } else {
+                    p.name
+                }
+                pKey == key || p.name == key
+            }
+        }
 }

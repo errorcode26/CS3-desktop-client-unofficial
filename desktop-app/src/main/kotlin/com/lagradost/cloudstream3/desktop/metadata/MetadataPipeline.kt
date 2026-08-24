@@ -58,6 +58,7 @@ object MetadataPipeline {
         callbacks: MetadataEnrichmentCallbacks = MetadataEnrichmentCallbacks(),
     ) {
         withContext(Dispatchers.IO) {
+            val isDummy = url.startsWith("dummy_")
             val urlClean = url.removePrefix("dummy_")
 
             // 1. Season adjustment from title if all episodes default to null or 1
@@ -131,7 +132,8 @@ object MetadataPipeline {
 
             // 4. Progressive Enrichment (Stage 1 -> Stage 2+)
             val context = MetadataEnrichmentContext(
-                rawUrl = urlClean,
+                rawUrl = if (isDummy) "dummy_$urlClean" else urlClean,
+                isDummy = isDummy,
                 fetchCast = fetchCast,
                 directImdbId = activeMatch?.imdbId,
                 directTmdbId = activeMatch?.tmdbId,

@@ -98,7 +98,8 @@ fun PosterCard(
     val currentGridScale by AppearanceConfig.gridScale.collectAsState()
     val effectiveGridScale = gridScale ?: currentGridScale
     val shape = remember(style.roundingDp) { RoundedCornerShape(style.roundingDp.dp) }
-    val imgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
+    val rawImgUrl = provider?.fixUrlNull(item.posterUrl) ?: item.posterUrl
+    val imgUrl = remember(rawImgUrl) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawImgUrl) }
 
     val effectiveAspectRatio = aspectRatio
         ?: if (item.type == com.lagradost.cloudstream3.TvType.Live || item.posterHeaders?.containsKey("landscape") == true) {
@@ -192,6 +193,7 @@ fun PosterCard(
                             model = imageRequest,
                             contentDescription = item.name,
                             contentScale = ContentScale.Crop,
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
@@ -290,19 +292,27 @@ fun PosterCard(
         } // end outer box
 
         if (posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = item.name,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
-                ),
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                lineHeight = 16.sp,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.TopStart,
+            ) {
+                Text(
+                    text = item.name,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
+                    ),
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 16.sp,
+                )
+            }
         }
     }
 }
@@ -413,9 +423,10 @@ fun WatchHistoryCard(
                     }
                 },
         ) {
-            val imgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
+            val rawImgUrl = provider?.fixUrlNull(history.episodeThumbnailUrl) ?: history.episodeThumbnailUrl
                 ?: history.screenshotUrl
                 ?: provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
+            val imgUrl = remember(rawImgUrl) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawImgUrl) }
 
             // Full-bleed background image
             if (imgUrl != null) {
@@ -423,6 +434,7 @@ fun WatchHistoryCard(
                     model = imgUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

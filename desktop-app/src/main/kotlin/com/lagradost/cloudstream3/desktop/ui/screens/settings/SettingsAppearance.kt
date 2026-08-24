@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -103,7 +106,9 @@ fun SettingsAppearanceThemeScreen() {
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             SettingsGroupCard(title = "Theme Presets") {
-                val allPresets = BuiltInPresets.presets.filter { it.isLightMode == isLightMode } + customPresets
+                val allPresets = remember(isLightMode, customPresets) {
+                    BuiltInPresets.presets.filter { it.isLightMode == isLightMode } + customPresets
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -188,16 +193,19 @@ fun SettingsAppearanceThemeScreen() {
                     }
                 }
 
-                val backgroundColors = listOf(
-                    "Navy" to (if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
-                    "Midnight Blue" to (if (isLightMode) Color(0xFFE0E7FF) else Color(0xFF0B1120)),
-                    "Slate Grey" to (if (isLightMode) Color(0xFFF1F5F9) else Color(0xFF18181B)),
-                    "Mocha" to (if (isLightMode) Color(0xFFF5F5F4) else Color(0xFF1E1815)),
-                    "Forest" to (if (isLightMode) Color(0xFFF0FDF4) else Color(0xFF0F1714)),
-                    "Deep Purple" to (if (isLightMode) Color(0xFFFAF5FF) else Color(0xFF130C1C)),
-                    "Pure Black" to (if (isLightMode) Color(0xFFFFFFFF) else Color(0xFF000000)),
-                    "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(AppearanceConfig.customAppThemeBackground.value, if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
-                )
+                val customBg = AppearanceConfig.customAppThemeBackground.value
+                val backgroundColors = remember(isLightMode, customBg) {
+                    listOf(
+                        "Navy" to (if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
+                        "Midnight Blue" to (if (isLightMode) Color(0xFFE0E7FF) else Color(0xFF0B1120)),
+                        "Slate Grey" to (if (isLightMode) Color(0xFFF1F5F9) else Color(0xFF18181B)),
+                        "Mocha" to (if (isLightMode) Color(0xFFF5F5F4) else Color(0xFF1E1815)),
+                        "Forest" to (if (isLightMode) Color(0xFFF0FDF4) else Color(0xFF0F1714)),
+                        "Deep Purple" to (if (isLightMode) Color(0xFFFAF5FF) else Color(0xFF130C1C)),
+                        "Pure Black" to (if (isLightMode) Color(0xFFFFFFFF) else Color(0xFF000000)),
+                        "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customBg, if (isLightMode) Color(0xFFF8FAFC) else Color(0xFF0C0C16)),
+                    )
+                }
 
                 Text(
                     text = "Background Theme",
@@ -337,7 +345,7 @@ fun SettingsAppearanceThemeScreen() {
                                 IconButton(onClick = {
                                     val f = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getFontFile(fontName)
                                     if (f != null && f.delete()) {
-                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
                                     }
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete Font", tint = MaterialTheme.colorScheme.error)
@@ -351,17 +359,18 @@ fun SettingsAppearanceThemeScreen() {
                     onClick = {
                         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             try {
-                                val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Font File", java.awt.FileDialog.LOAD)
-                                dialog.file = "*.ttf;*.otf"
-                                dialog.isVisible = true
-                                if (dialog.directory != null && dialog.file != null) {
-                                    val srcFile = java.io.File(dialog.directory, dialog.file)
-                                    val dstFile = java.io.File(com.lagradost.common.platform.PlatformPaths.fontsDir, srcFile.name)
+                                val selectedFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                    title = "Select Font File",
+                                    allowedExtensions = listOf(".ttf", ".otf"),
+                                )
+                                if (selectedFile != null && selectedFile.exists()) {
+                                    val dstFile = java.io.File(com.lagradost.common.platform.PlatformPaths.fontsDir, selectedFile.name)
                                     com.lagradost.common.platform.PlatformPaths.fontsDir.mkdirs()
-                                    srcFile.copyTo(dstFile, overwrite = true)
+                                    selectedFile.copyTo(dstFile, overwrite = true)
                                     // Update state
+                                    val refreshed = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+                                        customFonts = refreshed
                                     }
                                 }
                             } catch (e: Exception) {
@@ -428,6 +437,7 @@ fun SettingsAppearanceThemeScreen() {
 
 @Composable
 fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit) {
+    val navigationStyle by AppearanceConfig.navigationStyle.collectAsState()
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
@@ -482,6 +492,19 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsDropdownItem(
+                    label = "Navigation Style",
+                    subtitle = "Switch between floating island dock and seamless edge-to-edge navbar",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.FLOATING_DOCK to "Floating Dock",
+                        com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR to "Navigation Bar",
+                    ),
+                    currentValue = navigationStyle,
+                    onSelectionChanged = { AppearanceConfig.setNavigationStyle(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsDropdownItem(
                     label = "Dock Position",
                     subtitle = "Choose where the main navigation dock is placed",
                     options = listOf(
@@ -493,6 +516,327 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                     currentValue = dockPosition,
                     onSelectionChanged = { AppearanceConfig.setDockPosition(it) },
                 )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                val globalUiScale by AppearanceConfig.globalUiScale.collectAsState()
+                val scalePercent = (globalUiScale * 100).toInt()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Global UI Scale / Zoom",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "Scale entire interface. Shortcut: Ctrl + / Ctrl - / Ctrl 0",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = if (scalePercent == 100) "100% (Default)" else "$scalePercent%",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (scalePercent == 100) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (scalePercent != 100) {
+                                TextButton(
+                                    onClick = { AppearanceConfig.resetZoom() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(28.dp),
+                                ) {
+                                    Text("Reset", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Slider(
+                        value = globalUiScale,
+                        onValueChange = { AppearanceConfig.setGlobalUiScale(it, notify = false) },
+                        valueRange = 0.70f..1.80f,
+                        steps = 10,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                }
+            }
+
+            SettingsGroupCard(title = "Top Bar & Profile") {
+                val topBarShowProfile by AppearanceConfig.topBarShowProfile.collectAsState()
+                val topBarShowProfileName by AppearanceConfig.topBarShowProfileName.collectAsState()
+
+                SettingsToggleItem(
+                    label = "Show Profile in Top Bar",
+                    subtitle = "Display active profile avatar and switcher pill in the top-left area",
+                    checked = topBarShowProfile,
+                    onCheckedChange = { AppearanceConfig.setTopBarShowProfile(it) },
+                )
+
+                if (topBarShowProfile) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    SettingsToggleItem(
+                        label = "Show Profile Name",
+                        subtitle = "Display user name next to the avatar pill in the top bar",
+                        checked = topBarShowProfileName,
+                        onCheckedChange = { AppearanceConfig.setTopBarShowProfileName(it) },
+                    )
+                }
+            }
+
+            SettingsGroupCard(title = "Dock Customization & Order") {
+                val dockOrder by AppearanceConfig.dockItemOrder.collectAsState()
+                val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
+
+                var draggingDockKey by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey?>(null) }
+                var dragAccumulatedY by remember { mutableStateOf(0f) }
+                var dragInitialIndex by remember { mutableStateOf(0) }
+                var slotHeightPx by remember { mutableStateOf(0f) }
+                val fallbackSlotHeight = with(LocalDensity.current) { 58.dp.toPx() }
+                val effectiveSlotHeight = if (slotHeightPx > 0f) slotHeightPx else fallbackSlotHeight
+
+                val currentTargetIndex = if (draggingDockKey != null && effectiveSlotHeight > 0f) {
+                    (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
+                        .coerceIn(0, dockOrder.lastIndex)
+                } else dragInitialIndex
+
+                val currentDockOrder by rememberUpdatedState(dockOrder)
+                val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
+                val currentDragAccumulatedY by rememberUpdatedState(dragAccumulatedY)
+                val currentDragInitialIndex by rememberUpdatedState(dragInitialIndex)
+
+                val onDropDockItem by rememberUpdatedState {
+                    val fromIdx = currentDragInitialIndex
+                    val slotH = currentEffectiveSlotHeight
+                    val accY = currentDragAccumulatedY
+                    val toIdx = if (slotH > 0f) {
+                        (fromIdx + kotlin.math.round(accY / slotH).toInt())
+                            .coerceIn(0, currentDockOrder.lastIndex)
+                    } else fromIdx
+                    draggingDockKey = null
+                    dragAccumulatedY = 0f
+                    if (fromIdx != toIdx && fromIdx in currentDockOrder.indices && toIdx in currentDockOrder.indices) {
+                        AppearanceConfig.moveDockItem(fromIdx, toIdx)
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Customize the order and visibility of dock buttons.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = "Drag the handles (⠿) to reorder. Essential buttons are always active.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
+                        }
+                        TextButton(onClick = { AppearanceConfig.resetDockItemOrder() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reset")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        dockOrder.forEachIndexed { index, itemKey ->
+                            val isEnabled = itemKey !in dockDisabled
+                            val isDraggingThis = draggingDockKey == itemKey
+
+                            val targetShiftY = when {
+                                isDraggingThis -> dragAccumulatedY
+                                draggingDockKey != null && dragInitialIndex < currentTargetIndex && index in (dragInitialIndex + 1)..currentTargetIndex -> -effectiveSlotHeight
+                                draggingDockKey != null && dragInitialIndex > currentTargetIndex && index in currentTargetIndex until dragInitialIndex -> effectiveSlotHeight
+                                else -> 0f
+                            }
+                            val animatedShiftY by animateFloatAsState(
+                                targetValue = targetShiftY,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            )
+
+                            val elevation by animateDpAsState(if (isDraggingThis) 16.dp else 0.dp)
+                            val scale by animateFloatAsState(if (isDraggingThis) 1.02f else 1.0f)
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isDraggingThis) {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+                                } else if (isEnabled) {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
+                                },
+                                border = BorderStroke(
+                                    if (isDraggingThis) 1.5.dp else 0.5.dp,
+                                    if (isDraggingThis) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
+                                ),
+                                shadowElevation = elevation,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onGloballyPositioned { coordinates ->
+                                        if (coordinates.size.height > 0 && slotHeightPx == 0f) {
+                                            slotHeightPx = coordinates.size.height.toFloat() + 8f
+                                        }
+                                    }
+                                    .zIndex(if (isDraggingThis) 100f else 1f)
+                                    .scale(scale)
+                                    .graphicsLayer {
+                                        translationY = if (isDraggingThis) dragAccumulatedY else animatedShiftY
+                                    },
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    // Drag grip handle
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isDraggingThis) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f))
+                                            .pointerInput(itemKey) {
+                                                detectDragGestures(
+                                                    onDragStart = {
+                                                        draggingDockKey = itemKey
+                                                        dragInitialIndex = currentDockOrder.indexOf(itemKey)
+                                                        dragAccumulatedY = 0f
+                                                    },
+                                                    onDragEnd = { onDropDockItem() },
+                                                    onDragCancel = {
+                                                        draggingDockKey = null
+                                                        dragAccumulatedY = 0f
+                                                    },
+                                                ) { change, dragAmount ->
+                                                    change.consume()
+                                                    dragAccumulatedY += dragAmount.y
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Drag to reorder",
+                                            tint = if (isDraggingThis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    // Item Icon
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            when (itemKey) {
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HOME -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Home
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Search
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.LIBRARY -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.History
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXTENSIONS -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Extensions
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SETTINGS -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Settings
+                                            },
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    // Item Details
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = itemKey.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                        )
+                                        Text(
+                                            text = itemKey.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    if (itemKey.isRequired) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                        ) {
+                                            Text(
+                                                text = "Required",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            )
+                                        }
+                                    } else {
+                                        Switch(
+                                            checked = isEnabled,
+                                            onCheckedChange = { checked ->
+                                                AppearanceConfig.toggleDockItem(itemKey, checked)
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsGroupCard(title = "Navigation & Page Layouts") {
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
@@ -786,11 +1130,12 @@ fun SettingsAppearanceEffectsScreen() {
                             onClick = {
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     try {
-                                        val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Select Wallpaper", java.awt.FileDialog.LOAD)
-                                        dialog.file = "*.jpg;*.jpeg;*.png;*.webp;*.bmp"
-                                        dialog.isVisible = true
-                                        if (dialog.directory != null && dialog.file != null) {
-                                            val path = java.io.File(dialog.directory, dialog.file).absolutePath
+                                        val selectedFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                            title = "Select Wallpaper",
+                                            allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".bmp"),
+                                        )
+                                        if (selectedFile != null && selectedFile.exists()) {
+                                            val path = selectedFile.absolutePath
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                                 AppearanceConfig.setBackgroundImagePath(path)
                                             }
@@ -1193,7 +1538,8 @@ fun CustomColorPickerUI(colorHex: String, onColorChanged: (String) -> Unit) {
 }
 
 @Composable
-fun SettingsPosterEditorScreen() {
+fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
+    val theme = com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme.current
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
     val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
@@ -1201,6 +1547,9 @@ fun SettingsPosterEditorScreen() {
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
     val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+
+    var isControlsExpanded by remember { mutableStateOf(true) }
+    var activeControlTab by remember { mutableStateOf(0) } // 0: Dimensions & Spacing, 1: Style & Glow
 
     // Mock API for generating SearchResponses
     val mockApi = remember {
@@ -1211,10 +1560,10 @@ fun SettingsPosterEditorScreen() {
         }
     }
 
-    // Mock Data using real TMDB posters for a realistic preview
-    val mockHistory = remember {
+    // Mock History
+    val mockHistory1 = remember {
         com.lagradost.common.storage.WatchHistory(
-            parentId = "mock_history",
+            parentId = "mock_history_1",
             showName = "House of the Dragon",
             showUrl = "dummy",
             apiName = "Cinemeta",
@@ -1223,14 +1572,66 @@ fun SettingsPosterEditorScreen() {
             screenshotUrl = null,
             episode = 1,
             season = 2,
-            episodeId = "dummy_ep",
+            episodeId = "dummy_ep_1",
             position = 1800,
             duration = 3600
         )
     }
+    val mockHistory2 = remember {
+        com.lagradost.common.storage.WatchHistory(
+            parentId = "mock_history_2",
+            showName = "Shōgun",
+            showUrl = "dummy",
+            apiName = "Cinemeta",
+            posterUrl = "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg",
+            episodeThumbnailUrl = null,
+            screenshotUrl = null,
+            episode = 4,
+            season = 1,
+            episodeId = "dummy_ep_2",
+            position = 2400,
+            duration = 3600
+        )
+    }
+
+    val fallbackPosters = remember {
+        listOf(
+            mockApi.newMovieSearchResponse("Obsession", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/uU0wX6kCj9mD3wT6j1uQhM0qE8g.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("The Invite", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/1X4h40fcB4WWUmIBK0auT4zRBAV.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Don't Say Good Luck", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Project Hail Mary", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nx11H.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Masters of the Universe", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/9PFonQ9Zq0RdRLEBun50Y9Y3eq5.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Arcane", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn396nlv8g9qc.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Dune: Part Two", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            },
+            mockApi.newMovieSearchResponse("Severance", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8t4fF2k9YvW1F7yW71c5Mv2M8k7.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+            }
+        )
+    }
 
     var mockPosters by remember { mutableStateOf<List<com.lagradost.cloudstream3.SearchResponse>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1250,55 +1651,49 @@ fun SettingsPosterEditorScreen() {
                                 this.quality = com.lagradost.cloudstream3.SearchQuality.HD
                             }
                         )
-                        if (posters.size >= 15) break
+                        if (posters.size >= 16) break
                     }
-                    mockPosters = posters
+                    if (posters.isNotEmpty()) {
+                        mockPosters = posters
+                    }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                isLoading = false
+            } catch (_: Exception) {
             }
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        // Sticky Preview Area (Top)
-        Box(
+    val displayPosters = if (mockPosters.isNotEmpty()) mockPosters else fallbackPosters
+
+    val animatedSpacing by animateDpAsState(
+        targetValue = homeSpacingDp.dp,
+        animationSpec = androidx.compose.animation.core.tween(250),
+    )
+    val animatedWidth by animateDpAsState(
+        targetValue = posterWidthDp.dp,
+        animationSpec = androidx.compose.animation.core.tween(250),
+    )
+    val animatedVerticalSpacing by animateDpAsState(
+        targetValue = homeVerticalSpacingDp.dp,
+        animationSpec = androidx.compose.animation.core.tween(250),
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ── 1. Full-Width Scrollable Canvas ─────────────────────────────────────
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(450.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                .padding(16.dp),
-            contentAlignment = Alignment.TopStart,
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 80.dp, bottom = 180.dp, start = 32.dp, end = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(animatedVerticalSpacing),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp)
-            ) {
+            // Row 1: Continue Watching
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Continue Watching",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                
-                val animatedSpacing by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = homeSpacingDp.dp,
-                    animationSpec = androidx.compose.animation.core.tween(300),
-                )
-                val animatedWidth by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = posterWidthDp.dp,
-                    animationSpec = androidx.compose.animation.core.tween(300),
-                )
-                
-                // Row 1: Continue Watching
                 androidx.compose.foundation.lazy.LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
                 ) {
@@ -1306,7 +1701,7 @@ fun SettingsPosterEditorScreen() {
                         if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide(
                                 modifier = Modifier.width(animatedWidth * 2.2f).height(animatedWidth * 1.5f),
-                                history = mockHistory,
+                                history = mockHistory1,
                                 provider = mockApi,
                                 onRemove = {},
                                 onClick = {},
@@ -1315,7 +1710,28 @@ fun SettingsPosterEditorScreen() {
                         } else {
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard(
                                 modifier = Modifier.width(animatedWidth * 2.0f).height((animatedWidth * 2.0f) * 9f / 16f),
-                                history = mockHistory,
+                                history = mockHistory1,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        }
+                    }
+                    item {
+                        if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide(
+                                modifier = Modifier.width(animatedWidth * 2.2f).height(animatedWidth * 1.5f),
+                                history = mockHistory2,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        } else {
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard(
+                                modifier = Modifier.width(animatedWidth * 2.0f).height((animatedWidth * 2.0f) * 9f / 16f),
+                                history = mockHistory2,
                                 provider = mockApi,
                                 onRemove = {},
                                 onClick = {},
@@ -1324,134 +1740,323 @@ fun SettingsPosterEditorScreen() {
                         }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+            }
+
+            // Row 2: Trending Movies
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Trending Movies",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                
-                if (isLoading) {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.Accent)
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
+                ) {
+                    items(displayPosters.size) { index ->
+                        com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
+                            item = displayPosters[index],
+                            provider = mockApi,
+                            gridScale = "Normal",
+                            itemWidth = animatedWidth,
+                            onClick = {},
+                            onPlayClick = {}
+                        )
                     }
-                } else {
-                    // Row 2: Standard Posters
-                    androidx.compose.foundation.lazy.LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
-                    ) {
-                        items(mockPosters.size) { index ->
-                            com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
-                                item = mockPosters[index],
-                                provider = mockApi,
-                                gridScale = "Normal",
-                                itemWidth = animatedWidth, // IMPORTANT: Apply width scaling!
-                                onClick = {},
-                                onPlayClick = {}
-                            )
-                        }
+                }
+            }
+
+            // Row 3: Popular Series
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Popular Series",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
+                ) {
+                    items(displayPosters.reversed().size) { index ->
+                        com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
+                            item = displayPosters.reversed()[index],
+                            provider = mockApi,
+                            gridScale = "Normal",
+                            itemWidth = animatedWidth,
+                            onClick = {},
+                            onPlayClick = {}
+                        )
                     }
                 }
             }
         }
 
-        // Scrollable Controls Below (Bottom)
-        val scrollState = rememberScrollState()
-        var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
-
-        CompositionLocalProvider(
-            LocalSettingsScrollState provides scrollState,
-            LocalScrollContainerCoordinates provides containerCoordinates,
+        // ── 2. Top Floating Glass Header ─────────────────────────────────────────
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(64.dp),
+            color = theme.SurfaceElevated.copy(alpha = 0.88f),
+            shadowElevation = 8.dp,
         ) {
-            Column(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .onGloballyPositioned { containerCoordinates = it }
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                SettingsGroupCard(title = "Poster Properties") {
-                    SettingsDropdownItem(
-                        label = "Continue Watching Style",
-                        subtitle = "Choose the layout for items in the Continue Watching row",
-                        options = listOf(
-                            com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic Thumbnail",
-                            com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Premium Wide Card",
-                        ),
-                        currentValue = continueWatchingStyle,
-                        onSelectionChanged = { AppearanceConfig.setContinueWatchingStyle(it) },
-                    )
-                    SettingsDropdownItem(
-                        label = "Poster Title Position",
-                        subtitle = "Choose where the title is displayed on posters",
-                        options = listOf(
-                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Inside on Hover",
-                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below Poster",
-                            com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
-                        ),
-                        currentValue = posterTitlePosition,
-                        onSelectionChanged = { AppearanceConfig.setPosterTitlePosition(it) },
-                    )
-                    SettingsToggleItem(
-                        label = "Hover Ambient Glow",
-                        subtitle = "Displays a soft colorful glow behind posters when hovering",
-                        checked = posterHoverGlowEnabled,
-                        onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) },
+                // Back Button
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = theme.SurfaceCard.copy(alpha = 0.7f),
+                    border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
+                    modifier = Modifier.clickable { onBack() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = theme.TextPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            "Back to Settings",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = theme.TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(20.dp))
+
+                // Title & Subtitle
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Text(
+                            "Poster Workshop Studio",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.TextPrimary,
+                        )
+                    }
+                    Text(
+                        "Live full-screen canvas preview across your actual display width",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = theme.TextMuted,
                     )
                 }
 
-                SettingsGroupCard(title = "Size & Spacing") {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
+                Spacer(modifier = Modifier.weight(1f))
 
-                    SettingsSliderItem(
-                        label = "Poster Width",
-                        subtitle = "Adjust the size of posters on the home screen",
-                        value = posterWidthDp.toFloat(),
-                        valueRange = 100f..250f,
-                        steps = 29, // 5dp steps: (250-100)/5 - 1 = 29
-                        onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
-
-                    SettingsSliderItem(
-                        label = "Home Page Spacing",
-                        subtitle = "Adjust the horizontal spacing between items on the home page",
-                        value = homeSpacingDp.toFloat(),
-                        valueRange = 0f..32f,
-                        steps = 15, // 2dp steps
-                        onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
-
-                    SettingsSliderItem(
-                        label = "Home Page Vertical Spacing",
-                        subtitle = "Adjust the vertical spacing between categories on the home page",
-                        value = homeVerticalSpacingDp.toFloat(),
-                        valueRange = 0f..64f,
-                        steps = 31, // 2dp steps
-                        onValueChange = { AppearanceConfig.setHomeVerticalSpacingDp(it.toInt()) },
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 4.dp))
-
-                    SettingsSliderItem(
-                        label = "Poster Corner Radius",
-                        subtitle = "Adjust how rounded the posters are",
-                        value = posterRoundingDp.toFloat(),
-                        valueRange = 0f..24f,
-                        steps = 23,
-                        onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
-                    )
+                // Reset Defaults Button
+                TextButton(
+                    onClick = {
+                        AppearanceConfig.setPosterWidthDp(160)
+                        AppearanceConfig.setHomeSpacingDp(12)
+                        AppearanceConfig.setHomeVerticalSpacingDp(16)
+                        AppearanceConfig.setPosterRoundingDp(12)
+                        AppearanceConfig.setPosterTitlePosition(com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW)
+                        AppearanceConfig.setContinueWatchingStyle(com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM)
+                        AppearanceConfig.setPosterHoverGlowEnabled(true)
+                    }
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Reset Defaults")
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        // ── 3. Bottom Floating Control Dock ─────────────────────────────────────
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 24.dp, end = 24.dp, bottom = 18.dp)
+                .widthIn(max = 980.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = theme.SurfaceElevated.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.6f)),
+            shadowElevation = 16.dp,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Dock Header with Category Tabs & Collapse Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = activeControlTab == 0,
+                            onClick = { activeControlTab = 0; isControlsExpanded = true },
+                            label = { Text("📐 Dimensions & Spacing", fontWeight = FontWeight.Medium) },
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        FilterChip(
+                            selected = activeControlTab == 1,
+                            onClick = { activeControlTab = 1; isControlsExpanded = true },
+                            label = { Text("✨ Style & Glow", fontWeight = FontWeight.Medium) },
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { isControlsExpanded = !isControlsExpanded }
+                    ) {
+                        Icon(
+                            if (isControlsExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (isControlsExpanded) "Hide Studio Bar" else "Show Controls")
+                    }
+                }
+
+                if (isControlsExpanded) {
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (activeControlTab == 0) {
+                        // ── Tab 0: Dimensions & Spacing Sliders ───────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        ) {
+                            // Poster Width
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Poster Width", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                    Text("${posterWidthDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = posterWidthDp.toFloat(),
+                                    onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
+                                    valueRange = 100f..250f,
+                                    steps = 29,
+                                )
+                            }
+
+                            // Card Spacing
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Card Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                    Text("${homeSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = homeSpacingDp.toFloat(),
+                                    onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
+                                    valueRange = 0f..32f,
+                                    steps = 15,
+                                )
+                            }
+
+                            // Row Spacing
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Row Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                    Text("${homeVerticalSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = homeVerticalSpacingDp.toFloat(),
+                                    onValueChange = { AppearanceConfig.setHomeVerticalSpacingDp(it.toInt()) },
+                                    valueRange = 0f..64f,
+                                    steps = 31,
+                                )
+                            }
+
+                            // Corner Radius
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Corner Radius", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                    Text("${posterRoundingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = posterRoundingDp.toFloat(),
+                                    onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
+                                    valueRange = 0f..24f,
+                                    steps = 23,
+                                )
+                            }
+                        }
+                    } else {
+                        // ── Tab 1: Style & Glow Controls ──────────────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        ) {
+                            // Title Position Selector
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Poster Title Position", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(
+                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below",
+                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Hover",
+                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
+                                    ).forEach { (pos, label) ->
+                                        FilterChip(
+                                            selected = posterTitlePosition == pos,
+                                            onClick = { AppearanceConfig.setPosterTitlePosition(pos) },
+                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                            shape = RoundedCornerShape(8.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Continue Watching Style
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Continue Watching Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(
+                                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide Card",
+                                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic",
+                                    ).forEach { (style, label) ->
+                                        FilterChip(
+                                            selected = continueWatchingStyle == style,
+                                            onClick = { AppearanceConfig.setContinueWatchingStyle(style) },
+                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                            shape = RoundedCornerShape(8.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Hover Ambient Glow Switch
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Column {
+                                        Text("Hover Ambient Glow", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Text("Dynamic backdrop illumination", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                    }
+                                    Switch(
+                                        checked = posterHoverGlowEnabled,
+                                        onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

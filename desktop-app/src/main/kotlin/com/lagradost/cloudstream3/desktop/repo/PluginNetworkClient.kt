@@ -104,8 +104,38 @@ internal object PluginNetworkClient {
                     AppLogger.i("Repo fetch from $url returned HTML — likely behind a WAF.")
                     return@withContext null
                 }
+                val trimmedBody = body.trim()
+                if (trimmedBody.startsWith("[")) {
+                    // Check if it's a direct plugins.json list
+                    val sampleFirst = mapper.readTree(trimmedBody).firstOrNull()
+                    if (sampleFirst != null && sampleFirst.has("internalName") && sampleFirst.has("url")) {
+                        val repoName = finalUrl.substringBeforeLast('/').substringAfterLast('/').ifBlank { "Custom Repository" }
+                        return@withContext Repository(
+                            name = repoName,
+                            description = "Imported plugin repository",
+                            manifestVersion = 1,
+                            pluginLists = listOf(finalUrl),
+                            iconUrl = null,
+                        )
+                    }
+                }
+
                 val rawRepo = mapper.readValue(body, Repository::class.java)
-                val resolvedLists = rawRepo.pluginLists.map { listUrl ->
+                val rawLists = if (rawRepo.pluginLists.isNullOrEmpty()) {
+                    listOf(
+                        if (finalUrl.endsWith("repo.json", ignoreCase = true)) {
+                            finalUrl.replace(Regex("repo\\.json$", RegexOption.IGNORE_CASE), "builds/plugins.json")
+                        } else if (finalUrl.endsWith("plugins.json", ignoreCase = true)) {
+                            finalUrl
+                        } else {
+                            "${finalUrl.trimEnd('/')}/builds/plugins.json"
+                        }
+                    )
+                } else {
+                    rawRepo.pluginLists
+                }
+
+                val resolvedLists = rawLists.map { listUrl ->
                     resolveUrl(finalUrl, listUrl)
                 }
                 val resolvedIcon = rawRepo.iconUrl?.takeIf { it.isNotBlank() }?.let { resolveUrl(finalUrl, it) }

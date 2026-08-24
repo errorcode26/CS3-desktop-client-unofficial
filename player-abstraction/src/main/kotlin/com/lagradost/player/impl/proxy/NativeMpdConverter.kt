@@ -304,26 +304,77 @@ class NativeMpdConverter {
             }
 
             sb.appendLine("#EXT-X-TARGETDURATION:${ceil(maxDuration).toInt()}")
-            if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSegNum")
-            segments.forEach { sb.appendLine(it) }
+            if (isLive && segments.size > 16) {
+                val windowSegments = segments.takeLast(12) // 6 chunks (each chunk = 2 lines)
+                val windowStartSegNum = (segNum - 6).coerceAtLeast(startSegNum)
+                sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$windowStartSegNum")
+                windowSegments.forEach { sb.appendLine(it) }
+            } else {
+                if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSegNum")
+                segments.forEach { sb.appendLine(it) }
+            }
         } else {
             // Duration-based processing
             val d = template.getAttribute("duration")?.toLongOrNull() ?: 1L
             val duration = d.toDouble() / timescale.toDouble()
-            sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
 
-            val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
-            if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startNum")
+            if (isLive) {
+                fun parseIsoInstant(raw: String): Long? {
+                    return try {
+                        java.time.Instant.parse(raw).toEpochMilli()
+                    } catch (_: Exception) {
+                        try {
+                            java.time.format.DateTimeFormatter.ISO_DATE_TIME.parse(raw, java.time.Instant::from).toEpochMilli()
+                        } catch (_: Exception) { null }
+                    }
+                }
 
-            // Compute the actual segment count from the total presentation duration so the
-            // full video length is exposed to MPV. Prefer mediaPresentationDuration on the
-            // root MPD element, then fall back to the Period's own duration attribute.
-            // If neither is present (e.g. truly unknown-length live stream), cap at 500.
-            val numSegments: Int = if (isLive) {
-                500
+                val availStartTimeStr = mpd.getAttribute("availabilityStartTime")
+                val availStartTime = if (availStartTimeStr.isNotBlank()) parseIsoInstant(availStartTimeStr) else null
+                val nowMs = System.currentTimeMillis()
+                val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
+
+                val currentLiveSegIndex = if (availStartTime != null && duration > 0.0) {
+                    val elapsedSeconds = (nowMs - availStartTime) / 1000.0
+                    startNum + (elapsedSeconds / duration).toLong()
+                } else {
+                    startNum.toLong()
+                }
+
+                // Provide a sliding window of 6 segments leading up to the live edge (with a 2-segment safety buffer)
+                val windowSize = 6
+                val endSeg = (currentLiveSegIndex - 2).coerceAtLeast(startNum.toLong())
+                val startSeg = (endSeg - windowSize + 1).coerceAtLeast(startNum.toLong())
+
+                sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
+                sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSeg")
+
+                for (segNum in startSeg..endSeg) {
+                    val time = (segNum - startNum) * d
+                    var segUrl = mediaAttr
+                        .replace("\$Number\$", segNum.toString())
+                        .replace("\$Time\$", time.toString())
+
+                    segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
+                        val w = match.groupValues[1].toIntOrNull() ?: 1
+                        segNum.toString().padStart(w, '0')
+                    }
+                    val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
+
+                    val proxySeg = if (useDecryption) {
+                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
+                    } else {
+                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
+                    }
+
+                    sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                    sb.appendLine(proxySeg)
+                }
             } else {
+                sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
+                val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
+
                 fun parseMpdDuration(raw: String): Double? {
-                    // ISO 8601 duration: PT1H22M30.000S or PT22M30S or PT30S
                     if (!raw.startsWith("PT", ignoreCase = true)) return null
                     val hoursMatch = Regex("(\\d+(?:\\.\\d+)?)H").find(raw)
                     val minsMatch = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
@@ -342,37 +393,35 @@ class NativeMpdConverter {
                     ?: parseMpdDuration(periodDurRaw ?: "")
                     ?: 0.0
 
-                if (totalSecs > 0.0 && duration > 0.0) {
-                    // +1 to ensure the final partial segment is included
+                val numSegments = if (totalSecs > 0.0 && duration > 0.0) {
                     ceil(totalSecs / duration).toInt() + 1
                 } else {
-                    // Unknown total duration — use a safe generous cap
                     500
                 }
-            }
 
-            var time = 0L
-            for (i in 0 until numSegments) {
-                val segNum = startNum + i
-                var segUrl = mediaAttr
-                    .replace("\$Number\$", segNum.toString())
-                    .replace("\$Time\$", time.toString())
+                var time = 0L
+                for (i in 0 until numSegments) {
+                    val segNum = startNum + i
+                    var segUrl = mediaAttr
+                        .replace("\$Number\$", segNum.toString())
+                        .replace("\$Time\$", time.toString())
 
-                segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
-                    val w = match.groupValues[1].toIntOrNull() ?: 1
-                    segNum.toString().padStart(w, '0')
+                    segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
+                        val w = match.groupValues[1].toIntOrNull() ?: 1
+                        segNum.toString().padStart(w, '0')
+                    }
+                    val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
+
+                    val proxySeg = if (useDecryption) {
+                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
+                    } else {
+                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
+                    }
+
+                    sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                    sb.appendLine(proxySeg)
+                    time += d
                 }
-                val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
-
-                val proxySeg = if (useDecryption) {
-                    encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
-                } else {
-                    encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
-                }
-
-                sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
-                sb.appendLine(proxySeg)
-                time += d
             }
         }
 

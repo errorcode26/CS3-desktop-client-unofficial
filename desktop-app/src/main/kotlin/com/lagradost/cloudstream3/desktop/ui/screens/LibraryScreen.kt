@@ -20,13 +20,18 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,15 +39,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
+import com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
@@ -61,7 +77,7 @@ private val CARD_TITLE_SCRIM_BRUSH = Brush.verticalGradient(
     ),
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ComposeLibraryScreen(
     onNavigate: (Config) -> Unit,
@@ -81,7 +97,6 @@ fun ComposeLibraryScreen(
     val bookmarksList = uiState.bookmarks
     val filteredBookmarks = uiState.filteredBookmarks
     val selectedTab = uiState.selectedTab
-    val showError = uiState.showError
     val posterWidthDp = uiState.posterWidthDp
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -106,7 +121,7 @@ fun ComposeLibraryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -116,7 +131,7 @@ fun ComposeLibraryScreen(
                             onClick = { viewModel.onEvent(LibraryUiEvent.OnSelectTab(tab)) },
                             label = {
                                 Text(
-                                    text = tab.stringRes,
+                                    tab.stringRes,
                                     fontWeight = if (selectedTab == tab) FontWeight.SemiBold else FontWeight.Medium,
                                 )
                             },
@@ -153,10 +168,40 @@ fun ComposeLibraryScreen(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
                         items(filteredBookmarks, key = { it.id }) { bookmark ->
+                            val provider = APIHolder.allProviders.firstOrNull {
+                                it.name == bookmark.apiName && it.mainUrl.isNotBlank() && bookmark.url.startsWith(it.mainUrl)
+                            } ?: APIHolder.getApiFromNameNull(bookmark.apiName)
+
                             BookmarkCard(
                                 bookmark = bookmark,
+                                isProviderMissing = bookmark.apiName !in uiState.installedProviderNames,
                                 onClick = {
-                                    viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark.apiName, bookmark.url))
+                                    viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                },
+                                onSecondaryClick = { bounds ->
+                                    GlobalContextMenuState.showForBookmark(
+                                        bounds = bounds,
+                                        bookmark = bookmark,
+                                        provider = provider,
+                                        onClick = {
+                                            viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                        },
+                                        onPlayClick = {
+                                            viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                        },
+                                        onRemove = {
+                                            viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
+                                        },
+                                        onChangeCategory = { newType ->
+                                            viewModel.onEvent(LibraryUiEvent.OnChangeWatchType(bookmark.id, newType))
+                                        },
+                                        onReLink = {
+                                            viewModel.onEvent(LibraryUiEvent.OnStartReLink(bookmark))
+                                        },
+                                        onSearchOtherProviders = {
+                                            viewModel.onEvent(LibraryUiEvent.OnSearchGlobal(bookmark.name))
+                                        },
+                                    )
                                 },
                                 onDelete = {
                                     viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
@@ -168,15 +213,24 @@ fun ComposeLibraryScreen(
             }
         }
 
-        com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
-            show = showError != null,
-            onDismissRequest = { viewModel.onEvent(LibraryUiEvent.OnDismissError) },
-            title = { Text("Provider Missing") },
-            text = { Text(showError ?: "") },
-            confirmButton = {
-                Button(onClick = { viewModel.onEvent(LibraryUiEvent.OnDismissError) }) { Text("OK") }
-            },
-        )
+        uiState.orphanRecoveryBookmark?.let { orphan ->
+            LibraryRecoveryDialog(
+                bookmark = orphan,
+                isSearching = uiState.isSearchingMatches,
+                matchedResults = uiState.matchedResults,
+                onDismiss = { viewModel.onEvent(LibraryUiEvent.OnDismissRecoveryModal) },
+                onSelectMatch = { prov, match ->
+                    viewModel.onEvent(LibraryUiEvent.OnSelectReLinkMatch(orphan, prov, match))
+                },
+                onSearchGlobal = {
+                    viewModel.onEvent(LibraryUiEvent.OnSearchGlobal(orphan.name))
+                },
+                onDelete = {
+                    viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(orphan.id))
+                    viewModel.onEvent(LibraryUiEvent.OnDismissRecoveryModal)
+                },
+            )
+        }
     }
 }
 
@@ -212,7 +266,6 @@ fun LibraryActionBar(
             ),
         )
 
-        // Provider Filter
         Box {
             OutlinedButton(
                 onClick = { providerExpanded = true },
@@ -244,7 +297,6 @@ fun LibraryActionBar(
             }
         }
 
-        // Sort Filter
         Box {
             OutlinedButton(
                 onClick = { sortExpanded = true },
@@ -271,13 +323,21 @@ fun LibraryActionBar(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () -> Unit) {
+fun BookmarkCard(
+    bookmark: DesktopBookmark,
+    isProviderMissing: Boolean,
+    onClick: () -> Unit,
+    onSecondaryClick: (Rect) -> Unit,
+    onDelete: () -> Unit,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val posterCornerRadius by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterRoundingDp.collectAsState()
     val shape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp) }
     val primary = MaterialTheme.colorScheme.primary
+    var bounds by remember { mutableStateOf(Rect.Zero) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         if (isHovered) {
@@ -285,7 +345,7 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                 modifier = Modifier
                     .matchParentSize()
                     .blur(32.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .background(primary.copy(alpha = 0.65f), shape),
+                    .background(if (isProviderMissing) Color(0xFFE65100).copy(alpha = 0.65f) else primary.copy(alpha = 0.65f), shape),
             )
         }
         Surface(
@@ -294,23 +354,40 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                 .posterHoverEffect(shape)
                 .clip(shape)
                 .hoverable(interactionSource)
-                .clickable { onClick() },
+                .onGloballyPositioned { coords ->
+                    bounds = coords.boundsInWindow()
+                }
+                .pointerInput(bookmark) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Release) {
+                                if (event.button == PointerButton.Secondary) {
+                                    onSecondaryClick(bounds)
+                                } else if (event.button == PointerButton.Primary) {
+                                    onClick()
+                                }
+                            }
+                        }
+                    }
+                },
             shape = shape,
             color = DesktopUi.SurfaceCard,
             tonalElevation = if (isHovered) 8.dp else 2.dp,
-            border = if (isHovered) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+            border = if (isHovered) androidx.compose.foundation.BorderStroke(2.dp, if (isProviderMissing) Color(0xFFFFA726) else MaterialTheme.colorScheme.primary) else null,
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(2f / 3f),
             ) {
-                // Poster
                 if (bookmark.posterUrl != null) {
+                    val enhancedPoster = remember(bookmark.posterUrl) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(bookmark.posterUrl) }
                     AsyncImage(
-                        model = bookmark.posterUrl,
+                        model = enhancedPoster,
                         contentDescription = bookmark.name,
                         contentScale = ContentScale.Crop,
+                        filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
@@ -337,7 +414,6 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
                 }
 
-                // Play button on hover
                 AnimatedVisibility(
                     visible = isHovered,
                     enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)),
@@ -348,22 +424,21 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                            .background(if (isProviderMissing) Color(0xFFE65100).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.15f))
+                            .border(1.dp, if (isProviderMissing) Color(0xFFFFA726) else Color.White.copy(alpha = 0.4f), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
+                            imageVector = if (isProviderMissing) Icons.Default.Sync else Icons.Default.PlayArrow,
+                            contentDescription = if (isProviderMissing) "Re-link" else "Play",
                             tint = Color.White,
-                            modifier = Modifier.size(32.dp).padding(start = 2.dp),
+                            modifier = Modifier.size(30.dp),
                         )
                     }
                 }
 
-                // Gradient at the bottom with the title
                 AnimatedVisibility(
-                    visible = isHovered,
+                    visible = isHovered || isProviderMissing,
                     modifier = Modifier.align(Alignment.BottomCenter),
                     enter = fadeIn(),
                     exit = fadeOut(),
@@ -375,21 +450,42 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                     ) {
                         Column {
-                            // Provider Badge
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.25f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = bookmark.apiName,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    letterSpacing = 0.5.sp,
-                                )
+                            if (isProviderMissing) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFFE65100).copy(alpha = 0.90f))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color.White, modifier = Modifier.size(10.dp))
+                                        Text(
+                                            text = "${bookmark.apiName} (Missing)",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                        )
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color.White.copy(alpha = 0.25f))
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                                ) {
+                                    Text(
+                                        text = bookmark.apiName,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        letterSpacing = 0.5.sp,
+                                    )
+                                }
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(
@@ -404,29 +500,221 @@ fun BookmarkCard(bookmark: DesktopBookmark, onClick: () -> Unit, onDelete: () ->
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                // Delete Button (Top Right over Poster)
-                AnimatedVisibility(
-                    visible = isHovered,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                    enter = fadeIn(),
-                    exit = fadeOut(),
+@Composable
+fun LibraryRecoveryDialog(
+    bookmark: DesktopBookmark,
+    isSearching: Boolean,
+    matchedResults: List<Pair<MainAPI, SearchResponse>>,
+    onDismiss: () -> Unit,
+    onSelectMatch: (MainAPI, SearchResponse) -> Unit,
+    onSearchGlobal: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    CloudstreamCustomDialog(
+        show = true,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(0.82f).fillMaxHeight(0.80f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE65100).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFA726).copy(alpha = 0.5f)),
+                    modifier = Modifier.size(44.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f))
-                            .clickable { onDelete() },
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Remove Bookmark",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(14.dp),
+                            Icons.Default.WarningAmber,
+                            contentDescription = null,
+                            tint = Color(0xFFFFA726),
+                            modifier = Modifier.size(26.dp),
                         )
                     }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Provider Not Available",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "\"${bookmark.name}\" was saved via \"${bookmark.apiName}\", which is currently not installed or active.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(Modifier.height(16.dp))
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                if (isSearching) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            "Searching active providers for \"${bookmark.name}\"...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else if (matchedResults.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = "Found ${matchedResults.size} matches on your active providers. Click any match to re-link this bookmark:",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 150.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            items(matchedResults) { (prov, match) ->
+                                Surface(
+                                    onClick = { onSelectMatch(prov, match) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(2f / 3f)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                        ) {
+                                            if (match.posterUrl != null) {
+                                                val enhancedMatchPoster = remember(match.posterUrl) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(match.posterUrl) }
+                                                AsyncImage(
+                                                    model = enhancedMatchPoster,
+                                                    contentDescription = match.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize().background(DesktopUi.SurfaceElevated),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Text(match.name.take(2).uppercase(), fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = match.name,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        ) {
+                                            Text(
+                                                text = prov.name,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = "No automatic matches found on your active providers.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                        Text(
+                            text = "You can search manually across providers or remove this orphaned item.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = onSearchGlobal,
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Search Providers")
+                    }
+
+                    OutlinedButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Remove Bookmark")
+                    }
+                }
+
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Close")
                 }
             }
         }

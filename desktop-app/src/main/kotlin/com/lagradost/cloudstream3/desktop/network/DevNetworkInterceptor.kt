@@ -14,15 +14,24 @@ import java.util.concurrent.TimeUnit
  */
 class DevNetworkInterceptor : Interceptor {
 
+    private val SENSITIVE_HEADERS = setOf(
+        "authorization", "cookie", "set-cookie", "x-api-key", "api-key", "token", "x-auth-token", "proxy-authorization",
+    )
+
+    private fun isSensitiveHeader(name: String): Boolean {
+        return SENSITIVE_HEADERS.contains(name.lowercase())
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val method = request.method
-        val url = request.url.toString()
+        val rawUrl = request.url.toString()
+        val url = com.lagradost.common.logging.LogBuffer.sanitize(rawUrl)
         val host = request.url.host
         val path = request.url.encodedPath
 
         val reqHeadersMap = headersToMap(request.headers)
-        val reqBodyString = extractRequestBody(request)
+        val reqBodyString = extractRequestBody(request)?.let { com.lagradost.common.logging.LogBuffer.sanitize(it) }
 
         val requestId = NetworkTrafficBuffer.recordStart(
             method = method,
@@ -64,7 +73,7 @@ class DevNetworkInterceptor : Interceptor {
             statusMessage = response.message.ifBlank { if (response.isSuccessful) "OK" else "HTTP ${response.code}" },
             durationMs = durationMs,
             responseHeaders = respHeadersMap,
-            responseBody = respBodyString,
+            responseBody = respBodyString?.let { com.lagradost.common.logging.LogBuffer.sanitize(it) },
             responseSize = respSize,
             contentType = contentType,
             error = if (!response.isSuccessful) "HTTP ${response.code} ${response.message}" else null,
@@ -76,7 +85,9 @@ class DevNetworkInterceptor : Interceptor {
     private fun headersToMap(headers: Headers): Map<String, String> {
         val map = LinkedHashMap<String, String>()
         for (i in 0 until headers.size) {
-            map[headers.name(i)] = headers.value(i)
+            val name = headers.name(i)
+            val value = if (isSensitiveHeader(name)) "***MASKED***" else headers.value(i)
+            map[name] = value
         }
         return map
     }

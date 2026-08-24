@@ -53,6 +53,47 @@ class ProviderTestState {
 
 @Composable
 fun SettingsDeveloper() {
+    val isDevEnabled = com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.isEnabled
+
+    if (!isDevEnabled) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Build,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "Developer Options are Locked",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Developer tools include live LogCat, Network Inspector, and Provider Diagnostics. Turn on to unlock advanced debugging tools.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.widthIn(max = 500.dp),
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = { com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(true) },
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            ) {
+                Text("Enable Developer Mode", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        return
+    }
+
     var selectedTabIndex by remember { mutableStateOf(0) }
     val testState = remember { ProviderTestState() }
     val scope = rememberCoroutineScope()
@@ -65,6 +106,47 @@ fun SettingsDeveloper() {
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Developer Mode Status Banner
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            ),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "🛠️",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(end = 10.dp),
+                    )
+                    Column {
+                        Text(
+                            text = "Developer Mode Active",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Press F12 anywhere to open floating DevStudio inspector",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = { com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(false) },
+                ) {
+                    Text("Turn Off", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
         // Tab bar
         Surface(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),

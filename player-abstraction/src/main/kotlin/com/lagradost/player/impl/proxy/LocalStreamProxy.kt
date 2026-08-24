@@ -334,7 +334,8 @@ object LocalStreamProxy {
 
             if (action == "dash" && rep != null) {
                 val cachedMpd = session.mpdCache[url]
-                if (cachedMpd != null) {
+                val isLive = cachedMpd?.contains("type=\"dynamic\"") == true || cachedMpd?.contains("type='dynamic'") == true
+                if (cachedMpd != null && !isLive) {
                     val m3u8 = NativeMpdConverter().convertMediaPlaylist(cachedMpd, rep, port, sessionId, url, clearKey)
                     call.response.header("Content-Type", "application/vnd.apple.mpegurl")
                     call.respondBytes(m3u8.toByteArray(Charsets.UTF_8), status = HttpStatusCode.OK)
@@ -451,10 +452,9 @@ object LocalStreamProxy {
             }
 
             if (action == "decrypt") {
-                val contentLength = response.body?.contentLength() ?: -1L
                 call.response.header("Content-Type", "video/mp4")
                 try {
-                    call.respondBytesWriter(status = HttpStatusCode.OK, contentLength = contentLength) {
+                    call.respondBytesWriter(status = HttpStatusCode.OK) {
                         try {
                             val streamSource = response.body?.source() ?: return@respondBytesWriter
                             StreamDecryptor.streamingDecryptMediaSegment(streamSource, kid ?: "", k ?: "") { bytes ->

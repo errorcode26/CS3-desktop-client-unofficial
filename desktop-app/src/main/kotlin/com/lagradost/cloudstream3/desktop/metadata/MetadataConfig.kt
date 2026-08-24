@@ -124,4 +124,16 @@ object MetadataConfig {
             else -> true
         }
     }
+
+    fun reloadFromDataStore() {
+        _tmdbEnabled.value = DesktopDataStore.getKey<Boolean>(KEY_TMDB_ENABLED) ?: true
+        _customTmdbApiKey.value = DesktopDataStore.getKey<String>(KEY_TMDB_API_KEY) ?: ""
+        _anilistEnabled.value = DesktopDataStore.getKey<Boolean>(KEY_ANILIST_ENABLED) ?: true
+        _kitsuEnabled.value = DesktopDataStore.getKey<Boolean>(KEY_KITSU_ENABLED) ?: true
+        _stremioAddonEnabled.value = DesktopDataStore.getKey<Boolean>(KEY_STREMIO_ADDON_ENABLED) ?: false
+        _stremioAddonUrl.value = DesktopDataStore.getKey<String>(KEY_STREMIO_ADDON_URL) ?: ""
+        _skipIntervalsEnabled.value = DesktopDataStore.getKey<Boolean>(KEY_ENABLE_SKIP_INTERVALS) ?: true
+        _autoSkipIntro.value = DesktopDataStore.getKey<Boolean>(KEY_AUTO_SKIP_INTRO) ?: false
+        _autoSkipOutro.value = DesktopDataStore.getKey<Boolean>(KEY_AUTO_SKIP_OUTRO) ?: false
+    }
 }

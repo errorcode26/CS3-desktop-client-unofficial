@@ -76,9 +76,10 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                         updateState { copy(subtitles = subtitles + sub) }
                     },
                     callback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
-                        AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
+                        AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}, source=${link.source}) -> ${link.url}")
+                        com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
                         updateState {
-                            val newLinks = links + link
+                            val newLinks = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(links + link)
                             val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."
                             copy(links = newLinks, statusText = text)
                         }

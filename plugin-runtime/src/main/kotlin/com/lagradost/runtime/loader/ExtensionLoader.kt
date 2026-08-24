@@ -116,15 +116,21 @@ object ExtensionLoader {
 
             val dexEntry = zip.getEntry("classes.dex")
             if (hasJvmClasses) {
-                val secureJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-secure.jar")
-                val isCacheValid = secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
-                    (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
+                val secureJar = if (jarFile.name.endsWith("-secure.jar")) {
+                    jarFile
+                } else {
+                    File(jarFile.parentFile, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
+                }
+                val isCacheValid = secureJar == jarFile || (
+                    secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
+                        (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
+                )
 
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Securing Native JVM JAR: ${jarFile.name}...")
                     java.nio.file.Files.copy(jarFile.toPath(), secureJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                     PluginBytecodeTransformer.transform(secureJar)
-                } else {
+                } else if (secureJar != jarFile) {
                     AppLogger.i("[PluginLoader] Using cached Secure JVM JAR: ${secureJar.name}")
                 }
                 jarToLoad = secureJar
@@ -182,9 +188,9 @@ object ExtensionLoader {
 
         AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
-        val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad, finalInternalName)
+        val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad, finalInternalName, pluginClassName, nameFromManifest)
         if (forceBypassSecurity) {
-            addTrusted(jarToLoad, finalInternalName)
+            addTrusted(jarToLoad, finalInternalName, pluginClassName, nameFromManifest)
         }
 
         AppLogger.i("Running static bytecode security verification on ${jarToLoad.name} (Trusted: $isPluginTrusted)...")
@@ -249,7 +255,7 @@ object ExtensionLoader {
                             pluginPrefName = "CineStream_",
                             key = key,
                             type = "String",
-                            defaultValue = "false",
+                            defaultValue = "true",
                             isGlobal = false,
                         )
                     }
@@ -353,6 +359,21 @@ object ExtensionLoader {
                         provider.sourcePlugin = jarFile.absolutePath
                     }
                 }
+                // Only replace duplicate instances belonging to the exact same plugin file path (e.g. in-place update)
+                val seenKeys = mutableSetOf<String>()
+                val toKeep = mutableListOf<com.lagradost.cloudstream3.MainAPI>()
+                for (provider in com.lagradost.cloudstream3.APIHolder.allProviders.reversed()) {
+                    val uniqueKey = "${provider.name}::${provider.sourcePlugin ?: ""}"
+                    if (seenKeys.add(uniqueKey)) {
+                        toKeep.add(provider)
+                    } else {
+                        try {
+                            com.lagradost.cloudstream3.APIHolder.removePluginMapping(provider)
+                        } catch (ignored: Throwable) {}
+                    }
+                }
+                com.lagradost.cloudstream3.APIHolder.allProviders.clear()
+                com.lagradost.cloudstream3.APIHolder.allProviders.addAll(toKeep.reversed())
             }
             com.lagradost.cloudstream3.APIHolder.apis.forEach { provider ->
                 if (provider.sourcePlugin == null && provider.sourcePlugin != "built-in") {
@@ -365,9 +386,20 @@ object ExtensionLoader {
                         extractor.sourcePlugin = jarFile.absolutePath
                     }
                 }
+                // Only replace duplicate extractors belonging to the exact same plugin file path
+                val seenExtKeys = mutableSetOf<String>()
+                val extsToKeep = mutableListOf<com.lagradost.cloudstream3.utils.ExtractorApi>()
+                for (ext in com.lagradost.cloudstream3.utils.extractorApis.reversed()) {
+                    val uniqueKey = "${ext.name}::${ext.sourcePlugin ?: ""}"
+                    if (seenExtKeys.add(uniqueKey)) {
+                        extsToKeep.add(ext)
+                    }
+                }
+                com.lagradost.cloudstream3.utils.extractorApis.clear()
+                com.lagradost.cloudstream3.utils.extractorApis.addAll(extsToKeep.reversed())
             }
         } catch (t: Throwable) {
-            AppLogger.i("Failed to backfill sourcePlugin for ${jarFile.name}: ${t.message}")
+            AppLogger.i("Failed to backfill sourcePlugin or deduplicate for ${jarFile.name}: ${t.message}")
         }
 
         return pluginInstance
@@ -384,60 +416,125 @@ object ExtensionLoader {
         }
     }
 
-    fun isTrusted(jarFile: File, internalName: String? = null): Boolean {
-        val name = jarFile.nameWithoutExtension.removeSuffix("-jvm")
-        val list = getTrustedList()
-        val inList = list.contains(name) || (internalName != null && list.contains(internalName))
-        val inDataStore = com.lagradost.common.storage.DesktopDataStore.isPluginTrusted(name) ||
-            (internalName != null && com.lagradost.common.storage.DesktopDataStore.isPluginTrusted(internalName))
+    fun getPluginAliases(
+        jarFile: File? = null,
+        internalName: String? = null,
+        pluginClassName: String? = null,
+        manifestName: String? = null,
+    ): Set<String> {
+        val keys = mutableSetOf<String>()
+        val repoDir = jarFile?.parentFile?.name?.lowercase()?.trim()
+
+        fun addKey(k: String?) {
+            if (k.isNullOrBlank()) return
+            val clean = k.removeSuffix(".jar").removeSuffix(".cs3").removeSuffix("-jvm").removeSuffix("-secure").lowercase().trim()
+            if (clean.isNotBlank()) {
+                keys.add(clean)
+                val stripped = clean.removeSuffix("provider").removeSuffix("plugin").removePrefix("com.")
+                if (stripped.isNotBlank()) keys.add(stripped)
+                val lastSegment = clean.substringAfterLast('.')
+                if (lastSegment.isNotBlank()) keys.add(lastSegment)
+                val lastStripped = lastSegment.removeSuffix("provider").removeSuffix("plugin")
+                if (lastStripped.isNotBlank()) keys.add(lastStripped)
+
+                if (repoDir != null && repoDir != "extensions") {
+                    keys.add("$repoDir/$clean")
+                    if (stripped.isNotBlank()) keys.add("$repoDir/$stripped")
+                    if (lastSegment.isNotBlank()) keys.add("$repoDir/$lastSegment")
+                    if (lastStripped.isNotBlank()) keys.add("$repoDir/$lastStripped")
+
+                    val repoWithSpaces = repoDir.replace('_', ' ')
+                    val repoClean = repoDir.replace(Regex("[^a-z0-9]"), "")
+                    if (repoWithSpaces != repoDir) {
+                        keys.add("$repoWithSpaces/$clean")
+                        if (stripped.isNotBlank()) keys.add("$repoWithSpaces/$stripped")
+                    }
+                    if (repoClean.isNotBlank() && repoClean != repoDir) {
+                        keys.add("$repoClean/$clean")
+                        if (stripped.isNotBlank()) keys.add("$repoClean/$stripped")
+                    }
+                }
+            }
+        }
+
+        jarFile?.nameWithoutExtension?.let { addKey(it) }
+        internalName?.let { addKey(it) }
+        manifestName?.let { addKey(it) }
+        pluginClassName?.let {
+            addKey(it)
+            addKey(it.substringAfterLast('.'))
+            addKey(it.substringBeforeLast('.'))
+        }
+
+        jarFile?.let {
+            keys.add(it.absolutePath.lowercase().replace('\\', '/'))
+            val relPath = "${repoDir ?: ""}/${it.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")}".lowercase().trim('/')
+            if (relPath.isNotBlank()) keys.add(relPath)
+        }
+
+        return keys
+    }
+
+    fun isTrusted(
+        jarFile: File,
+        internalName: String? = null,
+        pluginClassName: String? = null,
+        manifestName: String? = null,
+    ): Boolean {
+        val candidateKeys = getPluginAliases(jarFile, internalName, pluginClassName, manifestName)
+        val list = getTrustedList().map { it.lowercase().trim() }
+
+        val inList = candidateKeys.any { list.contains(it) }
+        val inDataStore = candidateKeys.any { com.lagradost.common.storage.DesktopDataStore.isPluginTrusted(it) }
         return inList || inDataStore
     }
 
-    fun addTrusted(jarFile: File, internalName: String? = null) {
-        val name = jarFile.nameWithoutExtension.removeSuffix("-jvm")
+    fun addTrusted(
+        jarFile: File,
+        internalName: String? = null,
+        pluginClassName: String? = null,
+        manifestName: String? = null,
+    ) {
+        val keysToAdd = getPluginAliases(jarFile, internalName, pluginClassName, manifestName)
         val trusted = getTrustedList()
         var changed = false
-        if (!trusted.contains(name)) {
-            trusted.add(name)
-            changed = true
+
+        for (k in keysToAdd) {
+            if (!trusted.any { it.equals(k, ignoreCase = true) }) {
+                trusted.add(k)
+                changed = true
+            }
+            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(k, true)
         }
-        if (internalName != null && !trusted.contains(internalName)) {
-            trusted.add(internalName)
-            changed = true
-        }
+
         if (changed) {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
             prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
-        }
-        com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(name, true)
-        if (internalName != null) {
-            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(internalName, true)
         }
     }
 
-    fun removeTrusted(jarFile: File? = null, internalName: String? = null) {
-        val name = jarFile?.nameWithoutExtension?.removeSuffix("-jvm")
+    fun removeTrusted(
+        jarFile: File? = null,
+        internalName: String? = null,
+        pluginClassName: String? = null,
+        manifestName: String? = null,
+    ) {
+        val keysToRemove = getPluginAliases(jarFile, internalName, pluginClassName, manifestName)
         val trusted = getTrustedList()
         var changed = false
-        if (name != null && trusted.contains(name)) {
-            trusted.remove(name)
-            changed = true
+
+        for (k in keysToRemove) {
+            if (trusted.removeAll { it.equals(k, ignoreCase = true) }) {
+                changed = true
+            }
+            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(k, false)
         }
-        if (internalName != null && trusted.contains(internalName)) {
-            trusted.remove(internalName)
-            changed = true
-        }
+
         if (changed) {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
             prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
-        }
-        if (name != null) {
-            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(name, false)
-        }
-        if (internalName != null) {
-            com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(internalName, false)
         }
     }
 

@@ -203,21 +203,31 @@ fun HomeManagementDialog(
                         allProviders.filter { p -> p.supportedTypes.any { it in providerTypeFilter } }
                     }
                     val sortedProviders = filteredProviders.sortedBy { it.name }
+                    val duplicateHomeNames = remember(sortedProviders) {
+                        sortedProviders.groupBy { it.name }.filterValues { it.size > 1 }.keys
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 250.dp),
                         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp)).padding(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(sortedProviders, key = { it.name }) { provider ->
-                            val isActive = activeProviders.contains(provider.name)
+                        items(sortedProviders.size, key = { index -> "${sortedProviders[index].name}_${sortedProviders[index].mainUrl}_${sortedProviders[index].sourcePlugin}_$index" }) { index ->
+                            val provider = sortedProviders[index]
+                            val pKey = if (provider.sourcePlugin != null && provider.sourcePlugin != "built-in") {
+                                "${java.io.File(provider.sourcePlugin).parentFile?.name ?: ""}::${provider.name}"
+                            } else {
+                                provider.name
+                            }
+                            val isSingleNameUnique = sortedProviders.count { it.name == provider.name } == 1
+                            val isActive = activeProviders.contains(pKey) || (isSingleNameUnique && activeProviders.contains(provider.name))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                     .clickable {
-                                        onSetSingleProvider(provider.name)
+                                        onSetSingleProvider(pKey)
                                         onDismissRequest()
                                     }
                                     .padding(12.dp),
@@ -233,16 +243,47 @@ fun HomeManagementDialog(
                                     Spacer(modifier = Modifier.width(12.dp))
                                 } else {
                                     Box(
-                                        modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                                        modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        Icon(Icons.Default.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Extension, contentDescription = null, tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                 }
 
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(provider.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                    val repoTag = if (provider.name in duplicateHomeNames) {
+                                        provider.sourcePlugin?.let {
+                                            try {
+                                                java.io.File(it).parentFile?.name?.replace("_", " ")
+                                            } catch (_: Exception) { null }
+                                        }
+                                    } else null
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            provider.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        if (!repoTag.isNullOrBlank()) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "($repoTag)",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
                                     Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
 
@@ -302,7 +343,14 @@ fun HomeManagementDialog(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     itemsIndexed(activeProviders, key = { _, name -> name }) { index, providerName ->
-                                        val provider = allProviders.find { it.name == providerName }
+                                        val provider = allProviders.find {
+                                            val pKey = if (it.sourcePlugin != null && it.sourcePlugin != "built-in") {
+                                                "${java.io.File(it.sourcePlugin).parentFile?.name ?: ""}::${it.name}"
+                                            } else {
+                                                it.name
+                                            }
+                                            pKey == providerName || it.name == providerName
+                                        }
                                         if (provider != null) {
                                             val isDraggingThis = draggingProviderName == providerName
 
@@ -363,11 +411,28 @@ fun HomeManagementDialog(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             val filteredInactive = if (providerTypeFilter.isEmpty()) {
-                                allProviders.filter { it.name !in activeProviders }
+                                allProviders.filter { p ->
+                                    val pKey = if (p.sourcePlugin != null && p.sourcePlugin != "built-in") {
+                                        "${java.io.File(p.sourcePlugin).parentFile?.name ?: ""}::${p.name}"
+                                    } else {
+                                        p.name
+                                    }
+                                    pKey !in activeProviders && p.name !in activeProviders
+                                }
                             } else {
-                                allProviders.filter { it.name !in activeProviders && it.supportedTypes.any { t -> t in providerTypeFilter } }
+                                allProviders.filter { p ->
+                                    val pKey = if (p.sourcePlugin != null && p.sourcePlugin != "built-in") {
+                                        "${java.io.File(p.sourcePlugin).parentFile?.name ?: ""}::${p.name}"
+                                    } else {
+                                        p.name
+                                    }
+                                    (pKey !in activeProviders && p.name !in activeProviders) && p.supportedTypes.any { t -> t in providerTypeFilter }
+                                }
                             }
                             val inactiveProviders = filteredInactive.sortedBy { it.name }
+                            val duplicateInactiveNames = remember(inactiveProviders) {
+                                inactiveProviders.groupBy { it.name }.filterValues { it.size > 1 }.keys
+                            }
 
                             if (inactiveProviders.isEmpty()) {
                                 Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
@@ -378,8 +443,13 @@ fun HomeManagementDialog(
                                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    items(inactiveProviders.size, key = { inactiveProviders[it].name }) { index ->
+                                    items(inactiveProviders.size, key = { index -> "${inactiveProviders[index].name}_${inactiveProviders[index].mainUrl}_${inactiveProviders[index].sourcePlugin ?: "none"}_$index" }) { index ->
                                         val provider = inactiveProviders[index]
+                                        val pKey = if (provider.sourcePlugin != null && provider.sourcePlugin != "built-in") {
+                                            "${java.io.File(provider.sourcePlugin).parentFile?.name ?: ""}::${provider.name}"
+                                        } else {
+                                            provider.name
+                                        }
                                         Row(
                                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
@@ -403,10 +473,40 @@ fun HomeManagementDialog(
                                             }
 
                                             Column(modifier = Modifier.weight(1f)) {
-                                                Text(provider.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                                                val repoTag = if (provider.name in duplicateInactiveNames) {
+                                                    provider.sourcePlugin?.let {
+                                                        try {
+                                                            java.io.File(it).parentFile?.name?.replace("_", " ")
+                                                        } catch (_: Exception) { null }
+                                                    }
+                                                } else null
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Text(
+                                                        provider.name,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false),
+                                                    )
+                                                    if (!repoTag.isNullOrBlank()) {
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            "($repoTag)",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                    }
+                                                }
                                                 Text("${provider.mainPage.size} catalogs available", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
-                                            FilledTonalIconButton(onClick = { onToggleProviderActive(provider.name, true) }) {
+                                            FilledTonalIconButton(onClick = { onToggleProviderActive(pKey, true) }) {
                                                 Icon(Icons.Default.Add, contentDescription = "Add")
                                             }
                                         }

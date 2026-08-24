@@ -18,22 +18,29 @@ fun main(args: Array<String>) {
         return
     }
 
-    val dexFile = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + ".dex")
-    ZipFile(pluginFile).use { zip ->
-        val dexEntry = zip.getEntry("classes.dex")
-        if (dexEntry != null) {
-            zip.getInputStream(dexEntry).use { input ->
-                java.nio.file.Files.copy(input, dexFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    val jarFile = if (pluginFile.name.endsWith("-jvm.jar")) {
+        pluginFile
+    } else {
+        val dexFile = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + ".dex")
+        if (pluginFile.extension == "cs3" || pluginFile.extension == "zip") {
+            ZipFile(pluginFile).use { zip ->
+                val dexEntry = zip.getEntry("classes.dex")
+                if (dexEntry != null) {
+                    zip.getInputStream(dexEntry).use { input ->
+                        java.nio.file.Files.copy(input, dexFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
             }
         }
-    }
-    val jarFile = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + "-jvm.jar")
-    if (!jarFile.exists()) {
-        try {
-            com.googlecode.dex2jar.tools.Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", jarFile.absolutePath)
-        } catch (e: Exception) {
-            com.googlecode.dex2jar.tools.Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", jarFile.absolutePath)
+        val targetJar = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + "-jvm.jar")
+        if (!targetJar.exists() && dexFile.exists()) {
+            try {
+                com.googlecode.dex2jar.tools.Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", targetJar.absolutePath)
+            } catch (e: Exception) {
+                com.googlecode.dex2jar.tools.Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", targetJar.absolutePath)
+            }
         }
+        if (targetJar.exists()) targetJar else pluginFile
     }
 
     if (jarFile.exists()) {

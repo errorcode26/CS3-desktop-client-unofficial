@@ -479,31 +479,43 @@ object StreamDecryptor {
 
         private fun decryptSample(sample: ByteArray, info: SampleInfo): ByteArray {
             val iv = ByteArray(16)
-            System.arraycopy(info.iv, 0, iv, 0, info.iv.size)
+            System.arraycopy(info.iv, 0, iv, 0, minOf(info.iv.size, 16))
             cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
 
             if (info.subSamples.isEmpty()) return cipher.doFinal(sample)
 
-            val result = ByteBuffer.allocate(sample.size)
-            var offset = 0
+            val totalEncrypted = info.subSamples.sumOf { it.second }
+            if (totalEncrypted == 0) return sample
+
+            // 1. Gather all encrypted slices into a contiguous buffer
+            val allEncrypted = ByteArray(totalEncrypted)
+            var encPos = 0
+            var sampleOffset = 0
             for ((clear, encrypted) in info.subSamples) {
-                result.put(sample, offset, clear)
-                offset += clear
-                val encryptedData = Arrays.copyOfRange(sample, offset, offset + encrypted)
-                val updated = cipher.update(encryptedData)
-                if (updated != null) {
-                    result.put(updated)
+                sampleOffset += clear
+                if (encrypted > 0 && sampleOffset + encrypted <= sample.size) {
+                    System.arraycopy(sample, sampleOffset, allEncrypted, encPos, encrypted)
+                    encPos += encrypted
+                    sampleOffset += encrypted
                 }
-                offset += encrypted
             }
-            if (offset < sample.size) {
-                val finalData = cipher.doFinal(Arrays.copyOfRange(sample, offset, sample.size))
-                if (finalData != null) result.put(finalData)
-            } else {
-                val finalBytes = cipher.doFinal()
-                if (finalBytes != null && finalBytes.isNotEmpty()) result.put(finalBytes)
+
+            // 2. Decrypt all encrypted bytes in a single continuous keystream pass
+            val decryptedBytes = cipher.doFinal(allEncrypted)
+
+            // 3. Reconstruct the sample by splicing decrypted slices into a clone of original sample
+            val result = sample.clone()
+            sampleOffset = 0
+            encPos = 0
+            for ((clear, encrypted) in info.subSamples) {
+                sampleOffset += clear
+                if (encrypted > 0 && sampleOffset + encrypted <= result.size && encPos + encrypted <= decryptedBytes.size) {
+                    System.arraycopy(decryptedBytes, encPos, result, sampleOffset, encrypted)
+                    encPos += encrypted
+                    sampleOffset += encrypted
+                }
             }
-            return result.array()
+            return result
         }
 
         private fun processTrun(trun: MP4Atom): Int {

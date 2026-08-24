@@ -90,119 +90,119 @@ fun ComposeSearchScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Unified container to perfectly left-align the categories with the search bar
+            // Unified container to perfectly center the search capsule and categories
             Column(
-                modifier = Modifier.widthIn(max = 660.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Search Bar & Plugin Selector Area
-                Row(
+                // Unified Search Bar & Plugin Selector Capsule
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                 ) {
-                    // Search Bar
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp),
-                            )
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
 
-                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                                if (uiState.searchQuery.isEmpty()) {
-                                    Text(
-                                        "Search movies, series, anime...",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        fontSize = 16.sp,
-                                    )
-                                }
-                                BasicTextField(
-                                    value = uiState.searchQuery,
-                                    onValueChange = { viewModel.onEvent(SearchUiEvent.OnSearchQueryChange(it)) },
-                                    singleLine = true,
-                                    textStyle = TextStyle(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Normal,
-                                    ),
-                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                    keyboardActions = KeyboardActions(onSearch = {
-                                        viewModel.onEvent(SearchUiEvent.OnSearch)
-                                    }),
-                                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            if (uiState.searchQuery.isEmpty()) {
+                                Text(
+                                    "Search movies, series, anime...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    fontSize = 15.sp,
                                 )
                             }
+                            BasicTextField(
+                                value = uiState.searchQuery,
+                                onValueChange = { viewModel.onEvent(SearchUiEvent.OnSearchQueryChange(it)) },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Normal,
+                                ),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = {
+                                    viewModel.onEvent(SearchUiEvent.OnSearch)
+                                }),
+                                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                            )
+                        }
 
-                            AnimatedVisibility(
-                                visible = uiState.searchQuery.isNotEmpty(),
-                                enter = fadeIn() + scaleIn(),
-                                exit = fadeOut() + scaleOut(),
+                        AnimatedVisibility(
+                            visible = uiState.searchQuery.isNotEmpty(),
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut(),
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.onEvent(SearchUiEvent.OnClearSearch) },
+                                modifier = Modifier.size(26.dp),
                             ) {
-                                IconButton(
-                                    onClick = { viewModel.onEvent(SearchUiEvent.OnClearSearch) },
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Clear",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                        // Subtle vertical separator
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(22.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        )
 
-                    // Plugin Selector Chip
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
-                        onClick = { showProviderDropdown = true },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        // Embedded Plugin Selector Chip
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp),
+                            onClick = { showProviderDropdown = true },
                         ) {
-                            if (!isGlobalSearchEnabled && selectedProviderName != null) {
-                                val icon = pluginIcons[selectedProviderName] ?: fuzzyMatchIcon(selectedProviderName)
-                                if (icon != null) {
-                                    coil3.compose.AsyncImage(
-                                        model = icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
-                                    )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                if (!isGlobalSearchEnabled && selectedProviderName != null) {
+                                    val icon = pluginIcons[selectedProviderName] ?: fuzzyMatchIcon(selectedProviderName)
+                                    if (icon != null) {
+                                        coil3.compose.AsyncImage(
+                                            model = icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
+                                        )
+                                    }
                                 }
+                                Text(
+                                    text = if (isGlobalSearchEnabled) "All Plugins" else (selectedProviderName ?: "Select Plugin"),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    modifier = Modifier.widthIn(max = 120.dp),
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                            Text(
-                                text = if (isGlobalSearchEnabled) "All Plugins" else (selectedProviderName ?: "Select Plugin"),
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                modifier = Modifier.widthIn(max = 120.dp),
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
                     }
                 } // closes Row
@@ -212,10 +212,10 @@ fun ComposeSearchScreen(
                 com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
                     show = showProviderDropdown,
                     onDismissRequest = { showProviderDropdown = false },
-                    modifier = Modifier.fillMaxWidth(0.65f).fillMaxHeight(0.75f),
+                    modifier = Modifier.fillMaxWidth(0.65f).wrapContentHeight().heightIn(min = 220.dp, max = 620.dp),
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         // Header
@@ -262,26 +262,32 @@ fun ComposeSearchScreen(
 
                         // Provider Grid
                         val matchingProviders = remember(uiState.providers, providerModalSearch, providerTypeFilter) {
-                            uiState.providers.filter { p ->
-                                val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
-                                val matchesType = providerTypeFilter.isEmpty() || p.supportedTypes.any { it in providerTypeFilter }
-                                matchesQuery && matchesType
-                            }
+                            uiState.providers
+                                .filter { p ->
+                                    val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
+                                    val matchesType = providerTypeFilter.isEmpty() || p.supportedTypes.any { it in providerTypeFilter }
+                                    matchesQuery && matchesType
+                                }
+                                .distinctBy { "${it.name}_${it.mainUrl}_${it.sourcePlugin ?: ""}" }
+                        }
+
+                        val duplicateNames = remember(matchingProviders) {
+                            matchingProviders.groupBy { it.name }.filterValues { it.size > 1 }.keys
                         }
 
                         androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                             columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 180.dp),
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 440.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            items(matchingProviders.size, key = { matchingProviders[it].name }) { idx ->
+                            items(matchingProviders.size, key = { idx -> "${matchingProviders[idx].name}_${matchingProviders[idx].mainUrl}_${matchingProviders[idx].sourcePlugin ?: ""}_$idx" }) { idx ->
                                 val provider = matchingProviders[idx]
-                                val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name
+                                val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name && (uiState.selectedProviderSource == null || uiState.selectedProviderSource == provider.sourcePlugin)
                                 Surface(
                                     onClick = {
                                         viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
-                                        viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name))
+                                        viewModel.onEvent(SearchUiEvent.OnProviderSelected(provider.name, provider.sourcePlugin))
                                         showProviderDropdown = false
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -301,6 +307,7 @@ fun ComposeSearchScreen(
                                             coil3.compose.AsyncImage(
                                                 model = icon,
                                                 contentDescription = null,
+                                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                                 modifier = Modifier.size(28.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
                                             )
                                         } else {
@@ -321,16 +328,48 @@ fun ComposeSearchScreen(
                                         }
 
                                         Column(modifier = Modifier.weight(1f)) {
+                                            val repoTag = if (provider.name in duplicateNames) {
+                                                provider.sourcePlugin?.let {
+                                                    try {
+                                                        java.io.File(it).parentFile?.name?.replace("_", " ")
+                                                    } catch (_: Exception) { null }
+                                                }
+                                            } else null
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(
+                                                    text = provider.name,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false),
+                                                )
+                                                if (!repoTag.isNullOrBlank()) {
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "($repoTag)",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                }
+                                            }
+                                            val domain = try {
+                                                java.net.URI(provider.mainUrl).host ?: provider.mainUrl.removePrefix("https://").removePrefix("http://").trimEnd('/')
+                                            } catch (_: Exception) {
+                                                provider.mainUrl.removePrefix("https://").removePrefix("http://").trimEnd('/')
+                                            }
+                                            val typesStr = provider.supportedTypes.take(2).joinToString { it.name }
+                                            val subtitle = if (domain.isNotBlank()) "$typesStr • $domain" else typesStr
+
                                             Text(
-                                                text = provider.name,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                            Text(
-                                                text = provider.supportedTypes.take(2).joinToString { it.name },
+                                                text = subtitle,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
@@ -348,7 +387,8 @@ fun ComposeSearchScreen(
 
                 // ── Horizontal Category Filter Chips ──────────────────────────
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
                     contentPadding = PaddingValues(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -391,62 +431,63 @@ fun ComposeSearchScreen(
                 ) {
                     item {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 "Recent Searches",
                                 style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.SemiBold,
                             )
-                            TextButton(onClick = { viewModel.onEvent(SearchUiEvent.OnClearSearchHistory) }) {
-                                Text(
-                                    "Clear All",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 14.sp,
-                                )
+                            TextButton(
+                                onClick = { viewModel.onEvent(SearchUiEvent.OnClearSearchHistory) },
+                            ) {
+                                Text("Clear All", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                             }
                         }
                     }
-                    items(searchHistory) { query ->
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val isHovered by interactionSource.collectIsHoveredAsState()
 
+                    items(searchHistory) { item ->
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .hoverable(interactionSource)
-                                .clickable {
-                                    viewModel.onEvent(SearchUiEvent.OnSearchQueryChange(query))
-                                    viewModel.onEvent(SearchUiEvent.OnSearch)
-                                },
-                            color = if (isHovered) MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp) else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                                .padding(vertical = 4.dp),
                             shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
+                            onClick = {
+                                viewModel.onEvent(SearchUiEvent.OnSearchQueryChange(item))
+                                viewModel.onEvent(SearchUiEvent.OnSearch)
+                            },
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Text(
-                                    text = query,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     modifier = Modifier.weight(1f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                                 IconButton(
-                                    onClick = { viewModel.onEvent(SearchUiEvent.OnRemoveSearchHistoryItem(query)) },
-                                    modifier = Modifier.size(28.dp),
+                                    onClick = { viewModel.onEvent(SearchUiEvent.OnRemoveSearchHistoryItem(item)) },
+                                    modifier = Modifier.size(24.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
@@ -462,17 +503,17 @@ fun ComposeSearchScreen(
             } else if (showEmptyState) {
                 // Empty state (no history or has query but no results yet)
                 Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxSize().padding(top = 56.dp),
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(
                         Icons.Default.Search,
                         contentDescription = null,
-                        modifier = Modifier.size(72.dp),
+                        modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "Search your favorite movies, series, or anime",
                         style = MaterialTheme.typography.headlineSmall,
@@ -491,11 +532,7 @@ fun ComposeSearchScreen(
                     )
                 }
             } else {
-                val resultsList = searchResultsGrouped?.mapNotNull { (providerName, items) ->
-                    com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(providerName)?.let { api ->
-                        Pair(api, items)
-                    }
-                }
+                val resultsList = searchResultsGrouped?.values?.toList()
 
                 SearchResults(
                     searchResultsGrouped = resultsList,

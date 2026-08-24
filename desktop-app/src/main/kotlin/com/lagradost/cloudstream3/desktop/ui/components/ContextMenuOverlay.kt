@@ -52,6 +52,7 @@ enum class ContextMenuType {
     POSTER,
     WATCH_HISTORY,
     EPISODE,
+    BOOKMARK,
 }
 
 object GlobalContextMenuState {
@@ -61,6 +62,7 @@ object GlobalContextMenuState {
 
     var searchResponse: SearchResponse? by mutableStateOf(null)
     var watchHistory: WatchHistory? by mutableStateOf(null)
+    var bookmark: DesktopBookmark? by mutableStateOf(null)
     var provider: MainAPI? by mutableStateOf(null)
 
     var episode: Episode? by mutableStateOf(null)
@@ -71,6 +73,9 @@ object GlobalContextMenuState {
     var onRemove: (() -> Unit)? by mutableStateOf(null)
     var onDetailsClick: (() -> Unit)? by mutableStateOf(null)
     var onPlayClick: (() -> Unit)? by mutableStateOf(null)
+    var onChangeCategory: ((DesktopWatchType) -> Unit)? by mutableStateOf(null)
+    var onReLink: (() -> Unit)? by mutableStateOf(null)
+    var onSearchOtherProviders: (() -> Unit)? by mutableStateOf(null)
 
     var onPlayEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
     var onDownloadEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
@@ -85,6 +90,7 @@ object GlobalContextMenuState {
     fun clear() {
         searchResponse = null
         watchHistory = null
+        bookmark = null
         provider = null
         episode = null
         loadResponse = null
@@ -93,6 +99,9 @@ object GlobalContextMenuState {
         onRemove = null
         onDetailsClick = null
         onPlayClick = null
+        onChangeCategory = null
+        onReLink = null
+        onSearchOtherProviders = null
         onPlayEpisode = null
         onDownloadEpisode = null
         onToggleWatched = null
@@ -113,6 +122,30 @@ object GlobalContextMenuState {
         this.onDetailsClick = onClick
         this.onPlayClick = onPlayClick
         this.menuType = ContextMenuType.POSTER
+        this.isActive = true
+    }
+
+    fun showForBookmark(
+        bounds: Rect,
+        bookmark: DesktopBookmark,
+        provider: MainAPI?,
+        onClick: (() -> Unit)?,
+        onPlayClick: (() -> Unit)? = null,
+        onRemove: () -> Unit,
+        onChangeCategory: (DesktopWatchType) -> Unit,
+        onReLink: () -> Unit,
+        onSearchOtherProviders: () -> Unit,
+    ) {
+        this.bounds = bounds
+        this.bookmark = bookmark
+        this.provider = provider
+        this.onDetailsClick = onClick
+        this.onPlayClick = onPlayClick
+        this.onRemove = onRemove
+        this.onChangeCategory = onChangeCategory
+        this.onReLink = onReLink
+        this.onSearchOtherProviders = onSearchOtherProviders
+        this.menuType = ContextMenuType.BOOKMARK
         this.isActive = true
     }
 
@@ -184,6 +217,8 @@ fun ContextMenuOverlay() {
             state.searchResponse?.posterUrl
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
             state.watchHistory?.posterUrl
+        } else if (state.menuType == ContextMenuType.BOOKMARK) {
+            state.bookmark?.posterUrl
         } else {
             state.episode?.posterUrl ?: state.loadResponse?.posterUrl
         }
@@ -192,6 +227,8 @@ fun ContextMenuOverlay() {
             state.searchResponse?.name
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
             state.watchHistory?.showName
+        } else if (state.menuType == ContextMenuType.BOOKMARK) {
+            state.bookmark?.name
         } else {
             state.episode?.let { ep ->
                 val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
@@ -210,6 +247,9 @@ fun ContextMenuOverlay() {
             val ep = state.watchHistory!!.episode
             val s = state.watchHistory!!.season
             if (s != null && ep != null) "S${s} E${ep}" else ep?.let { "Episode $it" } ?: state.watchHistory!!.apiName
+        } else if (state.menuType == ContextMenuType.BOOKMARK && state.bookmark != null) {
+            val bm = state.bookmark!!
+            if (state.provider != null) state.provider!!.name else "${bm.apiName} (Missing Provider)"
         } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
             val item = state.searchResponse!!
             val year = (item as? com.lagradost.cloudstream3.MovieSearchResponse)?.year
@@ -524,6 +564,106 @@ fun ContextMenuOverlay() {
                                         state.onRemove?.invoke()
                                     },
                                 )
+                            } else if (state.menuType == ContextMenuType.BOOKMARK && state.bookmark != null) {
+                                val bm = state.bookmark!!
+                                var isCategoryExpanded by remember { mutableStateOf(false) }
+
+                                if (state.provider != null) {
+                                    ActionMenuItem(
+                                        text = "Play",
+                                        icon = Icons.Default.PlayArrow,
+                                        onClick = {
+                                            state.dismiss()
+                                            if (state.onPlayClick != null) state.onPlayClick?.invoke() else state.onDetailsClick?.invoke()
+                                        },
+                                    )
+
+                                    ActionMenuItem(
+                                        text = "Details",
+                                        icon = Icons.Default.Info,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onDetailsClick?.invoke()
+                                        },
+                                    )
+                                }
+
+                                ActionMenuItem(
+                                    text = "Move Category",
+                                    icon = Icons.Default.Bookmark,
+                                    onClick = {
+                                        isCategoryExpanded = !isCategoryExpanded
+                                    },
+                                )
+
+                                AnimatedVisibility(visible = isCategoryExpanded) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        val chunks = DesktopWatchType.entries.chunked(2)
+                                        chunks.forEach { rowTypes ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                rowTypes.forEach { watchType ->
+                                                    val icon = when (watchType) {
+                                                        DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                                                        DesktopWatchType.COMPLETED -> Icons.Default.Check
+                                                        DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                                                        DesktopWatchType.DROPPED -> Icons.Default.Close
+                                                        DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                                                        DesktopWatchType.REWATCHING -> Icons.Default.Refresh
+                                                    }
+                                                    LibraryStatusChip(
+                                                        text = watchType.stringRes,
+                                                        icon = icon,
+                                                        isSelected = bm.watchType == watchType.id,
+                                                        modifier = Modifier.weight(1f),
+                                                        onClick = {
+                                                            state.dismiss()
+                                                            state.onChangeCategory?.invoke(watchType)
+                                                        },
+                                                    )
+                                                }
+                                                if (rowTypes.size == 1) {
+                                                    Spacer(modifier = Modifier.weight(1f))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ActionMenuItem(
+                                    text = "Re-link to Provider...",
+                                    icon = Icons.Default.Sync,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onReLink?.invoke()
+                                    },
+                                )
+
+                                ActionMenuItem(
+                                    text = "Search on Other Providers...",
+                                    icon = Icons.Default.Search,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onSearchOtherProviders?.invoke()
+                                    },
+                                )
+
+                                ActionMenuItem(
+                                    text = "Remove from Library",
+                                    icon = Icons.Default.Delete,
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onRemove?.invoke()
+                                    },
+                                )
                             } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
                                 val ep = state.episode!!
                                 val epReleaseStatus = remember(ep.description) {
@@ -665,14 +805,16 @@ private fun ActionMenuItem(
 private fun LibraryStatusChip(
     text: String,
     icon: ImageVector,
+    isSelected: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val primary = MaterialTheme.colorScheme.primary
 
     val bgColor by animateColorAsState(
-        targetValue = if (isHovered) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f),
+        targetValue = if (isSelected) primary.copy(alpha = 0.85f) else if (isHovered) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f),
         animationSpec = tween(120),
         label = "chipBg",
     )
@@ -681,7 +823,7 @@ private fun LibraryStatusChip(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
-        border = BorderStroke(1.dp, if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)),
+        border = BorderStroke(1.dp, if (isSelected) primary else if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)),
         modifier = modifier.height(34.dp),
         interactionSource = interactionSource,
     ) {
@@ -693,14 +835,14 @@ private fun LibraryStatusChip(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.85f),
+                tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(14.dp),
             )
             Text(
                 text = text,
-                color = Color.White.copy(alpha = 0.9f),
+                color = Color.White,
                 fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

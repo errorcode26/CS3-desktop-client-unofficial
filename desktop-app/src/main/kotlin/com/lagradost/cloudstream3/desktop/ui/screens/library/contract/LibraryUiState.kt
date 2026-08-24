@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.library.contract
 
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
@@ -21,4 +23,8 @@ data class LibraryUiState(
     val sortOption: SortOption = SortOption.DATE_ADDED_DESC,
     val selectedProvider: String? = null,
     val availableProviders: List<String> = emptyList(),
+    val installedProviderNames: Set<String> = emptySet(),
+    val orphanRecoveryBookmark: DesktopBookmark? = null,
+    val isSearchingMatches: Boolean = false,
+    val matchedResults: List<Pair<MainAPI, SearchResponse>> = emptyList(),
 ) : UiState

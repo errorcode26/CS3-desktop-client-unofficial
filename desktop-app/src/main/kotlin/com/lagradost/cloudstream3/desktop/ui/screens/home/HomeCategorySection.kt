@@ -110,11 +110,13 @@ fun HomeCategorySection(
         label = "alpha",
     )
     val heroEnabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.heroEnabled.collectAsState()
+    val homeVerticalSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeVerticalSpacingDp.collectAsState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(alpha),
+        verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp),
     ) {
         if (isLoading) {
             if (isFirstPage) {

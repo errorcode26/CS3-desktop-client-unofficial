@@ -12,7 +12,7 @@ object LinkCache {
     )
 
     private val cache = ConcurrentHashMap<String, CachedLinks>()
-    private const val CACHE_DURATION_MS = 2 * 60 * 1000L // 2 minutes
+    private const val CACHE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
 
     fun get(episodeId: String): CachedLinks? {
         val entry = cache[episodeId] ?: return null

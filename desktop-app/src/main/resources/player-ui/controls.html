@@ -121,10 +121,13 @@
             display: none;
         }
         #pauseInfoTitleFallback {
-            font-size: 34px;
-            font-weight: 700;
-            line-height: 1.1;
+            font-size: clamp(22px, 3vw, 34px);
+            font-weight: 800;
+            line-height: 1.15;
             letter-spacing: -0.5px;
+            max-width: 520px;
+            word-break: break-word;
+            text-shadow: 0 2px 16px rgba(0,0,0,0.85);
             display: none;
         }
         #pauseInfoEpisode {
@@ -845,38 +848,69 @@
             font-weight: 700;
         }
         
-        /* Season Dropdown Selector */
+        /* Season & Episode Chunk Selectors */
         .season-select-container {
-            padding: 10px 20px;
+            padding: 10px 16px;
             border-bottom: 1px solid rgba(255,255,255,0.07);
-            background: rgba(0,0,0,0.15);
+            background: rgba(0,0,0,0.25);
             backdrop-filter: blur(15px) saturate(1.5);
             -webkit-backdrop-filter: blur(15px) saturate(1.5);
             flex-shrink: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
         }
-        .season-select {
-            width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 6px;
-            color: white;
-            padding: 7px 10px;
-            font-size: 13px;
+        .season-select-container::-webkit-scrollbar { display: none; }
+        
+        .season-chips-bar, .chunk-chips-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            white-space: nowrap;
+        }
+        
+        .chunk-select-container {
+            padding: 8px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.15);
+            flex-shrink: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .chunk-select-container::-webkit-scrollbar { display: none; }
+
+        .season-chip, .chunk-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
             font-weight: 600;
-            outline: none;
+            color: rgba(255,255,255,0.75);
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.08);
             cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            outline: none;
         }
-        .season-select:hover {
-            background: rgba(255,255,255,0.08);
+        .season-chip:hover, .chunk-chip:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
             border-color: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
         }
-        .season-select:focus {
-            border-color: var(--accent-color);
+        .season-chip.active, .chunk-chip.active {
+            background: var(--accent-color, #e50914);
+            color: #fff;
+            border-color: var(--accent-color, #e50914);
+            box-shadow: 0 2px 12px rgba(var(--accent-color-rgb, 229,9,20), 0.45);
+            font-weight: 700;
         }
-        .season-select option {
-            background: #141414;
-            color: white;
+        .season-chip-count {
+            font-size: 11px;
+            opacity: 0.7;
+            font-weight: normal;
         }
 
         .panel-header {
@@ -1109,10 +1143,18 @@
             filter: drop-shadow(0 4px 24px rgba(0,0,0,0.6));
         }
         #linkProbingTitle {
-            font-size: 32px; font-weight: 800; color: white; text-align: center;
-            margin-bottom: 16px; display: none; letter-spacing: -0.5px;
+            font-size: clamp(20px, 2.5vw, 30px);
+            font-weight: 800;
+            color: white;
+            text-align: center;
+            max-width: 440px;
+            line-height: 1.25;
+            word-break: break-word;
+            margin-bottom: 14px;
+            display: none;
+            letter-spacing: -0.5px;
             animation: breathe 3s ease-in-out infinite;
-            text-shadow: 0 2px 20px rgba(0,0,0,0.8);
+            text-shadow: 0 2px 20px rgba(0,0,0,0.85);
         }
         @keyframes breathe {
             0%   { transform: scale(1);    opacity: 0.85; }
@@ -1462,7 +1504,10 @@
         <button class="close-btn" id="closeEpisodesBtn">✕</button>
     </div>
     <div class="season-select-container" id="seasonSelectWrap" style="display: none;">
-        <select class="season-select" id="seasonSelect"></select>
+        <div class="season-chips-bar" id="seasonChipsBar"></div>
+    </div>
+    <div class="chunk-select-container" id="chunkSelectWrap" style="display: none;">
+        <div class="chunk-chips-bar" id="chunkChipsBar"></div>
     </div>
     <div class="panel-body" id="episodesList"></div>
 </div>
@@ -2667,33 +2712,82 @@
     };
     window.renderFilteredServers = renderFilteredServers;
 
-    const renderFilteredEpisodes = (selectedSeason) => {
+    let currentSelectedSeason = 1;
+    let currentSelectedChunk = 0;
+    const EPISODE_CHUNK_SIZE = 50;
+
+    const renderFilteredEpisodes = (selectedSeason, targetChunk = -1) => {
+        currentSelectedSeason = selectedSeason;
         const filtered = episodesData.filter(ep => {
             const epSeason = ep.season !== undefined && ep.season !== null ? ep.season : 1;
             return epSeason === selectedSeason;
         });
 
-        document.getElementById('episodesList').innerHTML = filtered.map((ep, i) => {
-            const num = ep.episode || (i + 1);
-            const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
-            const epIdEncoded = encodeURIComponent(ep.id || '');
-            const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
-                <span class="ep-num">${num}</span>
-                ${thumb}
-                <div class="ep-info">
-                    <div class="ep-title">${epTitleEscaped}</div>
-                    <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
-                    ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
-                </div>
-            </div>`;
-        }).join('');
+        const chunkWrap = document.getElementById('chunkSelectWrap');
+        const chunkBar = document.getElementById('chunkChipsBar');
+
+        let episodesToRender = filtered;
+        if (filtered.length > EPISODE_CHUNK_SIZE) {
+            if (chunkWrap) chunkWrap.style.display = 'block';
+            const totalChunks = Math.ceil(filtered.length / EPISODE_CHUNK_SIZE);
+            
+            if (targetChunk < 0) {
+                const activeIdx = filtered.findIndex(e => e.isActive);
+                currentSelectedChunk = activeIdx >= 0 ? Math.floor(activeIdx / EPISODE_CHUNK_SIZE) : 0;
+            } else {
+                currentSelectedChunk = targetChunk;
+            }
+
+            if (chunkBar) {
+                chunkBar.innerHTML = Array.from({ length: totalChunks }, (_, cIdx) => {
+                    const start = cIdx * EPISODE_CHUNK_SIZE + 1;
+                    const end = Math.min((cIdx + 1) * EPISODE_CHUNK_SIZE, filtered.length);
+                    const isChunkActive = cIdx === currentSelectedChunk;
+                    return `<button class="chunk-chip ${isChunkActive ? 'active' : ''}" onclick="renderFilteredEpisodes(${selectedSeason}, ${cIdx})">
+                        ${start}–${end}
+                    </button>`;
+                }).join('');
+            }
+
+            const startIdx = currentSelectedChunk * EPISODE_CHUNK_SIZE;
+            episodesToRender = filtered.slice(startIdx, startIdx + EPISODE_CHUNK_SIZE);
+        } else {
+            if (chunkWrap) chunkWrap.style.display = 'none';
+            currentSelectedChunk = 0;
+        }
+
+        const listEl = document.getElementById('episodesList');
+        if (listEl) {
+            listEl.innerHTML = episodesToRender.map((ep, i) => {
+                const num = ep.episode || (i + 1 + (currentSelectedChunk * EPISODE_CHUNK_SIZE));
+                const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
+                const epIdEncoded = encodeURIComponent(ep.id || '');
+                const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
+                    <span class="ep-num">${num}</span>
+                    ${thumb}
+                    <div class="ep-info">
+                        <div class="ep-title">${epTitleEscaped}</div>
+                        <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
+                        ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
 
         setTimeout(() => {
             const active = document.querySelector('#episodesList .ep-card.active');
             if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }, 150);
     };
+    window.renderFilteredEpisodes = renderFilteredEpisodes;
+
+    const onSeasonChipClick = (s) => {
+        document.querySelectorAll('#seasonChipsBar .season-chip').forEach(btn => btn.classList.remove('active'));
+        event?.target?.closest('.season-chip')?.classList.add('active');
+        renderFilteredEpisodes(s, -1);
+    };
+    window.onSeasonChipClick = onSeasonChipClick;
 
     const handleMetadataUpdate = (meta) => {
         // 1. Session & State Reset
@@ -3019,19 +3113,24 @@
             const seasons = [...new Set(meta.episodes.map(ep => ep.season !== undefined && ep.season !== null ? ep.season : 1))];
             seasons.sort((a, b) => a - b);
 
+            const sChipsBar = document.getElementById('seasonChipsBar');
+            const activeEp = meta.episodes.find(e => e.isActive);
+            const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
+
             if (seasons.length > 1) {
-                seasonSelectWrap.style.display = 'block';
-                // Populate options
-                seasonSelect.innerHTML = seasons.map(s => `<option value="${s}">Season ${s}</option>`).join('');
-
-                // Auto-select season of active episode
-                const activeEp = meta.episodes.find(e => e.isActive);
-                const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
-                seasonSelect.value = activeSeason;
-
+                if (seasonSelectWrap) seasonSelectWrap.style.display = 'block';
+                if (sChipsBar) {
+                    sChipsBar.innerHTML = seasons.map(s => {
+                        const count = meta.episodes.filter(ep => (ep.season !== undefined && ep.season !== null ? ep.season : 1) === s).length;
+                        const isSActive = s === activeSeason;
+                        return `<button class="season-chip ${isSActive ? 'active' : ''}" onclick="onSeasonChipClick(${s})">
+                            Season ${s} <span class="season-chip-count">(${count})</span>
+                        </button>`;
+                    }).join('');
+                }
                 renderFilteredEpisodes(activeSeason);
             } else {
-                seasonSelectWrap.style.display = 'none';
+                if (seasonSelectWrap) seasonSelectWrap.style.display = 'none';
                 renderFilteredEpisodes(seasons[0] || 1);
             }
 
@@ -3981,20 +4080,27 @@
     // Stats for Nerds toggle
     let statsVisible = false;
     const statsOverlay = document.getElementById('statsOverlay');
-    document.getElementById('btnToggleStats').addEventListener('click', e => {
-        e.stopPropagation();
-        statsVisible = !statsVisible;
+    const toggleStatsForNerds = (forcedState) => {
+        if (typeof forcedState === 'boolean') {
+            statsVisible = forcedState;
+        } else {
+            statsVisible = !statsVisible;
+        }
         const btn = document.getElementById('btnToggleStats');
         if (statsVisible) {
-            btn.classList.add('active');
-            btn.innerText = 'On';
-            statsOverlay.classList.add('show');
+            if (btn) { btn.classList.add('active'); btn.innerText = 'On'; }
+            if (statsOverlay) statsOverlay.classList.add('show');
         } else {
-            btn.classList.remove('active');
-            btn.innerText = 'Off';
-            statsOverlay.classList.remove('show');
+            if (btn) { btn.classList.remove('active'); btn.innerText = 'Off'; }
+            if (statsOverlay) statsOverlay.classList.remove('show');
         }
         send('toggleStats');
+    };
+    window.toggleStatsForNerds = toggleStatsForNerds;
+
+    document.getElementById('btnToggleStats')?.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleStatsForNerds();
     });
 
     // Interpolation toggle

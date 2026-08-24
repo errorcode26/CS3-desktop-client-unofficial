@@ -379,11 +379,12 @@ fun PluginUpdatesModal(
                                     modifier = Modifier.weight(1f),
                                 ) {
                                     // Plugin Icon
-                                    val resolvedIcon = update.iconUrl?.replace("%size%", "32")
+                                    val resolvedIcon = com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceIconUrl(update.iconUrl)
                                     if (!resolvedIcon.isNullOrBlank()) {
                                         AsyncImage(
                                             model = resolvedIcon,
                                             contentDescription = update.pluginName,
+                                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                             modifier = Modifier
                                                 .size(46.dp)
                                                 .clip(RoundedCornerShape(12.dp))

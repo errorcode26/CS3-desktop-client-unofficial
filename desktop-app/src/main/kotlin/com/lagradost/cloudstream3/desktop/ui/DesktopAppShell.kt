@@ -2,10 +2,14 @@ package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
+import coil3.request.crossfade
+import com.lagradost.cloudstream3.desktop.profile.ProfileAvatar
+import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
@@ -43,6 +50,7 @@ fun DesktopAppShell(
     showDock: Boolean = true,
     showTopBar: Boolean = true,
     applySafePadding: Boolean = false,
+    onOpenProfileManager: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -178,13 +186,17 @@ fun DesktopAppShell(
 
                     Box(modifier = Modifier.fillMaxSize().then(if (bgImageOpacity < 0.999f) Modifier.alpha(bgImageOpacity) else Modifier)) {
                         AsyncImage(
-                            model = java.io.File(bgImagePath),
+                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                .data(java.io.File(bgImagePath))
+                                .size(coil3.size.Size(1920, 1080))
+                                .crossfade(true)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             colorFilter = colorFilter,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(blurDp, edgeTreatment = BlurredEdgeTreatment.Rectangle),
+                                .then(if (blurDp > 0.dp) Modifier.blur(blurDp, edgeTreatment = BlurredEdgeTreatment.Rectangle) else Modifier),
                         )
                         // Brightness scrim (black)
                         if (scrimAlpha > 0.01f) {
@@ -239,7 +251,7 @@ fun DesktopAppShell(
                         )
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(
                             start = basePadding,
-                            top = 82.dp + safeTop + basePadding,
+                            top = (if (showTopBar) 68.dp else 54.dp) + basePadding,
                             end = basePadding,
                             bottom = basePadding,
                         )
@@ -281,6 +293,7 @@ fun DesktopAppShell(
                         homeUiState = homeUiState,
                         homeActionDispatcher = homeActionDispatcher,
                         onBack = onBack,
+                        onOpenProfileManager = onOpenProfileManager,
                     )
                 }
 
@@ -355,6 +368,8 @@ fun DesktopAppShell(
                     hostState = snackbarHostState,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
                 )
+
+                com.lagradost.cloudstream3.desktop.ui.components.ProfileWelcomeToast()
             }
 
             if (showDock) {
@@ -393,95 +408,204 @@ private fun NavigationDock(
     val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
     val isHorizontal = isBottom || isTop
 
+    val dockOrder by AppearanceConfig.dockItemOrder.collectAsState()
+    val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
+
     val dockItems = @Composable {
-        DockItem(
-            icon = PremiumIcons.Home,
-            label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
-            selected = currentTitle == "Home",
-            isHorizontal = isHorizontal,
-            indicatorAtTop = isTop,
-            onClick = {
-                onNavigate(Config.Home)
-            },
-        )
-        DockItem(
-            icon = PremiumIcons.Search,
-            label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
-            selected = currentTitle == "Search",
-            isHorizontal = isHorizontal,
-            indicatorAtTop = isTop,
-            onClick = onSearchClick,
-        )
-        DockItem(icon = PremiumIcons.Library, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY, selected = currentTitle == "Library", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Library) })
-        DockItem(icon = PremiumIcons.Settings, label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS, selected = currentTitle == "Settings", isHorizontal = isHorizontal, indicatorAtTop = isTop, onClick = { onNavigate(Config.Settings) })
-    }
-
-    val surfaceModifier = when {
-        isBottom -> Modifier.padding(bottom = 14.dp).height(54.dp).wrapContentWidth()
-        isTop -> Modifier.padding(top = 14.dp).height(54.dp).wrapContentWidth()
-        isRight -> Modifier.padding(end = 14.dp).width(54.dp).wrapContentHeight()
-        else -> Modifier.padding(start = 14.dp).width(54.dp).wrapContentHeight()
-    }
-
-    val paddingInsideSurface = if (isHorizontal) {
-        Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-    } else {
-        Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
-    }
-
-    val mainDockSurface = @Composable {
-        Box(modifier = surfaceModifier) {
-            // Drop shadow without occlusion to prevent weird whitish middle bar artifact
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .blur(12.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                    .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(20.dp)),
-            )
-
-            val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-            val glassBase = if (isLightMode) Color.White else Color(0xFF1E1E24)
-            val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-                colors = listOf(
-                    glassBase.copy(alpha = 0.60f),
-                    glassBase.copy(alpha = 0.45f),
-                ),
-            )
-            val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-                colors = listOf(
-                    if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
-                    if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
-                ),
-            )
-
-            Box(
-                modifier = Modifier
-                    .background(glassGradient, RoundedCornerShape(20.dp))
-                    .border(1.5.dp, borderGradient, RoundedCornerShape(20.dp))
-                    .clip(RoundedCornerShape(20.dp)),
-            ) {
-                if (isHorizontal) {
-                    Row(
-                        modifier = paddingInsideSurface,
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        dockItems()
-                    }
-                } else {
-                    Column(
-                        modifier = paddingInsideSurface,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        dockItems()
-                    }
+        dockOrder.filter { it !in dockDisabled }.forEach { itemKey ->
+            when (itemKey) {
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HOME -> {
+                    DockItem(
+                        icon = PremiumIcons.Home,
+                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
+                        selected = currentTitle == "Home",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.Home) },
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> {
+                    DockItem(
+                        icon = PremiumIcons.Search,
+                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
+                        selected = currentTitle == "Search",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = onSearchClick,
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.LIBRARY -> {
+                    DockItem(
+                        icon = PremiumIcons.Library,
+                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY,
+                        selected = currentTitle == "Library",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.Library) },
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> {
+                    DockItem(
+                        icon = PremiumIcons.History,
+                        label = "Watch History",
+                        selected = currentTitle == "Watch History",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.History) },
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXTENSIONS -> {
+                    DockItem(
+                        icon = PremiumIcons.Extensions,
+                        label = "Extensions",
+                        selected = currentTitle == "Extensions",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.Extensions()) },
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SETTINGS -> {
+                    DockItem(
+                        icon = PremiumIcons.Settings,
+                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS,
+                        selected = currentTitle == "Settings",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.Settings) },
+                    )
                 }
             }
         }
     }
 
-    Box(modifier = modifier) {
-        mainDockSurface()
+    val navStyle by AppearanceConfig.navigationStyle.collectAsState()
+    val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
+
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+
+    if (isSeamless) {
+        // ── Seamless Edge-to-Edge Navigation Bar Mode ──
+        val barModifier = when {
+            isBottom -> Modifier.fillMaxWidth().height(56.dp)
+            isTop -> Modifier.fillMaxWidth().height(56.dp)
+            isRight -> Modifier.fillMaxHeight().width(64.dp)
+            else -> Modifier.fillMaxHeight().width(64.dp)
+        }
+
+        val barBgBrush = when {
+            isRight -> androidx.compose.ui.graphics.Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
+                ),
+            )
+            isTop -> androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
+                    Color.Transparent,
+                ),
+            )
+            isBottom -> androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
+                ),
+            )
+            else -> androidx.compose.ui.graphics.Brush.horizontalGradient(
+                colors = listOf(
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
+                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
+                    Color.Transparent,
+                ),
+            )
+        }
+
+        Box(modifier = modifier.then(barModifier).background(barBgBrush)) {
+            if (isHorizontal) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                ) {
+                    dockItems()
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+                ) {
+                    dockItems()
+                }
+            }
+        }
+    } else {
+        // ── Floating Dock Mode ──
+        val surfaceModifier = when {
+            isBottom -> Modifier.padding(bottom = 14.dp).height(54.dp).wrapContentWidth()
+            isTop -> Modifier.padding(top = 14.dp).height(54.dp).wrapContentWidth()
+            isRight -> Modifier.padding(end = 14.dp).width(54.dp).wrapContentHeight()
+            else -> Modifier.padding(start = 14.dp).width(54.dp).wrapContentHeight()
+        }
+
+        val paddingInsideSurface = if (isHorizontal) {
+            Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+        } else {
+            Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
+        }
+
+        Box(modifier = modifier) {
+            Box(modifier = surfaceModifier) {
+                // Drop shadow without occlusion to prevent weird whitish middle bar artifact
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .blur(12.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                        .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(20.dp)),
+                )
+
+                val glassBase = if (isLightMode) Color.White else Color(0xFF1E1E24)
+                val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(
+                        glassBase.copy(alpha = 0.60f),
+                        glassBase.copy(alpha = 0.45f),
+                    ),
+                )
+                val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(
+                        if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                        if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
+                    ),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .background(glassGradient, RoundedCornerShape(20.dp))
+                        .border(1.5.dp, borderGradient, RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp)),
+                ) {
+                    if (isHorizontal) {
+                        Row(
+                            modifier = paddingInsideSurface,
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            dockItems()
+                        }
+                    } else {
+                        Column(
+                            modifier = paddingInsideSurface,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            dockItems()
+                        }
+                    }
+                }
+            }
+        }
     }
 }

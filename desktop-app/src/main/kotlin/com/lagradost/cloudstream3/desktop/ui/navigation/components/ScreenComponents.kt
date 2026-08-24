@@ -57,7 +57,9 @@ class DetailsComponent(
     componentContext: ComponentContext,
     val config: Config.Details,
 ) : ComponentContext by componentContext {
-    val api: MainAPI? = APIHolder.getApiFromNameNull(config.providerName)
+    val api: MainAPI? = APIHolder.allProviders.firstOrNull {
+        it.name == config.providerName && it.mainUrl.isNotBlank() && config.url.startsWith(it.mainUrl)
+    } ?: APIHolder.getApiFromNameNull(config.providerName)
 
     val viewModel = instanceKeeper.getOrCreate(key = "Details_${config.url}") {
         if (api != null) {

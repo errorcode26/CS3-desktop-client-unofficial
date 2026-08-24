@@ -27,6 +27,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.profile.Profile
+import com.lagradost.cloudstream3.desktop.profile.ProfileManager
+import com.lagradost.cloudstream3.desktop.profile.ProfilePalette
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import kotlinx.coroutines.launch
@@ -81,22 +91,33 @@ fun WindowControlsPill(
                         }
                         homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh)
                     },
-                    modifier = Modifier.size(38.dp),
+                    modifier = Modifier.size(42.dp),
                 ) {
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = "Refresh Home",
                         tint = theme.TextPrimary,
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(20.dp)
                             .rotate(refreshRotation.value),
                     )
                 }
             }
 
             // 2. Provider Selector Pill (with Logo + Name)
+            val activeApis = homeUiState?.activeProviderApis ?: emptyList()
             val displayText = when {
-                activeProviders.size == 1 -> activeProviders.first()
+                activeApis.size == 1 -> {
+                    val single = activeApis.first()
+                    val isDuplicate = providers.count { it.name == single.name } > 1
+                    if (isDuplicate) {
+                        val repo = single.sourcePlugin?.let { java.io.File(it).parentFile?.name?.replace("_", " ") }
+                        if (!repo.isNullOrBlank()) "${single.name} ($repo)" else single.name
+                    } else {
+                        single.name
+                    }
+                }
+                activeProviders.size == 1 -> activeProviders.first().substringAfter("::")
                 activeProviders.size > 1 -> "Multi-Provider"
                 else -> "Select Provider"
             }
@@ -110,21 +131,23 @@ fun WindowControlsPill(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
+                        .height(42.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowHomeManagement(true)) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 14.dp),
                 ) {
                     if (activeIconUrl != null) {
                         coil3.compose.AsyncImage(
                             model = activeIconUrl,
                             contentDescription = "Provider Logo",
-                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(5.dp)),
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                            modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
                         )
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(20.dp)
-                                .clip(RoundedCornerShape(5.dp))
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -132,16 +155,16 @@ fun WindowControlsPill(
                                 Icons.Default.Extension,
                                 contentDescription = "Providers",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(13.dp),
+                                modifier = Modifier.size(15.dp),
                             )
                         }
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(9.dp))
 
                     Text(
                         text = displayText,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = theme.TextPrimary,
                         maxLines = 1,
@@ -169,13 +192,13 @@ fun WindowControlsPill(
                         }
                     }
                 },
-                modifier = Modifier.size(38.dp),
+                modifier = Modifier.size(42.dp),
             ) {
                 Icon(
                     if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                     contentDescription = "Fullscreen",
                     tint = theme.TextPrimary,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }

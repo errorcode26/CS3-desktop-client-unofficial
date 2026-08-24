@@ -99,6 +99,32 @@ fun CloudstreamApp(rootComponent: RootComponent) {
         )
     }
 
+    val profiles by com.lagradost.cloudstream3.desktop.profile.ProfileManager.profiles.collectAsState()
+    val isPickerOnStartup by com.lagradost.cloudstream3.desktop.profile.ProfileManager.isPickerOnStartup.collectAsState()
+    val autoSignIn by com.lagradost.cloudstream3.desktop.profile.ProfileManager.autoSignIn.collectAsState()
+    val activeProfile by com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.collectAsState()
+
+    var showStartupProfileSelect by remember {
+        mutableStateOf(
+            if (com.lagradost.cloudstream3.desktop.profile.ProfileManager.autoSignIn.value) {
+                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value.hasPin
+            } else {
+                true
+            }
+        )
+    }
+    var showProfileManagerModal by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(Unit) {
+        if (!showStartupProfileSelect) {
+            com.lagradost.cloudstream3.desktop.profile.ProfileManager.triggerWelcomeToast(
+                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value
+            )
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
         LocalVideoPlayerActive provides (currentVideo != null),
@@ -111,35 +137,46 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                 modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                 color = androidx.compose.material3.MaterialTheme.colorScheme.background,
             ) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.ui.Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    if (event.type == PointerEventType.Release) {
-                                        // Ignore back/forward navigation if the video player is open
-                                        if (currentVideo == null) {
-                                            when (event.button) {
-                                                PointerButton.Back -> {
-                                                    if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
-                                                        com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
-                                                    } else {
-                                                        rootComponent.pop()
+                if (showStartupProfileSelect || showProfileManagerModal) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
+                        onNavigateHome = {
+                            showStartupProfileSelect = false
+                            showProfileManagerModal = false
+                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.triggerWelcomeToast(
+                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value
+                            )
+                        },
+                    )
+                } else {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        if (event.type == PointerEventType.Release) {
+                                            // Ignore back/forward navigation if the video player is open
+                                            if (currentVideo == null) {
+                                                when (event.button) {
+                                                    PointerButton.Back -> {
+                                                        if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
+                                                            com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
+                                                        } else {
+                                                            rootComponent.pop()
+                                                        }
                                                     }
+                                                    PointerButton.Forward -> {
+                                                        // Decompose doesn't natively have forward stack out of the box unless implemented.
+                                                    }
+                                                    else -> {}
                                                 }
-                                                PointerButton.Forward -> {
-                                                    // Decompose doesn't natively have forward stack out of the box unless implemented.
-                                                }
-                                                else -> {}
                                             }
                                         }
                                     }
                                 }
-                            }
-                        },
-                ) {
+                            },
+                    ) {
                     val blurRadius by androidx.compose.animation.core.animateDpAsState(
                         targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen ||
                             com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive
@@ -209,6 +246,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             showDock = showDock,
                             showTopBar = showTopBar,
                             applySafePadding = applySafePadding,
+                            onOpenProfileManager = { showProfileManagerModal = true },
                         ) {
                             Children(
                                 stack = childStack,
@@ -344,4 +382,5 @@ fun CloudstreamApp(rootComponent: RootComponent) {
             }
         }
     }
+}
 }

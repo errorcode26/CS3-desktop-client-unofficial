@@ -71,8 +71,9 @@ fun LinksSidePanel(
     var playerLaunchError by remember { mutableStateOf<String?>(null) }
     var embeddedError by remember { mutableStateOf<String?>(null) }
     var currentPlayingUrl by remember { mutableStateOf<String?>(null) }
-    var selectedQuality by remember { mutableStateOf<String?>(null) }
+    var selectedQuality by remember { mutableStateOf<Int?>(null) }
     var selectedType by remember { mutableStateOf("All") }
+    var showPriorityDialog by remember { mutableStateOf(false) }
     val availableTypes = listOf("All", "HLS (Fast Stream)", "MP4 (Downloadable)")
 
     LaunchedEffect(viewModel) {
@@ -117,12 +118,20 @@ fun LinksSidePanel(
         }
     }
 
-    val availableQualities = remember(links.size) {
-        links.map { it.quality.toString() }.distinct().sorted()
+    val availableQualities = remember(links) {
+        links.groupBy { it.quality }
+            .map { (qual, list) ->
+                QualityOption(
+                    qualityValue = qual,
+                    label = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(qual),
+                    count = list.size,
+                )
+            }
+            .sortedByDescending { it.qualityValue }
     }
-    val filteredLinks = remember(links.size, selectedQuality, selectedType) {
+    val filteredLinks = remember(links, selectedQuality, selectedType) {
         links.filter { link ->
-            val qualityMatches = selectedQuality == null || link.quality.toString() == selectedQuality
+            val qualityMatches = selectedQuality == null || link.quality == selectedQuality
             val isHls = link.isM3u8 || link.name.contains("HLS", ignoreCase = true) || link.url.contains(".m3u8")
             val typeMatches = when (selectedType) {
                 "HLS (Fast Stream)" -> isHls
@@ -244,11 +253,13 @@ fun LinksSidePanel(
                     },
                 )
 
-                if (availableQualities.size > 1) {
+                if (availableQualities.isNotEmpty()) {
                     QualitySelector(
+                        totalLinkCount = links.size,
                         availableQualities = availableQualities,
                         selectedQuality = selectedQuality,
                         onSelect = { selectedQuality = it },
+                        onOpenPriorityDialog = { showPriorityDialog = true },
                     )
                 }
 
@@ -326,6 +337,11 @@ fun LinksSidePanel(
                 }
             }
 
+            com.lagradost.cloudstream3.desktop.ui.screens.player.SourcePriorityDialog(
+                show = showPriorityDialog,
+                onDismissRequest = { showPriorityDialog = false },
+            )
+
             com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
                 show = playerLaunchError != null,
                 onDismissRequest = { playerLaunchError = null },
@@ -397,6 +413,24 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
     val hovered by interaction.collectIsHoveredAsState()
     val scale by animateFloatAsState(if (hovered) 1.02f else 1f, tween(200), label = "linkScale")
 
+    val formattedQuality = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(link.quality)
+    val is4k = link.quality >= 2160 || formattedQuality == "4K"
+    val is1080p = link.quality == 1080 || formattedQuality == "1080p"
+    val is720p = link.quality == 720 || formattedQuality == "720p"
+
+    val qualityContainerColor = when {
+        is4k -> Color(0xFFD4AF37).copy(alpha = 0.22f)
+        is1080p -> MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        is720p -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f)
+        else -> DesktopUi.AccentSoft
+    }
+    val qualityTextColor = when {
+        is4k -> Color(0xFFFFD700)
+        is1080p -> MaterialTheme.colorScheme.primary
+        is720p -> MaterialTheme.colorScheme.secondary
+        else -> DesktopUi.Accent
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth().scale(scale).hoverable(interaction),
         shape = RoundedCornerShape(16.dp),
@@ -408,27 +442,42 @@ private fun StreamLinkCard(link: ExtractorLink, isBusy: Boolean, onPlay: () -> U
             Column(modifier = Modifier.weight(1f)) {
                 Text(link.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = DesktopUi.TextPrimary)
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = DesktopUi.AccentSoft,
+                        color = qualityContainerColor,
                     ) {
                         Text(
-                            link.quality.toString(),
-                            color = DesktopUi.Accent,
+                            text = formattedQuality,
+                            color = qualityTextColor,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+
+                    if (link.source.isNotBlank() && link.source != link.name) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        ) {
+                            Text(
+                                text = link.source,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+
                     Text(
                         if (link.isM3u8) {
-                            "HLS (Best for Streaming)"
+                            "HLS"
                         } else if (link.isDash) {
-                            "DASH (Best for Streaming)"
+                            "DASH"
                         } else {
-                            "Direct (Best for Download)"
+                            "Direct MP4"
                         },
                         color = DesktopUi.TextMuted,
                         style = MaterialTheme.typography.bodySmall,

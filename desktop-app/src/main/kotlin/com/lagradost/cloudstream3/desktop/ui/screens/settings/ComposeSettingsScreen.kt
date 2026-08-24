@@ -36,23 +36,26 @@ sealed class SettingsNav {
 }
 
 enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
-    THEME("Theme"),
-    LAYOUT("Layout"),
+    THEME("Themes & Colors"),
+    LAYOUT("Layout & Dock"),
     DETAILS("Details Page"),
-    EFFECTS("Effects"),
-    PLAYER("Player", Icons.Default.PlayCircle),
-    EXTENSIONS("Extensions"),
-    ACCOUNTS("Accounts"),
-    INTEGRATIONS("Integrations"),
-    NETWORK("Network", Icons.Default.Router),
-    ADVANCED("Advanced", Icons.Default.Storage),
-    DEVELOPER("Developer", Icons.Default.Code),
-    ABOUT("About", Icons.Default.Info),
+    EFFECTS("Backdrop & Effects"),
+    ACCOUNTS("Profiles & Sync", Icons.Default.AccountCircle),
+    PLAYER("Video & Audio Engine"),
+    SUBTITLES_LEAF("Subtitles & Styling"),
+    EXTENSIONS("Plugins & Repos"),
+    INTEGRATIONS("Metadata & Scrapers"),
+    NETWORK("Network & DNS", Icons.Default.Router),
+    ADVANCED("Storage & Cache"),
+    DEVELOPER("Diagnostics & Logs"),
+    ABOUT("Updates & About"),
 }
 
 enum class GroupTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    APPEARANCE("Appearance", Icons.Default.Palette),
-    EXTENSIONS_GROUP("Extensions", Icons.Default.Extension),
+    APPEARANCE("Appearance & UI", Icons.Default.Palette),
+    PLAYBACK("Playback & Media", Icons.Default.PlayCircle),
+    EXTENSIONS_GROUP("Plugins & Scrapers", Icons.Default.Extension),
+    SYSTEM_GROUP("System & Tools", Icons.Default.Build),
 }
 
 // Keeps SettingsSearchIndex compiling without changes
@@ -66,19 +69,18 @@ enum class SettingsSubScreen(val title: String) {
 
 object SettingsSession {
     var selectedLeaf by mutableStateOf(LeafTab.THEME)
-    var expandedGroups by mutableStateOf(setOf(GroupTab.APPEARANCE))
+    var expandedGroups by mutableStateOf(setOf(GroupTab.APPEARANCE, GroupTab.PLAYBACK))
     var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
     var highlightedSetting by mutableStateOf<String?>(null)
 }
 
 private val NAV_STRUCTURE: List<SettingsNav> = listOf(
     SettingsNav.Group(GroupTab.APPEARANCE, listOf(LeafTab.THEME, LeafTab.LAYOUT, LeafTab.DETAILS, LeafTab.EFFECTS)),
-    SettingsNav.Leaf(LeafTab.PLAYER),
-    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ACCOUNTS, LeafTab.INTEGRATIONS)),
+    SettingsNav.Leaf(LeafTab.ACCOUNTS),
+    SettingsNav.Group(GroupTab.PLAYBACK, listOf(LeafTab.PLAYER, LeafTab.SUBTITLES_LEAF)),
+    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.INTEGRATIONS)),
     SettingsNav.Leaf(LeafTab.NETWORK),
-    SettingsNav.Leaf(LeafTab.ADVANCED),
-    SettingsNav.Leaf(LeafTab.DEVELOPER),
-    SettingsNav.Leaf(LeafTab.ABOUT),
+    SettingsNav.Group(GroupTab.SYSTEM_GROUP, listOf(LeafTab.ADVANCED, LeafTab.DEVELOPER, LeafTab.ABOUT)),
 )
 
 
@@ -94,10 +96,13 @@ fun ComposeSettingsScreen(
     var activeSubScreen by SettingsSession::activeSubScreen
     val settingsViewModel = remember { SettingsViewModel() }
 
-    Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
+    if (activeSubScreen == SettingsSubScreen.POSTER_EDITOR) {
+        SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
+    } else {
+        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
 
-        // ── Left Pane ─────────────────────────────────────────────
-        Column(modifier = Modifier.width(210.dp).fillMaxHeight().padding(end = 12.dp)) {
+            // ── Left Pane ─────────────────────────────────────────────
+            Column(modifier = Modifier.width(210.dp).fillMaxHeight().padding(end = 12.dp)) {
             Text(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineMedium,
@@ -279,18 +284,19 @@ fun ComposeSettingsScreen(
                         Crossfade(targetState = selectedLeaf, modifier = Modifier.fillMaxSize(),
                             animationSpec = tween(180), label = "LeafCrossfade") { leaf ->
                             when (leaf) {
-                                LeafTab.THEME        -> SettingsAppearanceThemeScreen()
-                                LeafTab.LAYOUT       -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.DETAILS      -> SettingsDetailsSectionsScreen()
-                                LeafTab.EFFECTS      -> SettingsAppearanceEffectsScreen()
-                                LeafTab.PLAYER       -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.EXTENSIONS   -> SettingsExtensions(onNavigate = onNavigate)
-                                LeafTab.ACCOUNTS     -> SettingsAccounts(viewModel = settingsViewModel)
-                                LeafTab.INTEGRATIONS -> SettingsIntegrations()
-                                LeafTab.NETWORK      -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                LeafTab.ADVANCED     -> SettingsAdvancedScreen(viewModel = settingsViewModel)
-                                LeafTab.DEVELOPER    -> SettingsDeveloper()
-                                LeafTab.ABOUT        -> SettingsAboutAndUpdates()
+                                LeafTab.THEME          -> SettingsAppearanceThemeScreen()
+                                LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
+                                LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
+                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
+                                LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
+                                LeafTab.INTEGRATIONS   -> SettingsIntegrations()
+                                LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
+                                LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
+                                LeafTab.DEVELOPER      -> SettingsDeveloper()
+                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
                             }
                         }
                     }
@@ -298,6 +304,7 @@ fun ComposeSettingsScreen(
             }
         }
     }
+}
 }
 
 @Composable

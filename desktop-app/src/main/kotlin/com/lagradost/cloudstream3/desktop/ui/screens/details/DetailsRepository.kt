@@ -20,8 +20,12 @@ object DetailsCache {
             }
         },
     )
-    fun get(url: String): LoadResponse? = _cache[url]
+    fun get(url: String): LoadResponse? {
+        if (url.startsWith("dummy_")) return null
+        return _cache[url]
+    }
     fun put(url: String, response: LoadResponse) {
+        if (url.startsWith("dummy_")) return
         _cache[url] = response
     }
     fun remove(url: String) {
@@ -30,7 +34,7 @@ object DetailsCache {
     fun clear() {
         _cache.clear()
     }
-    fun containsKey(url: String): Boolean = _cache.containsKey(url)
+    fun containsKey(url: String): Boolean = !url.startsWith("dummy_") && _cache.containsKey(url)
 }
 
 object EnrichedDetailsCache {

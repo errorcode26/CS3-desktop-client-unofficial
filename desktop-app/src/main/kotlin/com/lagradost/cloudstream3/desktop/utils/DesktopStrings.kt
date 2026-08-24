@@ -33,3 +33,21 @@ object DesktopStrings {
     const val WATCH_TRAILER = "Watch Trailer"
     const val MORE_INFO = "More Info"
 }
+
+object DeveloperModeManager {
+    private const val KEY = "developer_mode_enabled"
+
+    private val _isEnabled = androidx.compose.runtime.mutableStateOf(
+        com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(KEY) ?: false
+    )
+    val isEnabled: Boolean get() = _isEnabled.value
+
+    fun setEnabled(enabled: Boolean) {
+        _isEnabled.value = enabled
+        com.lagradost.common.storage.DesktopDataStore.setKey(KEY, enabled)
+    }
+
+    fun toggle() {
+        setEnabled(!isEnabled)
+    }
+}

@@ -15,6 +15,7 @@ sealed interface ExtensionsUiEvent : UiEvent {
     data class OnInstallPlugin(val repoName: String, val plugin: SitePlugin, val onResult: (String) -> Unit) : ExtensionsUiEvent
     data class OnUninstallPlugins(val plugins: List<LocalPlugin>) : ExtensionsUiEvent
     data class OnUninstallByInternalName(val internalName: String) : ExtensionsUiEvent
+    data class OnUninstallPlugin(val repoName: String, val internalName: String) : ExtensionsUiEvent
     data class OnLoadLocalPlugin(val file: File) : ExtensionsUiEvent
     data class OnRemoveRepository(val url: String) : ExtensionsUiEvent
     data object OnClearBypass : ExtensionsUiEvent

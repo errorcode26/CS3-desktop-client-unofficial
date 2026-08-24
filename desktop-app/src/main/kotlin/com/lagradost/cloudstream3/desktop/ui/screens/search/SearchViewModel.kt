@@ -102,7 +102,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 }
             }
             is SearchUiEvent.OnProviderSelected -> {
-                updateState { copy(selectedProviderName = event.providerName) }
+                updateState { copy(selectedProviderName = event.providerName, selectedProviderSource = event.sourcePlugin) }
                 if (!uiState.value.isGlobalSearchEnabled && uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -165,11 +165,14 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
                     providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
                 } else {
-                    val active = providers.find { it.name == uiState.value.selectedProviderName } ?: providers.firstOrNull()
+                    val active = providers.find {
+                        it.name == uiState.value.selectedProviderName &&
+                            (uiState.value.selectedProviderSource == null || it.sourcePlugin == uiState.value.selectedProviderSource)
+                    } ?: providers.firstOrNull()
                     active?.let { listOf(it) } ?: emptyList()
                 }
 
-                val tempResults = java.util.concurrent.ConcurrentHashMap<String, List<SearchResponse>>()
+                val tempResults = java.util.concurrent.ConcurrentHashMap<String, Pair<com.lagradost.cloudstream3.MainAPI, List<SearchResponse>>>()
 
                 activeProviders.map { p ->
                     launch {
@@ -182,7 +185,8 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                         }
                         if (res != null && res.items.isNotEmpty()) {
                             com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
-                            tempResults[p.name] = res.items
+                            val uniqueKey = "${p.name}::${p.sourcePlugin ?: ""}"
+                            tempResults[uniqueKey] = Pair(p, res.items)
                             updateState { copy(searchResultsGrouped = tempResults.toMap()) }
                         } else {
                             com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
@@ -204,9 +208,14 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
         val query = state.searchQuery
         if (state.isGlobalSearchEnabled || state.isLoadingSearch || state.isLoadingMore || !state.canPaginate || query.isBlank()) return
 
-        val activeProvider = state.providers.find { it.name == state.selectedProviderName } ?: state.providers.firstOrNull() ?: return
+        val activeProvider = state.providers.find {
+            it.name == state.selectedProviderName &&
+                (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource)
+        } ?: state.providers.firstOrNull() ?: return
+        val uniqueKey = "${activeProvider.name}::${activeProvider.sourcePlugin ?: ""}"
         val currentGrouped = state.searchResultsGrouped ?: return
-        val currentItems = currentGrouped[activeProvider.name] ?: return
+        val currentPair = currentGrouped[uniqueKey] ?: return
+        val currentItems = currentPair.second
 
         val nextPage = currentPage + 1
         viewModelScope.launch {
@@ -226,7 +235,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                     if (newUniqueItems.isNotEmpty()) {
                         currentPage = nextPage
                         val updatedItems = currentItems + newUniqueItems
-                        val updatedMap = currentGrouped.toMutableMap().apply { put(activeProvider.name, updatedItems) }
+                        val updatedMap = currentGrouped.toMutableMap().apply { put(uniqueKey, Pair(activeProvider, updatedItems)) }
                         updateState { copy(searchResultsGrouped = updatedMap, canPaginate = true) }
                         com.lagradost.common.logging.AppLogger.i("Plugin:${activeProvider.name}", "Appended ${newUniqueItems.size} new items (total: ${updatedItems.size})")
                     } else {

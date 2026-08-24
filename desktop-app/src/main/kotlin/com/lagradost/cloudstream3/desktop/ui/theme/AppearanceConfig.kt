@@ -43,7 +43,60 @@ enum class ClockDisplayMode {
     }
 }
 
+enum class DockItemKey(
+    val id: String,
+    val displayName: String,
+    val description: String,
+    val isRequired: Boolean = false,
+) {
+    HOME("home", "Home", "Main landing page with hero banner & catalogs", isRequired = true),
+    SEARCH("search", "Search", "Global search & provider explorer"),
+    LIBRARY("library", "Library", "Bookmarked shows, movies, and custom lists"),
+    SETTINGS("settings", "Settings", "Preferences, appearance, player, and plugins", isRequired = true),
+    HISTORY("history", "Watch History", "Recently watched episodes & resume points"),
+    EXTENSIONS("extensions", "Extensions", "Installed plugins, repos, and updates"),
+    ;
+
+    companion object {
+        val DEFAULT_ORDER = listOf(HOME, SEARCH, LIBRARY, SETTINGS, HISTORY, EXTENSIONS)
+        val DEFAULT_DISABLED = setOf(HISTORY, EXTENSIONS)
+
+        fun parseOrder(raw: String?): List<DockItemKey> {
+            if (raw.isNullOrBlank()) return DEFAULT_ORDER
+            val parsed = raw.split(",").mapNotNull { id -> entries.find { it.id.equals(id.trim(), ignoreCase = true) } }
+            val missing = entries.filter { it !in parsed }
+            return parsed + missing
+        }
+
+        fun parseDisabled(raw: String?): Set<DockItemKey> {
+            if (raw == null) return DEFAULT_DISABLED
+            if (raw.isBlank() || raw.equals("NONE", ignoreCase = true)) return emptySet()
+            return raw.split(",")
+                .mapNotNull { id -> entries.find { it.id.equals(id.trim(), ignoreCase = true) } }
+                .filter { !it.isRequired }
+                .toSet()
+        }
+
+        fun serialize(items: Iterable<DockItemKey>): String {
+            val list = items.filter { !it.isRequired }
+            return if (list.isEmpty()) "NONE" else list.joinToString(",") { it.id }
+        }
+    }
+}
+
+enum class NavigationStyle(val label: String) {
+    FLOATING_DOCK("Floating Dock"),
+    SEAMLESS_BAR("Navigation Bar"),
+    ;
+
+    companion object {
+        fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) || it.label.equals(v, ignoreCase = true) } ?: FLOATING_DOCK
+    }
+}
+
 object AppearanceConfig {
+    private const val PREF_GLOBAL_UI_SCALE = "pref_global_ui_scale"
+    private const val PREF_NAVIGATION_STYLE = "pref_navigation_style"
     private const val PREF_THEME_ACCENT = "pref_theme_accent"
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
     private const val PREF_LIGHT_MODE = "pref_light_mode"
@@ -101,6 +154,30 @@ object AppearanceConfig {
     private const val PREF_LOCK_UNRELEASED_EPISODES = "pref_lock_unreleased_episodes"
     private const val PREF_DETAILS_SECTION_ORDER = "pref_details_section_order"
     private const val PREF_DETAILS_DISABLED_SECTIONS = "pref_details_disabled_sections"
+    private const val PREF_DOCK_ITEM_ORDER = "pref_dock_item_order"
+    private const val PREF_DOCK_DISABLED_ITEMS = "pref_dock_disabled_items"
+    private const val PREF_TOPBAR_SHOW_PROFILE = "pref_topbar_show_profile"
+    private const val PREF_TOPBAR_SHOW_PROFILE_NAME = "pref_topbar_show_profile_name"
+
+    private val _dockItemOrder = MutableStateFlow(
+        DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
+    )
+    val dockItemOrder: StateFlow<List<DockItemKey>> = _dockItemOrder.asStateFlow()
+
+    private val _dockDisabledItems = MutableStateFlow(
+        DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
+    )
+    val dockDisabledItems: StateFlow<Set<DockItemKey>> = _dockDisabledItems.asStateFlow()
+
+    private val _topBarShowProfile = MutableStateFlow(
+        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: true
+    )
+    val topBarShowProfile: StateFlow<Boolean> = _topBarShowProfile.asStateFlow()
+
+    private val _topBarShowProfileName = MutableStateFlow(
+        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
+    )
+    val topBarShowProfileName: StateFlow<Boolean> = _topBarShowProfileName.asStateFlow()
 
     private val _themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val themeAccent: StateFlow<String> = _themeAccent.asStateFlow()
@@ -142,6 +219,10 @@ object AppearanceConfig {
     val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
     private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
+    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f)
+    val globalUiScale: StateFlow<Float> = _globalUiScale.asStateFlow()
+    private val _navigationStyle = MutableStateFlow(NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)))
+    val navigationStyle: StateFlow<NavigationStyle> = _navigationStyle.asStateFlow()
     private val _dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val dockPosition: StateFlow<DockPosition> = _dockPosition.asStateFlow()
     private val _selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
@@ -303,6 +384,37 @@ object AppearanceConfig {
     fun setHeroBackdropDarkening(darkening: Float) {
         _heroBackdropDarkening.value = darkening
         DesktopDataStore.setKey(PREF_HERO_BACKDROP_DARKENING, darkening)
+    }
+
+    fun setGlobalUiScale(scale: Float, notify: Boolean = true) {
+        val clamped = (scale.coerceIn(0.70f, 1.80f) * 100).toInt() / 100f
+        if (kotlin.math.abs(_globalUiScale.value - clamped) < 0.001f) return
+        _globalUiScale.value = clamped
+        DesktopDataStore.setKey(PREF_GLOBAL_UI_SCALE, clamped)
+        if (notify) {
+            val percent = (clamped * 100).toInt()
+            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showToast(
+                text = if (percent == 100) "UI Scale: 100% (Default)" else "UI Scale: $percent%",
+                durationMs = 1500L,
+            )
+        }
+    }
+
+    fun zoomIn() {
+        setGlobalUiScale(_globalUiScale.value + 0.10f, notify = true)
+    }
+
+    fun zoomOut() {
+        setGlobalUiScale(_globalUiScale.value - 0.10f, notify = true)
+    }
+
+    fun resetZoom() {
+        setGlobalUiScale(1.0f, notify = true)
+    }
+
+    fun setNavigationStyle(style: NavigationStyle) {
+        _navigationStyle.value = style
+        DesktopDataStore.setKey(PREF_NAVIGATION_STYLE, style.name)
     }
 
     fun setDockPosition(position: DockPosition) {
@@ -608,5 +720,121 @@ object AppearanceConfig {
         setDetailsSectionOrder(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.defaultOrder)
         _detailsDisabledSections.value = emptySet()
         DesktopDataStore.removeKey(PREF_DETAILS_DISABLED_SECTIONS)
+    }
+
+    fun setDockItemOrder(order: List<DockItemKey>) {
+        _dockItemOrder.value = order
+        DesktopDataStore.setKey(PREF_DOCK_ITEM_ORDER, DockItemKey.serialize(order))
+    }
+
+    fun toggleDockItem(key: DockItemKey, enabled: Boolean) {
+        if (key.isRequired) return // Always required items (Home, Settings) cannot be disabled
+        val current = _dockDisabledItems.value.toMutableSet()
+        if (enabled) {
+            current.remove(key)
+        } else {
+            current.add(key)
+        }
+        _dockDisabledItems.value = current
+        DesktopDataStore.setKey(PREF_DOCK_DISABLED_ITEMS, DockItemKey.serialize(current))
+    }
+
+    fun moveDockItem(fromIndex: Int, toIndex: Int) {
+        val current = _dockItemOrder.value.toMutableList()
+        if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+            setDockItemOrder(current)
+        }
+    }
+
+    fun resetDockItemOrder() {
+        setDockItemOrder(DockItemKey.DEFAULT_ORDER)
+        _dockDisabledItems.value = DockItemKey.DEFAULT_DISABLED
+        DesktopDataStore.removeKey(PREF_DOCK_ITEM_ORDER)
+        DesktopDataStore.removeKey(PREF_DOCK_DISABLED_ITEMS)
+    }
+
+    fun setTopBarShowProfile(enabled: Boolean) {
+        _topBarShowProfile.value = enabled
+        DesktopDataStore.setKey(PREF_TOPBAR_SHOW_PROFILE, enabled)
+    }
+
+    fun setTopBarShowProfileName(enabled: Boolean) {
+        _topBarShowProfileName.value = enabled
+        DesktopDataStore.setKey(PREF_TOPBAR_SHOW_PROFILE_NAME, enabled)
+    }
+
+    fun reloadFromDataStore() {
+        _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
+        _dockDisabledItems.value = DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
+        _topBarShowProfile.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: true
+        _topBarShowProfileName.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
+        _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple"
+        _antiSpoilerEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true
+        _lockUnreleasedEpisodes.value = DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true
+        _detailsShowCurrentTime.value = DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true
+        _detailsShowEndTime.value = DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true
+        _detailsSectionOrder.value = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER))
+        _detailsDisabledSections.value = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS))
+        _amoledMode.value = DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false
+        _isLightMode.value = DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false
+        _gridScale.value = DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal"
+        _ambientGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true
+        _ambientGlowIntensity.value = DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f
+        _ambientGlowPositions.value = (DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet()
+        _heroBackgroundBlurEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true
+        _heroBackdropBlurRadius.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f
+        _heroBackdropDarkening.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f
+        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f
+        _navigationStyle.value = NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE))
+        _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
+        _selectedFont.value = DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter"
+        _screensaverEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true
+        _heroAutoSlideDelaySeconds.value = DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10
+        _continueWatchingStyle.value = ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE))
+        _posterHoverGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true
+        _posterTitlePosition.value = PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION))
+        _homeSpacingDp.value = DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12
+        _homeVerticalSpacingDp.value = DesktopDataStore.getKey<Int>(PREF_HOME_VERTICAL_SPACING_DP) ?: 0
+        _posterWidthDp.value = DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190
+        _posterRoundingDp.value = DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12
+        _customThemeAccent.value = DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF"
+        _appThemeBackground.value = DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy"
+        _customAppThemeBackground.value = DesktopDataStore.getKey<String>(PREF_CUSTOM_APP_THEME_BACKGROUND) ?: "#0C0C16"
+        _heroEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_ENABLED) ?: true
+        _showPosterRating.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_RATING) ?: true
+        _showPosterQuality.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_QUALITY) ?: true
+        _showPosterLanguage.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true
+        _textDropShadowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true
+        _textDropShadowBlur.value = DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f
+        _elementShadowsEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true
+        _elementShadowMultiplier.value = DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f
+        _appPresetTheme.value = DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk"
+        _backgroundGradientEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true
+        _backgroundGradientType.value = DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial"
+        _backgroundGradientIntensity.value = DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f
+        _clockMode.value = ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE))
+        _clockTimeFormat.value = DesktopDataStore.getKey<String>(PREF_CLOCK_TIME_FORMAT) ?: "HH:mm"
+        _clockDateFormat.value = DesktopDataStore.getKey<String>(PREF_CLOCK_DATE_FORMAT) ?: "EEE, dd MMM"
+        _backgroundImagePath.value = DesktopDataStore.getKey<String>(PREF_BG_IMAGE_PATH) ?: ""
+        _backgroundImageBlur.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BLUR) ?: 20f
+        _backgroundImageBrightness.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_BRIGHTNESS) ?: 0.35f
+        _backgroundImageOpacity.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_OPACITY) ?: 1.0f
+        _backgroundImageSaturation.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_SATURATION) ?: 1.0f
+        _backgroundImageVignetteEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_VIGNETTE) ?: false
+        _backgroundImageVignetteIntensity.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_VIGNETTE_INTENSITY) ?: 0.7f
+        _backgroundImageTintEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_BG_IMAGE_TINT_ENABLED) ?: false
+        _backgroundImageTintColor.value = DesktopDataStore.getKey<String>(PREF_BG_IMAGE_TINT_COLOR) ?: "#7C6BFF"
+        _backgroundImageTintAlpha.value = DesktopDataStore.getKey<Float>(PREF_BG_IMAGE_TINT_ALPHA) ?: 0.3f
+        _uiCardOpacity.value = DesktopDataStore.getKey<Float>(PREF_UI_CARD_OPACITY) ?: 0.4f
+        val customPresetsJson = DesktopDataStore.getKey<String>(PREF_CUSTOM_PRESETS) ?: "[]"
+        _customPresets.value = try {
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .readValue(customPresetsJson, object : com.fasterxml.jackson.core.type.TypeReference<List<ThemePreset>>() {})
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }

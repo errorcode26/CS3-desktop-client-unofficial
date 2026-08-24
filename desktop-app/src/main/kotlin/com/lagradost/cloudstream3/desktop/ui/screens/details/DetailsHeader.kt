@@ -167,14 +167,16 @@ fun DetailsBackdrop(
                         }
                     },
             ) { targetBgUrl ->
+                val enhancedBgUrl = remember(targetBgUrl) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceBackdropUrl(targetBgUrl) }
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                        .data(targetBgUrl)
+                        .data(enhancedBgUrl)
                         .size(2560, 1440)
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                     modifier = Modifier.fillMaxSize(),
                     alignment = Alignment.TopCenter,
                 )
@@ -272,9 +274,9 @@ fun DetailsMetadata(
             else -> minOf(180.dp, actualMaxHeight * 0.25f)
         }
         val responsiveTopPadding = when {
-            isCompactHeight -> 32.dp
-            isMediumHeight -> if (isNarrow) 48.dp else 100.dp
-            else -> if (isNarrow) 80.dp else 120.dp
+            isCompactHeight -> 16.dp
+            isMediumHeight -> if (isNarrow) 24.dp else 40.dp
+            else -> if (isNarrow) 32.dp else 56.dp
         }
 
         // A consistent, sensible bottom buffer that anchors the content closely to the bottom
@@ -314,6 +316,8 @@ fun DetailsMetadata(
                                 ?: data.logoUrl?.takeIf { it.isNotBlank() }
                                 ?: provider.fixUrlNull(data.logoUrl)
                         }
+                        val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
+
                         if (!activeLogoUrl.isNullOrBlank()) {
                             Box(
                                 modifier = Modifier
@@ -329,7 +333,6 @@ fun DetailsMetadata(
                                     .size(1600, 800)
                                     .crossfade(true)
                                     .build()
-                                val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
                                 AsyncImage(
                                     model = logoRequest,
                                     contentDescription = null,
@@ -344,6 +347,7 @@ fun DetailsMetadata(
                                             edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
                                         ),
                                     contentScale = ContentScale.Fit,
+                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     colorFilter = DesktopDimens.LogoShadowFilter,
                                 )
@@ -351,33 +355,81 @@ fun DetailsMetadata(
                                     model = logoRequest,
                                     contentDescription = displayName,
                                     contentScale = ContentScale.Fit,
+                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier.fillMaxSize(),
                                     alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     error = {
                                         Text(
                                             text = displayName,
-                                            style = MaterialTheme.typography.displayLarge,
-                                            fontWeight = FontWeight.ExtraBold,
+                                            style = MaterialTheme.typography.headlineLarge.copy(
+                                                fontSize = when {
+                                                    displayName.length > 40 -> 28.sp
+                                                    displayName.length > 24 -> 34.sp
+                                                    displayName.length > 14 -> 40.sp
+                                                    else -> 46.sp
+                                                },
+                                                fontWeight = FontWeight.Black,
+                                                letterSpacing = (-0.5).sp,
+                                                lineHeight = when {
+                                                    displayName.length > 40 -> 34.sp
+                                                    displayName.length > 24 -> 40.sp
+                                                    displayName.length > 14 -> 46.sp
+                                                    else -> 52.sp
+                                                },
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = Color.Black.copy(alpha = 0.85f),
+                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                                    blurRadius = 16f,
+                                                ),
+                                            ),
                                             color = Color.White,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis,
                                             textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                                            modifier = Modifier
+                                                .widthIn(max = responsivePlotMaxWidth)
+                                                .padding(bottom = 2.dp),
                                         )
                                     },
                                 )
                             }
                         } else {
-                            val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
                             Text(
                                 text = displayName,
-                                style = MaterialTheme.typography.displayLarge,
-                                fontWeight = FontWeight.ExtraBold,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontSize = when {
+                                        displayName.length > 40 -> 28.sp
+                                        displayName.length > 24 -> 34.sp
+                                        displayName.length > 14 -> 40.sp
+                                        else -> 46.sp
+                                    },
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = (-0.5).sp,
+                                    lineHeight = when {
+                                        displayName.length > 40 -> 34.sp
+                                        displayName.length > 24 -> 40.sp
+                                        displayName.length > 14 -> 46.sp
+                                        else -> 52.sp
+                                    },
+                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                        color = Color.Black.copy(alpha = 0.85f),
+                                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                        blurRadius = 16f,
+                                    ),
+                                ),
                                 color = Color.White,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
                                 textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                                modifier = Modifier
+                                    .widthIn(max = responsivePlotMaxWidth)
+                                    .padding(bottom = 2.dp),
                             )
                         }
                     }
                     val activeTagline = uiState?.enrichedTagline?.takeIf { it.isNotBlank() }
                     if (activeTagline != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "\"$activeTagline\"",
                             style = MaterialTheme.typography.titleMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
@@ -385,14 +437,14 @@ fun DetailsMetadata(
                             fontWeight = FontWeight.Normal,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = if (isNarrow) 0.dp else 4.dp),
+                            modifier = Modifier
+                                .widthIn(max = responsivePlotMaxWidth)
+                                .padding(start = if (isNarrow) 0.dp else 4.dp),
                             textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                         )
-                    } else {
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     if (!isLoading) {
                         // Row 1: Primary Meta Information & Status Badges

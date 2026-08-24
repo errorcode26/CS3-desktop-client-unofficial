@@ -802,8 +802,8 @@ fun BaseMpvPlayer(
         }
         val capturedHandle = handle
 
-        // Let MPV handle network timeouts natively
-        lib.mpv_set_property_string(capturedHandle, "network-timeout", "15")
+        // Let MPV handle network timeouts natively (8s aggressive timeout)
+        lib.mpv_set_property_string(capturedHandle, "network-timeout", "8")
 
         launch(kotlinx.coroutines.Dispatchers.IO) {
             val defaultSub = finalSubtitles.firstOrNull()

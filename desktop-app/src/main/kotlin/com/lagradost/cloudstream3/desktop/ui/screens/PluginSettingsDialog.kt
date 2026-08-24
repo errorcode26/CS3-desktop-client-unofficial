@@ -111,6 +111,32 @@ fun PluginSettingsDialog(
                     contentPadding = PaddingValues(vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f),
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "⚠️",
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.padding(end = 10.dp),
+                                )
+                                Text(
+                                    text = "Experimental: Settings are bridged from Android packages and may not take effect.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                            }
+                        }
+                    }
+
                     if (hasChanged) {
                         item {
                             Card(

@@ -149,10 +149,13 @@ fun WatchHistoryCardWide(
                     .aspectRatio(2f/3f)
                     .clip(shape)
             ) {
+                val rawPoster = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
+                val enhancedPoster = remember(rawPoster) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawPoster) }
                 AsyncImage(
-                    model = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl,
+                    model = enhancedPoster,
                     contentDescription = history.showName,
                     contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                     modifier = Modifier.fillMaxSize()
                 )
                 // Play overlay

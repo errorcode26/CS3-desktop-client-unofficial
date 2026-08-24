@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
@@ -154,6 +155,141 @@ fun ComposeExtensionScreen(
                     3 -> UpdateHistoryTab()
                 }
             }
+        }
+
+        // ── Global Security & Permission Dialogs (Available on all tabs) ─────
+        uiState.pluginRequiringBypass?.let { (bypassRepo, bypassPlugin, reason) ->
+            var isDialogInstalling by remember { mutableStateOf(false) }
+            val cleanReason = reason
+                .removePrefix("Plugin Security Notice: ")
+                .removePrefix("Plugin Security: ")
+                .trim()
+
+            com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+                show = true,
+                onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) },
+                title = { Text("Trust & Install Extension?") },
+                text = {
+                    if (isDialogInstalling) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(16.dp))
+                            Text("Installing, please wait...")
+                        }
+                    } else {
+                        val devInfo = bypassPlugin.authorName?.let { " by $it" } ?: ""
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "You are installing '${bypassPlugin.name}'$devInfo from repository '$bypassRepo'.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = "⚠️ Flagged API Access",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        text = cleanReason,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "If you trust this developer and repository, click 'Trust & Install' to proceed.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (!isDialogInstalling) {
+                        Button(
+                            onClick = {
+                                isDialogInstalling = true
+                                viewModel.onEvent(
+                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin) {
+                                        isDialogInstalling = false
+                                    },
+                                )
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        ) {
+                            Text("Trust & Install")
+                        }
+                    }
+                },
+                dismissButton = {
+                    if (!isDialogInstalling) {
+                        OutlinedButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearBypass) }) {
+                            Text("Cancel")
+                        }
+                    }
+                },
+            )
+        }
+
+        uiState.pluginRequiringPermission?.let { (reqRepo, reqPlugin, reqPermission) ->
+            var isDialogInstalling by remember { mutableStateOf(false) }
+            com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
+                show = true,
+                onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) },
+                title = { Text("Permission Required") },
+                text = {
+                    if (isDialogInstalling) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(16.dp))
+                            Text("Installing, please wait...")
+                        }
+                    } else {
+                        Text("The plugin '${reqPlugin.name}' requires the following permission to function:\n\n• $reqPermission\n\nDo you want to grant this permission and install the plugin?")
+                    }
+                },
+                confirmButton = {
+                    if (!isDialogInstalling) {
+                        TextButton(
+                            onClick = {
+                                isDialogInstalling = true
+                                viewModel.onEvent(
+                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission) {
+                                        isDialogInstalling = false
+                                    },
+                                )
+                            },
+                        ) {
+                            Text("Grant & Install", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                dismissButton = {
+                    if (!isDialogInstalling) {
+                        TextButton(onClick = { viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) }) {
+                            Text("Cancel")
+                        }
+                    }
+                },
+            )
         }
     }
 }

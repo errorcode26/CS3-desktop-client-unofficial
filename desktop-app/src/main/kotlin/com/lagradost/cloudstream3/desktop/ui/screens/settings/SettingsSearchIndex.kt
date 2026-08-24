@@ -20,6 +20,8 @@ object SettingsSearchIndex {
         SettingsSearchEntry("App Font / Typography", LeafTab.THEME, listOf("font", "text", "typeface", "typography", "inter", "roboto", "custom font"), uiLabel = "App Font"),
 
         // Layout tab
+        SettingsSearchEntry("Global UI Scale / Zoom", LeafTab.LAYOUT, listOf("scale", "zoom", "size", "density", "ctrl", "magnify", "percent"), uiLabel = "Global UI Scale / Zoom"),
+        SettingsSearchEntry("Navigation Style", LeafTab.LAYOUT, listOf("dock", "navbar", "navigation", "style", "seamless", "floating", "sidebar", "border"), uiLabel = "Navigation Style"),
         SettingsSearchEntry("Navigation Dock Position", LeafTab.LAYOUT, listOf("sidebar", "dock", "left", "right", "top", "bottom", "navigation"), uiLabel = "Dock Position"),
         SettingsSearchEntry("Hero Carousel / Slider", LeafTab.LAYOUT, listOf("hero", "carousel", "banner", "home", "slider", "featured"), uiLabel = "Enable Hero Slider"),
         SettingsSearchEntry("Details Page Sections & Layout", LeafTab.DETAILS, listOf("details", "order", "drag", "section", "layout", "modular", "time", "badges"), uiLabel = "Details Page Sections & Layout"),
@@ -54,7 +56,8 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Equalizer Profile", LeafTab.PLAYER, listOf("audio", "equalizer", "eq", "preset", "bass", "treble"), uiLabel = "Equalizer Profile"),
         SettingsSearchEntry("Audio Sync / Delay Offset", LeafTab.PLAYER, listOf("audio", "delay", "sync", "offset", "lip sync"), uiLabel = "Audio Sync (Delay Offset)"),
         SettingsSearchEntry("Intro & Outro Skipping", LeafTab.PLAYER, listOf("skip", "intro", "outro", "openings", "endings", "aniskip"), uiLabel = "Intro & Outro Skipping"),
-        SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.PLAYER, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling", subScreen = SettingsSubScreen.SUBTITLES),
+        SettingsSearchEntry("Source & Quality Priorities", LeafTab.PLAYER, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Source & Quality Priorities"),
+        SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.SUBTITLES_LEAF, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling"),
 
         // Extensions > Extensions tab
         SettingsSearchEntry("Browse Extensions", LeafTab.EXTENSIONS, listOf("extensions", "plugins", "browse", "install", "search", "add"), uiLabel = "Browse Extensions"),

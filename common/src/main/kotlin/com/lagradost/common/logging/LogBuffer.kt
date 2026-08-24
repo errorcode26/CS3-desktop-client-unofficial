@@ -24,6 +24,24 @@ object LogBuffer {
     )
     val logFlow: SharedFlow<LogEntry> = _logFlow.asSharedFlow()
 
+    private val SENSITIVE_PARAM_REGEX = Regex(
+        "(?i)(token|password|secret|auth|apikey|api_key|access_token|authorization)=([^&\\s\"',]+)",
+    )
+    private val AUTH_HEADER_REGEX = Regex(
+        "(?i)(Authorization:\\s*(?:Bearer|Basic)\\s+)([^\\s\\r\\n]+)",
+    )
+
+    fun sanitize(text: String): String {
+        var sanitized = text
+        sanitized = SENSITIVE_PARAM_REGEX.replace(sanitized) { matchResult ->
+            "${matchResult.groupValues[1]}=***MASKED***"
+        }
+        sanitized = AUTH_HEADER_REGEX.replace(sanitized) { matchResult ->
+            "${matchResult.groupValues[1]}***MASKED***"
+        }
+        return sanitized
+    }
+
     fun record(
         level: LogLevel,
         tag: String,
@@ -31,12 +49,13 @@ object LogBuffer {
         throwable: Throwable? = null,
         threadName: String = Thread.currentThread().name,
     ): LogEntry {
+        val sanitizedMsg = sanitize(message)
         val entry = LogEntry(
             id = idCounter.getAndIncrement(),
             timestamp = System.currentTimeMillis(),
             level = level,
             tag = tag,
-            message = message,
+            message = sanitizedMsg,
             throwable = throwable,
             threadName = threadName,
         )

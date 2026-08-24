@@ -3,6 +3,13 @@ plugins {
     application
 }
 
+configurations.all {
+    resolutionStrategy.force("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-core:2.18.3")
+    resolutionStrategy.force("com.fasterxml.jackson.core:jackson-annotations:2.18.3")
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
@@ -33,7 +40,7 @@ dependencies {
     implementation("org.ow2.asm:asm-commons:9.7")
 
     // JSON and Coroutines
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     // Dalvik-to-JVM compatibility layer

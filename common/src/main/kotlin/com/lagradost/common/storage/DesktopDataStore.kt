@@ -9,6 +9,7 @@ import com.lagradost.common.db.DatabaseFactory
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 enum class DesktopWatchType(val id: Int, val stringRes: String) {
@@ -62,12 +63,23 @@ object DesktopDataStore {
 
     private val dataFile = File(PlatformPaths.dataDir, "datastore.json")
 
+    val rawKeyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     val historyUpdates = MutableStateFlow(0)
     val pluginUpdatesFlow = MutableStateFlow(0)
 
     fun init() {
         // Initialize the database
         val db = DatabaseFactory.database
+
+        // Pre-load all key-values into RAM cache for zero-latency O(1) reads
+        try {
+            db.cloudstreamDBQueries.selectAllKeyValues().executeAsList().forEach { row ->
+                rawKeyCache[row.key] = row.value_
+            }
+        } catch (e: Exception) {
+            AppLogger.e("Failed to pre-cache key-values", e)
+        }
 
         // Migration from old datastore.json
         if (dataFile.exists() && dataFile.length() > 0L) {
@@ -113,6 +125,7 @@ object DesktopDataStore {
                                 }
                             }
                             else -> {
+                                rawKeyCache[key] = jsonStr
                                 db.cloudstreamDBQueries.insertKeyValue(key, jsonStr)
                             }
                         }
@@ -127,17 +140,32 @@ object DesktopDataStore {
         }
     }
 
+    private val ioScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+
     fun <T> setKey(key: String, value: T) {
         try {
             val json = mapper.writeValueAsString(value)
-            DatabaseFactory.database.cloudstreamDBQueries.insertKeyValue(key, json)
+            rawKeyCache[key] = json
+            ioScope.launch {
+                try {
+                    DatabaseFactory.database.cloudstreamDBQueries.insertKeyValue(key, json)
+                } catch (e: Exception) {
+                    AppLogger.e("Failed to persist key $key to SQLite", e)
+                }
+            }
         } catch (e: Exception) {
             AppLogger.e("Failed to serialize key $key", e)
         }
     }
 
     fun <T> getKey(key: String, clazz: Class<T>): T? {
-        val json = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() ?: return null
+        val json = rawKeyCache[key] ?: run {
+            val dbJson = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull()
+            if (dbJson != null) {
+                rawKeyCache[key] = dbJson
+            }
+            dbJson
+        } ?: return null
         return try {
             mapper.readValue(json, clazz)
         } catch (e: Exception) {
@@ -146,7 +174,13 @@ object DesktopDataStore {
     }
 
     inline fun <reified T> getKey(key: String): T? {
-        val json = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() ?: return null
+        val json = rawKeyCache[key] ?: run {
+            val dbJson = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull()
+            if (dbJson != null) {
+                rawKeyCache[key] = dbJson
+            }
+            dbJson
+        } ?: return null
         return try {
             mapper.readValue(json)
         } catch (e: Exception) {
@@ -155,11 +189,40 @@ object DesktopDataStore {
     }
 
     fun containsKey(key: String): Boolean {
-        return DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() != null
+        return rawKeyCache.containsKey(key) || DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() != null
     }
 
     fun removeKey(key: String) {
-        DatabaseFactory.database.cloudstreamDBQueries.deleteKeyValue(key)
+        rawKeyCache.remove(key)
+        ioScope.launch {
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries.deleteKeyValue(key)
+            } catch (e: Exception) {
+                AppLogger.e("Failed to delete key $key from SQLite", e)
+            }
+        }
+    }
+
+    var activeProfileProvider: () -> Int = { 0 }
+    val activeProfileId: Int
+        get() = activeProfileProvider()
+
+    fun getProfileKey(key: String, profileId: Int = activeProfileId): String = "$profileId/$key"
+
+    fun <T> setProfileKey(key: String, value: T, profileId: Int = activeProfileId) {
+        setKey(getProfileKey(key, profileId), value)
+    }
+
+    fun <T> getProfileKey(key: String, clazz: Class<T>, profileId: Int = activeProfileId): T? {
+        return getKey(getProfileKey(key, profileId), clazz)
+    }
+
+    inline fun <reified T> getProfileKey(key: String, profileId: Int = activeProfileId): T? {
+        return getKey<T>(getProfileKey(key, profileId))
+    }
+
+    fun removeProfileKey(key: String, profileId: Int = activeProfileId) {
+        removeKey(getProfileKey(key, profileId))
     }
 
     fun getAllKeysWithPrefix(prefix: String): List<String> {
@@ -169,15 +232,25 @@ object DesktopDataStore {
             .filter { it.startsWith(prefix) }
     }
 
-    fun getBookmarks(): List<DesktopBookmark> {
-        return DatabaseFactory.database.cloudstreamDBQueries.selectAllBookmarks().executeAsList().map {
-            DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0, it.dateAdded ?: 0L)
-        }
+    fun getBookmarks(profileId: Int = activeProfileId): List<DesktopBookmark> {
+        val prefix = "p${profileId}_"
+        return DatabaseFactory.database.cloudstreamDBQueries.selectAllBookmarks().executeAsList()
+            .filter {
+                if (profileId == 0) {
+                    it.id.startsWith(prefix) || !it.id.startsWith("p")
+                } else {
+                    it.id.startsWith(prefix)
+                }
+            }
+            .map {
+                DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0, it.dateAdded ?: 0L)
+            }
     }
 
-    fun addBookmark(bookmark: DesktopBookmark) {
+    fun addBookmark(bookmark: DesktopBookmark, profileId: Int = activeProfileId) {
+        val resolvedId = if (bookmark.id.startsWith("p")) bookmark.id else "p${profileId}_${bookmark.id}"
         DatabaseFactory.database.cloudstreamDBQueries.insertBookmark(
-            bookmark.id,
+            resolvedId,
             bookmark.name,
             bookmark.url,
             bookmark.apiName,
@@ -187,32 +260,48 @@ object DesktopDataStore {
         )
     }
 
-    fun removeBookmark(id: String) {
-        DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(id)
-    }
-
-    fun isBookmarked(id: String): Boolean {
-        return DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(id).executeAsOneOrNull() != null
-    }
-
-    fun getAllWatchHistory(): List<WatchHistory> {
-        return DatabaseFactory.database.cloudstreamDBQueries.selectAllWatchHistory().executeAsList().map {
-            WatchHistory(
-                parentId = it.parentId,
-                showName = it.showName,
-                showUrl = it.showUrl,
-                apiName = it.apiName,
-                posterUrl = it.posterUrl,
-                episodeThumbnailUrl = it.episodeThumbnailUrl,
-                screenshotUrl = it.screenshotUrl,
-                episode = it.episode?.toInt(),
-                season = it.season?.toInt(),
-                episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
-                position = it.position,
-                duration = it.duration,
-                updateTime = it.updateTime,
-            )
+    fun removeBookmark(id: String, profileId: Int = activeProfileId) {
+        val resolvedId = if (id.startsWith("p")) id else "p${profileId}_$id"
+        DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(resolvedId)
+        if (profileId == 0) {
+            DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(id)
         }
+    }
+
+    fun isBookmarked(id: String, profileId: Int = activeProfileId): Boolean {
+        val resolvedId = if (id.startsWith("p")) id else "p${profileId}_$id"
+        val exists = DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(resolvedId).executeAsOneOrNull() != null
+        if (exists) return true
+        return profileId == 0 && DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(id).executeAsOneOrNull() != null
+    }
+
+    fun getAllWatchHistory(profileId: Int = activeProfileId): List<WatchHistory> {
+        val prefix = "p${profileId}_"
+        return DatabaseFactory.database.cloudstreamDBQueries.selectAllWatchHistory().executeAsList()
+            .filter {
+                if (profileId == 0) {
+                    it.parentId.startsWith(prefix) || !it.parentId.startsWith("p")
+                } else {
+                    it.parentId.startsWith(prefix)
+                }
+            }
+            .map {
+                WatchHistory(
+                    parentId = it.parentId,
+                    showName = it.showName,
+                    showUrl = it.showUrl,
+                    apiName = it.apiName,
+                    posterUrl = it.posterUrl,
+                    episodeThumbnailUrl = it.episodeThumbnailUrl,
+                    screenshotUrl = it.screenshotUrl,
+                    episode = it.episode?.toInt(),
+                    season = it.season?.toInt(),
+                    episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                    position = it.position,
+                    duration = it.duration,
+                    updateTime = it.updateTime,
+                )
+            }
     }
 
     private var lastHistoryNotifyMs = 0L
@@ -225,8 +314,13 @@ object DesktopDataStore {
         }
     }
 
-    fun clearAllWatchHistory() {
-        DatabaseFactory.database.cloudstreamDBQueries.deleteAllWatchHistory()
+    fun clearAllWatchHistory(profileId: Int = activeProfileId) {
+        val history = getAllWatchHistory(profileId)
+        DatabaseFactory.database.cloudstreamDBQueries.transaction {
+            history.forEach {
+                DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(it.parentId)
+            }
+        }
         notifyHistoryChanged(force = true)
     }
 
@@ -256,8 +350,9 @@ object DesktopDataStore {
         season: Int? = null,
         episode: Int? = null,
         episodeData: String? = null,
+        profileId: Int = activeProfileId,
     ): String {
-        val base = "${apiName}_${showUrl.hashCode()}"
+        val base = "p${profileId}_${apiName}_${showUrl.hashCode()}"
         return if (season != null || episode != null || !episodeData.isNullOrBlank()) {
             "${base}_s${season ?: 0}_e${episode ?: 0}_${episodeData?.hashCode() ?: 0}"
         } else {
@@ -472,20 +567,43 @@ object DesktopDataStore {
     private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
 
     fun getTrustedPlugins(): Set<String> {
-        return getKey<Set<String>>(TRUSTED_PLUGINS_KEY) ?: emptySet()
+        val json = rawKeyCache[TRUSTED_PLUGINS_KEY] ?: DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(TRUSTED_PLUGINS_KEY).executeAsOneOrNull() ?: return emptySet()
+        return try {
+            val list: List<String> = mapper.readValue(json, object : TypeReference<List<String>>() {})
+            list.map { it.lowercase().trim() }.toSet()
+        } catch (e: Exception) {
+            emptySet()
+        }
     }
 
     fun isPluginTrusted(internalName: String): Boolean {
-        return getTrustedPlugins().contains(internalName)
+        val cleanName = internalName.removeSuffix("-jvm").lowercase().trim()
+        val trusted = getTrustedPlugins()
+        if (trusted.contains(cleanName) || trusted.contains(internalName.lowercase().trim())) return true
+        val stripped = cleanName.removeSuffix("provider").removeSuffix("plugin").removePrefix("com.")
+        if (stripped.isNotBlank() && (trusted.contains(stripped) || trusted.contains(stripped.substringAfterLast('.')))) return true
+        val lastSegment = cleanName.substringAfterLast('.')
+        if (lastSegment.isNotBlank() && (trusted.contains(lastSegment) || trusted.contains(lastSegment.removeSuffix("provider").removeSuffix("plugin")))) return true
+        return false
     }
 
     fun setPluginTrusted(internalName: String, trusted: Boolean) {
+        val cleanName = internalName.removeSuffix("-jvm").lowercase().trim()
         val current = getTrustedPlugins().toMutableSet()
         if (trusted) {
-            current.add(internalName)
+            current.add(cleanName)
+            current.add(internalName.lowercase().trim())
         } else {
-            current.remove(internalName)
+            current.remove(cleanName)
+            current.remove(internalName.lowercase().trim())
         }
-        setKey(TRUSTED_PLUGINS_KEY, current)
+        val list = current.toList()
+        try {
+            val json = mapper.writeValueAsString(list)
+            rawKeyCache[TRUSTED_PLUGINS_KEY] = json
+            DatabaseFactory.database.cloudstreamDBQueries.insertKeyValue(TRUSTED_PLUGINS_KEY, json)
+        } catch (e: Exception) {
+            AppLogger.e("Failed to save trusted plugins", e)
+        }
     }
 }

@@ -30,6 +30,7 @@ data class MetadataMatch(
  */
 data class MetadataEnrichmentContext(
     val rawUrl: String,
+    val isDummy: Boolean = false,
     val fetchCast: Boolean = true,
     val overwrite: Boolean = false,
     val directImdbId: String? = null,

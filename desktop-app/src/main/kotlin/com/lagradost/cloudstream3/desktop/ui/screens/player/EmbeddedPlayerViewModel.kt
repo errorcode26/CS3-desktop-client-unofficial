@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.LoadResponse
+import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
@@ -35,6 +36,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private var saveJob: Job? = null
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
+    private var preScrapeJob: Job? = null
+    private var lastPreScrapedEpisodeId: String? = null
 
     private val linkRetries = mutableMapOf<String, Int>()
     companion object {
@@ -68,6 +71,13 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         )
                         savePosition(updatedHistory)
                     }
+                }
+
+                val percentage = if (durSec > 0) currentPosSec.toFloat() / durSec.toFloat() else 0f
+                if (percentage >= 0.88f && uiState.value.hasNextEpisode && uiState.value.autoPlayEnabled) {
+                    triggerBackgroundPreScrape()
+                } else if (percentage < 0.85f && preScrapeJob?.isActive == true) {
+                    preScrapeJob?.cancel()
                 }
 
                 if (currentData != null) {
@@ -117,6 +127,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     override fun dispose() {
+        preScrapeJob?.cancel()
+        countdownJob?.cancel()
+        timeoutJob?.cancel()
         com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onPlayerStopped()
         PlayerDiagnosticsHolder.unregister(playerState)
         val currentData = uiState.value.launchData
@@ -198,7 +211,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     }
 
     // Picks the best available link from the current launchData that hasn't failed.
-    // Uses the unified sortLinks quality engine to strictly honor Preferred Stream Quality.
+    // Uses Android-parity QualityDataHelper score engine.
     private fun pickBestActiveLink(
         links: List<ExtractorLink>,
         failed: Set<String>,
@@ -206,8 +219,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     ): ExtractorLink? {
         val available = links.filter { it.url !in failed }
         if (available.isEmpty()) return null
-        val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        return sortLinks(available, prefQuality, startPositionMs).firstOrNull()
+        return sortLinks(available, startPositionMs).firstOrNull()
     }
 
     private fun updatePhase(phase: PlayerPhase, newFailedLinks: Map<String, String>? = null) {
@@ -221,8 +233,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             if (isNewProbing) {
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
-                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000"
-                val timeoutMs = timeoutStr.toLongOrNull() ?: 15_000L
+                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "8000"
+                val timeoutMs = timeoutStr.toLongOrNull() ?: 8_000L
                 timeoutJob = viewModelScope.launch {
                     delay(timeoutMs)
                     if (uiState.value.phase is PlayerPhase.Probing && (uiState.value.phase as? PlayerPhase.Probing)?.link?.url == timedOutUrl) {
@@ -274,14 +286,16 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     private fun cancelCountdown() {
         countdownJob?.cancel()
+        preScrapeJob?.cancel()
         updateState { copy(countdownToNextEpisode = null) }
     }
 
     private fun startCountdown() {
         countdownJob?.cancel()
+        triggerBackgroundPreScrape()
         countdownJob = viewModelScope.launch {
-            val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "15000"
-            var ticks = (timeoutStr.toLongOrNull() ?: 15000L) / 1000L
+            val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "8000"
+            var ticks = (timeoutStr.toLongOrNull() ?: 8000L) / 1000L
 
             while (ticks > 0) {
                 updateState { copy(countdownToNextEpisode = ticks.toInt()) }
@@ -293,9 +307,53 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         }
     }
 
+    private fun triggerBackgroundPreScrape() {
+        val state = uiState.value
+        if (!state.autoPlayEnabled || !state.hasNextEpisode) return
+        val nextEp = state.nextEpisodeData ?: return
+        val nextEpId = nextEp.data
+
+        if (preScrapeJob?.isActive == true || lastPreScrapedEpisodeId == nextEpId) return
+        if (LinkCache.get(nextEpId) != null) return
+
+        val currentData = state.launchData ?: return
+        val apiName = currentData.history.apiName.takeIf { it.isNotBlank() } ?: currentData.loadResponse?.apiName
+        val provider = apiName?.let { APIHolder.getApiFromNameNull(it) } ?: return
+
+        lastPreScrapedEpisodeId = nextEpId
+        preScrapeJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                AppLogger.i("EmbeddedPlayerViewModel", "Starting background pre-scrape for next episode: ${nextEp.name ?: nextEp.data}")
+                val collectedLinks = mutableListOf<ExtractorLink>()
+                val collectedSubs = mutableListOf<SubtitleFile>()
+
+                provider.loadLinks(
+                    data = nextEpId,
+                    isCasting = false,
+                    subtitleCallback = { sub ->
+                        collectedSubs.add(sub)
+                    },
+                    callback = { link ->
+                        collectedLinks.add(link)
+                        com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
+                    },
+                )
+
+                if (collectedLinks.isNotEmpty()) {
+                    val sorted = sortLinks(collectedLinks)
+                    LinkCache.set(nextEpId, sorted, collectedSubs)
+                    AppLogger.i("EmbeddedPlayerViewModel", "Background pre-scrape complete: cached ${sorted.size} streams for ${nextEp.name ?: nextEp.data}")
+                }
+            } catch (e: Throwable) {
+                AppLogger.w("EmbeddedPlayerViewModel", "Background pre-scrape error: ${e.message}")
+            }
+        }
+    }
+
     private fun handlePlaybackError(failedUrl: String, reason: String = "Connection failed") {
         val currentState = uiState.value
-        val isPermanentError = reason.contains("403") || reason.contains("404") ||
+        val isTimeout = reason.contains("Timeout", ignoreCase = true) || reason.contains("Timed Out", ignoreCase = true)
+        val isPermanentError = isTimeout || reason.contains("403") || reason.contains("404") ||
             reason.contains("401") || reason.contains("Forbidden") ||
             reason.contains("Not Found") || reason.contains("Unsupported")
 
@@ -440,7 +498,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 viewModelScope.launch(Dispatchers.IO) {
                     try {
                         val apiName = adjustedData.history.apiName
-                        val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+                        val showUrl = adjustedData.history.showUrl
+                        val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                            it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                        } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
                         if (provider != null) {
                             val res = SafePluginInvoker.invokeOrNull(
                                 tag = "HistoryLaunch:${provider.name}",
@@ -468,7 +529,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             // Auto-scrape initial episode if links are empty
             if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
                 val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
-                val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+                val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
+                val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                    it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
                 if (provider != null) {
                     val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
                         this.name = adjustedData.history.showName
@@ -713,10 +777,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         loadLinksJob?.cancel()
 
         val currentLinks = uiState.value.nextEpisodeLinks.ifEmpty { uiState.value.launchData?.links ?: emptyList() }
-        val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        val sortedLinks = sortLinks(currentLinks, prefQuality)
         val current = uiState.value.launchData
         val startPos = current?.startPositionMs ?: 0L
+        val sortedLinks = sortLinks(currentLinks, startPos)
         val best = pickBestActiveLink(sortedLinks, uiState.value.failedLinks.keys, startPos)
 
         if (best != null && current != null) {
@@ -789,18 +852,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     private fun sortLinks(
         links: List<ExtractorLink>,
-        preferredQuality: String,
         startPositionMs: Long = 0L,
     ): List<ExtractorLink> {
-        val targetQuality = when (preferredQuality) {
-            "2160p (4K)" -> Qualities.P2160.value
-            "1080p" -> Qualities.P1080.value
-            "720p" -> Qualities.P720.value
-            "480p", "480p / SD" -> Qualities.P480.value
-            else -> Qualities.Unknown.value
-        }
-
-        val isAuto = preferredQuality == "Auto" || preferredQuality == "Auto / Highest" || preferredQuality == "Highest Available"
         val isResuming = startPositionMs > 5000L
 
         return links.sortedWith(
@@ -817,9 +870,11 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     0
                 }
             }.thenByDescending { link ->
-                if (isAuto) 0 else if (link.quality == targetQuality) 1 else 0
+                com.lagradost.cloudstream3.desktop.player.QualityDataHelper.getLinkScore(link)
             }.thenByDescending { link ->
-                link.quality
+                link.isM3u8 || link.isDash
+            }.thenBy { link ->
+                link.name
             },
         )
     }
@@ -864,9 +919,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val cached = LinkCache.get(targetEpisodeId)
         if (cached != null) {
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
-
-            val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-            val sortedLinks = sortLinks(cached.links, prefQuality)
+            val sortedLinks = sortLinks(cached.links, startPos)
 
             val newLaunchData = if (targetEpisodeData != null && newHistory != null) {
                 current.copy(
@@ -946,6 +999,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 },
                 callback = SafePluginInvoker.wrapCallback("LinkCallback") { link ->
                     AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
+                    com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
                     var bestLinkFound: ExtractorLink? = null
                     var shouldUpdatePhase = false
 
@@ -953,7 +1007,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         if (!isScrapingLinks) {
                             return@updateState this
                         }
-                        val newLinks = sortLinks(nextEpisodeLinks + link, prefQuality)
+                        val newLinks = sortLinks(nextEpisodeLinks + link, startPos)
 
                         // When waitForLinks is enabled:
                         // Wait for all providers to finish scraping before auto-probing the best stream.
@@ -1025,7 +1079,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         if (result.isSuccess) {
             var bestLinkToProbe: ExtractorLink? = null
             updateState {
-                val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
 
                 if (!hasStartedPlaying.get()) {
                     if (nextEpisodeLinks.isNotEmpty()) {
@@ -1136,7 +1190,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 if (nextEpisodeLinks.isNotEmpty()) {
                     if (!hasStartedPlaying.get()) {
                         hasStartedPlaying.set(true)
-                        val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                        val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
                         val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
                         bestFallbackToProbe = best
                         val launch = if (targetEpisodeData != null && newHistory != null) {
@@ -1182,7 +1236,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                     }
                 } else if (hasStartedPlaying.get()) {
                     AppLogger.d("Plugin:${provider.name}", "Scrape timed out but playback already started — suppressing error")
-                    val sortedLinks = sortLinks(nextEpisodeLinks, prefQuality)
+                    val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
                     val newLaunchData = launchData?.copy(links = sortedLinks)
                     val newPhase = when (val p = phase) {
                         is PlayerPhase.Scraping -> PlayerPhase.Idle

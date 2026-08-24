@@ -255,7 +255,7 @@ fun CategoryRowWithHeader(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shadowElevation = 2.dp,
+                        shadowElevation = 0.dp,
                     ) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
@@ -321,7 +321,7 @@ private fun ScrollChevron(
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
         border = BorderStroke(1.dp, if (enabled) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.04f)),
-        shadowElevation = (if (enabled) 4.dp else 0.dp).applyShadowMultiplier(),
+        shadowElevation = 0.dp,
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Icon(

@@ -123,14 +123,14 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
         }
 
         fun parseDisabled(raw: String?): Set<DetailsSectionKey> {
-            if (raw.isNullOrBlank()) return emptySet()
+            if (raw.isNullOrBlank() || raw.equals("NONE", ignoreCase = true)) return emptySet()
             return raw.split(",").mapNotNull { name ->
                 entries.find { it.name.equals(name.trim(), ignoreCase = true) }
             }.toSet()
         }
 
         fun serialize(list: Collection<DetailsSectionKey>): String {
-            return list.joinToString(",") { it.name }
+            return if (list.isEmpty()) "NONE" else list.joinToString(",") { it.name }
         }
     }
 }

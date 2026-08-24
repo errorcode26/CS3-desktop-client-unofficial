@@ -8,7 +8,7 @@ sealed class SearchUiEvent : UiEvent {
     object OnSearch : SearchUiEvent()
     object OnClearSearch : SearchUiEvent()
     data class OnToggleGlobalSearch(val enabled: Boolean) : SearchUiEvent()
-    data class OnProviderSelected(val providerName: String) : SearchUiEvent()
+    data class OnProviderSelected(val providerName: String, val sourcePlugin: String? = null) : SearchUiEvent()
     data class OnToggleCategory(val category: TvType) : SearchUiEvent()
     data object OnClearCategories : SearchUiEvent()
     data class OnRemoveSearchHistoryItem(val query: String) : SearchUiEvent()

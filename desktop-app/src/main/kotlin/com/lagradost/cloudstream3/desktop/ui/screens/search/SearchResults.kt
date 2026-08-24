@@ -121,19 +121,33 @@ fun SearchResults(
                 }
             } else {
                 // ── Global Search / Multi-Provider: Horizontal Categorized Rows ──
+                val duplicateRowNames = remember(filteredGrouped) {
+                    filteredGrouped.map { it.first }.groupBy { it.name }.filterValues { it.size > 1 }.keys
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp, start = 20.dp, end = 20.dp),
                 ) {
-                    items(filteredGrouped.size, key = { filteredGrouped[it].first.name }) { index ->
+                    items(filteredGrouped.size, key = { index -> "${filteredGrouped[index].first.name}_${filteredGrouped[index].first.mainUrl}_${filteredGrouped[index].first.sourcePlugin ?: ""}_$index" }) { index ->
                         val (provider, items) = filteredGrouped[index]
+                        val repoTag = if (provider.name in duplicateRowNames) {
+                            provider.sourcePlugin?.let {
+                                try {
+                                    java.io.File(it).parentFile?.name?.replace("_", " ")
+                                } catch (_: Exception) { null }
+                            }
+                        } else null
+
+                        val rowTitle = if (!repoTag.isNullOrBlank()) "${provider.name} ($repoTag)" else provider.name
+
                         CategoryRowWithHeader(
-                            title = provider.name,
+                            title = rowTitle,
                             itemCount = items.size,
                             isInfinite = false,
-                            onViewAll = { onViewAll(provider, provider.name, items) },
+                            onViewAll = { onViewAll(provider, rowTitle, items) },
                         ) {
-                            items(items.size, key = { "${provider.name}_${items[it].url}" }) { innerIndex ->
+                            items(items.size, key = { innerIndex -> "${provider.name}_${provider.sourcePlugin ?: ""}_${items[innerIndex].url}_$innerIndex" }) { innerIndex ->
                                 val item = items[innerIndex]
                                 val heroMeta = heroMetaMap[item.url]
                                 PosterCard(

@@ -62,6 +62,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             is ExtensionsUiEvent.OnInstallPlugin -> installPlugin(event.repoName, event.plugin, event.onResult)
             is ExtensionsUiEvent.OnUninstallPlugins -> uninstallPlugins(event.plugins)
             is ExtensionsUiEvent.OnUninstallByInternalName -> uninstallByInternalName(event.internalName)
+            is ExtensionsUiEvent.OnUninstallPlugin -> uninstallPlugin(event.repoName, event.internalName)
             is ExtensionsUiEvent.OnLoadLocalPlugin -> loadLocalPlugin(event.file)
             is ExtensionsUiEvent.OnRemoveRepository -> removeRepository(event.url)
             is ExtensionsUiEvent.OnClearBypass -> clearBypass()
@@ -79,10 +80,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 val addedRepos = DesktopRepositoryManager.addRepositoryFromInput(input)
                 if (addedRepos != null && addedRepos.isNotEmpty()) {
                     val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
-                    updateState { copy(statusText = "Added ${addedRepos.size} repository(s): $repoNames. Syncing...") }
-                    DesktopRepositoryManager.syncAll()
                     val allPlugins = DesktopRepositoryManager.getAllPlugins()
-                    updateState { copy(plugins = allPlugins, statusText = "Repositories added and synced successfully.") }
+                    updateState { copy(plugins = allPlugins, statusText = "Added ${addedRepos.size} repository(s): $repoNames.") }
+                    refreshInstalled()
+                    DesktopRepositoryManager.incrementSyncGeneration()
                 } else {
                     updateState { copy(statusText = "Failed to load repository. Check the URL and try again.") }
                 }
@@ -163,10 +164,17 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         val list = mutableListOf<LocalPlugin>()
         val extensionsDir = DesktopRepositoryManager.getExtensionsDir()
         val allRemote = DesktopRepositoryManager.getAllPlugins()
+        val savedRepos = DesktopRepositoryManager.getSavedRepositories()
         if (extensionsDir.exists()) {
             extensionsDir.walkTopDown()
                 .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-                .filter { !it.name.endsWith("-jvm.jar") }
+                .filter {
+                    !it.name.endsWith("-jvm.jar") &&
+                    !it.name.contains("-secure") &&
+                    !it.name.contains("-jvm") &&
+                    !it.name.endsWith(".dex")
+                }
+                .distinctBy { it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure") }
                 .forEach { jar ->
                     val manifest = DesktopRepositoryManager.readPluginManifest(jar)
                     val name = manifest?.get("name") as? String ?: jar.nameWithoutExtension
@@ -174,8 +182,20 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     val version = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
                     val iconUrl = manifest?.get("iconUrl") as? String
 
-                    val remoteMatch = allRemote.find { it.second.internalName == internalName }
-                    val repoName = remoteMatch?.first ?: jar.parentFile.name.replace("_", " ")
+                    // Exact repository matching based on folder structure on disk
+                    val folderName = jar.parentFile?.name ?: ""
+                    val matchingSavedRepo = savedRepos.find {
+                        val cleanName = it.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                        cleanName.equals(folderName, ignoreCase = true)
+                    }
+                    val remoteMatch = allRemote.find { (rName, p) ->
+                        val cleanRName = rName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                        p.internalName == internalName && cleanRName.equals(folderName, ignoreCase = true)
+                    }
+
+                    val repoName = matchingSavedRepo?.name
+                        ?: remoteMatch?.first
+                        ?: folderName.replace("_", " ").ifBlank { "Local" }
 
                     val rawTvTypes = manifest?.get("tvTypes")
                     val tvTypes = when (rawTvTypes) {
@@ -240,10 +260,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 com.lagradost.common.logging.AppLogger.e("Security notice installing plugin", e)
                 val reason = e.message ?: "Suspicious bytecode or unverified class access detected."
                 updateState { copy(pluginRequiringBypass = Triple(repoName, plugin, reason)) }
-                onResult("Blocked (Security)")
-                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
-                    "Security Notice: '${plugin.name}' - $reason"
-                )
+                onResult("")
             } catch (e: Throwable) {
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
@@ -273,8 +290,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             }
 
             try {
-                // Persist trust
-                com.lagradost.common.storage.DesktopDataStore.setPluginTrusted(plugin.internalName, true)
+                // Persist trust with repository namespacing and all alias variants
+                ExtensionLoader.addTrusted(jarFile, plugin.internalName, manifestName = plugin.name)
 
                 val downloadedFile = withContext(Dispatchers.IO) {
                     DesktopRepositoryManager.downloadPlugin(repoName, plugin)
@@ -377,7 +394,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     }
 
                     // Step 5: Revoke persistent trust so future fresh re-installs require re-verification
-                    ExtensionLoader.removeTrusted(plugin.file, plugin.internalName)
+                    ExtensionLoader.removeTrusted(plugin.file, plugin.internalName, manifestName = plugin.name)
 
                     com.lagradost.common.logging.AppLogger.i("Uninstalled plugin '${plugin.name}' successfully.")
                 } catch (e: Throwable) {
@@ -387,6 +404,21 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             refreshInstalled()
             DesktopRepositoryManager.incrementSyncGeneration()
             updateState { copy(isUninstalling = false) }
+        }
+    }
+
+    private fun uninstallPlugin(repoName: String, internalName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanRepo = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val installedMatch = uiState.value.installedPlugins.find {
+                it.internalName == internalName && (
+                    it.file.parentFile?.name?.equals(cleanRepo, ignoreCase = true) == true ||
+                    it.repoName.equals(repoName, ignoreCase = true)
+                )
+            }
+            if (installedMatch != null) {
+                uninstallPlugins(listOf(installedMatch))
+            }
         }
     }
 

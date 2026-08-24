@@ -292,6 +292,15 @@ public:
         args->get_KeyEventKind(&keyEventKind);
         UINT virtualKey;
         args->get_VirtualKey(&virtualKey);
+
+        // Block internal browser zoom keys in WebView2 so HTML/CSS is never distorted
+        BOOL isCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        if (isCtrl && (virtualKey == VK_OEM_PLUS || virtualKey == VK_OEM_MINUS || virtualKey == '0' ||
+                       virtualKey == VK_NUMPAD0 || virtualKey == VK_ADD || virtualKey == VK_SUBTRACT)) {
+            args->put_Handled(TRUE);
+            return S_OK;
+        }
+
         if (virtualKey == VK_F11 &&
             (keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN ||
              keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN)) {
@@ -330,6 +339,7 @@ public:
         g_webviewController->AddRef();
         // Keep controller hidden initially to prevent opaque white window painting on cold start
         g_webviewController->put_IsVisible(FALSE);
+        g_webviewController->put_ZoomFactor(1.0);
 
         g_webviewController->get_CoreWebView2(&g_webview);
 
@@ -347,11 +357,12 @@ public:
             controller2->Release();
         }
 
-        // Disable context menus and status bar
+        // Disable context menus, status bar, and internal zoom control
         ICoreWebView2Settings* settings = nullptr;
         if (g_webview && SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
             settings->put_AreDefaultContextMenusEnabled(FALSE);
             settings->put_IsStatusBarEnabled(FALSE);
+            settings->put_IsZoomControlEnabled(FALSE);
             settings->Release();
         }
 

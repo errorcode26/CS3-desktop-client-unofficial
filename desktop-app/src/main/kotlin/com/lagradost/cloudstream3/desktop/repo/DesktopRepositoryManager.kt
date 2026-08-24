@@ -229,6 +229,8 @@ object DesktopRepositoryManager {
                 AppLogger.e("Failed to pre-fetch plugins for $listUrl", e)
             }
         }
+        saveCachesToDisk()
+        incrementSyncGeneration()
         return manifest
     }
 
@@ -306,23 +308,36 @@ object DesktopRepositoryManager {
             val internalName = manifest["internalName"] as? String ?: name
             val localVersion = manifest["version"]?.toString()?.toIntOrNull() ?: 0
 
-            val remoteMatch = allRemote.find { it.second.internalName == internalName }
+            val localRepoDirName = jar.parentFile?.name
+            val remoteMatch = allRemote.find { (repoName, sitePlugin) ->
+                sitePlugin.internalName == internalName &&
+                (localRepoDirName == null || repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_").equals(localRepoDirName, ignoreCase = true))
+            } ?: if (localRepoDirName == null || localRepoDirName.equals("extensions", ignoreCase = true)) {
+                allRemote.find { it.second.internalName == internalName }
+            } else null
+
             if (remoteMatch != null) {
                 val repoName = remoteMatch.first
                 val sitePlugin = remoteMatch.second
                 if (sitePlugin.version > localVersion) {
-                    AppLogger.i("Auto-updating plugin: $internalName from v$localVersion to v${sitePlugin.version}")
+                    AppLogger.i("Auto-updating plugin: $internalName in $localRepoDirName from v$localVersion to v${sitePlugin.version}")
                     try {
+                        val wasTrusted = com.lagradost.runtime.loader.ExtensionLoader.isTrusted(jar, internalName, manifestName = name)
+                        withContext(Dispatchers.IO) {
+                            com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
+                        }
                         val newJar = downloadPlugin(repoName, sitePlugin)
                         if (newJar != null) {
+                            if (wasTrusted) {
+                                com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, internalName, manifestName = name)
+                            }
                             withContext(Dispatchers.IO) {
-                                com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
-                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
+                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted)
                             }
                             updatedCount++
                         }
                     } catch (e: Throwable) {
-                        AppLogger.e("Failed to auto-update plugin $internalName", e)
+                        AppLogger.e("Failed to auto-update plugin $internalName in $localRepoDirName", e)
                         try {
                             com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(jar)
                         } catch (_: Throwable) {}
@@ -461,12 +476,16 @@ object DesktopRepositoryManager {
                             val localManifest = readPluginManifest(localJar)
                             val localVersion = localManifest?.get("version")?.toString()?.toIntOrNull() ?: 0
                             if (remotePlugin.version > localVersion) {
-                                AppLogger.i("Auto-updating ${remotePlugin.internalName} from v$localVersion to v${remotePlugin.version}...")
+                                AppLogger.i("Auto-updating ${remotePlugin.internalName} in ${saved.name} from v$localVersion to v${remotePlugin.version}...")
                                 try {
+                                    val wasTrusted = com.lagradost.runtime.loader.ExtensionLoader.isTrusted(localJar, remotePlugin.internalName, manifestName = remotePlugin.name)
+                                    com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
                                     val newJar = downloadPlugin(saved.name, remotePlugin)
                                     if (newJar != null) {
-                                        com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
-                                        com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar)
+                                        if (wasTrusted) {
+                                            com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, remotePlugin.internalName, manifestName = remotePlugin.name)
+                                        }
+                                        com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted)
                                         updatedList.add(
                                             com.lagradost.common.storage.PluginUpdateRecord(
                                                 pluginName = remotePlugin.name,
@@ -530,14 +549,8 @@ object DesktopRepositoryManager {
                 pluginsCache[listUrl]?.forEach { list.add(Pair(saved.name, it)) }
             }
         }
-        return list.groupBy { it.second.internalName }
-            .values
-            .mapNotNull { candidates ->
-                candidates.maxWithOrNull(
-                    compareBy<Pair<String, SitePlugin>> { it.second.url.startsWith("http") }
-                        .thenBy { it.second.version }
-                )
-            }
+        return list.distinctBy { Pair(it.first, it.second.internalName) }
+            .sortedWith(compareBy({ it.second.name.lowercase() }, { it.first }))
     }
 
     suspend fun syncAll(onProgress: (suspend (completed: Int, total: Int) -> Unit)? = null): SyncReport = withContext(Dispatchers.IO) {

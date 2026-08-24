@@ -103,7 +103,9 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(historyList, key = { it.parentId }) { history ->
-                        val provider = APIHolder.getApiFromNameNull(history.apiName)
+                        val provider = APIHolder.allProviders.firstOrNull {
+                            it.name == history.apiName && it.mainUrl.isNotBlank() && history.showUrl.startsWith(it.mainUrl)
+                        } ?: APIHolder.getApiFromNameNull(history.apiName)
                         WatchHistoryCard(
                             history = history,
                             provider = provider,

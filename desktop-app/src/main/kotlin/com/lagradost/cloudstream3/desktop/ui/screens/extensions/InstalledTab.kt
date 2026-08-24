@@ -91,11 +91,11 @@ fun InstalledTab(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(
                     onClick = {
-                        val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Load Local Plugin (.cs3 / .jar)", java.awt.FileDialog.LOAD)
-                        dialog.file = "*.cs3;*.jar"
-                        dialog.isVisible = true
-                        if (dialog.file != null) {
-                            val sourceFile = java.io.File(dialog.directory, dialog.file)
+                        val sourceFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                            title = "Load Local Plugin (.cs3 / .jar)",
+                            allowedExtensions = listOf(".cs3", ".jar"),
+                        )
+                        if (sourceFile != null && sourceFile.exists()) {
                             viewModel.onEvent(ExtensionsUiEvent.OnLoadLocalPlugin(sourceFile))
                         }
                     },

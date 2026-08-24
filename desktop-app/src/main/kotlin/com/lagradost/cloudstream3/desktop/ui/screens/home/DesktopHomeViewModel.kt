@@ -28,6 +28,19 @@ fun MainAPI.isRealProvider(): Boolean {
     return true
 }
 
+private fun MainAPI.getProviderKey(): String {
+    val src = sourcePlugin
+    if (!src.isNullOrBlank() && src != "built-in") {
+        val folder = java.io.File(src).parentFile?.name ?: ""
+        if (folder.isNotBlank()) return "$folder::$name"
+    }
+    return name
+}
+
+private fun MainAPI.matchesKey(key: String): Boolean {
+    return getProviderKey() == key || name == key
+}
+
 class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
@@ -47,12 +60,12 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         viewModelScope.launch(Dispatchers.IO) {
             val savedNames = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
             if (savedNames != null) {
-                val validNames = savedNames.filter { name -> APIHolder.allProviders.any { it.name == name && it.isRealProvider() } }
+                val validNames = savedNames.filter { name -> APIHolder.allProviders.any { it.matchesKey(name) && it.isRealProvider() } }
                 updateState { copy(activeProviders = validNames) }
             } else {
                 // Fallback to old key or empty
                 val oldName = DesktopDataStore.getKey<String>("preferred_provider_name")
-                if (oldName != null && APIHolder.allProviders.any { it.name == oldName && it.isRealProvider() }) {
+                if (oldName != null && APIHolder.allProviders.any { it.matchesKey(oldName) && it.isRealProvider() }) {
                     updateState { copy(activeProviders = listOf(oldName)) }
                 }
             }
@@ -138,20 +151,20 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         val currentProvState = uiState.value.providers
         if (currentProviders.size != currentProvState.size || !currentProviders.containsAll(currentProvState)) {
             val currentActive = uiState.value.activeProviders
-            val validActive = currentActive.filter { active -> currentProviders.any { it.name == active } }
+            val validActive = currentActive.filter { active -> currentProviders.any { it.matchesKey(active) } }
 
             if (validActive.isNotEmpty()) {
                 updateState { copy(providers = currentProviders, activeProviders = validActive) }
             } else if (currentProviders.isNotEmpty()) {
-                val restored = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)?.filter { active -> currentProviders.any { it.name == active } }
+                val restored = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)?.filter { active -> currentProviders.any { it.matchesKey(active) } }
                 if (!restored.isNullOrEmpty()) {
                     updateState { copy(providers = currentProviders, activeProviders = restored) }
                 } else {
                     val fallbackOld = DesktopDataStore.getKey<String>("preferred_provider_name")
-                    if (fallbackOld != null && currentProviders.any { it.name == fallbackOld }) {
+                    if (fallbackOld != null && currentProviders.any { it.matchesKey(fallbackOld) }) {
                         updateState { copy(providers = currentProviders, activeProviders = listOf(fallbackOld)) }
                     } else {
-                        updateState { copy(providers = currentProviders, activeProviders = listOf(currentProviders.first().name)) }
+                        updateState { copy(providers = currentProviders, activeProviders = listOf(currentProviders.first().getProviderKey())) }
                     }
                 }
             } else {

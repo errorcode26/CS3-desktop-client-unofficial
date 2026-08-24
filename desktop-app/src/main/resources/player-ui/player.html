@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>CloudStream Player</title>
     <style>
 /* CSS_INJECT */
@@ -47,7 +47,7 @@
 
 <!-- ── Link Probing Overlay ───────────────────────────────────────────── -->
 <div id="linkProbingOverlay" class="active">
-    <img id="linkProbingBackdrop" src="{{INITIAL_BACKDROP_URL}}" data-last-src="{{INITIAL_BACKDROP_URL}}" class="{{INITIAL_BACKDROP_CLASS}}" alt="">
+    <img id="linkProbingBackdrop" src="{{INITIAL_BACKDROP_URL}}" alt="">
     <div id="linkProbingGradient"></div>
     <div id="linkProbingContent">
         <div id="linkProbingHero">
@@ -88,6 +88,9 @@
 
 <!-- ── Resume Floating Pill (Bottom Left) ───────────────────────── -->
 <div id="resumeOverlay" class="resume-pill-card" style="display: none;">
+    <div class="resume-pill-icon">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </div>
     <div class="resume-pill-text">
         <span class="resume-pill-muted">Resumed at</span>
         <span id="resumeTime" class="resume-pill-time">00:00</span>
@@ -96,6 +99,9 @@
     <button class="resume-pill-btn" id="btnStartOver" title="Restart from beginning">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         <span>Start Over</span>
+    </button>
+    <button class="resume-pill-close" id="btnDismissResume" title="Dismiss">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
 </div>
 
@@ -271,7 +277,10 @@
         <button class="close-btn" id="closeEpisodesBtn">✕</button>
     </div>
     <div class="season-select-container" id="seasonSelectWrap" style="display: none;">
-        <select class="season-select" id="seasonSelect"></select>
+        <div class="season-chips-bar" id="seasonChipsBar"></div>
+    </div>
+    <div class="chunk-select-container" id="chunkSelectWrap" style="display: none;">
+        <div class="chunk-chips-bar" id="chunkChipsBar"></div>
     </div>
     <div class="panel-body" id="episodesList"></div>
 </div>
@@ -832,10 +841,12 @@
     </div>
 
     <!-- ── Skip Intro / Outro Floating Pill Button ──────────────────────── -->
-    <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval (S)">
-        <span id="skipBtnLabel">Skip Intro</span>
-        <span class="skip-btn-badge">S</span>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval (Hotkey: S)">
+        <span class="skip-btn-icon">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M5 18l10-6L5 6v12zm11-12v12h2V6h-2z"/></svg>
+        </span>
+        <span id="skipBtnLabel" class="skip-btn-text">Skip Intro</span>
+        <kbd class="skip-btn-badge">S</kbd>
     </button>
 
     <!-- Bottom Bar -->
@@ -968,30 +979,38 @@
 <div id="contextMenuOverlay">
     <div class="ctx-item" onclick="togglePlayFromContext()">
         <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <span>Play / Pause</span>
+            <svg id="ctxPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span id="ctxPlayText">Play / Pause</span>
         </div>
         <span class="ctx-badge">Space</span>
     </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('speedPanel')">
+    <div class="ctx-item" id="ctxNextEpItem" style="display: none;" onclick="closeContextMenu();playNextEpisode();">
         <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span>Playback Speed</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            <span>Next Episode</span>
         </div>
-        <span class="ctx-badge" id="ctxSpeedBadge">1x</span>
-    </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('aspectPanel')">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"/></svg>
-            <span>Aspect Ratio</span>
-        </div>
+        <span class="ctx-badge">Shift+N</span>
     </div>
     <div class="ctx-divider"></div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('serversPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
+            <span>Video Sources</span>
+        </div>
+    </div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('qualityAudioPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span>Quality & Resolution</span>
+        </div>
+        <span class="ctx-badge" id="ctxQualityBadge">Auto</span>
+    </div>
     <div class="ctx-item" onclick="closeContextMenu();togglePanel('audioPanel')">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
             <span>Audio Tracks</span>
         </div>
+        <span class="ctx-badge">A</span>
     </div>
     <div class="ctx-item" onclick="closeContextMenu();togglePanel('subsPanel')">
         <div class="ctx-item-left">
@@ -1000,7 +1019,53 @@
         </div>
         <span class="ctx-badge">C / V</span>
     </div>
+    <div class="ctx-item" onclick="closeContextMenu();openSubSearchModal()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Search Online Subtitles...</span>
+        </div>
+        <span class="ctx-badge">S</span>
+    </div>
+    <div class="ctx-item" onclick="closeContextMenu();send('openLocalSubtitlePicker','')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Load Local Subtitle (.srt / .ass)...</span>
+        </div>
+    </div>
     <div class="ctx-divider"></div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('speedPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Playback Speed</span>
+        </div>
+        <span class="ctx-badge" id="ctxSpeedBadge">1.0x</span>
+    </div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('aspectPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"/></svg>
+            <span>Aspect Ratio</span>
+        </div>
+    </div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('shadersPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Shaders & Upscaling (Anime4K)</span>
+        </div>
+    </div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item" onclick="closeContextMenu();toggleStatsForNerds()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Stats for Nerds</span>
+        </div>
+        <span class="ctx-badge">Shift+D</span>
+    </div>
+    <div class="ctx-item" onclick="closeContextMenu();togglePanel('settingsPanel')">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Player Settings</span>
+        </div>
+    </div>
     <div class="ctx-item" onclick="copyCurrentTimecode()">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>

@@ -150,11 +150,26 @@
         chaptersBtn?.classList.add('hidden');
     }
 
+    function dismissResumeOverlay() {
+        if (window.resumeDismissTimer) {
+            clearTimeout(window.resumeDismissTimer);
+            window.resumeDismissTimer = null;
+        }
+        if (resumeOverlay) {
+            resumeOverlay.style.display = 'none';
+        }
+        resumeHandled = true;
+    }
+
     function evaluateResumeOverlay() {
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && pOverlay.classList.contains('active');
+        const videoEndedOvl = document.getElementById('videoEndedOverlay');
+        const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
 
-        const shouldShow = pendingResumeMs > 0 && !resumeHandled && !isProbing && !isAppLoading;
+        // Only display resume pill if at least 10s into video and not at the very end
+        const isEligible = pendingResumeMs >= 10000 && (durationMs <= 0 || pendingResumeMs < (durationMs - 15000));
+        const shouldShow = isEligible && !resumeHandled && !isProbing && !isAppLoading && !isVideoEnded;
 
         if (shouldShow) {
             const timeElem = document.getElementById('resumeTime');
@@ -165,10 +180,8 @@
             }
             if (!window.resumeDismissTimer) {
                 window.resumeDismissTimer = setTimeout(() => {
-                    if (resumeOverlay) resumeOverlay.style.display = 'none';
-                    resumeHandled = true;
-                    window.resumeDismissTimer = null;
-                }, 6000);
+                    dismissResumeOverlay();
+                }, 7000);
             }
         } else {
             if (resumeOverlay) resumeOverlay.style.display = 'none';
@@ -402,12 +415,18 @@
     const btnStartOverElem = document.getElementById('btnStartOver');
     if (btnStartOverElem) {
         btnStartOverElem.addEventListener('click', (e) => {
-            if (e) e.stopPropagation();
-            if (window.resumeDismissTimer) { clearTimeout(window.resumeDismissTimer); window.resumeDismissTimer = null; }
-            resumeOverlay.style.display = 'none';
-            resumeHandled = true;
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            dismissResumeOverlay();
             send('seekTo', 0);
             send('play');
+            triggerActionFeedback(SVGS.rewind10, 'center');
+        });
+    }
+    const btnDismissResumeElem = document.getElementById('btnDismissResume');
+    if (btnDismissResumeElem) {
+        btnDismissResumeElem.addEventListener('click', (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            dismissResumeOverlay();
         });
     }
 
@@ -616,17 +635,33 @@
         const skipBtn = document.getElementById('skipBtn');
         const skipBtnLabel = document.getElementById('skipBtnLabel');
         if (skipBtn) {
-            if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0) {
-                const activeInv = _cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs);
+            if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0 && !isSeeking) {
+                const activeInv = _cachedSkipIntervals.find(inv =>
+                    inv.startMs >= 0 &&
+                    inv.endMs > inv.startMs &&
+                    (inv.endMs - inv.startMs >= 3000) &&
+                    currentPosMs >= inv.startMs &&
+                    currentPosMs < inv.endMs
+                );
                 if (activeInv) {
-                    if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
-                    if (skipBtn.style.display !== 'flex') {
-                        skipBtn.style.display = 'flex';
+                    if (skipBtnLabel) {
+                        const typeName = (activeInv.type || '').toUpperCase();
+                        let label = activeInv.label;
+                        if (!label || label === 'Intro') {
+                            if (typeName === 'RECAP') label = 'Skip Recap';
+                            else if (typeName === 'ENDING' || typeName === 'OUTRO') label = 'Skip Outro';
+                            else if (typeName === 'PREVIEW') label = 'Skip Preview';
+                            else label = 'Skip Intro';
+                        }
+                        skipBtnLabel.innerText = label;
+                    }
+                    if (skipBtn.style.display !== 'inline-flex') {
+                        skipBtn.style.display = 'inline-flex';
                         skipBtn.classList.remove('idle-faded');
                         window._skipBtnActiveSince = Date.now();
                     }
                     if (document.body.classList.contains('hidden-controls')) {
-                        if (Date.now() - (window._skipBtnActiveSince || 0) > 6000) {
+                        if (Date.now() - (window._skipBtnActiveSince || 0) > 4000) {
                             skipBtn.classList.add('idle-faded');
                         }
                     } else {
@@ -896,33 +931,82 @@
     };
     window.renderFilteredServers = renderFilteredServers;
 
-    const renderFilteredEpisodes = (selectedSeason) => {
+    let currentSelectedSeason = 1;
+    let currentSelectedChunk = 0;
+    const EPISODE_CHUNK_SIZE = 50;
+
+    const renderFilteredEpisodes = (selectedSeason, targetChunk = -1) => {
+        currentSelectedSeason = selectedSeason;
         const filtered = episodesData.filter(ep => {
             const epSeason = ep.season !== undefined && ep.season !== null ? ep.season : 1;
             return epSeason === selectedSeason;
         });
 
-        document.getElementById('episodesList').innerHTML = filtered.map((ep, i) => {
-            const num = ep.episode || (i + 1);
-            const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
-            const epIdEncoded = encodeURIComponent(ep.id || '');
-            const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
-                <span class="ep-num">${num}</span>
-                ${thumb}
-                <div class="ep-info">
-                    <div class="ep-title">${epTitleEscaped}</div>
-                    <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
-                    ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
-                </div>
-            </div>`;
-        }).join('');
+        const chunkWrap = document.getElementById('chunkSelectWrap');
+        const chunkBar = document.getElementById('chunkChipsBar');
+
+        let episodesToRender = filtered;
+        if (filtered.length > EPISODE_CHUNK_SIZE) {
+            if (chunkWrap) chunkWrap.style.display = 'block';
+            const totalChunks = Math.ceil(filtered.length / EPISODE_CHUNK_SIZE);
+            
+            if (targetChunk < 0) {
+                const activeIdx = filtered.findIndex(e => e.isActive);
+                currentSelectedChunk = activeIdx >= 0 ? Math.floor(activeIdx / EPISODE_CHUNK_SIZE) : 0;
+            } else {
+                currentSelectedChunk = targetChunk;
+            }
+
+            if (chunkBar) {
+                chunkBar.innerHTML = Array.from({ length: totalChunks }, (_, cIdx) => {
+                    const start = cIdx * EPISODE_CHUNK_SIZE + 1;
+                    const end = Math.min((cIdx + 1) * EPISODE_CHUNK_SIZE, filtered.length);
+                    const isChunkActive = cIdx === currentSelectedChunk;
+                    return `<button class="chunk-chip ${isChunkActive ? 'active' : ''}" onclick="renderFilteredEpisodes(${selectedSeason}, ${cIdx})">
+                        ${start}–${end}
+                    </button>`;
+                }).join('');
+            }
+
+            const startIdx = currentSelectedChunk * EPISODE_CHUNK_SIZE;
+            episodesToRender = filtered.slice(startIdx, startIdx + EPISODE_CHUNK_SIZE);
+        } else {
+            if (chunkWrap) chunkWrap.style.display = 'none';
+            currentSelectedChunk = 0;
+        }
+
+        const listEl = document.getElementById('episodesList');
+        if (listEl) {
+            listEl.innerHTML = episodesToRender.map((ep, i) => {
+                const num = ep.episode || (i + 1 + (currentSelectedChunk * EPISODE_CHUNK_SIZE));
+                const thumb = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onerror="this.style.display='none'">` : '';
+                const epIdEncoded = encodeURIComponent(ep.id || '');
+                const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
+                    <span class="ep-num">${num}</span>
+                    ${thumb}
+                    <div class="ep-info">
+                        <div class="ep-title">${epTitleEscaped}</div>
+                        <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
+                        ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
 
         setTimeout(() => {
             const active = document.querySelector('#episodesList .ep-card.active');
             if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }, 150);
     };
+    window.renderFilteredEpisodes = renderFilteredEpisodes;
+
+    const onSeasonChipClick = (s) => {
+        document.querySelectorAll('#seasonChipsBar .season-chip').forEach(btn => btn.classList.remove('active'));
+        event?.target?.closest('.season-chip')?.classList.add('active');
+        renderFilteredEpisodes(s, -1);
+    };
+    window.onSeasonChipClick = onSeasonChipClick;
 
     const handleMetadataUpdate = (meta) => {
         // 1. Session & State Reset
@@ -970,8 +1054,15 @@
                     if (showTitle.includes(' - ')) {
                         showTitle = showTitle.split(' - ')[0].trim();
                     }
-                    if (meta.logoUrl) {
-                        if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (meta.logoUrl && meta.logoUrl.trim().length > 0) {
+                        if (pLogo) {
+                            pLogo.onerror = () => {
+                                pLogo.style.display = 'none';
+                                if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
+                            };
+                            pLogo.src = meta.logoUrl;
+                            pLogo.style.display = 'block';
+                        }
                         if (pTitle) pTitle.style.display = 'none';
                     } else {
                         if (pLogo) pLogo.style.display = 'none';
@@ -982,8 +1073,15 @@
                         pSubtitle.style.display = 'block';
                     }
                 } else {
-                    if (meta.logoUrl) {
-                        if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (meta.logoUrl && meta.logoUrl.trim().length > 0) {
+                        if (pLogo) {
+                            pLogo.onerror = () => {
+                                pLogo.style.display = 'none';
+                                if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
+                            };
+                            pLogo.src = meta.logoUrl;
+                            pLogo.style.display = 'block';
+                        }
                         if (pTitle) pTitle.style.display = 'none';
                     } else {
                         if (pLogo) pLogo.style.display = 'none';
@@ -992,20 +1090,10 @@
                     if (pSubtitle) pSubtitle.style.display = 'none';
                 }
 
-                // Crossfade backdrop to the new episode's art immediately
+                // Update backdrop to the new episode's art directly without flashing
                 const newBackdrop = meta.backdropUrl || (activeEp ? activeEp.posterUrl : '');
-                if (pBackdrop && newBackdrop && pBackdrop.dataset.lastSrc !== newBackdrop) {
-                    pBackdrop.dataset.lastSrc = newBackdrop;
-                    pBackdrop.classList.remove('loaded');
-                    const tempImg = new Image();
-                    tempImg.onload = () => {
-                        pBackdrop.src = newBackdrop;
-                        requestAnimationFrame(() => pBackdrop.classList.add('loaded'));
-                    };
-                    tempImg.src = newBackdrop;
-                } else if (pBackdrop && !newBackdrop) {
-                    pBackdrop.classList.remove('loaded');
-                    pBackdrop.dataset.lastSrc = '';
+                if (pBackdrop && newBackdrop && pBackdrop.src !== newBackdrop) {
+                    pBackdrop.src = newBackdrop;
                 }
             }
               let niceTitle = meta.title;
@@ -1034,14 +1122,19 @@
         const pauseTags = document.getElementById('pauseInfoTags');
         const pauseMeta = document.getElementById('pauseInfoMeta');
         
-        if (meta.logoUrl) {
-            pauseLogo.src = meta.logoUrl;
-            pauseLogo.style.display = 'block';
-            pauseFallback.style.display = 'none';
+        if (meta.logoUrl && meta.logoUrl.trim().length > 0) {
+            if (pauseLogo) {
+                pauseLogo.onerror = () => {
+                    pauseLogo.style.display = 'none';
+                    if (pauseFallback) { pauseFallback.innerText = meta.title || ''; pauseFallback.style.display = 'block'; }
+                };
+                pauseLogo.src = meta.logoUrl;
+                pauseLogo.style.display = 'block';
+            }
+            if (pauseFallback) pauseFallback.style.display = 'none';
         } else if (meta.title) {
-            pauseLogo.style.display = 'none';
-            pauseFallback.innerText = meta.title;
-            pauseFallback.style.display = 'block';
+            if (pauseLogo) pauseLogo.style.display = 'none';
+            if (pauseFallback) { pauseFallback.innerText = meta.title; pauseFallback.style.display = 'block'; }
         }
 
         const activeEpInfo = (meta.episodes || []).find(ep => ep.isActive);
@@ -1151,29 +1244,9 @@
             const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
             const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
 
-            // Backdrop: immediate display if cached or fast-loading
-            if (targetBackdropUrl) {
-                if (pBackdrop.src === targetBackdropUrl && (pBackdrop.complete || pBackdrop.naturalWidth > 0)) {
-                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
-                    pBackdrop.classList.add('loaded');
-                } else if (pBackdrop.dataset.lastSrc !== targetBackdropUrl) {
-                    pBackdrop.dataset.lastSrc = targetBackdropUrl;
-                    pBackdrop.src = targetBackdropUrl;
-                    if (pBackdrop.complete && pBackdrop.naturalWidth > 0) {
-                        pBackdrop.classList.add('loaded');
-                    } else {
-                        pBackdrop.onload = () => {
-                            pBackdrop.classList.add('loaded');
-                        };
-                        pBackdrop.onerror = () => {
-                            pBackdrop.dataset.lastSrc = '';
-                            pBackdrop.classList.remove('loaded');
-                        };
-                    }
-                }
-            } else {
-                pBackdrop.classList.remove('loaded');
-                pBackdrop.dataset.lastSrc = '';
+            // Backdrop: immediate display of cached backdrop
+            if (pBackdrop && targetBackdropUrl && pBackdrop.src !== targetBackdropUrl) {
+                pBackdrop.src = targetBackdropUrl;
             }
 
             // Logo or text hero (stable, fixed top position)
@@ -1335,19 +1408,24 @@
             const seasons = [...new Set(meta.episodes.map(ep => ep.season !== undefined && ep.season !== null ? ep.season : 1))];
             seasons.sort((a, b) => a - b);
 
+            const sChipsBar = document.getElementById('seasonChipsBar');
+            const activeEp = meta.episodes.find(e => e.isActive);
+            const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
+
             if (seasons.length > 1) {
-                seasonSelectWrap.style.display = 'block';
-                // Populate options
-                seasonSelect.innerHTML = seasons.map(s => `<option value="${s}">Season ${s}</option>`).join('');
-
-                // Auto-select season of active episode
-                const activeEp = meta.episodes.find(e => e.isActive);
-                const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
-                seasonSelect.value = activeSeason;
-
+                if (seasonSelectWrap) seasonSelectWrap.style.display = 'block';
+                if (sChipsBar) {
+                    sChipsBar.innerHTML = seasons.map(s => {
+                        const count = meta.episodes.filter(ep => (ep.season !== undefined && ep.season !== null ? ep.season : 1) === s).length;
+                        const isSActive = s === activeSeason;
+                        return `<button class="season-chip ${isSActive ? 'active' : ''}" onclick="onSeasonChipClick(${s})">
+                            Season ${s} <span class="season-chip-count">(${count})</span>
+                        </button>`;
+                    }).join('');
+                }
                 renderFilteredEpisodes(activeSeason);
             } else {
-                seasonSelectWrap.style.display = 'none';
+                if (seasonSelectWrap) seasonSelectWrap.style.display = 'none';
                 renderFilteredEpisodes(seasons[0] || 1);
             }
 
@@ -2765,20 +2843,27 @@
     // Stats for Nerds toggle
     let statsVisible = false;
     const statsOverlay = document.getElementById('statsOverlay');
-    document.getElementById('btnToggleStats').addEventListener('click', e => {
-        e.stopPropagation();
-        statsVisible = !statsVisible;
+    const toggleStatsForNerds = (forcedState) => {
+        if (typeof forcedState === 'boolean') {
+            statsVisible = forcedState;
+        } else {
+            statsVisible = !statsVisible;
+        }
         const btn = document.getElementById('btnToggleStats');
         if (statsVisible) {
-            btn.classList.add('active');
-            btn.innerText = 'On';
-            statsOverlay.classList.add('show');
+            if (btn) { btn.classList.add('active'); btn.innerText = 'On'; }
+            if (statsOverlay) statsOverlay.classList.add('show');
         } else {
-            btn.classList.remove('active');
-            btn.innerText = 'Off';
-            statsOverlay.classList.remove('show');
+            if (btn) { btn.classList.remove('active'); btn.innerText = 'Off'; }
+            if (statsOverlay) statsOverlay.classList.remove('show');
         }
         send('toggleStats');
+    };
+    window.toggleStatsForNerds = toggleStatsForNerds;
+
+    document.getElementById('btnToggleStats')?.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleStatsForNerds();
     });
 
     // Interpolation toggle
@@ -2900,8 +2985,33 @@
     window.showContextMenu = (x, y) => {
         if (!ctxMenu) return;
         closeAllPanels();
+
         const badge = document.getElementById('ctxSpeedBadge');
         if (badge) badge.innerText = `${currentSpeed || 1}x`;
+
+        const qBadge = document.getElementById('ctxQualityBadge');
+        if (qBadge) {
+            const activeLink = linksData.find(l => l.isActive);
+            qBadge.innerText = activeLink?.quality ? String(activeLink.quality) : (window.currentResolution || 'Auto');
+        }
+
+        const playText = document.getElementById('ctxPlayText');
+        const playIcon = document.getElementById('ctxPlayIcon');
+        if (playText && playIcon) {
+            if (globalIsPlaying) {
+                playText.innerText = 'Pause';
+                playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+            } else {
+                playText.innerText = 'Play';
+                playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        const nextEpItem = document.getElementById('ctxNextEpItem');
+        if (nextEpItem) {
+            const hasNext = nextEpBtn && !nextEpBtn.classList.contains('hidden');
+            nextEpItem.style.display = hasNext ? 'flex' : 'none';
+        }
 
         ctxMenu.style.display = 'block';
         
@@ -2911,11 +3021,11 @@
         const winW = window.innerWidth / zoom;
         const winH = window.innerHeight / zoom;
         
-        const w = ctxMenu.offsetWidth;
-        const h = ctxMenu.offsetHeight;
+        const w = ctxMenu.offsetWidth || 250;
+        const h = ctxMenu.offsetHeight || 380;
 
-        const posX = (scaledX + w > winW) ? (winW - w - 10) : scaledX;
-        const posY = (scaledY + h > winH) ? (winH - h - 10) : scaledY;
+        const posX = (scaledX + w > winW) ? Math.max(10, winW - w - 12) : scaledX;
+        const posY = (scaledY + h > winH) ? Math.max(10, winH - h - 12) : scaledY;
 
         ctxMenu.style.left = `${posX}px`;
         ctxMenu.style.top = `${posY}px`;
@@ -2928,6 +3038,11 @@
     window.togglePlayFromContext = () => {
         closeContextMenu();
         send('togglePlay');
+    };
+
+    window.playNextEpisode = () => {
+        closeContextMenu();
+        if (nextEpBtn) nextEpBtn.click();
     };
 
     window.copyCurrentTimecode = () => {
@@ -3020,8 +3135,9 @@
             case 'KeyM':
                 send('toggleMute');
                 break;
+            case 'KeyD':
             case 'KeyI':
-                if (e.shiftKey) { e.preventDefault(); document.getElementById('btnToggleStats')?.click(); }
+                if (e.shiftKey) { e.preventDefault(); toggleStatsForNerds(); }
                 break;
             case 'ArrowLeft':
                 e.preventDefault();

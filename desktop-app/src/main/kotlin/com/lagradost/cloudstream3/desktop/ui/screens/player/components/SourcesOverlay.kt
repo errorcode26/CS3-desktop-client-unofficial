@@ -31,8 +31,16 @@ fun SourcesOverlay(
 ) {
     var selectedQuality by remember { mutableStateOf<Int?>(null) }
 
-    val availableQualities = remember(links) {
-        links.map { it.quality }.distinct().sortedDescending()
+    val qualityOptions = remember(links) {
+        links.groupBy { it.quality }
+            .map { (qual, list) ->
+                com.lagradost.cloudstream3.desktop.ui.screens.QualityOption(
+                    qualityValue = qual,
+                    label = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(qual),
+                    count = list.size,
+                )
+            }
+            .sortedByDescending { it.qualityValue }
     }
 
     val filteredLinks = remember(links, selectedQuality) {
@@ -70,14 +78,13 @@ fun SourcesOverlay(
                 lineHeight = 24.sp,
             )
 
-            if (availableQualities.isNotEmpty()) {
-                val stringQualities = availableQualities.map { if (it == 400 || it <= 0) "Auto" else "${it}p" }
+            if (qualityOptions.isNotEmpty()) {
                 QualitySelector(
-                    availableQualities = stringQualities,
-                    selectedQuality = selectedQuality?.let { if (it == 400 || it <= 0) "Auto" else "${it}p" },
-                    onSelect = { str ->
-                        selectedQuality = if (str == "Auto") 400 else str?.replace("p", "")?.toIntOrNull()
-                    },
+                    totalLinkCount = links.size,
+                    availableQualities = qualityOptions,
+                    selectedQuality = selectedQuality,
+                    onSelect = { selectedQuality = it },
+                    onOpenPriorityDialog = {},
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }

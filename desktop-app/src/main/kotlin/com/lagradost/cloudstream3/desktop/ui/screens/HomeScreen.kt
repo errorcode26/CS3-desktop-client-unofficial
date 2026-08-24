@@ -120,7 +120,7 @@ fun ComposeHomeScreen(
                         bottom = safeBottom + 32.dp,
                     ),
                 ) {
-                    items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].second.name}" }) { index ->
+                    items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].first.mainUrl}_${allPages[index].second.name}_$index" }) { index ->
                         val (currentProvider, pageData) = allPages[index]
                         val isFirstPage = index == 0
                         val horizontalPad = if (isFirstPage && heroEnabled) 0.dp else 20.dp
