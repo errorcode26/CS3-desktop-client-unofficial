@@ -117,54 +117,76 @@ object StremioAddonClient {
     }
 
     suspend fun search(query: String, type: String = "series"): List<StremioMetaItem>? = withContext(Dispatchers.IO) {
-        val manifestUrl = MetadataConfig.stremioAddonUrl.value.trim()
-        val enabled = MetadataConfig.stremioAddonEnabled.value
-        if (!enabled || manifestUrl.isBlank()) return@withContext null
-
-        val baseUrl = getTransportBaseUrl(manifestUrl)
-        if (baseUrl.isBlank()) return@withContext null
-
-        val queryParam = manifestUrl.substringAfter("?", "").let { if (it.isBlank()) "" else "?$it" }
-
-        try {
-            val encodedQuery = URLEncoder.encode(query, "UTF-8")
-            val url = "$baseUrl/catalog/$type/top/search=$encodedQuery.json$queryParam"
-            val response = app.get(
-                url = url,
-                headers = mapOf("Accept" to "application/json", "User-Agent" to "CloudStream-Desktop/1.0"),
-                timeout = 4000L,
-            )
-            val parsed = response.parsedSafe<StremioCatalogResponse>()
-            parsed?.metas
-        } catch (e: Exception) {
-            AppLogger.d(TAG, "Search failed for '$query': ${e.message}")
-            null
+        val metaAddons = com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.getEnabledMetadataAddons()
+        val candidateUrls = if (metaAddons.isNotEmpty()) {
+            metaAddons.map { it.manifestUrl }
+        } else {
+            val fallbackUrl = MetadataConfig.stremioAddonUrl.value.trim()
+            if (MetadataConfig.stremioAddonEnabled.value && fallbackUrl.isNotBlank()) listOf(fallbackUrl) else emptyList()
         }
+
+        if (candidateUrls.isEmpty()) return@withContext null
+
+        for (manifestUrl in candidateUrls) {
+            val baseUrl = getTransportBaseUrl(manifestUrl)
+            if (baseUrl.isBlank()) continue
+
+            val queryParam = manifestUrl.substringAfter("?", "").let { if (it.isBlank()) "" else "?$it" }
+
+            try {
+                val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                val url = "$baseUrl/catalog/$type/top/search=$encodedQuery.json$queryParam"
+                val response = app.get(
+                    url = url,
+                    headers = mapOf("Accept" to "application/json", "User-Agent" to "CloudStream-Desktop/1.0"),
+                    timeout = 4000L,
+                )
+                val parsed = response.parsedSafe<StremioCatalogResponse>()
+                val metas = parsed?.metas
+                if (!metas.isNullOrEmpty()) {
+                    return@withContext metas
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Search failed for '$query' on $baseUrl: ${e.message}")
+            }
+        }
+        null
     }
 
     suspend fun getMeta(id: String, type: String = "series"): StremioMetaItem? = withContext(Dispatchers.IO) {
-        val manifestUrl = MetadataConfig.stremioAddonUrl.value.trim()
-        val enabled = MetadataConfig.stremioAddonEnabled.value
-        if (!enabled || manifestUrl.isBlank()) return@withContext null
-
-        val baseUrl = getTransportBaseUrl(manifestUrl)
-        if (baseUrl.isBlank()) return@withContext null
-
-        val queryParam = manifestUrl.substringAfter("?", "").let { if (it.isBlank()) "" else "?$it" }
-
-        try {
-            val encodedId = URLEncoder.encode(id, "UTF-8")
-            val url = "$baseUrl/meta/$type/$encodedId.json$queryParam"
-            val response = app.get(
-                url = url,
-                headers = mapOf("Accept" to "application/json", "User-Agent" to "CloudStream-Desktop/1.0"),
-                timeout = 4000L,
-            )
-            val parsed = response.parsedSafe<StremioMetaResponse>()
-            parsed?.meta
-        } catch (e: Exception) {
-            AppLogger.d(TAG, "getMeta failed for id='$id': ${e.message}")
-            null
+        val metaAddons = com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.getEnabledMetadataAddons()
+        val candidateUrls = if (metaAddons.isNotEmpty()) {
+            metaAddons.map { it.manifestUrl }
+        } else {
+            val fallbackUrl = MetadataConfig.stremioAddonUrl.value.trim()
+            if (MetadataConfig.stremioAddonEnabled.value && fallbackUrl.isNotBlank()) listOf(fallbackUrl) else emptyList()
         }
+
+        if (candidateUrls.isEmpty()) return@withContext null
+
+        for (manifestUrl in candidateUrls) {
+            val baseUrl = getTransportBaseUrl(manifestUrl)
+            if (baseUrl.isBlank()) continue
+
+            val queryParam = manifestUrl.substringAfter("?", "").let { if (it.isBlank()) "" else "?$it" }
+
+            try {
+                val encodedId = URLEncoder.encode(id, "UTF-8")
+                val url = "$baseUrl/meta/$type/$encodedId.json$queryParam"
+                val response = app.get(
+                    url = url,
+                    headers = mapOf("Accept" to "application/json", "User-Agent" to "CloudStream-Desktop/1.0"),
+                    timeout = 4000L,
+                )
+                val parsed = response.parsedSafe<StremioMetaResponse>()
+                val meta = parsed?.meta
+                if (meta != null) {
+                    return@withContext meta
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "getMeta failed for id='$id' on $baseUrl: ${e.message}")
+            }
+        }
+        null
     }
 }

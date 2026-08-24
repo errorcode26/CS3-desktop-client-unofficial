@@ -71,11 +71,11 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Trakt Tracker", LeafTab.ACCOUNTS, listOf("trakt", "tracker", "movies", "shows", "sync", "scrobble"), uiLabel = "Trakt"),
         SettingsSearchEntry("Discord Rich Presence", LeafTab.ACCOUNTS, listOf("discord", "rpc", "rich presence", "status", "activity"), uiLabel = "Discord Rich Presence"),
 
-        // Extensions > Integrations tab
+        // Extensions > External Addons & Integrations
+        SettingsSearchEntry("External Stremio Addons", LeafTab.ADDONS, listOf("stremio", "addon", "manifest", "subtitles", "opensubtitles", "cinemeta", "external"), uiLabel = "External Addons (Subtitles & Metadata)"),
         SettingsSearchEntry("TMDB API Key & Metadata", LeafTab.INTEGRATIONS, listOf("tmdb", "metadata", "api key", "backdrops", "logos", "cast", "posters"), uiLabel = "TMDB"),
         SettingsSearchEntry("AniList Metadata", LeafTab.INTEGRATIONS, listOf("anilist", "anime", "metadata", "voice", "cast", "characters"), uiLabel = "AniList Metadata"),
         SettingsSearchEntry("Kitsu Anime Metadata", LeafTab.INTEGRATIONS, listOf("kitsu", "anime", "metadata"), uiLabel = "Kitsu"),
-        SettingsSearchEntry("Custom Stremio Addon", LeafTab.INTEGRATIONS, listOf("stremio", "addon", "manifest", "metadata", "catalog", "cinemeta"), uiLabel = "Custom Stremio Addon"),
         SettingsSearchEntry("Intro Skip Service API", LeafTab.INTEGRATIONS, listOf("skip", "intro", "outro", "aniskip", "introdb", "api"), uiLabel = "Intro & Outro Skipping"),
 
         // Network tab

@@ -152,7 +152,7 @@ fun ComposeDetailsScreen(
                         coil3.compose.AsyncImage(
                             model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                                 .data(targetBgUrl)
-                                .size(2560, 1440)
+                                .size(640, 360)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = null,

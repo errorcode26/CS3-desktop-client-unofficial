@@ -118,9 +118,20 @@ object QualityDataHelper {
         return (qualPriority * 10) + srcPriority
     }
 
+    fun isSeekableLink(link: ExtractorLink): Boolean {
+        val urlLower = link.url.lowercase()
+        return link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 ||
+            link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH ||
+            urlLower.contains(".m3u8") || urlLower.contains(".mpd") ||
+            urlLower.contains(".mp4") || urlLower.contains(".mkv") ||
+            urlLower.contains(".webm") || urlLower.contains(".avi") ||
+            link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO
+    }
+
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
         return links.sortedWith(
-            compareByDescending<ExtractorLink> { getLinkScore(it) }
+            compareByDescending<ExtractorLink> { if (isSeekableLink(it)) 1 else 0 } // Seekable streams strictly prioritized, non-seekable streams pushed to bottom
+                .thenByDescending { getLinkScore(it) }
                 .thenByDescending { it.isM3u8 || it.isDash } // HLS/DASH fast streaming preferred when score tied
                 .thenBy { it.name },
         )

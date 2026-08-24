@@ -24,6 +24,12 @@ class SearchComponent(
     val viewModel = instanceKeeper.getOrCreate { SearchViewModel() }
 }
 
+class ExploreComponent(
+    componentContext: ComponentContext,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate { com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel() }
+}
+
 class HistoryComponent(
     componentContext: ComponentContext,
 ) : ComponentContext by componentContext

@@ -18,12 +18,12 @@ import com.lagradost.cloudstream3.fixUrlNull
 @Composable
 fun EmbeddedVideoPlayer(
     launchData: VideoLaunchData,
+    viewModel: EmbeddedPlayerViewModel,
     isExiting: Boolean = false,
     onClose: () -> Unit,
     onError: (String) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { EmbeddedPlayerViewModel() }
     DisposableEffect(viewModel) {
         onDispose {
             viewModel.dispose()

@@ -8,8 +8,11 @@ enum class DockPosition(val label: String) {
     ;
 
     companion object {
-        fun fromString(value: String): DockPosition {
-            return entries.firstOrNull { it.label.equals(value, ignoreCase = true) } ?: LEFT
+        fun fromString(value: String?): DockPosition {
+            if (value.isNullOrBlank()) return LEFT
+            return entries.firstOrNull { 
+                it.label.equals(value.trim(), ignoreCase = true) || it.name.equals(value.trim(), ignoreCase = true) 
+            } ?: LEFT
         }
     }
 }

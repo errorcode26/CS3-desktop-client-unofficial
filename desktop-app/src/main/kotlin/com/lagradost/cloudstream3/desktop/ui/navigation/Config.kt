@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.navigation
 
 sealed class Config {
     data object Home : Config()
+    data object Explore : Config()
     data object History : Config()
     data object Search : Config()
     data class Extensions(val initialTab: Int = 0) : Config()

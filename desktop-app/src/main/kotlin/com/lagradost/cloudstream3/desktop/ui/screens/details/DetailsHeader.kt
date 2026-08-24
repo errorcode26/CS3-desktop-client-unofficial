@@ -171,7 +171,7 @@ fun DetailsBackdrop(
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(enhancedBgUrl)
-                        .size(2560, 1440)
+                        .size(1280, 720)
                         .crossfade(true)
                         .build(),
                     contentDescription = null,

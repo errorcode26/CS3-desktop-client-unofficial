@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -200,6 +201,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                         val title = when (activeInstance) {
                             is RootComponent.Child.Home -> "Home"
+                            is RootComponent.Child.Explore -> "Explore & Catalogs"
                             is RootComponent.Child.History -> "Watch History"
                             is RootComponent.Child.Search -> "Search"
                             is RootComponent.Child.Extensions -> "Extensions"
@@ -251,7 +253,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             Children(
                                 stack = childStack,
                                 modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                                animation = stackAnimation(fade() + scale()),
+                                animation = stackAnimation(fade(tween(140))),
                             ) {
                                 when (val child = it.instance) {
                                     is RootComponent.Child.Details -> {
@@ -272,6 +274,12 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                                     is RootComponent.Child.Home -> {
                                         ComposeHomeScreen(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                        )
+                                    }
+                                    is RootComponent.Child.Explore -> {
+                                        com.lagradost.cloudstream3.desktop.explore.ui.ExploreScreen(
                                             onNavigate = { config -> rootComponent.bringToFront(config) },
                                             viewModel = child.component.viewModel,
                                         )
@@ -326,10 +334,15 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     // Global Toast & Notification Overlay
                     com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
 
-                    // The Embedded Video Player Overlay
+                    // The Embedded Video Player Overlay — ViewModel is hoisted here so it
+                    // survives launchData changes and overlay recompositions without being recreated.
+                    val playerViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel() }
+                    DisposableEffect(Unit) { onDispose { playerViewModel.dispose() } }
+
                     currentVideo?.let { launchData ->
                         com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
                             launchData = launchData,
+                            viewModel = playerViewModel,
                             isExiting = false,
                             onClose = {
                                 currentVideo = null

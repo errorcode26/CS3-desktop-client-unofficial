@@ -50,6 +50,7 @@ enum class DockItemKey(
     val isRequired: Boolean = false,
 ) {
     HOME("home", "Home", "Main landing page with hero banner & catalogs", isRequired = true),
+    EXPLORE("explore", "Explore", "Browse movies, series & anime catalogs by genre and year"),
     SEARCH("search", "Search", "Global search & provider explorer"),
     LIBRARY("library", "Library", "Bookmarked shows, movies, and custom lists"),
     SETTINGS("settings", "Settings", "Preferences, appearance, player, and plugins", isRequired = true),
@@ -58,7 +59,7 @@ enum class DockItemKey(
     ;
 
     companion object {
-        val DEFAULT_ORDER = listOf(HOME, SEARCH, LIBRARY, SETTINGS, HISTORY, EXTENSIONS)
+        val DEFAULT_ORDER = listOf(HOME, EXPLORE, SEARCH, LIBRARY, SETTINGS, HISTORY, EXTENSIONS)
         val DEFAULT_DISABLED = setOf(HISTORY, EXTENSIONS)
 
         fun parseOrder(raw: String?): List<DockItemKey> {
@@ -78,6 +79,14 @@ enum class DockItemKey(
         }
 
         fun serialize(items: Iterable<DockItemKey>): String {
+            return serializeOrder(items)
+        }
+
+        fun serializeOrder(items: Iterable<DockItemKey>): String {
+            return items.joinToString(",") { it.id }
+        }
+
+        fun serializeDisabled(items: Iterable<DockItemKey>): String {
             val list = items.filter { !it.isRequired }
             return if (list.isEmpty()) "NONE" else list.joinToString(",") { it.id }
         }
@@ -724,7 +733,7 @@ object AppearanceConfig {
 
     fun setDockItemOrder(order: List<DockItemKey>) {
         _dockItemOrder.value = order
-        DesktopDataStore.setKey(PREF_DOCK_ITEM_ORDER, DockItemKey.serialize(order))
+        DesktopDataStore.setKey(PREF_DOCK_ITEM_ORDER, DockItemKey.serializeOrder(order))
     }
 
     fun toggleDockItem(key: DockItemKey, enabled: Boolean) {
@@ -736,7 +745,7 @@ object AppearanceConfig {
             current.add(key)
         }
         _dockDisabledItems.value = current
-        DesktopDataStore.setKey(PREF_DOCK_DISABLED_ITEMS, DockItemKey.serialize(current))
+        DesktopDataStore.setKey(PREF_DOCK_DISABLED_ITEMS, DockItemKey.serializeDisabled(current))
     }
 
     fun moveDockItem(fromIndex: Int, toIndex: Int) {
@@ -789,6 +798,8 @@ object AppearanceConfig {
         _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f
         _navigationStyle.value = NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE))
         _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
+        _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
+        _dockDisabledItems.value = DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
         _selectedFont.value = DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter"
         _screensaverEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true
         _heroAutoSlideDelaySeconds.value = DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10

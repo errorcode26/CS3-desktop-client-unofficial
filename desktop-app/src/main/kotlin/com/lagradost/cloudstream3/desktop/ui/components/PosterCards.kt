@@ -38,6 +38,11 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
+import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
+import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
+import com.lagradost.cloudstream3.desktop.ui.badges.RatingSourcePolicy
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
@@ -124,6 +129,15 @@ fun PosterCard(
     val showPosterLanguage = style.showLanguage
     val posterHoverGlowEnabled = style.hoverGlowEnabled
 
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val displayTitle = remember(item.name, autoCleanTitles) {
+        if (autoCleanTitles) {
+            CardTitleSanitizer.sanitize(item.name, autoClean = true).displayTitle
+        } else {
+            item.name
+        }
+    }
+
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
 
@@ -205,7 +219,7 @@ fun PosterCard(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                item.name.take(2).uppercase(),
+                                displayTitle.take(2).uppercase(),
                                 color = DesktopUi.Accent,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
@@ -269,7 +283,7 @@ fun PosterCard(
                         ) {
                             Column {
                                 Text(
-                                    text = item.name,
+                                    text = displayTitle,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelMedium,
@@ -301,7 +315,7 @@ fun PosterCard(
                 contentAlignment = Alignment.TopStart,
             ) {
                 Text(
-                    text = item.name,
+                    text = displayTitle,
                     maxLines = 2,
                     minLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -611,35 +625,75 @@ fun BoxScope.PosterBadges(
     showQuality: Boolean,
     showLanguage: Boolean,
 ) {
-    val ratingText = item.score?.let { score ->
-        val v = score.toFloat(10)
-        if (v > 0.0f) String.format(java.util.Locale.US, "%.1f", v) else null
-    }
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
+    val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
+    val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
+    val ratingPolicy by CardMetadataConfig.ratingPolicy.collectAsState()
 
     val isAnime = item is com.lagradost.cloudstream3.AnimeSearchResponse
-    val hasSub = showLanguage && isAnime && (
+    val pluginHasSub = isAnime && (
         item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed] != null ||
         item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true
     )
-    val hasDub = showLanguage && isAnime && (
+    val pluginHasDub = isAnime && (
         item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed] != null ||
         item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true
     )
 
-    val qualityText = if (showQuality && item.quality != null) {
-        val qName = item.quality!!.name
+    val pluginQualityText = item.quality?.name?.let { qName ->
         when {
             qName == "FourK" || qName.contains("UHD", ignoreCase = true) -> "4K"
             qName.contains("BlueRay", ignoreCase = true) || qName.contains("BluRay", ignoreCase = true) -> "BD"
             qName.contains("HD", ignoreCase = true) -> "HD"
             else -> qName
         }
-    } else null
+    }
 
-    val hasTopStart = showRating && ratingText != null
-    val hasTopEnd = hasSub || hasDub || qualityText != null
+    val meta = remember(item.name, pluginHasSub, pluginHasDub, pluginQualityText, autoCleanTitles, autoDetectSubDub, autoDetectQuality) {
+        CardTitleSanitizer.sanitize(
+            rawTitle = item.name,
+            pluginHasSub = pluginHasSub,
+            pluginHasDub = pluginHasDub,
+            pluginQuality = pluginQualityText,
+            autoClean = autoCleanTitles,
+            autoDetectSubDub = autoDetectSubDub,
+            autoDetectQuality = autoDetectQuality,
+        )
+    }
 
-    if (hasTopStart || hasTopEnd) {
+    // Rating Resolution
+    val nativeScore = item.score?.let { score ->
+        val v = score.toFloat(10).toDouble()
+        if (v > 0.0) v else null
+    }
+
+    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
+    val verifiedRating = remember(meta.displayTitle, ratingsSignal) {
+        FastRatingEnricher.getCachedRating(meta.displayTitle)
+    }
+
+    LaunchedEffect(meta.displayTitle, ratingPolicy) {
+        if (ratingPolicy != RatingSourcePolicy.SCRAPER_NATIVE && verifiedRating == null) {
+            FastRatingEnricher.requestRatingAsync(
+                cleanTitle = meta.displayTitle,
+                isAnime = isAnime,
+                isSeries = item.type == com.lagradost.cloudstream3.TvType.TvSeries || item.type == com.lagradost.cloudstream3.TvType.Anime,
+            )
+        }
+    }
+
+    val effectiveRating = when (ratingPolicy) {
+        RatingSourcePolicy.VERIFIED_ADDON -> verifiedRating ?: nativeScore
+        RatingSourcePolicy.SCRAPER_NATIVE -> nativeScore
+        RatingSourcePolicy.SMART_HYBRID -> nativeScore ?: verifiedRating
+    }
+
+    val shouldShowRating = showRatingBadges && effectiveRating != null && effectiveRating > 0.0
+    val shouldShowSubDub = autoDetectSubDub && (meta.hasSub || meta.hasDub)
+    val shouldShowQuality = autoDetectQuality && !meta.qualityText.isNullOrBlank()
+
+    if (shouldShowRating || shouldShowSubDub || shouldShowQuality) {
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -649,124 +703,26 @@ fun BoxScope.PosterBadges(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Top Left: Rating
-            if (hasTopStart && ratingText != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Color.Black.copy(alpha = 0.55f))
-                        .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.35f), RoundedCornerShape(5.dp))
-                        .padding(horizontal = 5.dp, vertical = 2.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(10.dp),
-                        )
-                        Text(
-                            text = ratingText,
-                            color = Color(0xFFFFE082),
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.2.sp,
-                        )
-                    }
-                }
+            if (shouldShowRating) {
+                DesktopBadgeComponents.RatingGoldBadge(rating = effectiveRating)
             } else {
                 Spacer(modifier = Modifier.width(1.dp))
             }
 
-            // Top Right: Language (SUB / DUB) and Quality (4K / HD / BD)
-            if (hasTopEnd) {
+            // Top Right: Language and Quality
+            if (shouldShowSubDub || shouldShowQuality) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(3.5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (hasSub && hasDub) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = 0.55f))
-                                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 5.dp, vertical = 2.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.5.dp),
-                            ) {
-                                Text(
-                                    text = "SUB",
-                                    color = DesktopUi.Accent,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                )
-                                Text(
-                                    text = "•",
-                                    color = Color.White.copy(alpha = 0.4f),
-                                    fontSize = 8.sp,
-                                )
-                                Text(
-                                    text = "DUB",
-                                    color = Color(0xFFCE93D8),
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                )
-                            }
-                        }
-                    } else {
-                        if (hasSub) {
-                            PosterBadge(
-                                text = "SUB",
-                                textColor = DesktopUi.Accent,
-                                borderColor = DesktopUi.Accent.copy(alpha = 0.35f),
-                            )
-                        }
-                        if (hasDub) {
-                            PosterBadge(
-                                text = "DUB",
-                                textColor = Color(0xFFCE93D8),
-                                borderColor = Color(0xFFCE93D8).copy(alpha = 0.35f),
-                            )
-                        }
+                    if (shouldShowSubDub) {
+                        DesktopBadgeComponents.SubDubBadge(hasSub = meta.hasSub, hasDub = meta.hasDub)
                     }
-
-                    if (qualityText != null) {
-                        val is4k = qualityText == "4K"
-                        PosterBadge(
-                            text = qualityText,
-                            textColor = if (is4k) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.85f),
-                            borderColor = if (is4k) Color(0xFFFFD54F).copy(alpha = 0.40f) else Color.White.copy(alpha = 0.20f),
-                        )
+                    if (shouldShowQuality) {
+                        DesktopBadgeComponents.QualityBadge(quality = meta.qualityText)
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PosterBadge(
-    text: String,
-    textColor: Color,
-    borderColor: Color = Color.White.copy(alpha = 0.20f),
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black.copy(alpha = 0.55f))
-            .border(0.5.dp, borderColor, RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.5.dp, vertical = 2.dp),
-    ) {
-        Text(
-            text = text.uppercase(),
-            color = textColor,
-            fontSize = 8.5.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 0.3.sp,
-        )
     }
 }

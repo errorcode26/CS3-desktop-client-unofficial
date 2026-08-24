@@ -2,48 +2,124 @@ package com.lagradost.cloudstream3.desktop.ui.theme
 
 import com.lagradost.common.platform.PlatformPaths
 import java.io.File
-
 object CustomFontManager {
+    val BUILT_IN_FONTS = listOf(
+        "Inter",
+        "Outfit",
+        "DM Sans",
+        "Roboto",
+        "Nunito",
+        "Poppins",
+        "Lato",
+        "Ubuntu",
+        "Fira Sans",
+        "Courier Prime",
+        "Pacifico",
+        "Lobster",
+    )
+
     private var cachedFontFamilies: List<String>? = null
+    private var cachedUserFonts: List<String>? = null
     private val fontFileCache = java.util.concurrent.ConcurrentHashMap<String, File>()
 
     /**
-     * Retrieves a list of available custom fonts.
-     * Uses memory cache for instant O(1) reads without disk or parsing overhead.
+     * Retrieves a list of only user-installed custom fonts (excluding bundled fonts).
+     */
+    fun getUserInstalledFonts(): List<String> {
+        cachedUserFonts?.let { return it }
+        refreshCache()
+        return cachedUserFonts ?: emptyList()
+    }
+
+    /**
+     * Retrieves a list of all available fonts (curated built-in + user-installed).
      */
     fun getAvailableFonts(): List<String> {
-        cachedFontFamilies?.let { return it }
-        return refreshCache()
+        return (BUILT_IN_FONTS + getUserInstalledFonts()).distinct()
     }
+
+    private val BUNDLED_FONT_MAP = mapOf(
+        "courierprime-bold.ttf" to "Courier Prime",
+        "courierprime-regular.ttf" to "Courier Prime",
+        "dmsans-bold.ttf" to "DM Sans",
+        "dmsans-medium.ttf" to "DM Sans",
+        "dmsans-regular.ttf" to "DM Sans",
+        "dmsans-semibold.ttf" to "DM Sans",
+        "firasans-bold.ttf" to "Fira Sans",
+        "firasans-medium.ttf" to "Fira Sans",
+        "firasans-regular.ttf" to "Fira Sans",
+        "firasans-semibold.ttf" to "Fira Sans",
+        "inter-bold.ttf" to "Inter",
+        "inter-medium.ttf" to "Inter",
+        "inter-regular.ttf" to "Inter",
+        "inter-semibold.ttf" to "Inter",
+        "lato-bold.ttf" to "Lato",
+        "lato-medium.ttf" to "Lato",
+        "lato-regular.ttf" to "Lato",
+        "lato-semibold.ttf" to "Lato",
+        "lobster-regular.ttf" to "Lobster",
+        "nunito-bold.ttf" to "Nunito",
+        "nunito-medium.ttf" to "Nunito",
+        "nunito-regular.ttf" to "Nunito",
+        "nunito-semibold.ttf" to "Nunito",
+        "outfit-bold.ttf" to "Outfit",
+        "outfit-medium.ttf" to "Outfit",
+        "outfit-regular.ttf" to "Outfit",
+        "outfit-semibold.ttf" to "Outfit",
+        "pacifico-regular.ttf" to "Pacifico",
+        "poppins-bold.ttf" to "Poppins",
+        "poppins-medium.ttf" to "Poppins",
+        "poppins-regular.ttf" to "Poppins",
+        "poppins-semibold.ttf" to "Poppins",
+        "roboto-bold.ttf" to "Roboto",
+        "roboto-medium.ttf" to "Roboto",
+        "roboto-regular.ttf" to "Roboto",
+        "ubuntu-bold.ttf" to "Ubuntu",
+        "ubuntu-medium.ttf" to "Ubuntu",
+        "ubuntu-regular.ttf" to "Ubuntu",
+    )
 
     /**
      * Refreshes the in-memory font cache from disk.
      */
     fun refreshCache(): List<String> {
         val dir = PlatformPaths.fontsDir
-        if (!dir.exists() || !dir.isDirectory) return emptyList()
+        if (!dir.exists() || !dir.isDirectory) {
+            cachedUserFonts = emptyList()
+            cachedFontFamilies = BUILT_IN_FONTS
+            return BUILT_IN_FONTS
+        }
 
         fontFileCache.clear()
         val files = dir.listFiles()
             ?.filter { it.isFile && (it.extension.equals("ttf", ignoreCase = true) || it.extension.equals("otf", ignoreCase = true) || it.extension.equals("woff", ignoreCase = true)) }
-            ?: return emptyList()
+            ?: return BUILT_IN_FONTS
 
-        val results = mutableListOf<String>()
+        val userResults = mutableListOf<String>()
         for (file in files) {
-            try {
-                val family = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, file).family
-                fontFileCache[family.lowercase()] = file
+            val knownFamily = BUNDLED_FONT_MAP[file.name.lowercase()]
+            if (knownFamily != null) {
+                fontFileCache[knownFamily.lowercase()] = file
                 fontFileCache[file.name.lowercase()] = file
                 fontFileCache[file.nameWithoutExtension.lowercase()] = file
-                results.add(family)
-            } catch (e: Exception) {
-                fontFileCache[file.nameWithoutExtension.lowercase()] = file
-                results.add(file.nameWithoutExtension)
+            } else {
+                try {
+                    val family = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, file).family
+                    fontFileCache[family.lowercase()] = file
+                    fontFileCache[file.name.lowercase()] = file
+                    fontFileCache[file.nameWithoutExtension.lowercase()] = file
+                    userResults.add(family)
+                } catch (e: Exception) {
+                    fontFileCache[file.nameWithoutExtension.lowercase()] = file
+                    userResults.add(file.nameWithoutExtension)
+                }
             }
         }
-        val distinct = results.distinct().sorted()
-        cachedFontFamilies = distinct
-        return distinct
+        val distinctUser = userResults.distinct().sorted()
+        cachedUserFonts = distinctUser
+        val allFonts = (BUILT_IN_FONTS + distinctUser).distinct()
+        cachedFontFamilies = allFonts
+        return allFonts
     }
 
     /**

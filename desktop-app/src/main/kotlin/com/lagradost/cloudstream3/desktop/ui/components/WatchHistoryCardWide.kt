@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
@@ -183,12 +185,21 @@ fun WatchHistoryCardWide(
                     .fillMaxHeight()
                     .padding(16.dp)
             ) {
+                val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+                val displayTitle = remember(history.showName, autoCleanTitles) {
+                    if (autoCleanTitles) {
+                        CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
+                    } else {
+                        history.showName
+                    }
+                }
+
                 // Top area: Title and Tags
                 Column(
                     modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
                 ) {
                     Text(
-                        text = history.showName,
+                        text = displayTitle,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         color = Color.White,

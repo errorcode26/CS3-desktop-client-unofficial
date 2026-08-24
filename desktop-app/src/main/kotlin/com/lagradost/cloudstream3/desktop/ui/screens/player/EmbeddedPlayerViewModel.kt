@@ -854,21 +854,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         links: List<ExtractorLink>,
         startPositionMs: Long = 0L,
     ): List<ExtractorLink> {
-        val isResuming = startPositionMs > 5000L
-
         return links.sortedWith(
             compareByDescending<ExtractorLink> { link ->
-                if (isResuming) {
-                    val urlLower = link.url.lowercase()
-                    val isSeekable = link.isM3u8 || link.type == ExtractorLinkType.M3U8 ||
-                        link.isDash || link.type == ExtractorLinkType.DASH ||
-                        urlLower.contains(".m3u8") || urlLower.contains(".mpd") ||
-                        urlLower.contains(".mp4") || urlLower.contains(".mkv") ||
-                        link.type == ExtractorLinkType.VIDEO
-                    if (isSeekable) 1 else 0
-                } else {
-                    0
-                }
+                // Seekable links ALWAYS prioritized first so playback is fully seekable; non-seekable streams are last resort
+                if (com.lagradost.cloudstream3.desktop.player.QualityDataHelper.isSeekableLink(link)) 1 else 0
             }.thenByDescending { link ->
                 com.lagradost.cloudstream3.desktop.player.QualityDataHelper.getLinkScore(link)
             }.thenByDescending { link ->

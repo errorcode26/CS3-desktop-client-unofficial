@@ -40,10 +40,7 @@ fun ComposeExtensionScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.onEvent(ExtensionsUiEvent.OnLoadPluginsFromManager)
-        viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
-    }
+
 
     LaunchedEffect(viewModel.effectFlow) {
         viewModel.effectFlow.collect { effect ->
@@ -143,16 +140,19 @@ fun ComposeExtensionScreen(
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
-            androidx.compose.animation.Crossfade(
-                targetState = selectedTab,
-                animationSpec = androidx.compose.animation.core.tween(200),
-                label = "extensions_crossfade",
-            ) { tabIndex ->
-                when (tabIndex) {
-                    0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                    1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
-                    2 -> RepositoriesTab(viewModel = viewModel)
-                    3 -> UpdateHistoryTab()
+            key(selectedTab) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = true,
+                    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(160)),
+                    exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(80)),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    when (selectedTab) {
+                        0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
+                        1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
+                        2 -> RepositoriesTab(viewModel = viewModel)
+                        3 -> UpdateHistoryTab()
+                    }
                 }
             }
         }

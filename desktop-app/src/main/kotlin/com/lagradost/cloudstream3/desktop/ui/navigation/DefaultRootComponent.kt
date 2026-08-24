@@ -35,6 +35,9 @@ class DefaultRootComponent(
             is Config.Home -> RootComponent.Child.Home(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext),
             )
+            is Config.Explore -> RootComponent.Child.Explore(
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExploreComponent(componentContext),
+            )
             is Config.History -> RootComponent.Child.History(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent(componentContext),
             )
@@ -83,6 +86,7 @@ class DefaultRootComponent(
             is Config.Home -> {
                 navigation.replaceAll(Config.Home)
             }
+            is Config.Explore,
             is Config.Search,
             is Config.Library,
             is Config.History,

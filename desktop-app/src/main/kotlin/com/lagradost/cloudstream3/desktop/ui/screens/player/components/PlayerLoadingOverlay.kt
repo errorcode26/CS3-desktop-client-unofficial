@@ -61,7 +61,7 @@ fun StreamLoadingOverlay(
             coil3.compose.AsyncImage(
                 model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                     .data(backdropUrl)
-                    .size(2560, 1440)
+                    .size(640, 360)
                     .build(),
                 contentDescription = "Backdrop",
                 contentScale = ContentScale.Crop,
@@ -207,7 +207,7 @@ fun PlayerLoadingOverlay(
             coil3.compose.AsyncImage(
                 model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                     .data(backdropUrl)
-                    .size(2560, 1440)
+                    .size(1280, 720)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

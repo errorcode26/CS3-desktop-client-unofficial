@@ -1,13 +1,12 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.`with`
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +43,7 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
     PLAYER("Video & Audio Engine"),
     SUBTITLES_LEAF("Subtitles & Styling"),
     EXTENSIONS("Plugins & Repos"),
+    ADDONS("External Addons"),
     INTEGRATIONS("Metadata & Scrapers"),
     NETWORK("Network & DNS", Icons.Default.Router),
     ADVANCED("Storage & Cache"),
@@ -69,16 +69,17 @@ enum class SettingsSubScreen(val title: String) {
 
 object SettingsSession {
     var selectedLeaf by mutableStateOf(LeafTab.THEME)
-    var expandedGroups by mutableStateOf(setOf(GroupTab.APPEARANCE, GroupTab.PLAYBACK))
+    var expandedGroups by mutableStateOf<Set<GroupTab>>(emptySet())
     var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
     var highlightedSetting by mutableStateOf<String?>(null)
+    val settingsViewModel by lazy { SettingsViewModel() }
 }
 
 private val NAV_STRUCTURE: List<SettingsNav> = listOf(
     SettingsNav.Group(GroupTab.APPEARANCE, listOf(LeafTab.THEME, LeafTab.LAYOUT, LeafTab.DETAILS, LeafTab.EFFECTS)),
     SettingsNav.Leaf(LeafTab.ACCOUNTS),
     SettingsNav.Group(GroupTab.PLAYBACK, listOf(LeafTab.PLAYER, LeafTab.SUBTITLES_LEAF)),
-    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.INTEGRATIONS)),
+    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ADDONS, LeafTab.INTEGRATIONS)),
     SettingsNav.Leaf(LeafTab.NETWORK),
     SettingsNav.Group(GroupTab.SYSTEM_GROUP, listOf(LeafTab.ADVANCED, LeafTab.DEVELOPER, LeafTab.ABOUT)),
 )
@@ -94,7 +95,7 @@ fun ComposeSettingsScreen(
     var selectedLeaf by SettingsSession::selectedLeaf
     var expandedGroups by SettingsSession::expandedGroups
     var activeSubScreen by SettingsSession::activeSubScreen
-    val settingsViewModel = remember { SettingsViewModel() }
+    val settingsViewModel = SettingsSession.settingsViewModel
 
     if (activeSubScreen == SettingsSubScreen.POSTER_EDITOR) {
         SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
@@ -253,9 +254,9 @@ fun ComposeSettingsScreen(
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
                         if (targetState != null) {
-                            (slideInHorizontally { width -> width } + fadeIn()) `with` (slideOutHorizontally { width -> -width } + fadeOut())
+                            (slideInHorizontally { width -> width } + fadeIn()) togetherWith (slideOutHorizontally { width -> -width } + fadeOut())
                         } else {
-                            (slideInHorizontally { width -> -width } + fadeIn()) `with` (slideOutHorizontally { width -> width } + fadeOut())
+                            (slideInHorizontally { width -> -width } + fadeIn()) togetherWith (slideOutHorizontally { width -> width } + fadeOut())
                         }
                     },
                     label = "SettingsSubScreenTransition",
@@ -281,22 +282,31 @@ fun ComposeSettingsScreen(
                             }
                         }
                     } else {
-                        Crossfade(targetState = selectedLeaf, modifier = Modifier.fillMaxSize(),
-                            animationSpec = tween(180), label = "LeafCrossfade") { leaf ->
-                            when (leaf) {
-                                LeafTab.THEME          -> SettingsAppearanceThemeScreen()
-                                LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
-                                LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
-                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
-                                LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
-                                LeafTab.INTEGRATIONS   -> SettingsIntegrations()
-                                LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
-                                LeafTab.DEVELOPER      -> SettingsDeveloper()
-                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
+                        // Only compose the currently-selected leaf. Crossfade was eagerly composing
+                        // all 14 branches simultaneously on first open which caused heavy stutter.
+                        key(selectedLeaf) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(160)),
+                                exit = fadeOut(animationSpec = tween(80)),
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                when (selectedLeaf) {
+                                    LeafTab.THEME          -> SettingsAppearanceThemeScreen()
+                                    LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                    LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
+                                    LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
+                                    LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
+                                    LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                    LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                    LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
+                                    LeafTab.ADDONS         -> SettingsAddons()
+                                    LeafTab.INTEGRATIONS   -> SettingsIntegrations()
+                                    LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
+                                    LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
+                                    LeafTab.DEVELOPER      -> SettingsDeveloper()
+                                    LeafTab.ABOUT          -> SettingsAboutAndUpdates()
+                                }
                             }
                         }
                     }

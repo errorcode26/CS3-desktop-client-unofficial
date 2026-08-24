@@ -188,10 +188,13 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
+                    val fontOptions = remember {
+                        com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it }
+                    }
                     MviSettingsDropdown(
                         key = PlayerConfig.PREF_SUB_FONT,
                         label = "Subtitle Font",
-                        options = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it },
+                        options = fontOptions,
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         defaultValue = "Inter",

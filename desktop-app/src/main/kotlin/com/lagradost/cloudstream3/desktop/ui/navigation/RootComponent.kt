@@ -14,6 +14,7 @@ interface RootComponent {
 
     sealed class Child {
         class Home(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent) : Child()
+        class Explore(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.ExploreComponent) : Child()
         class History(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent) : Child()
         class Search(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent) : Child()
         class Extensions(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent) : Child()

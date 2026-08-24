@@ -39,6 +39,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.badges.RatingSourcePolicy
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -323,12 +325,20 @@ fun SettingsAppearanceThemeScreen() {
             }
 
             SettingsGroupCard(title = "Typography") {
-                var customFonts by remember { mutableStateOf(com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()) }
+                var customFonts by remember { mutableStateOf<List<String>>(emptyList()) }
+                LaunchedEffect(Unit) {
+                    customFonts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getUserInstalledFonts()
+                    }
+                }
                 val coroutineScope = rememberCoroutineScope()
+                val fontOptions = remember(customFonts) {
+                    com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it }
+                }
                 SettingsDropdownItem(
                     label = "App Font",
                     subtitle = "Choose the font used throughout the app",
-                    options = com.lagradost.cloudstream3.desktop.ui.theme.availableFonts.map { it to it },
+                    options = fontOptions,
                     currentValue = selectedFont,
                     onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
                 )
@@ -345,7 +355,8 @@ fun SettingsAppearanceThemeScreen() {
                                 IconButton(onClick = {
                                     val f = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getFontFile(fontName)
                                     if (f != null && f.delete()) {
-                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
+                                        com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
+                                        customFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getUserInstalledFonts()
                                     }
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete Font", tint = MaterialTheme.colorScheme.error)
@@ -368,7 +379,8 @@ fun SettingsAppearanceThemeScreen() {
                                     com.lagradost.common.platform.PlatformPaths.fontsDir.mkdirs()
                                     selectedFile.copyTo(dstFile, overwrite = true)
                                     // Update state
-                                    val refreshed = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
+                                    com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.refreshCache()
+                                    val refreshed = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getUserInstalledFonts()
                                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                                         customFonts = refreshed
                                     }
@@ -772,6 +784,7 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                                         Icon(
                                             when (itemKey) {
                                                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HOME -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Home
+                                                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXPLORE -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Explore
                                                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Search
                                                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.LIBRARY -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.Library
                                                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> com.lagradost.cloudstream3.desktop.ui.PremiumIcons.History
@@ -855,31 +868,85 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                 )
             }
 
-            SettingsGroupCard(title = "Poster Badges") {
+            SettingsGroupCard(title = "Poster Badges & Title Cleanup") {
+                val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+                val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
+                val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
+                val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
+                val ratingPolicy by CardMetadataConfig.ratingPolicy.collectAsState()
+
                 SettingsToggleItem(
-                    label = "Show Rating / Score",
-                    subtitle = "Display a small star rating on posters if available",
-                    checked = showPosterRating,
-                    onCheckedChange = { AppearanceConfig.setShowPosterRating(it) },
+                    label = "Auto-Clean Messy Poster Titles",
+                    subtitle = "Slices away codecs, release groups, and site tags from movie titles across Home and Search",
+                    checked = autoCleanTitles,
+                    onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsToggleItem(
-                    label = "Show Quality (HD / 4K)",
-                    subtitle = "Display the video quality tag on the bottom right of posters",
-                    checked = showPosterQuality,
-                    onCheckedChange = { AppearanceConfig.setShowPosterQuality(it) },
+                    label = "Auto-Detect SUB / DUB Badges",
+                    subtitle = "Extracts [SUB], [DUB], or dual-audio split capsules directly from title tokens",
+                    checked = autoDetectSubDub,
+                    onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsToggleItem(
-                    label = "Show Language (Sub / Dub)",
-                    subtitle = "Display the subtitle and dub episode counts on posters",
-                    checked = showPosterLanguage,
-                    onCheckedChange = { AppearanceConfig.setShowPosterLanguage(it) },
+                    label = "Auto-Detect Quality Badges (4K / 1080p)",
+                    subtitle = "Displays metallic 4K UHD and 1080p badges from stream titles",
+                    checked = autoDetectQuality,
+                    onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) },
                 )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsToggleItem(
+                    label = "Show Rating Badges (★ Gold Pill)",
+                    subtitle = "Display a gold rating badge on poster thumbnails",
+                    checked = showRatingBadges,
+                    onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
+                )
+
+                if (showRatingBadges) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Rating Source Policy",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Choose whether ratings come from Verified Metadata Addons (Cinemeta/AniList) or native scraper votes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = ratingPolicy == RatingSourcePolicy.SMART_HYBRID,
+                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.SMART_HYBRID) },
+                                label = { Text("Smart Hybrid") },
+                            )
+                            FilterChip(
+                                selected = ratingPolicy == RatingSourcePolicy.VERIFIED_ADDON,
+                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.VERIFIED_ADDON) },
+                                label = { Text("Verified Addons") },
+                            )
+                            FilterChip(
+                                selected = ratingPolicy == RatingSourcePolicy.SCRAPER_NATIVE,
+                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.SCRAPER_NATIVE) },
+                                label = { Text("Scraper Native") },
+                            )
+                        }
+                    }
+                }
             }
 
             SettingsGroupCard(title = "Depth & Shadows") {

@@ -115,11 +115,7 @@ val LobsterFontFamily: FontFamily by lazy {
 // Font registry: name shown in Settings -> FontFamily
 
 val availableFonts: List<String>
-    get() {
-        val builtIn = listOf("Inter", "Outfit", "DM Sans", "Roboto", "Nunito", "Poppins", "Lato", "Ubuntu", "Fira Sans", "Pacifico", "Lobster")
-        val custom = CustomFontManager.getAvailableFonts()
-        return (builtIn + custom).distinct()
-    }
+    get() = CustomFontManager.getAvailableFonts()
 
 fun getFontFamily(name: String): FontFamily {
     if (name.isBlank()) return InterFontFamily

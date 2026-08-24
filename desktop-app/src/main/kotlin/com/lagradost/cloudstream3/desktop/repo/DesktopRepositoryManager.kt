@@ -268,12 +268,21 @@ object DesktopRepositoryManager {
         return plugins
     }
 
+    private val manifestCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Map<String, Any>>>()
+
     fun readPluginManifest(jarFile: File): Map<String, Any>? {
+        val lastModified = jarFile.lastModified()
+        val cached = manifestCache[jarFile.absolutePath]
+        if (cached != null && cached.first == lastModified) {
+            return cached.second
+        }
         try {
             java.util.zip.ZipFile(jarFile).use { zip ->
                 val manifestEntry = zip.getEntry("manifest.json") ?: return null
                 zip.getInputStream(manifestEntry).use { input ->
-                    return PluginNetworkClient.mapper.readValue(input, object : TypeReference<Map<String, Any>>() {})
+                    val data: Map<String, Any> = PluginNetworkClient.mapper.readValue(input, object : TypeReference<Map<String, Any>>() {})
+                    manifestCache[jarFile.absolutePath] = Pair(lastModified, data)
+                    return data
                 }
             }
         } catch (e: Exception) {

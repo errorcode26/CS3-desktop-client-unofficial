@@ -31,9 +31,6 @@ fun SettingsIntegrations() {
     val anilistEnabled by MetadataConfig.anilistEnabled.collectAsState()
     val kitsuEnabled by MetadataConfig.kitsuEnabled.collectAsState()
 
-    val stremioEnabled by MetadataConfig.stremioAddonEnabled.collectAsState()
-    val stremioUrl by MetadataConfig.stremioAddonUrl.collectAsState()
-
     val skipIntervalsEnabled by MetadataConfig.skipIntervalsEnabled.collectAsState()
     val autoSkipIntro by MetadataConfig.autoSkipIntro.collectAsState()
     val autoSkipOutro by MetadataConfig.autoSkipOutro.collectAsState()
@@ -42,10 +39,6 @@ fun SettingsIntegrations() {
     val coroutineScope = rememberCoroutineScope()
 
     var editingTmdbKey by remember(customTmdbKey) { mutableStateOf(customTmdbKey) }
-    var editingStremioUrl by remember(stremioUrl) { mutableStateOf(stremioUrl) }
-
-    var stremioTestStatus by remember { mutableStateOf<String?>(null) }
-    var isTestingStremio by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -175,142 +168,51 @@ fun SettingsIntegrations() {
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (stremioEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF8B5CF6).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF8B5CF6).copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Default.Extension,
-                                contentDescription = null,
-                                tint = Color(0xFF8B5CF6),
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "Custom Stremio Addon",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF8B5CF6).copy(alpha = 0.15f),
-                                ) {
-                                    Text(
-                                        text = "User Addon",
-                                        color = Color(0xFF8B5CF6),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "Connect any custom Stremio metadata or catalog manifest URL (e.g. Cyberflix, Anime Kitsu, or a self-hosted instance).",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-
-                        Switch(
-                            checked = stremioEnabled,
-                            onCheckedChange = { MetadataConfig.setStremioAddonEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            ),
+                        Icon(
+                            Icons.Default.Extension,
+                            contentDescription = null,
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
 
-                    AnimatedVisibility(visible = stremioEnabled) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedTextField(
-                                value = editingStremioUrl,
-                                onValueChange = {
-                                    editingStremioUrl = it
-                                    stremioTestStatus = null
-                                },
-                                label = { Text("Manifest URL") },
-                                placeholder = { Text("https://example.com/manifest.json") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "External Addons (Subtitles & Metadata)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Install and manage multi-source subtitle providers and metadata resolvers from the dedicated External Addons hub.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Button(
-                                    onClick = {
-                                        isTestingStremio = true
-                                        stremioTestStatus = null
-                                        coroutineScope.launch(Dispatchers.IO) {
-                                            val result = StremioAddonClient.testManifest(editingStremioUrl)
-                                            isTestingStremio = false
-                                            result.fold(
-                                                onSuccess = { manifest ->
-                                                    MetadataConfig.setStremioAddonUrl(editingStremioUrl)
-                                                    stremioTestStatus = "Connected: ${manifest.name ?: "Addon"} (v${manifest.version ?: "1.0"})"
-                                                },
-                                                onFailure = { error ->
-                                                    stremioTestStatus = "Connection Failed: ${error.message}"
-                                                },
-                                            )
-                                        }
-                                    },
-                                    enabled = editingStremioUrl.isNotBlank() && !isTestingStremio,
-                                ) {
-                                    if (isTestingStremio) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Testing...")
-                                    } else {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Test & Save")
-                                    }
-                                }
-
-                                if (editingStremioUrl.isNotBlank()) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            editingStremioUrl = ""
-                                            stremioTestStatus = null
-                                            coroutineScope.launch(Dispatchers.IO) {
-                                                MetadataConfig.setStremioAddonUrl("")
-                                            }
-                                        },
-                                    ) {
-                                        Text("Clear")
-                                    }
-                                }
-                            }
-
-                            stremioTestStatus?.let { status ->
-                                val isError = status.startsWith("Connection Failed")
-                                Text(
-                                    text = status,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isError) MaterialTheme.colorScheme.error else Color(0xFF10B981),
-                                )
-                            }
-                        }
+                    Button(
+                        onClick = { SettingsSession.selectedLeaf = LeafTab.ADDONS },
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Manage Addons")
                     }
                 }
             }

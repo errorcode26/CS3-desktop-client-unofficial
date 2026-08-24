@@ -125,39 +125,31 @@ object PremiumIcons {
     }
 
     val Extensions: ImageVector by lazy {
-        featherBuilder("FeatherPuzzle")
+        featherBuilder("FeatherPackage")
             .path(
                 stroke = strokeColor,
                 strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {
-                moveTo(20.5f, 11f)
-                horizontalLineTo(19f)
-                verticalLineTo(7f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -2f, dy1 = -2f)
-                horizontalLineToRelative(-4f)
-                verticalLineTo(3.5f)
-                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -3f, dy1 = 0f)
-                verticalLineTo(5f)
-                horizontalLineTo(6f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = -2f, dy1 = 2f)
-                verticalLineToRelative(4f)
-                horizontalLineTo(5.5f)
-                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = 0f, dy1 = 3f)
-                horizontalLineTo(4f)
-                verticalLineToRelative(4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 2f, dy1 = 2f)
-                horizontalLineToRelative(4f)
-                verticalLineToRelative(1.5f)
-                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 3f, dy1 = 0f)
-                verticalLineTo(20f)
-                horizontalLineToRelative(4f)
-                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 2f, dy1 = -2f)
-                verticalLineToRelative(-4f)
-                horizontalLineToRelative(1.5f)
-                arcToRelative(1.5f, 1.5f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 0f, dy1 = -3f)
+                // Top isometric diamond face
+                moveTo(12f, 2f)
+                lineTo(21f, 7f)
+                lineTo(12f, 12f)
+                lineTo(3f, 7f)
                 close()
+                // Left body
+                moveTo(3f, 7f)
+                lineTo(3f, 17f)
+                lineTo(12f, 22f)
+                lineTo(12f, 12f)
+                // Right body
+                moveTo(21f, 7f)
+                lineTo(21f, 17f)
+                lineTo(12f, 22f)
+                // Top flap crease
+                moveTo(7.5f, 4.5f)
+                lineTo(16.5f, 9.5f)
             }
             .build()
     }
@@ -260,6 +252,35 @@ object PremiumIcons {
             ) {
                 moveTo(13.73f, 21f)
                 arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -3.46f, dy1 = 0f)
+            }
+            .build()
+    }
+
+    val Explore: ImageVector by lazy {
+        featherBuilder("FeatherCompass")
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 22f)
+                arcToRelative(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = false, dx1 = 0f, dy1 = -20f)
+                arcToRelative(10f, 10f, 0f, isMoreThanHalf = false, isPositiveArc = false, dx1 = 0f, dy1 = 20f)
+                close()
+            }
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(16.24f, 7.76f)
+                lineToRelative(-2.12f, 6.36f)
+                lineToRelative(-6.36f, 2.12f)
+                lineToRelative(2.12f, -6.36f)
+                lineToRelative(6.36f, -2.12f)
+                close()
             }
             .build()
     }

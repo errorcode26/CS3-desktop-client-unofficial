@@ -424,6 +424,16 @@ private fun NavigationDock(
                         onClick = { onNavigate(Config.Home) },
                     )
                 }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXPLORE -> {
+                    DockItem(
+                        icon = PremiumIcons.Explore,
+                        label = "Explore",
+                        selected = currentTitle == "Explore & Catalogs",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        onClick = { onNavigate(Config.Explore) },
+                    )
+                }
                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> {
                     DockItem(
                         icon = PremiumIcons.Search,
