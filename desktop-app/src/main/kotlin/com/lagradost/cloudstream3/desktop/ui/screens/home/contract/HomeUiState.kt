@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home.contract
 
+import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.repo.HeroMeta
@@ -7,9 +8,11 @@ import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 
+@Immutable
 data class HomeUiState(
     val providers: List<MainAPI> = emptyList(),
     val activeProviders: List<String> = emptyList(),
+    val activeProviderApis: List<MainAPI> = emptyList(),
 
     val errorSnapshot: String = DesktopErrorReporter.getSnapshot(),
     val historyList: List<WatchHistory> = emptyList(),
@@ -18,16 +21,4 @@ data class HomeUiState(
     val bookmarks: Map<String, DesktopBookmark> = emptyMap(),
     val disabledCatalogs: Map<String, Set<String>> = emptyMap(),
     val showHomeManagement: Boolean = false,
-) : UiState {
-    val activeProviderApis: List<MainAPI>
-        get() = activeProviders.mapNotNull { key ->
-            providers.firstOrNull { p ->
-                val pKey = if (p.sourcePlugin != null && p.sourcePlugin != "built-in") {
-                    "${java.io.File(p.sourcePlugin).parentFile?.name ?: ""}::${p.name}"
-                } else {
-                    p.name
-                }
-                pKey == key || p.name == key
-            }
-        }
-}
+) : UiState
