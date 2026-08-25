@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun WindowControlsPill(
     isHome: Boolean = false,
+    isCompact: Boolean = false,
     homeUiState: com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState? = null,
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
 ) {
@@ -76,13 +77,14 @@ fun WindowControlsPill(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (isHome && providers.isNotEmpty()) {
-            // 1. Refresh Button Pill (BEFORE the selector)
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = theme.SurfaceElevated.copy(alpha = 0.6f),
-                border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
-                shadowElevation = 8.dp.applyShadowMultiplier(),
-            ) {
+            if (!isCompact) {
+                // 1. Refresh Button Pill (Desktop only)
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = theme.SurfaceElevated.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
+                    shadowElevation = 8.dp.applyShadowMultiplier(),
+                ) {
                 IconButton(
                     onClick = {
                         coroutineScope.launch {
@@ -103,6 +105,7 @@ fun WindowControlsPill(
                     )
                 }
             }
+        }
 
             // 2. Provider Selector Pill (with Logo + Name)
             val activeApis = homeUiState?.activeProviderApis ?: emptyList()
@@ -173,33 +176,35 @@ fun WindowControlsPill(
             }
         }
 
-        // 3. Fullscreen Button
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = theme.SurfaceElevated.copy(alpha = 0.6f),
-            border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
-            shadowElevation = 8.dp.applyShadowMultiplier(),
-        ) {
-            IconButton(
-                onClick = {
-                    if (fullscreenController != null) {
-                        fullscreenController.toggle()
-                    } else {
-                        windowState?.placement = if (isFullscreen) {
-                            androidx.compose.ui.window.WindowPlacement.Floating
-                        } else {
-                            androidx.compose.ui.window.WindowPlacement.Fullscreen
-                        }
-                    }
-                },
-                modifier = Modifier.size(42.dp),
+        if (!isCompact) {
+            // 3. Fullscreen Button (Desktop only)
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = theme.SurfaceElevated.copy(alpha = 0.6f),
+                border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
+                shadowElevation = 8.dp.applyShadowMultiplier(),
             ) {
-                Icon(
-                    if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                    contentDescription = "Fullscreen",
-                    tint = theme.TextPrimary,
-                    modifier = Modifier.size(22.dp),
-                )
+                IconButton(
+                    onClick = {
+                        if (fullscreenController != null) {
+                            fullscreenController.toggle()
+                        } else {
+                            windowState?.placement = if (isFullscreen) {
+                                androidx.compose.ui.window.WindowPlacement.Floating
+                            } else {
+                                androidx.compose.ui.window.WindowPlacement.Fullscreen
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(42.dp),
+                ) {
+                    Icon(
+                        if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                        contentDescription = "Fullscreen",
+                        tint = theme.TextPrimary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
             }
         }
     }

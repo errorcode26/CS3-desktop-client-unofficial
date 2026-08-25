@@ -5,8 +5,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
@@ -255,40 +258,52 @@ fun DetailsMetadata(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomStart,
     ) {
-        // Prevent crash on unbounded height (Dp.Infinity) when inside LazyColumn
-        val actualMaxHeight = if (maxHeight == androidx.compose.ui.unit.Dp.Infinity) 800.dp else maxHeight
+        if (maxWidth < 600.dp) {
+            DetailsMetadataCompact(
+                provider = provider,
+                data = data,
+                uiState = uiState,
+                isLoading = isLoading,
+                enrichmentPhase = enrichmentPhase,
+                heroAction = heroAction,
+                downloadAction = downloadAction,
+                onPhotosClick = onPhotosClick,
+                onCastClick = onCastClick,
+                onActorClick = onActorClick,
+                onTrailerClick = onTrailerClick,
+            )
+        } else {
+            // Prevent crash on unbounded height (Dp.Infinity) when inside LazyColumn
+            val actualMaxHeight = if (maxHeight == androidx.compose.ui.unit.Dp.Infinity) 800.dp else maxHeight
 
-        val isNarrow = maxWidth < 1100.dp
-        val isButtonsNarrow = maxWidth < 600.dp
-        val isCompactHeight = actualMaxHeight < 550.dp
-        val isMediumHeight = actualMaxHeight < 750.dp
+            val isNarrow = maxWidth < 1100.dp
+            val isButtonsNarrow = false
+            val isCompactHeight = actualMaxHeight < 550.dp
+            val isMediumHeight = actualMaxHeight < 750.dp
 
-        // The logo and text should scale together and have similar sensible maximums
-        // so the logo never dwarfs the text on massive monitors.
-        val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.4f)
-        val responsivePlotMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.85f else 0.45f)
+            // The logo and text should scale together and have similar sensible maximums
+            // so the logo never dwarfs the text on massive monitors.
+            val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.4f)
+            val responsivePlotMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.85f else 0.45f)
 
-        val responsiveLogoMaxHeight = when {
-            isCompactHeight -> 100.dp
-            isMediumHeight -> 140.dp
-            else -> minOf(180.dp, actualMaxHeight * 0.25f)
-        }
-        val responsiveTopPadding = when {
-            isCompactHeight -> 16.dp
-            isMediumHeight -> if (isNarrow) 24.dp else 40.dp
-            else -> if (isNarrow) 32.dp else 56.dp
-        }
+            val responsiveLogoMaxHeight = when {
+                isCompactHeight -> 100.dp
+                isMediumHeight -> 140.dp
+                else -> minOf(180.dp, actualMaxHeight * 0.25f)
+            }
+            val responsiveTopPadding = when {
+                isCompactHeight -> 16.dp
+                isMediumHeight -> if (isNarrow) 24.dp else 40.dp
+                else -> if (isNarrow) 32.dp else 56.dp
+            }
 
-        // A consistent, sensible bottom buffer that anchors the content closely to the bottom
-        // on both small and large screens without creating a massive empty void.
-        // It is set to 148.dp to perfectly clear the "Continue Watching" progress bar which sits at 64.dp, plus a generous gap.
-        val responsiveBottomPadding = 148.dp
+            val responsiveBottomPadding = 148.dp
 
-        AdaptiveMetadataLayout(
-            isNarrow = isNarrow,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = if (isNarrow) 24.dp else 64.dp, end = if (isNarrow) 24.dp else 64.dp, bottom = responsiveBottomPadding, top = responsiveTopPadding),
+            AdaptiveMetadataLayout(
+                isNarrow = isNarrow,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = if (isNarrow) 24.dp else 64.dp, end = if (isNarrow) 24.dp else 64.dp, bottom = responsiveBottomPadding, top = responsiveTopPadding),
             mainContent = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -749,8 +764,8 @@ fun DetailsMetadata(
                         val isInLibrary = currentBookmark != null
                         Surface(
                             onClick = { isEditingStatus = true },
-                            modifier = mod.height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = mod.height(if (isButtonsNarrow) 42.dp else 56.dp),
+                            shape = RoundedCornerShape(if (isButtonsNarrow) 10.dp else 12.dp),
                             color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.2.dp,
@@ -758,21 +773,22 @@ fun DetailsMetadata(
                             ),
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 18.dp),
+                                modifier = Modifier.padding(horizontal = if (isButtonsNarrow) 12.dp else 18.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(if (isButtonsNarrow) 6.dp else 8.dp),
                             ) {
                                 Icon(
                                     imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
                                     contentDescription = null,
                                     tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(if (isButtonsNarrow) 18.dp else 20.dp),
                                 )
                                 Text(
                                     text = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
                                     color = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                                    fontSize = 14.sp,
+                                    fontSize = if (isButtonsNarrow) 13.sp else 14.sp,
                                     fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
                                 )
                             }
                         }
@@ -883,21 +899,18 @@ fun DetailsMetadata(
                     )
 
                     if (isButtonsNarrow) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                         ) {
-                            heroAction(Modifier.fillMaxWidth())
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    libraryButton(Modifier.fillMaxWidth())
-                                }
-                                downloadAction?.invoke(Modifier)
+                            Box(modifier = Modifier.weight(1.15f)) {
+                                heroAction(Modifier.fillMaxWidth())
                             }
+                            Box(modifier = Modifier.weight(1f)) {
+                                libraryButton(Modifier.fillMaxWidth())
+                            }
+                            downloadAction?.invoke(Modifier)
                         }
                     } else {
                         Column(
@@ -1042,6 +1055,440 @@ fun DetailsMetadata(
                 }
             },
         )
+        }
+    }
+}
+
+@Composable
+private fun DetailsMetadataCompact(
+    provider: MainAPI,
+    data: LoadResponse,
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    isLoading: Boolean,
+    enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
+    heroAction: @Composable (Modifier) -> Unit,
+    downloadAction: (@Composable (Modifier) -> Unit)?,
+    onPhotosClick: () -> Unit,
+    onCastClick: () -> Unit,
+    onActorClick: (com.lagradost.cloudstream3.ActorData) -> Unit,
+    onTrailerClick: ((String) -> Unit)?,
+) {
+    val activeLogoUrl = remember(data, enrichmentPhase, uiState) {
+        uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
+            ?: data.logoUrl?.takeIf { it.isNotBlank() }
+            ?: provider.fixUrlNull(data.logoUrl)
+    }
+    val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
+
+    val bookmarkId = "${provider.name}_${data.url.hashCode()}"
+    val allBookmarks = uiState?.bookmarks ?: emptyMap()
+    val currentBookmark = allBookmarks[bookmarkId]
+    var isEditingStatus by remember { mutableStateOf(false) }
+
+    val setWatchType: (com.lagradost.common.storage.DesktopWatchType) -> Unit = { type ->
+        val newBookmark = DesktopBookmark(
+            id = bookmarkId,
+            name = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: "",
+            url = data.url,
+            apiName = provider.name,
+            posterUrl = data.posterUrl,
+            watchType = type.id,
+        )
+        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+        isEditingStatus = false
+    }
+
+    val removeBookmarkAction: () -> Unit = {
+        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+        isEditingStatus = false
+    }
+
+    var isSynopsisExpanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 140.dp, bottom = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        // 1. Logo or Title Text
+        if (!activeLogoUrl.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .heightIn(min = 60.dp, max = 95.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                    .data(activeLogoUrl)
+                    .size(1200, 600)
+                    .crossfade(true)
+                    .build()
+                coil3.compose.SubcomposeAsyncImage(
+                    model = logoRequest,
+                    contentDescription = displayName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                    alignment = Alignment.Center,
+                    error = {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                shadow = androidx.compose.ui.graphics.Shadow(
+                                    color = Color.Black.copy(alpha = 0.85f),
+                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                                    blurRadius = 12f,
+                                ),
+                            ),
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                )
+            }
+        } else {
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.85f),
+                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                        blurRadius = 12f,
+                    ),
+                ),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        // 2. Metadata tags: Year • Duration • Type • Rating
+        val metaItems = mutableListOf<String>()
+        val enrichedDate = uiState?.enrichedReleaseDate
+        val yearSpan = if (data.type != TvType.Movie && data.type != TvType.AnimeMovie && !enrichedDate.isNullOrBlank() && enrichedDate.contains("–")) {
+            enrichedDate
+        } else {
+            (uiState?.enrichedYear ?: data.year)?.toString()
+        }
+        yearSpan?.let { metaItems.add(it) }
+
+        val finalDuration = uiState?.enrichedDuration ?: data.duration
+        finalDuration?.takeIf { it > 0 }?.let { dur ->
+            val mins = if (dur > 360) dur / 60 else dur
+            val durationStr = if (mins >= 60) {
+                val h = mins / 60
+                val m = mins % 60
+                if (m > 0) "${h}h ${m}m" else "${h}h"
+            } else {
+                "${mins}m"
+            }
+            metaItems.add(durationStr)
+        }
+
+        val typeStr = when (data.type) {
+            TvType.TvSeries -> "TV Series"
+            TvType.Anime -> "Anime"
+            TvType.Movie -> "Movie"
+            TvType.AnimeMovie -> "Anime Movie"
+            TvType.OVA -> "OVA"
+            TvType.Live -> "Live"
+            TvType.Documentary -> "Documentary"
+            TvType.Cartoon -> "Cartoon"
+            TvType.AsianDrama -> "Asian Drama"
+            else -> data.type.name
+        }
+        if (typeStr.isNotBlank()) metaItems.add(typeStr)
+
+        data.contentRating?.takeIf { it.isNotBlank() }?.let { metaItems.add(it) }
+
+        if (metaItems.isNotEmpty()) {
+            Text(
+                text = metaItems.joinToString("  •  "),
+                color = Color.White.copy(alpha = 0.88f),
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        // 3. Compact Scores Row (IMDb / TMDB / AniList) + Genres
+        val imdbScore = uiState?.enrichedImdbRating
+        val tmdbScore = uiState?.enrichedTmdbRating ?: if (imdbScore == null) data.score?.toFloat(10)?.toDouble() else null
+        val anilistScore = uiState?.enrichedAniListRating
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (imdbScore != null && imdbScore > 0.0) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFFF5C518).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF5C518).copy(alpha = 0.45f)),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    ) {
+                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFFF5C518)) {
+                            Text("IMDb", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 3.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(String.format(java.util.Locale.US, "%.1f", imdbScore), color = Color(0xFFF5C518), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (tmdbScore != null && tmdbScore > 0.0) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF01B4E4).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF01B4E4).copy(alpha = 0.4f)),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    ) {
+                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFF01B4E4)) {
+                            Text("TMDB", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 3.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(String.format(java.util.Locale.US, "%.1f", tmdbScore), color = Color(0xFF01B4E4), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (anilistScore != null && anilistScore > 0.0) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF02A9FF).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF02A9FF).copy(alpha = 0.4f)),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    ) {
+                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFF02A9FF)) {
+                            Text("AniList", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 3.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("${(anilistScore * 10).toInt()}%", color = Color(0xFF02A9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Clean Genre chips (first 2 genres)
+            val genres = data.tags ?: emptyList()
+            genres.take(2).forEach { genre ->
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier.padding(horizontal = 1.dp),
+                ) {
+                    Text(
+                        text = genre,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+
+        // 4. Action Buttons (Side by Side Play and Library)
+        val isInLibrary = currentBookmark != null
+        val activeWatchType = currentBookmark?.let { b ->
+            com.lagradost.common.storage.DesktopWatchType.entries.find { it.id == b.watchType }
+        } ?: com.lagradost.common.storage.DesktopWatchType.WATCHING
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = Modifier.weight(1.15f)) {
+                heroAction(Modifier.fillMaxWidth())
+            }
+            Surface(
+                onClick = { isEditingStatus = true },
+                shape = RoundedCornerShape(10.dp),
+                color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f)),
+                modifier = Modifier.weight(1f).height(42.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
+                        contentDescription = null,
+                        tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
+                        color = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                    )
+                }
+            }
+            val trailerUrl = uiState?.enrichedTrailerUrl ?: uiState?.enrichedTrailers?.firstOrNull()?.url
+            if (!trailerUrl.isNullOrBlank() && onTrailerClick != null) {
+                Surface(
+                    onClick = { onTrailerClick(trailerUrl) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.1f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    modifier = Modifier.size(42.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Trailer",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Compact 2-Line Synopsis
+        val rawPlot = data.plot
+        if (!rawPlot.isNullOrBlank()) {
+            Text(
+                text = rawPlot,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 12.5.sp,
+                lineHeight = 17.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+            )
+        }
+
+        // Library status popup dialog
+        CloudstreamAlertDialog(
+            show = isEditingStatus,
+            onDismissRequest = { isEditingStatus = false },
+            title = {
+                Text(
+                    text = if (currentBookmark != null) "Library Status" else "Add to Library",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
+                        val isSelected = currentBookmark?.watchType == type.id
+                        val icon = when (type) {
+                            com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                            com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
+                            com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                            com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
+                            com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                            com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
+                        }
+                        Surface(
+                            onClick = { setWatchType(type) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Text(
+                                    text = type.stringRes,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (currentBookmark != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            onClick = removeBookmarkAction,
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Text(
+                                    text = "Remove from Library",
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { isEditingStatus = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -1091,68 +1538,171 @@ fun DetailsCastSection(
             it.roleString?.equals("Creator", ignoreCase = true) != true
     }
 
-    if (cast.isNotEmpty() || directors.isNotEmpty()) {
-        Column(
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 600.dp
+        val hPad = if (isCompact) 12.dp else horizontalPadding
+
+        if (cast.isNotEmpty() || directors.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = hPad, vertical = 8.dp),
+            ) {
+                val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
+
+                if (cast.isNotEmpty()) {
+                    Text(
+                        text = "Cast",
+                        style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
+                    if (isCompact) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            items(cast.take(20)) { actor ->
+                                CompactActorCard(
+                                    actor = actor,
+                                    provider = provider,
+                                    onClick = { onActorClick(actor) },
+                                )
+                            }
+                        }
+                    } else {
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            cast.take(18).forEach { actor ->
+                                ActorCard(
+                                    actor = actor,
+                                    provider = provider,
+                                    isInverted = invertedMap[actor] == true,
+                                    onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
+                                    onClick = { onActorClick(actor) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (directors.isNotEmpty() && cast.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(if (isCompact) 16.dp else 32.dp))
+                }
+
+                if (directors.isNotEmpty()) {
+                    val headerTitle = if (directors.any { it.roleString?.equals("Creator", ignoreCase = true) == true }) "Directors & Creators" else "Directors"
+                    Text(
+                        text = headerTitle,
+                        style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
+                    if (isCompact) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            items(directors) { actor ->
+                                CompactActorCard(
+                                    actor = actor,
+                                    provider = provider,
+                                    onClick = { onActorClick(actor) },
+                                )
+                            }
+                        }
+                    } else {
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            directors.forEach { actor ->
+                                ActorCard(
+                                    actor = actor,
+                                    provider = provider,
+                                    isInverted = invertedMap[actor] == true,
+                                    onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
+                                    onClick = { onActorClick(actor) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactActorCard(
+    actor: ActorData,
+    provider: MainAPI,
+    onClick: () -> Unit,
+) {
+    val actorImg = provider.fixUrlNull(actor.actor.image ?: actor.voiceActor?.image)
+    val actorName = actor.actor.name
+    val roleStr = actor.roleString ?: actor.role?.name
+
+    Column(
+        modifier = Modifier
+            .width(76.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = horizontalPadding, vertical = 8.dp),
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center,
         ) {
-            val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
-
-            if (cast.isNotEmpty()) {
-                Text(
-                    text = "Cast",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+            if (actorImg != null) {
+                AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(actorImg)
+                        .size(160, 160)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = actorName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    cast.take(18).forEach { actor ->
-                        ActorCard(
-                            actor = actor,
-                            provider = provider,
-                            isInverted = invertedMap[actor] == true,
-                            onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { onActorClick(actor) },
-                        )
-                    }
-                }
-            }
-
-            if (directors.isNotEmpty() && cast.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-
-            if (directors.isNotEmpty()) {
-                val headerTitle = if (directors.any { it.roleString?.equals("Creator", ignoreCase = true) == true }) "Directors & Creators" else "Directors"
-                Text(
-                    text = headerTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+            } else {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = actorName,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    directors.forEach { actor ->
-                        ActorCard(
-                            actor = actor,
-                            provider = provider,
-                            isInverted = invertedMap[actor] == true,
-                            onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                            onClick = { onActorClick(actor) },
-                        )
-                    }
-                }
             }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = actorName,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (!roleStr.isNullOrBlank()) {
+            Text(
+                text = roleStr,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

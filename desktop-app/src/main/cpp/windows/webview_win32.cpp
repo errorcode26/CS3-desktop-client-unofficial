@@ -1,160 +1,27 @@
-#include <jni.h>
-#include <windows.h>
-#include <dwmapi.h>
-#include <iostream>
-#include <string>
-#include <vector>
-#include <functional>
-#include <fstream>
-#include <thread>
-#include <mutex>
-#include <atomic>
-#include <condition_variable>
-#include <unordered_map>
-#include <initguid.h>
-#include "WebView2.h"
+#include "../include/player_bridge_common.h"
 
-// File logging macro for production debugging
-static std::ofstream g_logFile;
-static std::mutex g_logMutex;
-
-#define LOG_TO_FILE(msg) \
-    do { \
-        std::lock_guard<std::mutex> lock(g_logMutex); \
-        if (!g_logFile.is_open()) { \
-            char tempPath[MAX_PATH]; \
-            GetTempPathA(MAX_PATH, tempPath); \
-            std::string logPath = std::string(tempPath) + "cloudstream_native.log"; \
-            g_logFile.open(logPath, std::ios::app); \
-        } \
-        g_logFile << msg << std::endl; \
-        std::cout << msg << std::endl; \
-    } while(0)
-
-extern "C" {
-typedef struct mpv_handle mpv_handle;
-typedef enum mpv_format {
-    MPV_FORMAT_NONE             = 0,
-    MPV_FORMAT_STRING           = 1,
-    MPV_FORMAT_OSD_STRING       = 2,
-    MPV_FORMAT_FLAG             = 3,
-    MPV_FORMAT_INT64            = 4,
-    MPV_FORMAT_DOUBLE           = 5,
-    MPV_FORMAT_NODE             = 6,
-    MPV_FORMAT_NODE_ARRAY       = 7,
-    MPV_FORMAT_NODE_MAP         = 8,
-    MPV_FORMAT_BYTE_ARRAY       = 9
-} mpv_format;
-typedef int  (*mpv_get_property_fn)(mpv_handle *ctx, const char *name, mpv_format format, void *data);
-typedef char*(*mpv_get_property_string_fn)(mpv_handle *ctx, const char *name);
-typedef void (*mpv_free_fn)(void *data);
-typedef int  (*mpv_command_string_fn)(mpv_handle *ctx, const char *args);
-typedef int  (*mpv_set_property_string_fn)(mpv_handle *ctx, const char *name, const char *data);
-}
-
-// Global state
-HWND g_hostHwnd      = nullptr;  // The Java/AWT Canvas HWND
-HWND g_containerHwnd = nullptr;  // Combined MPV render and WebView2 container child window
-HWND g_messageHwnd   = nullptr;  // Message-only window for UI tasks
+// WebView2 globals
 ICoreWebView2Controller* g_webviewController = nullptr;
 ICoreWebView2*           g_webview           = nullptr;
 bool                     g_webviewReady      = false;
 std::wstring             g_pendingUrl        = L"";
+std::mutex               g_pendingUrlMutex;
 
-mpv_handle* g_mpvHandle = nullptr;
-std::mutex  g_mpvMutex;
-UINT_PTR    g_syncTimer = 0;
-
-// MPV function pointers (lazily resolved from the loaded DLL)
-static mpv_get_property_fn        g_mpv_get_property        = nullptr;
-static mpv_get_property_string_fn g_mpv_get_property_string = nullptr;
-static mpv_free_fn                g_mpv_free                = nullptr;
-static mpv_command_string_fn      g_mpv_command_string      = nullptr;
-static mpv_set_property_string_fn g_mpv_set_property_string = nullptr;
-
-// Whether the JS stats panel is open — gating the extra property poll each tick.
-static bool g_statsVisible = false;
-
-std::mutex   g_pendingUrlMutex;
-
-// JNI State for events
-JavaVM*   g_jvm            = nullptr;
-jobject   g_listener       = nullptr;
-jmethodID g_listenerMethod = nullptr;
-
-std::thread            g_uiThread;
-DWORD                  g_uiThreadId = 0;
-std::mutex             g_initMutex;
+std::thread             g_uiThread;
+DWORD                   g_uiThreadId = 0;
+std::mutex              g_initMutex;
 std::condition_variable g_initCv;
-bool                   g_initComplete = false;
+bool                    g_initComplete = false;
 
-// UI Task Queue
-std::mutex g_uiTaskMutex;
-std::vector<std::function<void()>> g_uiTasks;
-
-void postUiTask(std::function<void()> task) {
-    {
-        std::lock_guard<std::mutex> lock(g_uiTaskMutex);
-        g_uiTasks.push_back(std::move(task));
-    }
-    if (g_messageHwnd) {
-        PostMessageW(g_messageHwnd, WM_APP + 0x4E50, 0, 0);
-    }
-}
-
-void processUiTasks() {
-    std::vector<std::function<void()>> tasks;
-    {
-        std::lock_guard<std::mutex> lock(g_uiTaskMutex);
-        tasks.swap(g_uiTasks);
-    }
-    for (auto& task : tasks) {
-        if (task) task();
-    }
-}
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-    g_jvm = vm;
-    return JNI_VERSION_1_6;
-}
-
-// JNI Event Dispatcher
-void dispatchPlayerEvent(const std::wstring& message) {
-    if (!g_jvm || !g_listener || !g_listenerMethod) return;
-
-    JNIEnv* env = nullptr;
-    bool didAttach = false;
-    jint getEnvStat = g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    
-    if (getEnvStat == JNI_EDETACHED) {
-        if (g_jvm->AttachCurrentThread((void**)&env, nullptr) == JNI_OK) {
-            didAttach = true;
-        } else {
-            return;
-        }
-        didAttach = true;
-    } else if (getEnvStat == JNI_EVERSION) {
-        return;
-    }
-
-    jstring jType = env->NewStringUTF("message");
-    jstring jVal  = env->NewString((const jchar*)message.data(), (jsize)message.length());
-    env->CallVoidMethod(g_listener, g_listenerMethod, jType, jVal);
-    env->DeleteLocalRef(jType);
-    env->DeleteLocalRef(jVal);
-
-    if (didAttach) {
-        g_jvm->DetachCurrentThread();
-    }
-}
+extern HWND g_hostHwnd;
+extern HWND g_containerHwnd;
+extern HWND g_messageHwnd;
 
 typedef HRESULT(STDAPICALLTYPE *CreateCoreWebView2EnvironmentWithOptionsFunc)(
     PCWSTR browserExecutableFolder, PCWSTR userDataFolder,
     ICoreWebView2EnvironmentOptions* environmentOptions,
     ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler* environmentCreatedHandler);
 
-
-// WebView2 Event Handlers
 class WebMessageReceivedHandler : public ICoreWebView2WebMessageReceivedEventHandler {
     ULONG m_refCount = 1;
 public:
@@ -177,12 +44,6 @@ public:
             std::wstring wjson(messageJson);
             CoTaskMemFree(messageJson);
 
-            // Fast-path: handle latency-sensitive MPV commands directly in C++
-            // This completely bypasses the JNI → Kotlin coroutine round-trip (~10–50ms)
-            // which caused the seek bar to rubber-band (old time-pos arrived before seek).
-            //
-            // We do a lightweight string scan — no full JSON parser needed here.
-            // Format is always: {"type":"seekTo","value":"123456"} or numeric value.
             auto extractStr = [&](const std::wstring& key) -> std::wstring {
                 std::wstring needle = L"\"" + key + L"\":\"";
                 auto pos = wjson.find(needle);
@@ -192,7 +53,6 @@ public:
                 return (end != std::wstring::npos) ? wjson.substr(pos, end - pos) : L"";
             };
             auto extractNum = [&](const std::wstring& key) -> std::wstring {
-                // Handles both "value":"123" and "value":123
                 std::wstring r = extractStr(key);
                 if (!r.empty()) return r;
                 std::wstring needle = L"\"" + key + L"\":";
@@ -216,12 +76,10 @@ public:
                     g_mpv_command_string && g_mpv_set_property_string) {
                 std::wstring wval = extractNum(L"value");
                 if (!wval.empty()) {
-                    // Convert ms → seconds
                     double ms = _wtof(wval.c_str());
                     double sec = ms / 1000.0;
                     char buf[64];
                     if (evType == L"seekTo") {
-                        // Also update 'start' so pending loadfile respects the seek
                         char startBuf[32];
                         snprintf(startBuf, sizeof(startBuf), "%.3f", sec);
                         snprintf(buf, sizeof(buf), "seek %.3f absolute", sec);
@@ -231,7 +89,7 @@ public:
                             g_mpv_command_string(g_mpvHandle, buf);
                             handled = true;
                         }
-                    } else { // seekBy (relative)
+                    } else {
                         snprintf(buf, sizeof(buf), "seek %.3f relative", sec);
                         std::lock_guard<std::mutex> lk(g_mpvMutex);
                         if (g_mpvHandle) {
@@ -241,8 +99,6 @@ public:
                     }
                 }
             } else if (evType == L"toggleStats") {
-                // Flip the stats-visible flag — no MPV command needed, just controls
-                // whether the timer sends stats_update messages each tick.
                 g_statsVisible = !g_statsVisible;
             } else if (evType == L"setVolume" && g_mpv_command_string) {
                 std::wstring wval = extractNum(L"value");
@@ -263,8 +119,6 @@ public:
                 }
             }
 
-            // Always dispatch to Kotlin for non-fast-path events (ui_ready, episodes, links, etc.)
-            // For fast-path events also dispatch so Kotlin can update its own state tracking.
             dispatchPlayerEvent(wjson);
         }
         return S_OK;
@@ -293,7 +147,6 @@ public:
         UINT virtualKey;
         args->get_VirtualKey(&virtualKey);
 
-        // Block internal browser zoom keys in WebView2 so HTML/CSS is never distorted
         BOOL isCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         if (isCtrl && (virtualKey == VK_OEM_PLUS || virtualKey == VK_OEM_MINUS || virtualKey == '0' ||
                        virtualKey == VK_NUMPAD0 || virtualKey == VK_ADD || virtualKey == VK_SUBTRACT)) {
@@ -337,19 +190,15 @@ public:
 
         g_webviewController = controller;
         g_webviewController->AddRef();
-        // Keep controller hidden initially to prevent opaque white window painting on cold start
         g_webviewController->put_IsVisible(FALSE);
         g_webviewController->put_ZoomFactor(1.0);
 
         g_webviewController->get_CoreWebView2(&g_webview);
 
-        // Fit bounds to container
         RECT bounds;
         GetClientRect(g_containerHwnd, &bounds);
         g_webviewController->put_Bounds(bounds);
 
-        // Transparent background
-        // Sets WebView2 background fully transparent before any visual frame is rendered.
         ICoreWebView2Controller2* controller2 = nullptr;
         if (SUCCEEDED(g_webviewController->QueryInterface(IID_ICoreWebView2Controller2, (void**)&controller2))) {
             COREWEBVIEW2_COLOR transparent = {0, 0, 0, 0};
@@ -357,7 +206,6 @@ public:
             controller2->Release();
         }
 
-        // Disable context menus, status bar, and internal zoom control
         ICoreWebView2Settings* settings = nullptr;
         if (g_webview && SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
             settings->put_AreDefaultContextMenusEnabled(FALSE);
@@ -375,14 +223,11 @@ public:
         g_webviewReady = true;
         LOG_TO_FILE("[NativeBridge] WebView2 Initialized Successfully!");
 
-        // Fallback safety timer: show controller after 400ms if ui_ready was not received
         SetTimer(g_messageHwnd, 0x4E52, 400, nullptr);
 
-        // Bring the WebView2 overlay above the MPV render window
         SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
-        // Navigate to any URL that arrived before we were ready
         {
             std::lock_guard<std::mutex> lock(g_pendingUrlMutex);
             if (!g_pendingUrl.empty()) {
@@ -420,7 +265,6 @@ public:
     }
 };
 
-// WndProcs
 LRESULT CALLBACK ContainerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_ERASEBKGND: {
@@ -429,8 +273,6 @@ LRESULT CALLBACK ContainerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             FillRect((HDC)wParam, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
             return 1;
         }
-        // Suppress default WM_SIZE processing to avoid white flicker on resize.
-        // Return 0 here, let layout timer drive sizing.
         case WM_SIZE:
             return 0;
     }
@@ -439,7 +281,7 @@ LRESULT CALLBACK ContainerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
 LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        case WM_APP + 0x4E50: { // processUiTasks
+        case WM_APP + 0x4E50: {
             processUiTasks();
             return 0;
         }
@@ -483,20 +325,14 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         get_prop(g_mpvHandle, "pause", MPV_FORMAT_FLAG, &pause);
                         int core_idle = 0;
                         get_prop(g_mpvHandle, "core-idle", MPV_FORMAT_FLAG, &core_idle);
-                        // paused-for-cache=yes means MPV is mid-playback but stalled waiting for data.
-                        // core-idle alone misses this case (it goes false as soon as the stream starts,
-                        // even before the first decodable frame arrives).
                         int paused_for_cache = 0;
                         get_prop(g_mpvHandle, "paused-for-cache", MPV_FORMAT_FLAG, &paused_for_cache);
                         
-                        // core-idle is true when the stream hasn't loaded OR when the user pauses.
-                        // We don't want to show a spinner on a manual pause unless it's genuinely buffering.
                         bool is_buffering = (paused_for_cache != 0) || ((core_idle != 0) && (pause == 0));
                         
-                        // DIRECT C++ HOOK: Force dismiss overlay exactly when frames start rendering.
                         static bool hasFiredDismiss = false;
                         if (is_buffering) {
-                            hasFiredDismiss = false; // Reset whenever player goes idle (buffering/loading new stream)
+                            hasFiredDismiss = false;
                         } else if (position > 0.1 && !hasFiredDismiss) {
                             hasFiredDismiss = true;
                             g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
@@ -519,9 +355,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             g_webview->PostWebMessageAsJson(wJson.c_str());
                         }
 
-                        // Stats for Nerds: only poll expensive string props when the panel is open
                         if (g_statsVisible && g_mpv_get_property_string && g_mpv_free) {
-                            // Read a string property, JSON-escape it, then free the MPV-allocated buffer.
                             auto readStrFree = [&](const char* prop) -> std::string {
                                 char* v = g_mpv_get_property_string(g_mpvHandle, prop);
                                 if (!v) return "\"N/A\"";
@@ -594,9 +428,6 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
                 return 0;
             }
-            // Relayout timer
-            // Re-reads GetClientRect on the host every tick so the container always
-            // covers the full physical-pixel host area — fixes white gaps on resize.
             if (g_hostHwnd && g_containerHwnd) {
                 RECT clientRect = {};
                 if (GetClientRect(g_hostHwnd, &clientRect)) {
@@ -622,73 +453,6 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-WNDPROC g_originalTopLevelWndProc = nullptr;
-LRESULT CALLBACK TopLevelSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // Block WM_DPICHANGED so AWT doesn't forcibly resize the PiP window on monitor change.
-    // Preserve current window dimensions instead of using the OS-suggested rect.
-    if (msg == 0x02E0) { // WM_DPICHANGED
-        RECT currentRect;
-        GetWindowRect(hwnd, &currentRect);
-        // Keep the same pixel size, just let the OS reposition if needed
-        RECT* prcSuggested = (RECT*)lParam;
-        SetWindowPos(hwnd, nullptr, prcSuggested->left, prcSuggested->top,
-                     currentRect.right - currentRect.left,
-                     currentRect.bottom - currentRect.top,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-        return 0;
-    }
-    if (msg == 0x0231) { // WM_ENTERSIZEMOVE
-        if (g_webviewController && g_webviewReady) {
-            g_webviewController->put_IsVisible(FALSE);
-        }
-    }
-    if (msg == 0x0232) { // WM_EXITSIZEMOVE
-        if (g_webviewController && g_webviewReady) {
-            g_webviewController->put_IsVisible(TRUE);
-        }
-    }
-    if (g_originalTopLevelWndProc) {
-        return CallWindowProc(g_originalTopLevelWndProc, hwnd, msg, wParam, lParam);
-    }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-WNDPROC g_originalHostWndProc = nullptr;
-LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (msg == WM_ERASEBKGND) {
-        RECT rect = {};
-        GetClientRect(hwnd, &rect);
-        FillRect((HDC)wParam, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
-        return 1;
-    }
-    if (msg == WM_PAINT) {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        FillRect(hdc, &ps.rcPaint, (HBRUSH)GetStockObject(BLACK_BRUSH));
-        EndPaint(hwnd, &ps);
-        return 0;
-
-    }
-    if (msg == WM_SIZE) {
-        if (g_containerHwnd) {
-            int w = LOWORD(lParam);
-            int h = HIWORD(lParam);
-            SetWindowPos(g_containerHwnd, nullptr, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
-            if (g_webviewController) {
-                RECT bounds = {0, 0, w, h};
-                g_webviewController->put_Bounds(bounds);
-            }
-        }
-    }
-    if (msg == WM_SETFOCUS) {
-        if (g_webviewController) {
-            g_webviewController->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
-        }
-    }
-    return CallWindowProc(g_originalHostWndProc, hwnd, msg, wParam, lParam);
-}
-
-// Native UI Thread
 void runNativeUiThread(HWND hostHwnd, int width, int height) {
     g_uiThreadId = GetCurrentThreadId();
 
@@ -699,7 +463,6 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
 
-    // Register WebView2 container window class
     WNDCLASSW wcWV = {0};
     wcWV.lpfnWndProc   = ContainerWndProc;
     wcWV.hInstance     = hInstance;
@@ -718,13 +481,11 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         0, 0, 0, 0, 0,
         HWND_MESSAGE, nullptr, hInstance, nullptr);
 
-    // Ensure the host canvas clips children so they don't bleed outside
     LONG_PTR hostStyle = GetWindowLongPtrW(hostHwnd, GWL_STYLE);
     SetWindowLongPtrW(hostHwnd, GWL_STYLE, hostStyle | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 
-    // Create WebView2 container (also used as MPV render surface)
     g_containerHwnd = CreateWindowExW(
-        0, // No WS_EX_LAYERED or WS_EX_TRANSPARENT, WebView2 controller background is transparent
+        0,
         L"CloudStreamWebView2Container", L"",
         WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
         0, 0, width, height,
@@ -737,22 +498,14 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         LOG_TO_FILE("[NativeBridge] WebView2 container HWND created: " << g_containerHwnd);
     }
 
-    // Initialize WebView2
-    // IMPORTANT: We must load WebView2Loader.dll using an absolute path derived from
-    // our own DLL's location. Using a bare filename (L"WebView2Loader.dll") causes
-    // Windows to search the CWD first — in the installed .exe the CWD is {app}\ root,
-    // NOT the {app}\app\resources\jni\ subfolder where WebView2Loader.dll lives.
-    // This was the root cause of WebView2 silently failing in the installed build.
     HMODULE hLoader = GetModuleHandleW(L"WebView2Loader.dll");
     if (!hLoader) {
-        // Get our own DLL's HMODULE using a static variable address (always in this DLL)
         static int s_selfMarker = 0;
         HMODULE hSelf = nullptr;
         GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
             (LPCWSTR)&s_selfMarker,
             &hSelf);
-        // Get the directory of this DLL and load WebView2Loader.dll from the same folder
         wchar_t selfPath[MAX_PATH] = {};
         GetModuleFileNameW(hSelf, selfPath, MAX_PATH);
         std::wstring jniDir(selfPath);
@@ -762,7 +515,6 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         LOG_TO_FILE("[NativeBridge] Loading WebView2Loader from: " << std::string(loaderPath.begin(), loaderPath.end()));
         hLoader = LoadLibraryW(loaderPath.c_str());
         if (!hLoader) {
-            // Fallback: try bare name (works in dev where CWD has the DLL)
             LOG_TO_FILE("[NativeBridge] Absolute load failed (error=" << GetLastError() << "), falling back to bare name");
             hLoader = LoadLibraryW(L"WebView2Loader.dll");
         }
@@ -775,8 +527,6 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     GetTempPathW(MAX_PATH, tempPath);
     std::wstring userData = std::wstring(tempPath) + L"CloudStreamWebView2";
 
-    // Pass browser args via env var — must be set on the same thread before CreateEnvironment.
-    // This is the correct approach for MinGW builds without WRL support.
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
         L"--allow-running-insecure-content --disk-cache-size=1 "
@@ -785,25 +535,20 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
     LOG_TO_FILE("[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec);
 
-    // Signal Kotlin that the container HWND is ready (MPV wid can now be set)
     {
         std::lock_guard<std::mutex> lock(g_initMutex);
         g_initComplete = true;
     }
     g_initCv.notify_one();
 
-    // Start 500ms relayout timer
-    // Ensures container always matches physical host dimensions on resize/fullscreen.
     SetTimer(g_messageHwnd, 1, 500, nullptr);
 
-    // Message loop for COM callbacks
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
 
-    // Cleanup
     if (g_webviewController) {
         g_webviewController->Close();
         g_webviewController->Release();
@@ -828,7 +573,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     }
 }
 
-// --- WebView2 Warmup Logic ---
+// WebView2 Warmup Logic
 std::mutex gWebView2WarmupMutex;
 std::condition_variable gWebView2WarmupCv;
 std::thread gWebView2WarmupThread;
@@ -981,217 +726,13 @@ void stopWebView2Warmup() {
         threadToJoin.join();
     }
 }
-// --- End WebView2 Warmup Logic ---
 
 extern "C" {
 
-// initWebView
-// Returns the single container HWND which WebView2 is hosted inside and MPV renders onto.
-JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_initWebView(
-    JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
-{
-    g_hostHwnd = (HWND)hostHwndPtr;
-    LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
-
-    // Subclass the AWT Canvas to prevent white flashes on resize
-    if (!g_originalHostWndProc) {
-        g_originalHostWndProc = (WNDPROC)SetWindowLongPtr(g_hostHwnd, GWLP_WNDPROC, (LONG_PTR)HostSubclassProc);
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(g_initMutex);
-        g_initComplete = false;
-    }
-    {
-        std::lock_guard<std::mutex> lock(g_pendingUrlMutex);
-        g_pendingUrl.clear();
-    }
-
-    g_uiThread = std::thread(runNativeUiThread, g_hostHwnd, width, height);
-
-    // Wait until child HWND is created before returning
-    std::unique_lock<std::mutex> lock(g_initMutex);
-    g_initCv.wait(lock, []() { return g_initComplete; });
-
-    LOG_TO_FILE("[NativeBridge] Returning combined HWND=" << g_containerHwnd);
-    return reinterpret_cast<jlong>(g_containerHwnd);
-}
-
-// setFullscreen (per-window state)
-struct WindowFullscreenState {
-    LONG_PTR       style      = 0;
-    LONG_PTR       exStyle    = 0;
-    WINDOWPLACEMENT placement = { sizeof(WINDOWPLACEMENT) };
-};
-
-std::mutex g_fullscreenMutex;
-std::unordered_map<HWND, WindowFullscreenState> g_fullscreenStates;
-
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setFullscreen(
-    JNIEnv* env, jobject thiz,
-    jlong hwndPtr, jboolean fullscreen,
-    jint x, jint y, jint width, jint height)
-{
-    HWND hwnd = (HWND)(intptr_t)hwndPtr;
-    if (!hwnd || !IsWindow(hwnd)) return;
-
-    // Ensure the OS window class background is black to prevent white flashbangs during resizing
-    static HBRUSH s_blackBrush = CreateSolidBrush(RGB(0, 0, 0));
-    SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)s_blackBrush);
-
-    if (fullscreen == JNI_TRUE) {
-        // Only save state if not already stored for this HWND
-        {
-            std::lock_guard<std::mutex> lock(g_fullscreenMutex);
-            if (g_fullscreenStates.find(hwnd) == g_fullscreenStates.end()) {
-                WindowFullscreenState state;
-                state.style   = GetWindowLongPtrW(hwnd, GWL_STYLE);
-                state.exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-                state.placement.length = sizeof(WINDOWPLACEMENT);
-                GetWindowPlacement(hwnd, &state.placement);
-                g_fullscreenStates.emplace(hwnd, state);
-            }
-        }
-
-        // Restore from minimized/maximized so SetWindowPos gives correct results
-        if (IsIconic(hwnd) || IsZoomed(hwnd)) {
-            ShowWindow(hwnd, SW_RESTORE);
-        }
-
-        // Strip caption, thick border, and all extended-style decorations
-        LONG_PTR style   = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        LONG_PTR exStyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        style   &= ~(LONG_PTR)(WS_CAPTION | WS_THICKFRAME);
-        exStyle &= ~(LONG_PTR)(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
-        SetWindowLongPtrW(hwnd, GWL_STYLE,   style);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, exStyle);
-
-        // Query the actual monitor rect this window is on — works correctly on any monitor / DPI
-        HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO monitorInfo = {};
-        monitorInfo.cbSize = sizeof(MONITORINFO);
-
-        int targetX = x, targetY = y, targetW = width, targetH = height;
-        if (monitor && GetMonitorInfoW(monitor, &monitorInfo)) {
-            targetX = monitorInfo.rcMonitor.left;
-            targetY = monitorInfo.rcMonitor.top;
-            targetW = monitorInfo.rcMonitor.right  - monitorInfo.rcMonitor.left;
-            targetH = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
-        }
-
-        SetWindowPos(
-            hwnd, HWND_TOP,
-            targetX, targetY, targetW, targetH,
-            SWP_FRAMECHANGED | SWP_NOOWNERZORDER | SWP_NOACTIVATE
-        );
-    } else {
-        // Retrieve saved state
-        WindowFullscreenState state;
-        bool hasState = false;
-        {
-            std::lock_guard<std::mutex> lock(g_fullscreenMutex);
-            auto it = g_fullscreenStates.find(hwnd);
-            if (it != g_fullscreenStates.end()) {
-                state    = it->second;
-                g_fullscreenStates.erase(it);
-                hasState = true;
-            }
-        }
-        if (!hasState) return;
-
-        // Restore both style and extended style
-        SetWindowLongPtrW(hwnd, GWL_STYLE,   state.style);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, state.exStyle);
-        // Notify Windows the frame has changed (recalculates NC area)
-        SetWindowPos(
-            hwnd, nullptr,
-            0, 0, 0, 0,
-            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
-        );
-
-        // Restore window placement — handles maximized, normal, any position
-        if (state.placement.showCmd == SW_SHOWMAXIMIZED) {
-            // Restore to normal first so Windows can calculate the maximized rect cleanly
-            WINDOWPLACEMENT normalPlacement = state.placement;
-            normalPlacement.showCmd = SW_SHOWNORMAL;
-            SetWindowPlacement(hwnd, &normalPlacement);
-            ShowWindow(hwnd, SW_MAXIMIZE);
-        } else {
-            SetWindowPlacement(hwnd, &state.placement);
-        }
-    }
-}
-
-// applyWindowChrome (DWM dark mode + caption colour)
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_applyWindowChrome(
-    JNIEnv* env, jobject thiz,
-    jlong hwndPtr, jboolean darkMode,
-    jint captionColorRgb, jint borderColorRgb, jint textColorRgb)
-{
-    HWND hwnd = (HWND)(intptr_t)hwndPtr;
-    if (!hwnd || !IsWindow(hwnd)) return;
-
-    BOOL enabled = (darkMode == JNI_TRUE) ? TRUE : FALSE;
-    // Try Win11 attribute (20), fall back to legacy (19)
-    HRESULT hr = DwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &enabled, sizeof(enabled));
-    if (FAILED(hr)) {
-        DwmSetWindowAttribute(hwnd, 19 /*DWMWA_USE_IMMERSIVE_DARK_MODE legacy*/, &enabled, sizeof(enabled));
-    }
-
-    // Caption / border / text colours (Windows 11 22000+ only — no-op on older)
-    auto toColorRef = [](jint rgb) -> COLORREF {
-        return RGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
-    };
-    COLORREF captionColor = toColorRef(captionColorRgb);
-    COLORREF borderColor  = toColorRef(borderColorRgb);
-    COLORREF textColor    = toColorRef(textColorRgb);
-    DwmSetWindowAttribute(hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &captionColor, sizeof(captionColor));
-    DwmSetWindowAttribute(hwnd, 34 /*DWMWA_BORDER_COLOR*/,  &borderColor,  sizeof(borderColor));
-    DwmSetWindowAttribute(hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &textColor,    sizeof(textColor));
-
-    // The window's default class brush is white, so any region Windows erases before Skia
-    // repaints it flashes white. Erase to black instead; against the near-black UI it is
-    // invisible even if a repaint lags.
-    static HBRUSH s_blackBrush = CreateSolidBrush(RGB(13, 13, 13));
-    SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)s_blackBrush);
-}
-
-// destroyWebView
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_destroyWebView(
-    JNIEnv* env, jobject thiz)
-{
-    if (g_hostHwnd && g_originalHostWndProc) {
-        SetWindowLongPtr(g_hostHwnd, GWLP_WNDPROC, (LONG_PTR)g_originalHostWndProc);
-    }
-    g_originalHostWndProc = nullptr;
-    g_hostHwnd            = nullptr;
-
-    if (g_listener) {
-        env->DeleteGlobalRef(g_listener);
-        g_listener       = nullptr;
-        g_listenerMethod = nullptr;
-    }
-
-    if (g_uiThreadId != 0) {
-        PostThreadMessageW(g_uiThreadId, WM_QUIT, 0, 0);
-    }
-    if (g_uiThread.joinable()) {
-        g_uiThread.join();
-    }
-    g_uiThreadId = 0;
-}
-
-// resizeWebView
-// Java passes AWT *logical* pixel dimensions. On a DPI-scaled secondary monitor
-// (e.g. 125%) AWT's canvas.width is smaller than the physical pixel count.
-// Win32 child-window coordinates inside g_hostHwnd are physical pixels, so we
-// must always derive the target size from GetClientRect, not the Java argument.
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_resizeWebView(
     JNIEnv* env, jobject thiz, jint width, jint height)
 {
     postUiTask([width, height]() {
-        // Prefer the physical client rect of the host AWT canvas — this is
-        // always in physical pixels regardless of monitor DPI scale.
         int physW = width, physH = height;
         if (g_hostHwnd) {
             RECT clientRect = {};
@@ -1217,7 +758,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// focusWebView
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_focusWebView(
     JNIEnv* env, jobject thiz)
 {
@@ -1231,7 +771,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// executeScript
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_executeScript(
     JNIEnv* env, jobject thiz, jstring script)
 {
@@ -1246,7 +785,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// loadUrl
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_loadUrl(
     JNIEnv* env, jobject thiz, jstring url)
 {
@@ -1264,7 +802,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// openDevTools
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_openDevTools(
     JNIEnv* env, jobject thiz)
 {
@@ -1275,21 +812,6 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// setEventListener
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setEventListener(
-    JNIEnv* env, jobject thiz, jobject listener)
-{
-    if (g_listener) { env->DeleteGlobalRef(g_listener); g_listener = nullptr; }
-    if (listener) {
-        g_listener = env->NewGlobalRef(listener);
-        jclass clazz       = env->GetObjectClass(listener);
-        g_listenerMethod   = env->GetMethodID(clazz, "onPlayerEvent",
-                                              "(Ljava/lang/String;Ljava/lang/String;)V");
-        env->DeleteLocalRef(clazz);
-    }
-}
-
-// postMessage
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_postMessage(
     JNIEnv* env, jobject thiz, jstring message)
 {
@@ -1304,67 +826,12 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-// startMpvSync
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_startMpvSync(
-    JNIEnv* env, jobject thiz, jlong mpvPtr)
-{
-    {
-        std::lock_guard<std::mutex> lock(g_mpvMutex);
-        g_mpvHandle = (mpv_handle*)mpvPtr;
-    }
-    postUiTask([]() {
-        if (!g_syncTimer && g_messageHwnd) {
-            g_syncTimer = SetTimer(g_messageHwnd, 0x4E51, 16, nullptr);
-            LOG_TO_FILE("[NativeBridge] MPV native UI sync timer started");
-        }
-    });
-}
-
-// stopMpvSync
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_stopMpvSync(
-    JNIEnv* env, jobject thiz)
-{
-    {
-        std::lock_guard<std::mutex> lock(g_mpvMutex);
-        g_mpvHandle = nullptr; // Null out immediately to prevent timer from using a destroyed handle
-    }
-    postUiTask([]() {
-        if (g_syncTimer && g_messageHwnd) {
-            KillTimer(g_messageHwnd, g_syncTimer);
-            g_syncTimer = 0;
-            LOG_TO_FILE("[NativeBridge] MPV native UI sync timer stopped");
-        }
-    });
-}
-
-
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_warmupWebView2(JNIEnv* env, jobject thiz) {
     startWebView2Warmup();
 }
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_shutdownWebView2Warmup(JNIEnv* env, jobject thiz) {
     stopWebView2Warmup();
-}
-
-// setPipSubclass — installs/removes the PiP-only top-level window subclass.
-// Separate from setFullscreen so regular fullscreen doesn't get the PiP hook.
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setPipSubclass(
-    JNIEnv* env, jobject thiz,
-    jlong hwndPtr, jboolean enable)
-{
-    HWND hwnd = (HWND)(intptr_t)hwndPtr;
-    if (!hwnd || !IsWindow(hwnd)) return;
-
-    if (enable == JNI_TRUE) {
-        if (!g_originalTopLevelWndProc) {
-            g_originalTopLevelWndProc = (WNDPROC)SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)TopLevelSubclassProc);
-        }
-    } else {
-        if (g_originalTopLevelWndProc) {
-            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)g_originalTopLevelWndProc);
-            g_originalTopLevelWndProc = nullptr;
-        }
-    }
 }
 
 } // extern "C"

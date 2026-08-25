@@ -174,31 +174,38 @@ fun HomeCategorySection(
                         val categoryAspectRatio = if (isHorizontalCategory) 16f / 9f else 2f / 3f
 
                         BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = paddingStart, end = paddingEnd),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             val availableWidth = this.maxWidth
+                            val isCompact = availableWidth < 600.dp
+                            val effectivePaddingStart = if (isCompact) 8.dp else paddingStart
+                            val effectivePaddingEnd = if (isCompact) 8.dp else paddingEnd
+
                             val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
                             val homeSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeSpacingDp.collectAsState()
 
-                            val baseWidth = if (isHorizontalCategory) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
-                            val spacingDp = homeSpacingDp.dp
+                            val spacingDp = if (isCompact) 8.dp else homeSpacingDp.dp
 
-                            // Subtract 20.dp (10.dp horizontal content padding) from availableWidth
-                            val netWidth = availableWidth - 20.dp
-                            val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
-                            val columns = exactColumns.toInt().coerceAtLeast(1)
-                            val optimalItemWidth = ((netWidth + spacingDp) / columns) - spacingDp
+                            val optimalItemWidth = if (isCompact) {
+                                if (isHorizontalCategory) 160.dp else 115.dp
+                            } else {
+                                val baseWidth = if (isHorizontalCategory) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
+                                // Subtract 20.dp (10.dp horizontal content padding) from availableWidth
+                                val netWidth = availableWidth - 20.dp
+                                val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
+                                val columns = exactColumns.toInt().coerceAtLeast(1)
+                                ((netWidth + spacingDp) / columns) - spacingDp
+                            }
 
                             CategoryRowWithHeader(
+                                modifier = Modifier.padding(start = effectivePaddingStart, end = effectivePaddingEnd),
                                 title = titleStr,
                                 itemCount = section.list.size,
                                 isInfinite = isLoop,
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
                                 rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                    horizontal = 10.dp,
-                                    vertical = 16.dp,
+                                    horizontal = if (isCompact) 4.dp else 10.dp,
+                                    vertical = if (isCompact) 8.dp else 16.dp,
                                 ),
                                 headerPadding = androidx.compose.foundation.layout.PaddingValues(
                                     start = 10.dp,

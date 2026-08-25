@@ -73,37 +73,45 @@ fun HomeHistoryRow(
         val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
         val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
 
-        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth()) {
+        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 600.dp
+            val effectivePaddingStart = if (isCompact) 8.dp else paddingStart
+            val effectivePaddingEnd = if (isCompact) 8.dp else paddingEnd
             val currentList = lastNonEmptyList.value
+
             CategoryRowWithHeader(
                 title = "Continue Watching",
                 itemCount = currentList.size,
                 onViewAll = onViewAllClick,
                 rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = paddingStart,
-                    end = paddingEnd,
-                    top = 16.dp,
-                    bottom = 16.dp
+                    start = effectivePaddingStart,
+                    end = effectivePaddingEnd,
+                    top = if (isCompact) 8.dp else 16.dp,
+                    bottom = if (isCompact) 8.dp else 16.dp,
                 ),
                 headerPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = paddingStart,
-                    end = paddingEnd,
+                    start = effectivePaddingStart,
+                    end = effectivePaddingEnd,
                     top = 12.dp,
-                    bottom = 8.dp
+                    bottom = 8.dp,
                 ),
-                trailingHeaderExtra = {
-                    TextButton(onClick = { showClearConfirmDialog = true }) {
-                        Text("Clear History", color = DesktopUi.TextMuted)
+                trailingHeaderExtra = if (!isCompact) {
+                    {
+                        TextButton(onClick = { showClearConfirmDialog = true }) {
+                            Text("Clear History", color = DesktopUi.TextMuted)
+                        }
                     }
-                },
+                } else null,
             ) {
                 items(currentList.size, key = { index -> currentList[index].parentId }) { index ->
                     val history = currentList[index]
                     val provider = providers.find { it.name == history.apiName }
                     
                     if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+                        val cardWidth = if (isCompact) 230.dp else (posterWidthDp * 2.2f).dp
+                        val cardHeight = if (isCompact) 125.dp else (posterWidthDp * 1.5f).dp
                         WatchHistoryCardWide(
-                            modifier = Modifier.animateItem().width((posterWidthDp * 2.2f).dp).height((posterWidthDp * 1.5f).dp),
+                            modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                             history = history,
                             provider = provider,
                             onRemove = { onRemoveHistoryItem(history.parentId) },
@@ -123,8 +131,10 @@ fun HomeHistoryRow(
                             },
                         )
                     } else {
+                        val cardWidth = if (isCompact) 230.dp else 380.dp
+                        val cardHeight = cardWidth * 9f / 16f
                         WatchHistoryCard(
-                            modifier = Modifier.animateItem().width(380.dp).height(380.dp * 9f / 16f),
+                            modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                             history = history,
                             provider = provider,
                             onRemove = { onRemoveHistoryItem(history.parentId) },

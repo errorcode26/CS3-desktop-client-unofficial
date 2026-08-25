@@ -41,39 +41,46 @@ fun TopBar(
     onOpenProfileManager: (() -> Unit)? = null,
 ) {
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val navPaddingStart = when (dockPosition) {
-        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> 84.dp
-        else -> 32.dp
-    }
-    val navPaddingEnd = when (dockPosition) {
-        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> 84.dp
-        else -> 32.dp
-    }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 600.dp
+        val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
+        val navPaddingStart = when (effectiveDockPosition) {
+            com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> 84.dp
+            else -> if (isCompact) 12.dp else 32.dp
+        }
+        val navPaddingEnd = when (effectiveDockPosition) {
+            com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> 84.dp
+            else -> if (isCompact) 12.dp else 32.dp
+        }
 
-    val bg = Color.Transparent
-    Column(modifier = Modifier.fillMaxWidth().background(bg)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(start = navPaddingStart, end = navPaddingEnd),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        val bg = Color.Transparent
+        Column(modifier = Modifier.fillMaxWidth().background(bg)) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isCompact) 50.dp else 56.dp)
+                    .padding(start = navPaddingStart, end = navPaddingEnd),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ClockWidget()
-                TopBarProfilePill(onOpenProfileManager = onOpenProfileManager)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                ) {
+                    if (!isCompact) {
+                        ClockWidget()
+                    }
+                    TopBarProfilePill(onOpenProfileManager = onOpenProfileManager)
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                WindowControlsPill(
+                    isHome = isHome,
+                    isCompact = isCompact,
+                    homeUiState = homeUiState,
+                    homeActionDispatcher = homeActionDispatcher,
+                )
             }
-
-            Spacer(Modifier.weight(1f))
-
-            WindowControlsPill(
-                isHome = isHome,
-                homeUiState = homeUiState,
-                homeActionDispatcher = homeActionDispatcher,
-            )
         }
     }
 }

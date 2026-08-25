@@ -231,7 +231,7 @@ fun EpisodeCard(
     val isWatched = progress > 0.9f
 
     // 16:9 On-Thumbnail Overlay Card (Clean Studio Design)
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .aspectRatio(16f / 9f)
             .pointerInput(ep, isContextMenuEnabled, isEpisodeLocked) {
@@ -284,6 +284,8 @@ fun EpisodeCard(
             )
             .clip(RoundedCornerShape(16.dp)),
     ) {
+        val isNarrow = maxWidth < 320.dp
+
         // Background image
         if (epImg != null || fallbackImg != null) {
             val targetUrl = epImg ?: fallbackImg
@@ -309,7 +311,7 @@ fun EpisodeCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp))
             }
         }
 
@@ -358,9 +360,9 @@ fun EpisodeCard(
                     shadowElevation = 8.dp,
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     ) {
                         Icon(
                             Icons.Default.Lock,
@@ -387,26 +389,26 @@ fun EpisodeCard(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(12.dp)
+                    .padding(if (isNarrow) 8.dp else 12.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color.Black.copy(alpha = 0.65f))
                     .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.40f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                    .padding(horizontal = if (isNarrow) 5.dp else 7.dp, vertical = 2.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     Icon(
                         Icons.Default.Star,
                         contentDescription = "Rating",
                         tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(if (isNarrow) 10.dp else 12.dp),
                     )
                     Text(
                         text = String.format(java.util.Locale.US, "%.1f", rating10p),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = if (isNarrow) 10.sp else 11.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.3.sp,
                         ),
@@ -421,42 +423,42 @@ fun EpisodeCard(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp)
+                    .padding(if (isNarrow) 8.dp else 12.dp)
                     .clip(CircleShape)
                     .background(Color(0xFF4CAF50).copy(alpha = 0.92f))
-                    .padding(6.dp),
+                    .padding(if (isNarrow) 4.dp else 6.dp),
             ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = "Watched",
                     tint = Color.White,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(if (isNarrow) 11.dp else 14.dp),
                 )
             }
         } else if (isEpisodeLocked) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp)
+                    .padding(if (isNarrow) 8.dp else 12.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Color.Black.copy(alpha = 0.70f))
                     .border(0.5.dp, Color(0xFFFFB74D).copy(alpha = 0.60f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                    .padding(horizontal = if (isNarrow) 5.dp else 7.dp, vertical = 2.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     Icon(
                         Icons.Default.Lock,
                         contentDescription = "Locked",
                         tint = Color(0xFFFFB74D),
-                        modifier = Modifier.size(11.dp),
+                        modifier = Modifier.size(if (isNarrow) 9.dp else 11.dp),
                     )
                     Text(
                         text = "Upcoming",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
+                            fontSize = if (isNarrow) 9.5.sp else 11.sp,
                             fontWeight = FontWeight.Bold,
                         ),
                         color = Color(0xFFFFB74D),
@@ -470,8 +472,8 @@ fun EpisodeCard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, bottom = if (progress > 0f) 22.dp else 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(start = if (isNarrow) 12.dp else 18.dp, end = if (isNarrow) 12.dp else 18.dp, bottom = if (progress > 0f) (if (isNarrow) 16.dp else 22.dp) else (if (isNarrow) 8.dp else 14.dp)),
+            verticalArrangement = Arrangement.spacedBy(if (isNarrow) 2.dp else 4.dp),
         ) {
             // Row 0: Episode Code Badge (e.g. S1E1 / EP 1)
             ep.episode?.let { epNum ->
@@ -481,12 +483,12 @@ fun EpisodeCard(
                         .clip(RoundedCornerShape(6.dp))
                         .background(Color.Black.copy(alpha = 0.50f))
                         .border(0.5.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .padding(horizontal = if (isNarrow) 6.dp else 8.dp, vertical = 2.dp),
                 ) {
                     Text(
                         text = epText,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = if (isNarrow) 10.sp else 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp,
                         ),
@@ -499,7 +501,7 @@ fun EpisodeCard(
             Text(
                 text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 19.sp,
+                    fontSize = if (isNarrow) 14.5.sp else 19.sp,
                     shadow = androidx.compose.ui.graphics.Shadow(
                         color = Color.Black.copy(alpha = 0.85f),
                         blurRadius = 6f,
@@ -516,7 +518,7 @@ fun EpisodeCard(
             )
 
             // Subtle breathing room between Title and Description
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(1.dp))
 
             // Row 2: Synopsis / Plot with comfortable line height and subtle shadow
             Text(
@@ -527,8 +529,8 @@ fun EpisodeCard(
                     else -> "No description available."
                 },
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 14.5.sp,
-                    lineHeight = 20.5.sp,
+                    fontSize = if (isNarrow) 11.5.sp else 14.5.sp,
+                    lineHeight = if (isNarrow) 15.sp else 20.5.sp,
                     shadow = androidx.compose.ui.graphics.Shadow(
                         color = Color.Black.copy(alpha = 0.85f),
                         blurRadius = 5f,
@@ -543,11 +545,11 @@ fun EpisodeCard(
             )
 
             // Row 3: Duration on Left & Air Date on Right
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(1.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 18.dp),
+                    .heightIn(min = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -555,7 +557,7 @@ fun EpisodeCard(
                     Text(
                         text = durationText,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 12.5.sp,
+                            fontSize = if (isNarrow) 10.5.sp else 12.5.sp,
                             shadow = androidx.compose.ui.graphics.Shadow(
                                 color = Color.Black.copy(alpha = 0.85f),
                                 blurRadius = 4f,
@@ -573,7 +575,7 @@ fun EpisodeCard(
                     Text(
                         text = formattedDate,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 12.5.sp,
+                            fontSize = if (isNarrow) 10.5.sp else 12.5.sp,
                             shadow = androidx.compose.ui.graphics.Shadow(
                                 color = Color.Black.copy(alpha = 0.85f),
                                 blurRadius = 4f,
@@ -593,8 +595,8 @@ fun EpisodeCard(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
-                    .height(4.5.dp)
+                    .padding(start = if (isNarrow) 10.dp else 14.dp, end = if (isNarrow) 10.dp else 14.dp, bottom = if (isNarrow) 6.dp else 10.dp)
+                    .height(if (isNarrow) 3.5.dp else 4.5.dp)
                     .clip(RoundedCornerShape(2.5.dp))
                     .background(Color.White.copy(alpha = 0.22f)),
             ) {

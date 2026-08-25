@@ -99,7 +99,9 @@ fun ComposeLibraryScreen(
     val selectedTab = uiState.selectedTab
     val posterWidthDp = uiState.posterWidthDp
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 600.dp
+
         if (bookmarksList.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -121,7 +123,7 @@ fun ComposeLibraryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = if (isCompact) 8.dp else 16.dp, vertical = 12.dp)
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -145,6 +147,7 @@ fun ComposeLibraryScreen(
 
                 LibraryActionBar(
                     uiState = uiState,
+                    isCompact = isCompact,
                     onSearch = { query -> viewModel.onEvent(LibraryUiEvent.OnSearchQueryChange(query)) },
                     onSortChange = { sort -> viewModel.onEvent(LibraryUiEvent.OnSortOptionChange(sort)) },
                     onProviderChange = { provider -> viewModel.onEvent(LibraryUiEvent.OnProviderFilterChange(provider)) },
@@ -158,13 +161,13 @@ fun ComposeLibraryScreen(
                         )
                     }
                 } else {
-                    val minSize = posterWidthDp.dp
+                    val minSize = if (isCompact) 105.dp else posterWidthDp.dp
 
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = minSize),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(horizontal = if (isCompact) 6.dp else 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
                         items(filteredBookmarks, key = { it.id }) { bookmark ->
@@ -238,6 +241,7 @@ fun ComposeLibraryScreen(
 @Composable
 fun LibraryActionBar(
     uiState: LibraryUiState,
+    isCompact: Boolean = false,
     onSearch: (String) -> Unit,
     onSortChange: (SortOption) -> Unit,
     onProviderChange: (String?) -> Unit,
@@ -245,78 +249,163 @@ fun LibraryActionBar(
     var sortExpanded by remember { mutableStateOf(false) }
     var providerExpanded by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        OutlinedTextField(
-            value = uiState.searchQuery,
-            onValueChange = onSearch,
-            placeholder = { Text("Search library...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            modifier = Modifier.weight(1f).height(52.dp),
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
+    if (isCompact) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearch,
+                placeholder = { Text("Search library...", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp)) },
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
 
-        Box {
-            OutlinedButton(
-                onClick = { providerExpanded = true },
-                modifier = Modifier.height(52.dp),
-                shape = RoundedCornerShape(12.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(uiState.selectedProvider ?: "All Providers", maxLines = 1)
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text("All Providers") },
-                    onClick = {
-                        onProviderChange(null)
-                        providerExpanded = false
-                    },
-                )
-                uiState.availableProviders.forEach { prov ->
-                    DropdownMenuItem(
-                        text = { Text(prov) },
-                        onClick = {
-                            onProviderChange(prov)
-                            providerExpanded = false
-                        },
-                    )
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { providerExpanded = true },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                    ) {
+                        Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(uiState.selectedProvider ?: "All Providers", maxLines = 1, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false), overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    DropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("All Providers") },
+                            onClick = {
+                                onProviderChange(null)
+                                providerExpanded = false
+                            },
+                        )
+                        uiState.availableProviders.forEach { prov ->
+                            DropdownMenuItem(
+                                text = { Text(prov) },
+                                onClick = {
+                                    onProviderChange(prov)
+                                    providerExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { sortExpanded = true },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(uiState.sortOption.title, maxLines = 1, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false), overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
+                        SortOption.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.title) },
+                                onClick = {
+                                    onSortChange(option)
+                                    sortExpanded = false
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
-
-        Box {
-            OutlinedButton(
-                onClick = { sortExpanded = true },
-                modifier = Modifier.height(52.dp),
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearch,
+                placeholder = { Text("Search library...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                modifier = Modifier.weight(1f).height(52.dp),
+                singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(uiState.sortOption.title, maxLines = 1)
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
-                SortOption.entries.forEach { option ->
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
+
+            Box {
+                OutlinedButton(
+                    onClick = { providerExpanded = true },
+                    modifier = Modifier.height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(uiState.selectedProvider ?: "All Providers", maxLines = 1)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+                DropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
                     DropdownMenuItem(
-                        text = { Text(option.title) },
+                        text = { Text("All Providers") },
                         onClick = {
-                            onSortChange(option)
-                            sortExpanded = false
+                            onProviderChange(null)
+                            providerExpanded = false
                         },
                     )
+                    uiState.availableProviders.forEach { prov ->
+                        DropdownMenuItem(
+                            text = { Text(prov) },
+                            onClick = {
+                                onProviderChange(prov)
+                                providerExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
+            Box {
+                OutlinedButton(
+                    onClick = { sortExpanded = true },
+                    modifier = Modifier.height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(uiState.sortOption.title, maxLines = 1)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+                DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
+                    SortOption.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.title) },
+                            onClick = {
+                                onSortChange(option)
+                                sortExpanded = false
+                            },
+                        )
+                    }
                 }
             }
         }

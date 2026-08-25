@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.newEpisode
@@ -110,30 +111,35 @@ fun DetailsPlayButton(
         }
     }
 
-    Box(
-        modifier = modifier
-            .height(56.dp)
-            .widthIn(min = 190.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .clickable { targetActionEp?.let { onPlay(it) } }
-            .padding(horizontal = 32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = Color(0xFF0F0F0F),
-                modifier = Modifier.size(26.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = buttonLabel,
-                color = Color(0xFF0F0F0F),
-                fontWeight = FontWeight.ExtraBold,
-                style = MaterialTheme.typography.titleMedium,
-            )
+    BoxWithConstraints(modifier = modifier) {
+        val isNarrow = maxWidth < 260.dp
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (isNarrow) 42.dp else 56.dp)
+                .widthIn(min = if (isNarrow) 130.dp else 190.dp)
+                .clip(RoundedCornerShape(if (isNarrow) 10.dp else 12.dp))
+                .background(Color.White)
+                .clickable { targetActionEp?.let { onPlay(it) } }
+                .padding(horizontal = if (isNarrow) 14.dp else 32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color(0xFF0F0F0F),
+                    modifier = Modifier.size(if (isNarrow) 20.dp else 26.dp),
+                )
+                Spacer(Modifier.width(if (isNarrow) 6.dp else 10.dp))
+                Text(
+                    text = buttonLabel,
+                    color = Color(0xFF0F0F0F),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = if (isNarrow) 13.5.sp else 16.sp,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

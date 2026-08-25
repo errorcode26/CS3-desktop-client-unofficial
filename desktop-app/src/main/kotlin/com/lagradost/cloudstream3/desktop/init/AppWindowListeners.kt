@@ -132,7 +132,7 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
 @Composable
 fun FrameWindowScope.setupWindowBackgroundAndListeners(fullscreenController: FullscreenController) {
     SideEffect {
-        window.minimumSize = Dimension(1000, 700)
+        window.minimumSize = Dimension(360, 500)
         val black = Color(0x0D, 0x0D, 0x0D)
         window.background = black
         window.rootPane.background = black

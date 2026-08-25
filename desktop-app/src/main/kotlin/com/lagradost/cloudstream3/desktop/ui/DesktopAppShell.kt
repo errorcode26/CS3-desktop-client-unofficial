@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -59,10 +60,13 @@ fun DesktopAppShell(
 
     CompositionLocalProvider(com.lagradost.cloudstream3.desktop.ui.components.LocalPosterCardStyle provides posterCardStyle) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(Modifier.fillMaxSize()) {
-            val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
-            val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
-            val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val isCompact = maxWidth < 600.dp
+                val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
+
+                val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
+                val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+                val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
 
             val isLightMode by AppearanceConfig.isLightMode.collectAsState()
             val primaryColor = MaterialTheme.colorScheme.primary
@@ -232,11 +236,11 @@ fun DesktopAppShell(
                         }
                     }
                 }
-                val safeTop = if (showTopBar) 64.dp else 0.dp
-                val basePadding = 16.dp
+                val safeTop = if (showTopBar) (if (isCompact) 54.dp else 64.dp) else 0.dp
+                val basePadding = if (isCompact) 8.dp else 16.dp
 
                 val contentPadding = if (showDock) {
-                    when (dockPosition) {
+                    when (effectiveDockPosition) {
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(
                             start = 82.dp + basePadding,
                             top = safeTop + basePadding,
@@ -259,13 +263,7 @@ fun DesktopAppShell(
                             start = basePadding,
                             top = safeTop + basePadding,
                             end = basePadding,
-                            bottom = 82.dp + basePadding,
-                        )
-                        else -> PaddingValues(
-                            start = 82.dp + basePadding,
-                            top = safeTop + basePadding,
-                            end = basePadding,
-                            bottom = basePadding,
+                            bottom = (if (isCompact) 64.dp else 82.dp) + basePadding,
                         )
                     }
                 } else {
@@ -373,22 +371,33 @@ fun DesktopAppShell(
             }
 
             if (showDock) {
-                // Navigation Dock
-                val dockAlignment = when (dockPosition) {
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
-                    com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
-                    else -> Alignment.CenterStart
+                if (isCompact) {
+                    MobileBottomNavBar(
+                        modifier = Modifier.align(Alignment.BottomCenter).zIndex(90f),
+                        currentTitle = title ?: "",
+                        onNavigate = onNavigate,
+                        onSearchClick = {
+                            onNavigate(Config.Search)
+                        },
+                    )
+                } else {
+                    // Navigation Dock (Desktop)
+                    val dockAlignment = when (effectiveDockPosition) {
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
+                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
+                        else -> Alignment.CenterStart
+                    }
+                    NavigationDock(
+                        modifier = Modifier.align(dockAlignment),
+                        currentTitle = title ?: "",
+                        dockPosition = effectiveDockPosition,
+                        onNavigate = onNavigate,
+                        onSearchClick = {
+                            onNavigate(Config.Search)
+                        },
+                    )
                 }
-                NavigationDock(
-                    modifier = Modifier.align(dockAlignment),
-                    currentTitle = title ?: "",
-                    dockPosition = dockPosition,
-                    onNavigate = onNavigate,
-                    onSearchClick = {
-                        onNavigate(Config.Search)
-                    },
-                )
             }
         }
     }
@@ -619,3 +628,97 @@ private fun NavigationDock(
         }
     }
 }
+
+@Composable
+private fun MobileBottomNavBar(
+    modifier: Modifier = Modifier,
+    currentTitle: String,
+    onNavigate: (Config) -> Unit,
+    onSearchClick: () -> Unit,
+) {
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val bg = if (isLightMode) Color(0xFFF7F7F9) else Color(0xFF14141A)
+    val border = if (isLightMode) Color(0xFFE5E5EA) else Color(0xFF282834)
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(62.dp),
+        color = bg.copy(alpha = 0.96f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, border),
+        shadowElevation = 16.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            // 1. Home Tab
+            MobileTabItem(
+                icon = PremiumIcons.Home,
+                label = "Home",
+                selected = currentTitle == "Home",
+                onClick = { onNavigate(Config.Home) },
+            )
+
+            // 2. Search & Explore Tab
+            MobileTabItem(
+                icon = PremiumIcons.Search,
+                label = "Search",
+                selected = currentTitle == "Search" || currentTitle == "Explore & Catalogs",
+                onClick = onSearchClick,
+            )
+
+            // 3. Library Tab (Watchlist + History)
+            MobileTabItem(
+                icon = PremiumIcons.Library,
+                label = "Library",
+                selected = currentTitle == "Library" || currentTitle == "Watch History",
+                onClick = { onNavigate(Config.Library) },
+            )
+
+            // 4. More Tab (Settings, Extensions, Profiles)
+            MobileTabItem(
+                icon = PremiumIcons.Settings,
+                label = "Settings",
+                selected = currentTitle == "Settings" || currentTitle == "Extensions",
+                onClick = { onNavigate(Config.Settings) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MobileTabItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) primaryColor else unselectedColor,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            fontSize = 10.5.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) primaryColor else unselectedColor,
+        )
+    }
+}
+

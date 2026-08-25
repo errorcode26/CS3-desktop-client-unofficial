@@ -223,84 +223,90 @@ fun CategoryRowWithHeader(
     val canScrollBack by remember(isInfinite) { derivedStateOf { isInfinite || listState.canScrollBackward } }
     val canScrollForward by remember(isInfinite) { derivedStateOf { isInfinite || listState.canScrollForward } }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(headerPadding),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = DesktopUi.TextPrimary,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 600.dp
 
-            Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(headerPadding),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = title,
+                    style = if (isCompact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = DesktopUi.TextPrimary,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (trailingHeaderExtra != null) {
-                    trailingHeaderExtra()
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
+                Spacer(modifier = Modifier.width(if (isCompact) 8.dp else 16.dp))
 
-                if (onViewAll != null) {
-                    Surface(
-                        onClick = onViewAll,
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shadowElevation = 0.dp,
-                    ) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (trailingHeaderExtra != null) {
+                        trailingHeaderExtra()
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    if (onViewAll != null) {
+                        Surface(
+                            onClick = onViewAll,
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                            shadowElevation = 0.dp,
+                        ) {
+                            Box(modifier = Modifier.padding(horizontal = if (isCompact) 10.dp else 16.dp, vertical = if (isCompact) 4.dp else 8.dp)) {
+                                Text("View All", color = MaterialTheme.colorScheme.primary, style = if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+
+                    if (!isCompact) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        ScrollChevron(
+                            enabled = canScrollBack,
+                            onClick = {
+                                scope.launch {
+                                    val target = (listState.firstVisibleItemIndex - scrollStep).coerceAtLeast(0)
+                                    listState.animateScrollToItem(target)
+                                }
+                            },
+                            icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        ScrollChevron(
+                            enabled = canScrollForward,
+                            onClick = {
+                                scope.launch {
+                                    val last = (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + scrollStep
+                                    val maxBound = if (isInfinite) Int.MAX_VALUE else (itemCount - 1).coerceAtLeast(0)
+                                    listState.animateScrollToItem(last.coerceAtMost(maxBound))
+                                }
+                            },
+                            icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        )
+                    }
                 }
-
-                ScrollChevron(
-                    enabled = canScrollBack,
-                    onClick = {
-                        scope.launch {
-                            val target = (listState.firstVisibleItemIndex - scrollStep).coerceAtLeast(0)
-                            listState.animateScrollToItem(target)
-                        }
-                    },
-                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                ScrollChevron(
-                    enabled = canScrollForward,
-                    onClick = {
-                        scope.launch {
-                            val last = (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + scrollStep
-                            val maxBound = if (isInfinite) Int.MAX_VALUE else (itemCount - 1).coerceAtLeast(0)
-                            listState.animateScrollToItem(last.coerceAtMost(maxBound))
-                        }
-                    },
-                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                )
             }
-        }
 
-        LazyRow(
-            state = listState,
-            // fillMaxWidth() so the list extends edge-to-edge; contentPadding indents items
-            // to align with the header. clipToBounds=false lets the last card peek fully
-            // without being hard-cut by the container boundary.
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = rowContentPadding,
-            horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-            content = content,
-        )
+            LazyRow(
+                state = listState,
+                // fillMaxWidth() so the list extends edge-to-edge; contentPadding indents items
+                // to align with the header. clipToBounds=false lets the last card peek fully
+                // without being hard-cut by the container boundary.
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = rowContentPadding,
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                content = content,
+            )
+        }
     }
 }
 

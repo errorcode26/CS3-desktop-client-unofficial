@@ -140,7 +140,7 @@ fun ComposeDetailsScreen(
                 ?: provider.fixUrlNull(response?.posterUrl)?.takeIf { it.isNotBlank() }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             if (heroBackgroundBlurEnabled && bgUrl != null) {
                 androidx.compose.animation.Crossfade(
                     targetState = bgUrl,
@@ -207,8 +207,9 @@ fun ComposeDetailsScreen(
             }
 
             if (activeLinkData != null) {
+                val panelWidth = minOf(450.dp, maxWidth * 0.92f)
                 val offsetX by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = if (isPanelOpen) 0.dp else 450.dp,
+                    targetValue = if (isPanelOpen) 0.dp else panelWidth,
                     animationSpec = tween(300),
                 )
                 Row(
@@ -233,7 +234,7 @@ fun ComposeDetailsScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .width(450.dp)
+                            .width(panelWidth)
                             .shadow(24.dp)
                             .background(
                                 Brush.verticalGradient(
@@ -308,13 +309,19 @@ fun DetailsContent(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
         val viewportWidth = maxWidth
+        val isWindowCompact = viewportWidth < 600.dp
         DetailsBackdrop(
             provider = provider,
             data = data,
             scrollState = scrollState,
             hazeState = hazeState,
             enrichmentPhase = enrichmentPhase,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .run {
+                    if (isWindowCompact) this.height(minOf(360.dp, viewportHeight * 0.48f))
+                    else this.fillMaxHeight()
+                },
             dynamicColorEnabled = dynamicColorEnabled,
             uiState = uiState,
         )
@@ -354,8 +361,10 @@ fun DetailsContent(
         ) {
             item(key = "HeroAndTabs") {
                 Box(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = viewportHeight),
-                    contentAlignment = Alignment.BottomStart,
+                    modifier = Modifier.fillMaxWidth().run {
+                        if (isWindowCompact) this else this.heightIn(min = viewportHeight)
+                    },
+                    contentAlignment = if (isWindowCompact) Alignment.TopStart else Alignment.BottomStart,
                 ) {
                     DetailsMetadata(
                         provider = provider,
@@ -787,7 +796,7 @@ fun DetailsContent(
         }
 
         Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
-            com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(isHome = false)
+            com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(isHome = false, isCompact = isWindowCompact)
         }
 
         androidx.compose.animation.AnimatedVisibility(

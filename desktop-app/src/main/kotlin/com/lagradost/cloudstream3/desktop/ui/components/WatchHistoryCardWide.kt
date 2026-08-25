@@ -179,12 +179,12 @@ fun WatchHistoryCardWide(
             }
 
             // Right: Content Details
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-                    .padding(16.dp)
+                    .fillMaxHeight(),
             ) {
+                val isNarrow = maxWidth < 180.dp
                 val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
                 val displayTitle = remember(history.showName, autoCleanTitles) {
                     if (autoCleanTitles) {
@@ -194,100 +194,106 @@ fun WatchHistoryCardWide(
                     }
                 }
 
-                // Top area: Title and Tags
-                Column(
-                    modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (isNarrow) 8.dp else 16.dp),
                 ) {
-                    Text(
-                        text = displayTitle,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = Color.White,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Top area: Title and Tags
+                    Column(
+                        modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
                     ) {
-                        if (provider != null) {
-                            // Provider badge
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(primary.copy(alpha = 0.8f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = provider.name,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                        if (isSeries) {
-                            // Series badge
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.1f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "SERIES",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Bottom area: Episode & Progress
-                Column(
-                    modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                ) {
-                    if (isSeries) {
-                        val isUpNext = history.duration == 0L && history.position == 0L
-                        val prefix = if (isUpNext) "Up Next • " else ""
                         Text(
-                            text = "$prefix$seText",
+                            text = displayTitle,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = if (isUpNext) primary else Color.White,
+                            fontSize = if (isNarrow) 13.5.sp else 20.sp,
+                            color = Color.White,
+                            maxLines = if (isNarrow) 2 else 3,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (provider != null) {
+                                // Provider badge
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(primary.copy(alpha = 0.8f))
+                                        .padding(horizontal = if (isNarrow) 4.dp else 6.dp, vertical = 2.dp),
+                                ) {
+                                    Text(
+                                        text = provider.name,
+                                        fontSize = if (isNarrow) 9.sp else 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                    )
+                                }
+                            }
+                            if (isSeries) {
+                                // Series badge
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color.White.copy(alpha = 0.1f))
+                                        .padding(horizontal = if (isNarrow) 4.dp else 6.dp, vertical = 2.dp),
+                                ) {
+                                    Text(
+                                        text = "SERIES",
+                                        fontSize = if (isNarrow) 9.sp else 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                    )
+                                }
+                            }
+                        }
                     }
-                    
-                    // Progress Bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
+
+                    // Bottom area: Episode & Progress
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
                     ) {
+                        if (isSeries) {
+                            val isUpNext = history.duration == 0L && history.position == 0L
+                            val prefix = if (isUpNext) "Up Next • " else ""
+                            Text(
+                                text = "$prefix$seText",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = if (isNarrow) 11.5.sp else 14.sp,
+                                color = if (isUpNext) primary else Color.White,
+                            )
+                            Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 10.dp))
+                        }
+
+                        // Progress Bar
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(progress)
-                                .fillMaxHeight()
-                                .background(primary)
+                                .fillMaxWidth()
+                                .height(if (isNarrow) 4.dp else 6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Color.White.copy(alpha = 0.2f)),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(progress)
+                                    .fillMaxHeight()
+                                    .background(primary),
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 8.dp))
+
+                        // Progress text
+                        val progressPercentage = (progress * 100).toInt()
+                        Text(
+                            text = if (progressPercentage >= 95) "Completed" else "$progressPercentage% watched",
+                            fontSize = if (isNarrow) 10.sp else 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.7f),
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Progress text
-                    val progressPercentage = (progress * 100).toInt()
-                    Text(
-                        text = if (progressPercentage >= 95) "Completed" else "$progressPercentage% watched",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
                 }
             }
         }
