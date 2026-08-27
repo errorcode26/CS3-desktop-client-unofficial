@@ -109,8 +109,15 @@ class DiscordIpcClient {
 
     private fun closeInternal() {
         connected = false
-        raf?.let { closeRaf(it) }
+        val pipe = raf
         raf = null
+        if (pipe != null) {
+            try {
+                writeFrame(pipe, OP_CLOSE, "{}")
+                pipe.fd.sync()
+            } catch (_: Exception) {}
+            closeRaf(pipe)
+        }
     }
 
     private fun closeRaf(pipe: RandomAccessFile) {

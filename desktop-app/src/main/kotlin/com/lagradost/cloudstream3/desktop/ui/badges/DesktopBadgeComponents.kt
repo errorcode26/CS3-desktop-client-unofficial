@@ -195,6 +195,39 @@ object DesktopBadgeComponents {
     }
 
     @Composable
+    fun ContentRatingBadge(
+        rating: String?,
+        modifier: Modifier = Modifier,
+        isLarge: Boolean = false,
+    ) {
+        if (rating.isNullOrBlank()) return
+
+        val cleanRating = rating.trim().uppercase()
+        val shape = RoundedCornerShape(if (isLarge) 6.dp else 5.5.dp)
+
+        Box(
+            modifier = modifier
+                .shadow(elevation = 2.dp, shape = shape)
+                .clip(shape)
+                .background(SlateGlassBg)
+                .border(0.8.dp, SlateBorder, shape)
+                .padding(
+                    horizontal = if (isLarge) 7.dp else 5.5.dp,
+                    vertical = if (isLarge) 3.dp else 2.dp,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = cleanRating,
+                color = TextSilver,
+                fontSize = if (isLarge) 11.5.sp else 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp,
+            )
+        }
+    }
+
+    @Composable
     private fun SingleGlassBadge(
         text: String,
         textColor: Color,

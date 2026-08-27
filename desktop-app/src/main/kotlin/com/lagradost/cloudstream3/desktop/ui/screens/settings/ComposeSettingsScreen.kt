@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
@@ -282,31 +283,30 @@ fun ComposeSettingsScreen(
                             }
                         }
                     } else {
-                        // Only compose the currently-selected leaf. Crossfade was eagerly composing
-                        // all 14 branches simultaneously on first open which caused heavy stutter.
-                        key(selectedLeaf) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = true,
-                                enter = fadeIn(animationSpec = tween(160)),
-                                exit = fadeOut(animationSpec = tween(80)),
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                when (selectedLeaf) {
-                                    LeafTab.THEME          -> SettingsAppearanceThemeScreen()
-                                    LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
-                                    LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
-                                    LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
-                                    LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                    LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
-                                    LeafTab.ADDONS         -> SettingsAddons()
-                                    LeafTab.INTEGRATIONS   -> SettingsIntegrations()
-                                    LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                    LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
-                                    LeafTab.DEVELOPER      -> SettingsDeveloper()
-                                    LeafTab.ABOUT          -> SettingsAboutAndUpdates()
-                                }
+                        AnimatedContent(
+                            targetState = selectedLeaf,
+                            transitionSpec = {
+                                (fadeIn(tween(160)) + slideInVertically(tween(160)) { it / 24 })
+                                    .togetherWith(fadeOut(tween(90)))
+                            },
+                            label = "SettingsLeafTransition",
+                            modifier = Modifier.fillMaxSize(),
+                        ) { currentLeaf ->
+                            when (currentLeaf) {
+                                LeafTab.THEME          -> SettingsAppearanceThemeScreen()
+                                LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
+                                LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
+                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
+                                LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
+                                LeafTab.ADDONS         -> SettingsAddons()
+                                LeafTab.INTEGRATIONS   -> SettingsIntegrations()
+                                LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
+                                LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
+                                LeafTab.DEVELOPER      -> SettingsDeveloper()
+                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
                             }
                         }
                     }

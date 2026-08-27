@@ -96,14 +96,14 @@ fun SettingsAddons() {
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "External Addons (Subtitles & Metadata)",
+                        text = "External Addons (Streams, Subtitles & Catalogs)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Install standard community manifests to expand online subtitle providers and metadata resolvers without hardcoding.",
+                        text = "Install standard community manifests to expand stream extractors, subtitle providers, and metadata catalogs dynamically.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -403,6 +403,9 @@ private fun AddonItemCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (addon.providesStreams) {
+                        CapabilityChip(label = "⚡ Streams", color = MaterialTheme.colorScheme.primary)
+                    }
                     if (addon.providesSubtitles) {
                         CapabilityChip(label = "💬 Subtitles", color = MaterialTheme.colorScheme.secondary)
                     }

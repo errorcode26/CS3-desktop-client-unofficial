@@ -14,12 +14,20 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+
 /**
  * Orchestrator that coordinates metadata resolution, progressive enrichment,
  * and background caching across all registered [MetadataProvider] instances.
  */
 object MetadataPipeline {
     private const val TAG = "MetadataPipeline"
+
+    private val identityCache = ConcurrentHashMap<String, MetadataMatch>()
+    private val inFlightResolutions = ConcurrentHashMap<String, Deferred<MetadataMatch?>>()
 
     private val providers = mutableListOf<MetadataProvider>(
         TmdbMetadataProvider,
@@ -113,21 +121,41 @@ object MetadataPipeline {
                 )
             )
 
-            // 3. Resolve Media Identity (Stage 1 Resolvers)
-            var activeMatch: MetadataMatch? = null
-            for (resolver in sortedResolvers) {
-                try {
-                    val match = resolver.resolve(cleanName, loaded.year, loaded.type, urlClean)
-                    if (match != null) {
-                        activeMatch = match
-                        AppLogger.i(TAG, "✓ Resolved match via ${resolver.id}: '${match.matchedTitle}' (IMDb: ${match.imdbId}, TMDB: ${match.tmdbId}, AniList: ${match.anilistId})")
-                        break
+            // 3. Resolve Media Identity (Stage 1 Resolvers with In-Flight Deduplication)
+            val identityKey = "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
+            var activeMatch: MetadataMatch? = identityCache[identityKey]
+
+            if (activeMatch == null) {
+                val existingDeferred = inFlightResolutions[identityKey]
+                val matchDeferred = existingDeferred ?: coroutineScope {
+                    async(Dispatchers.IO) {
+                        for (resolver in sortedResolvers) {
+                            try {
+                                val match = resolver.resolve(cleanName, loaded.year, loaded.type, urlClean)
+                                if (match != null) {
+                                    AppLogger.i(TAG, "✓ Resolved match via ${resolver.id}: '${match.matchedTitle}' (IMDb: ${match.imdbId}, TMDB: ${match.tmdbId}, AniList: ${match.anilistId})")
+                                    return@async match
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                AppLogger.w(TAG, "Resolver ${resolver.id} threw an exception", e)
+                            }
+                        }
+                        null
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.w(TAG, "Resolver ${resolver.id} threw an exception", e)
+                }.also { inFlightResolutions[identityKey] = it }
+
+                try {
+                    activeMatch = matchDeferred.await()
+                    if (activeMatch != null) {
+                        identityCache[identityKey] = activeMatch
+                    }
+                } finally {
+                    inFlightResolutions.remove(identityKey)
                 }
+            } else {
+                AppLogger.i(TAG, "✓ Reusing cached match for '$cleanName' (IMDb: ${activeMatch.imdbId}, TMDB: ${activeMatch.tmdbId})")
             }
 
             // 4. Progressive Enrichment (Stage 1 -> Stage 2+)
@@ -183,5 +211,18 @@ object MetadataPipeline {
             callbacks.onEnrichmentComplete()
             AppLogger.i(TAG, "✓ Pipeline completed successfully for '${loaded.name}'")
         }
+    }
+
+    /**
+     * Attempts to retrieve a verified IMDb ID from the in-memory identity cache.
+     */
+    fun getCachedImdbId(showName: String?): String? {
+        if (showName.isNullOrBlank()) return null
+        val (cleanName, _) = TitleUtils.cleanProviderTitle(showName)
+        val cleanLower = cleanName.lowercase().trim()
+        return identityCache.values.firstOrNull { match ->
+            match.imdbId?.startsWith("tt", ignoreCase = true) == true &&
+                (match.matchedTitle.equals(cleanName, ignoreCase = true) || match.matchedTitle.lowercase().trim() == cleanLower)
+        }?.imdbId
     }
 }

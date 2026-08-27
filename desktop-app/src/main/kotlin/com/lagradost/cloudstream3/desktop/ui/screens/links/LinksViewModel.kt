@@ -59,7 +59,31 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
         }
 
         scrapeJob = viewModelScope.launch {
-            AppLogger.i("Plugin:${provider.name}", "Scraping streams for URL: $dataUrl")
+            val linkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
+                AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}, source=${link.source}) -> ${link.url}")
+                com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
+                updateState {
+                    val newLinks = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(links + link)
+                    val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."
+                    copy(links = newLinks, statusText = text)
+                }
+            }
+
+            if (dataUrl.startsWith("tt", ignoreCase = true)) {
+                val cleanImdb = dataUrl.substringBefore(":")
+                val parts = dataUrl.split(":")
+                val season = parts.getOrNull(1)?.toIntOrNull()
+                val episode = parts.getOrNull(2)?.toIntOrNull()
+                viewModelScope.launch(Dispatchers.IO) {
+                    com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.searchStreams(
+                        imdbId = cleanImdb,
+                        season = season,
+                        episode = episode,
+                        onLink = { linkCallback(it) },
+                    )
+                }
+            }
+
             val result = SafePluginInvoker.invoke(
                 tag = "LinksViewModel:${provider.name}",
                 providerName = provider.name,
@@ -72,18 +96,14 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     data = dataUrl,
                     isCasting = false,
                     subtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub: SubtitleFile ->
-                        AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${sub.lang}] ${sub.url}")
-                        updateState { copy(subtitles = subtitles + sub) }
-                    },
-                    callback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
-                        AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}, source=${link.source}) -> ${link.url}")
-                        com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
-                        updateState {
-                            val newLinks = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(links + link)
-                            val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."
-                            copy(links = newLinks, statusText = text)
+                        val cleanUrl = sub.url.trim()
+                        if (cleanUrl.isNotBlank()) {
+                            val cleanSub = sub.copy(url = cleanUrl, lang = sub.lang.trim())
+                            AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${cleanSub.lang}] ${cleanSub.url}")
+                            updateState { copy(subtitles = (subtitles + cleanSub).distinctBy { it.url.trim().lowercase() }) }
                         }
                     },
+                    callback = linkCallback,
                 )
             }
 

@@ -87,3 +87,25 @@ class DetailsComponent(
         }
     }
 }
+
+class PersonComponent(
+    componentContext: ComponentContext,
+    val config: Config.Person,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate(key = "Person_${config.name}_${config.tmdbId}") {
+        com.lagradost.cloudstream3.desktop.ui.screens.person.PersonViewModel().apply {
+            loadPerson(config.name, config.tmdbId)
+        }
+    }
+}
+
+class StudioComponent(
+    componentContext: ComponentContext,
+    val config: Config.Studio,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate(key = "Studio_${config.name}_${config.companyId}") {
+        com.lagradost.cloudstream3.desktop.ui.screens.studio.StudioViewModel().apply {
+            loadStudio(config.name, config.companyId)
+        }
+    }
+}

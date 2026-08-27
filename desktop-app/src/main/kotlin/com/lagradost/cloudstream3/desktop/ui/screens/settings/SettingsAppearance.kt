@@ -453,6 +453,7 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
+    val heroBannerStyle by AppearanceConfig.heroBannerStyle.collectAsState()
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
     val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
@@ -499,6 +500,20 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                     ),
                     currentValue = autoSlideDelay,
                     onSelectionChanged = { AppearanceConfig.setHeroAutoSlideDelaySeconds(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsDropdownItem(
+                    label = "Hero Banner Style",
+                    subtitle = "Choose how the home page hero section is presented",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING to "Cinema (Peeking Rails)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.FULLSCREEN_IMMERSIVE to "Fullscreen Immersive",
+                        com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.THUMBNAIL_STRIP to "Thumbnail Filmstrip",
+                    ),
+                    currentValue = heroBannerStyle,
+                    onSelectionChanged = { AppearanceConfig.setHeroBannerStyle(it) },
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -904,49 +919,10 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
 
                 SettingsToggleItem(
                     label = "Show Rating Badges (★ Gold Pill)",
-                    subtitle = "Display a gold rating badge on poster thumbnails",
+                    subtitle = "Display a gold rating badge on poster thumbnails when available from the provider",
                     checked = showRatingBadges,
                     onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
                 )
-
-                if (showRatingBadges) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Rating Source Policy",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Choose whether ratings come from Verified Metadata Addons (Cinemeta/AniList) or native scraper votes.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            FilterChip(
-                                selected = ratingPolicy == RatingSourcePolicy.SMART_HYBRID,
-                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.SMART_HYBRID) },
-                                label = { Text("Smart Hybrid") },
-                            )
-                            FilterChip(
-                                selected = ratingPolicy == RatingSourcePolicy.VERIFIED_ADDON,
-                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.VERIFIED_ADDON) },
-                                label = { Text("Verified Addons") },
-                            )
-                            FilterChip(
-                                selected = ratingPolicy == RatingSourcePolicy.SCRAPER_NATIVE,
-                                onClick = { CardMetadataConfig.setRatingPolicy(RatingSourcePolicy.SCRAPER_NATIVE) },
-                                label = { Text("Scraper Native") },
-                            )
-                        }
-                    }
-                }
             }
 
             SettingsGroupCard(title = "Depth & Shadows") {

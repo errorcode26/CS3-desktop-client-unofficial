@@ -86,10 +86,46 @@ object NativePlayerBridge {
      */
     external fun notifyThemeChange(isDarkMode: Boolean)
 
+    data class PlayerUiAssets(
+        val htmlFile: java.io.File,
+        val url: String,
+    )
+
+    val playerUiAssets: PlayerUiAssets by lazy {
+        exportPlayerUiAssets()
+    }
+
+    private fun exportPlayerUiAssets(): PlayerUiAssets {
+        val baseCacheDir = java.io.File(System.getProperty("java.io.tmpdir"), "cs3-player-ui").apply { mkdirs() }
+        val sessionDir = java.io.File(baseCacheDir, System.currentTimeMillis().toString(36)).apply { mkdirs() }
+        val htmlFile = java.io.File(sessionDir, "player.html")
+        val cssFile = java.io.File(sessionDir, "player.css")
+        val jsFile = java.io.File(sessionDir, "player.js")
+
+        runCatching {
+            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { input ->
+                htmlFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { input ->
+                cssFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { input ->
+                jsFile.outputStream().use { output -> input.copyTo(output) }
+            }
+        }.onFailure {
+            AppLogger.e("Failed to export player UI assets", it)
+        }
+
+        return PlayerUiAssets(
+            htmlFile = htmlFile,
+            url = htmlFile.absoluteFile.toURI().toString(),
+        )
+    }
+
     /**
-     * Initializes an invisible WebView2 instance in the background to warm up Chromium.
+     * Initializes an invisible WebView2 instance in the background to warm up Chromium with player.html.
      */
-    external fun warmupWebView2()
+    external fun warmupWebView2(url: String)
 
     /**
      * Shuts down the background warmup thread.
@@ -98,15 +134,16 @@ object NativePlayerBridge {
 
     /**
      * Asynchronously warms up the WebView2 environment if running on Windows.
-     * Prevents the 2-second stutter when opening the player.
+     * Prevents the initial frame stutter and white flash when opening the player.
      */
     fun preloadAsync() {
         if (!preloadStarted.compareAndSet(false, true)) return
 
         Thread {
             runCatching {
-                AppLogger.i("Starting NativePlayerBridge warmup...")
-                warmupWebView2()
+                val assets = playerUiAssets
+                AppLogger.i("Starting NativePlayerBridge warmup with URL: ${assets.url}")
+                warmupWebView2(assets.url)
             }.onFailure {
                 AppLogger.e("Failed to warmup NativePlayerBridge: ${it.message}")
             }

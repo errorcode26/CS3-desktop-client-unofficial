@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -151,19 +152,34 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 SettingsGroupCard(title = "Subtitle Sources & Providers") {
-                    MviSettingsToggle(
-                        key = SubtitleConfig.PREF_OPENSUBTITLES_ENABLED,
-                        label = "OpenSubtitles (Stremio v3)",
-                        subtitle = "Auto-fetch multi-language subtitles via Stremio OpenSubtitles endpoint (No API key required).",
-                        uiState = uiState,
-                        onEvent = { event ->
-                            if (event is SettingsUiEvent.OnUpdateBoolean && event.key == SubtitleConfig.PREF_OPENSUBTITLES_ENABLED) {
-                                SubtitleConfig.setOpenSubtitlesEnabled(event.value)
-                            }
-                            viewModel.onEvent(event)
-                        },
-                        defaultValue = true,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "External Stremio Subtitles",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Manage community subtitle manifests (OpenSubtitles v3, etc.) under the central External Addons hub.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Button(
+                            onClick = { SettingsSession.selectedLeaf = LeafTab.ADDONS },
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Manage Addons")
+                        }
+                    }
                 }
 
                 SettingsGroupCard(title = "Global Override") {

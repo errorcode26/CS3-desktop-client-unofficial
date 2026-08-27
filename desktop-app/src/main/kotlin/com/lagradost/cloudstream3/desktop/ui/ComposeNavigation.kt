@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.blur
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -25,8 +26,10 @@ import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.plus
 import com.arkivanov.decompose.extensions.compose.stack.animation.scale
+import com.arkivanov.decompose.extensions.compose.stack.animation.slide
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
@@ -209,11 +212,27 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Settings -> "Settings"
                             is RootComponent.Child.CategoryGrid -> activeInstance.component.title
                             is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
+                            is RootComponent.Child.Person -> activeInstance.component.config.name
+                            is RootComponent.Child.Studio -> activeInstance.component.config.name
                         }
 
                         LaunchedEffect(activeInstance, currentVideo) {
-                            if (currentVideo == null && title != null) {
-                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
+                            if (currentVideo == null) {
+                                when (activeInstance) {
+                                    is RootComponent.Child.Details -> {
+                                        val name = activeInstance.component.config.preloadedName
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Details", name)
+                                    }
+                                    is RootComponent.Child.Person -> {
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Person", activeInstance.component.config.name)
+                                    }
+                                    is RootComponent.Child.Studio -> {
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Studio", activeInstance.component.config.name)
+                                    }
+                                    else -> {
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
+                                    }
+                                }
                             }
                         }
 
@@ -227,15 +246,21 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                         val applySafePadding = when (activeInstance) {
                             is RootComponent.Child.Details -> false // Details manually pads itself
+                            is RootComponent.Child.Person -> false // Person manually pads itself
+                            is RootComponent.Child.Studio -> false // Studio manually pads itself
                             is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
                             else -> true
                         }
                         val showDock = when (activeInstance) {
                             is RootComponent.Child.Details -> false
+                            is RootComponent.Child.Person -> false
+                            is RootComponent.Child.Studio -> false
                             else -> true
                         }
                         val showTopBar = when (activeInstance) {
                             is RootComponent.Child.Details -> false
+                            is RootComponent.Child.Person -> false
+                            is RootComponent.Child.Studio -> false
                             else -> true
                         }
 
@@ -253,7 +278,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             Children(
                                 stack = childStack,
                                 modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                                animation = stackAnimation(fade(tween(140))),
+                                animation = stackAnimation(slide(tween(220, easing = FastOutSlowInEasing)) + fade(tween(180, easing = FastOutSlowInEasing))),
                             ) {
                                 when (val child = it.instance) {
                                     is RootComponent.Child.Details -> {
@@ -323,6 +348,27 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                             }
                                         }
                                     }
+                                    is RootComponent.Child.Person -> {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.person.PersonScreen(
+                                            name = child.component.config.name,
+                                            image = child.component.config.image,
+                                            tmdbId = child.component.config.tmdbId,
+                                            onBack = { rootComponent.pop() },
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                        )
+                                    }
+                                    is RootComponent.Child.Studio -> {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.studio.StudioScreen(
+                                            name = child.component.config.name,
+                                            companyId = child.component.config.companyId,
+                                            logoUrl = child.component.config.logoUrl,
+                                            originCountry = child.component.config.originCountry,
+                                            onBack = { rootComponent.pop() },
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            viewModel = child.component.viewModel,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -334,24 +380,24 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     // Global Toast & Notification Overlay
                     com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
 
-                    // The Embedded Video Player Overlay — ViewModel is hoisted here so it
-                    // survives launchData changes and overlay recompositions without being recreated.
-                    val playerViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel() }
-                    DisposableEffect(Unit) { onDispose { playerViewModel.dispose() } }
-
                     currentVideo?.let { launchData ->
-                        com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
-                            launchData = launchData,
-                            viewModel = playerViewModel,
-                            isExiting = false,
-                            onClose = {
-                                currentVideo = null
-                            },
-                            onError = { err ->
-                                com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
-                                showErrorsDialog = true
-                            },
-                        )
+                        androidx.compose.runtime.key(launchData.history.showUrl, launchData.history.episodeId) {
+                            val playerViewModel = remember(launchData.history.showUrl, launchData.history.episodeId) {
+                                com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel()
+                            }
+                            com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
+                                launchData = launchData,
+                                viewModel = playerViewModel,
+                                isExiting = false,
+                                onClose = {
+                                    currentVideo = null
+                                },
+                                onError = { err ->
+                                    com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
+                                    showErrorsDialog = true
+                                },
+                            )
+                        }
                     }
 
                     com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(

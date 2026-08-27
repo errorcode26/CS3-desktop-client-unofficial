@@ -3,6 +3,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -174,7 +177,6 @@ fun DetailsBackdrop(
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(enhancedBgUrl)
-                        .size(1280, 720)
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
@@ -530,19 +532,10 @@ fun DetailsMetadata(
                             }
 
                             data.contentRating?.takeIf { it.isNotBlank() }?.let { rating ->
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color.Transparent,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
-                                ) {
-                                    Text(
-                                        text = rating,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
+                                com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.ContentRatingBadge(
+                                    rating = rating,
+                                    isLarge = true,
+                                )
                             }
 
                             val rawStatus = uiState?.enrichedStatus
@@ -558,16 +551,17 @@ fun DetailsMetadata(
                                     else -> rawStatus
                                 }
                                 Surface(
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(5.5.dp),
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                                 ) {
                                     Text(
                                         text = cleanStatus,
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 0.3.sp,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
                                     )
                                 }
                             }
@@ -1947,6 +1941,7 @@ fun DetailsStatsSection(
     data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     modifier: Modifier = Modifier,
+    onCompanyClick: ((com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany) -> Unit)? = null,
 ) {
     val budget = uiState?.enrichedBudget
     val revenue = uiState?.enrichedRevenue
@@ -2073,7 +2068,10 @@ fun DetailsStatsSection(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         allCompanies.forEach { company ->
-                            ProductionCompanyCard(company = company)
+                            ProductionCompanyCard(
+                                company = company,
+                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
+                            )
                         }
                     }
                 }
@@ -2086,16 +2084,30 @@ fun DetailsStatsSection(
 fun ProductionCompanyCard(
     company: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     val hasLogo = !company.logoUrl.isNullOrBlank()
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+        color = if (isHovered && onClick != null) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isHovered && onClick != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.12f),
+        ),
         modifier = modifier
             .height(84.dp)
-            .widthIn(min = 200.dp, max = 320.dp),
+            .widthIn(min = 200.dp, max = 320.dp)
+            .hoverable(interactionSource)
+            .run {
+                if (onClick != null) {
+                    this.clickable(interactionSource = interactionSource, indication = null) { onClick() }
+                } else {
+                    this
+                }
+            },
     ) {
         Row(
             modifier = Modifier

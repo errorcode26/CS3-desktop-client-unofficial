@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="color-scheme" content="dark">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>CloudStream Player</title>
     <style>
-/* CSS_INJECT */
+html, body { background: transparent !important; color: #ffffff !important; margin: 0; padding: 0; }
     </style>
+    <link rel="stylesheet" href="player.css">
 </head>
-<body>
+<body style="background: transparent;">
 
 <!-- ── PiP Overlay ───────────────────────────────────────────── -->
 <div id="pipOverlay" class="pip-overlay" style="display: none;">
@@ -47,13 +49,13 @@
 
 <!-- ── Link Probing Overlay ───────────────────────────────────────────── -->
 <div id="linkProbingOverlay" class="active">
-    <img id="linkProbingBackdrop" src="{{INITIAL_BACKDROP_URL}}" alt="">
+    <img id="linkProbingBackdrop" src="" alt="">
     <div id="linkProbingGradient"></div>
     <div id="linkProbingContent">
         <div id="linkProbingHero">
-            <img id="linkProbingLogo" src="{{INITIAL_LOGO_URL}}" style="{{INITIAL_LOGO_STYLE}}" alt="">
-            <h2 id="linkProbingTitle" style="{{INITIAL_TITLE_STYLE}}">{{INITIAL_TITLE}}</h2>
-            <div id="linkProbingSubtitle" class="link-probing-subtitle" style="{{INITIAL_SUBTITLE_STYLE}}">{{INITIAL_SUBTITLE}}</div>
+            <img id="linkProbingLogo" src="" style="display: none;" alt="">
+            <h2 id="linkProbingTitle" style="display: none;"></h2>
+            <div id="linkProbingSubtitle" class="link-probing-subtitle" style="display: none;"></div>
         </div>
         <div class="link-probing-status-container">
             <div class="link-probing-status-header">
@@ -106,77 +108,51 @@
 </div>
 
 
-<!-- ── Watch Next / Up Next Floating Popup Card ─────────────────────── -->
-<div id="watchNextPopup" class="watch-next-card">
-    <div class="watch-next-top">
-        <div class="watch-next-badge">
-            <span class="watch-next-dot"></span>
-            <span>NEXT EPISODE</span>
-        </div>
-        <div class="watch-next-timer" id="watchNextCountdown">in 15s</div>
-        <button id="closeWatchNextBtn" class="watch-next-close" title="Dismiss">✕</button>
-    </div>
-    <div class="watch-next-body" id="watchNextBody">
-        <div class="watch-next-thumb-wrap">
-            <img id="watchNextThumb" class="watch-next-thumb" src="" alt="">
-            <div class="watch-next-play-overlay">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
+<!-- ── Video Ended Screen (Transparent Cinematic Layout) ────────── -->
+<div id="videoEndedOverlay">
+    <div class="video-ended-content">
+        <div class="video-ended-left">
+            <div class="video-ended-tag-row">
+                <span class="video-ended-tag" id="videoEndedPill">
+                    <span class="video-ended-dot"></span>
+                    <span id="videoEndedPillText">UP NEXT</span>
+                </span>
+                <span id="videoEndedSubtext" class="video-ended-subtext">Playing in 5s...</span>
+            </div>
+            <h1 id="videoEndedHeaderTitle" class="video-ended-title">Episode 2</h1>
+            <p id="videoEndedNextDesc" class="video-ended-desc"></p>
+            
+            <div class="video-ended-actions">
+                <button id="btnNextEpisode" class="ended-btn primary" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg>
+                    <span id="btnNextEpisodeLabel">Play Now</span>
+                </button>
+                <button id="btnCancelCountdown" class="ended-btn glass" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    <span>Cancel</span>
+                </button>
+                <button id="btnReplay" class="ended-btn glass">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    <span>Replay</span>
+                </button>
+                <button id="btnExitPlayer" class="ended-btn glass" onclick="triggerExit()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>Exit</span>
+                </button>
             </div>
         </div>
-        <div class="watch-next-info">
-            <div class="watch-next-ep-meta" id="watchNextEpMeta">S1:E2</div>
-            <div class="watch-next-title" id="watchNextTitle">Episode Title</div>
-            <div class="watch-next-desc" id="watchNextDesc"></div>
-        </div>
-    </div>
-    <div class="watch-next-progress-bar">
-        <div class="watch-next-progress-fill" id="watchNextProgressFill"></div>
-    </div>
-    <div class="watch-next-actions">
-        <button id="btnWatchNextPlay" class="watch-next-play-btn">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-            <span>Play Now</span>
-        </button>
-        <button id="btnWatchNextDismiss" class="watch-next-dismiss-btn">Dismiss</button>
-    </div>
-</div>
 
-<!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
-<div id="videoEndedOverlay">
-    <div class="video-ended-modal">
-        <div class="video-ended-header">
-            <span class="video-ended-pill">VIDEO COMPLETED</span>
-            <h2 id="videoEndedHeaderTitle">Up Next</h2>
-            <div id="videoEndedSubtext">Playing next episode soon...</div>
-        </div>
-
-        <div id="videoEndedNextCard" class="video-ended-next-card" style="display: none;">
-            <div class="video-ended-thumb-wrap">
-                <img id="videoEndedThumb" class="video-ended-thumb" src="" alt="">
-                <div class="video-ended-play-overlay">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M8 5v14l11-7z"/></svg>
+        <div id="videoEndedNextCard" class="video-ended-preview-wrap" style="display: none;">
+            <div class="video-ended-preview-card">
+                <img id="videoEndedThumb" class="video-ended-preview-thumb" src="" alt="">
+                <div class="video-ended-preview-overlay">
+                    <div class="video-ended-preview-play-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
                 </div>
             </div>
-            <div class="video-ended-next-info">
-                <div id="videoEndedNextEp" class="video-ended-next-ep">S1:E2</div>
-                <div id="videoEndedNextTitle" class="video-ended-next-title">Episode Name</div>
-                <div id="videoEndedNextDesc" class="video-ended-next-desc">Description...</div>
-            </div>
-        </div>
-
-        <div class="video-ended-actions">
-            <button id="btnNextEpisode" class="rbtn primary" style="display: none;">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-                <span id="btnNextEpisodeLabel">Next Episode</span>
-            </button>
-            <button id="btnReplay" class="rbtn secondary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                <span>Replay</span>
-            </button>
-            <button id="btnExitPlayer" class="rbtn secondary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                <span>Exit Player</span>
-            </button>
+            <div id="videoEndedNextEp" class="video-ended-ep-badge">S1:E2</div>
+            <div id="videoEndedNextTitle" class="video-ended-ep-title">Episode Name</div>
         </div>
     </div>
 </div>
@@ -187,16 +163,16 @@
     <div class="subsearch-card" onclick="event.stopPropagation()">
         <!-- Header -->
         <div class="subsearch-header">
-            <div style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:14px;">
                 <div class="subsearch-icon-badge">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="13" y2="13"></line></svg>
                 </div>
                 <div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <h3 class="subsearch-title">Search Subtitles</h3>
-                        <span id="subSearchTypeBadge" class="subsearch-tag-pill">Movie</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h3 class="subsearch-title">Search Online Subtitles</h3>
+                        <span id="subSearchTypeBadge" class="subsearch-tag-pill">S01 : E01</span>
                     </div>
-                    <div class="subsearch-subtitle">Search & auto-apply online subtitles</div>
+                    <div class="subsearch-subtitle" id="subSearchSubtitle">Search & auto-apply subtitles for current stream</div>
                 </div>
             </div>
             <button class="subsearch-close-btn" onclick="closeSubSearchModal()" title="Close (Esc)">
@@ -211,12 +187,12 @@
                 <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input id="subSearchQuery" type="text" placeholder="Movie or series title..."
                     class="subsearch-text-input" autocomplete="off" spellcheck="false"
-                    onkeydown="if(event.key === 'Enter') doSubSearch()"
-                    oninput="document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';" />
-                <button id="subSearchClearBtn" class="subsearch-clear-btn" style="display:none;" onclick="document.getElementById('subSearchQuery').value=''; this.style.display='none'; document.getElementById('subSearchQuery').focus();">✕</button>
+                    oninput="updateSubSearchBadge(); document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';"
+                    onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                <button id="subSearchClearBtn" class="subsearch-clear-btn" style="display:none;" onclick="document.getElementById('subSearchQuery').value=''; this.style.display='none'; updateSubSearchBadge(); document.getElementById('subSearchQuery').focus();">✕</button>
             </div>
 
-            <!-- Row 2: Custom Searchable Language Dropdown + Season/Episode inputs + Search Button -->
+            <!-- Row 2: Custom Searchable Language Dropdown + Season/Episode Steppers + Search Button -->
             <div class="subsearch-filter-row">
                 <!-- Custom Glassmorphic Language Selector -->
                 <div class="custom-lang-select-container" id="customLangSelectWrap">
@@ -238,16 +214,20 @@
                 <!-- Hidden native field for value storage -->
                 <input type="hidden" id="subSearchLang" value="en" />
 
-                <!-- Season & Episode inputs -->
-                <div class="subsearch-se-wrapper" id="subSearchSeWrap">
-                    <div class="subsearch-se-input-box" title="Season Number">
-                        <span class="subsearch-se-label">S</span>
-                        <input id="subSearchSeason" type="number" min="0" max="99" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
-                    </div>
-                    <div class="subsearch-se-input-box" title="Episode Number">
-                        <span class="subsearch-se-label">E</span>
-                        <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
-                    </div>
+                <!-- Season Stepper -->
+                <div class="subsearch-stepper" title="Season Number">
+                    <span class="subsearch-stepper-label">S</span>
+                    <button type="button" class="subsearch-step-btn" onclick="stepSubSeason(-1)">−</button>
+                    <input id="subSearchSeason" type="number" min="0" max="99" placeholder="1" class="subsearch-stepper-input" oninput="updateSubSearchBadge()" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    <button type="button" class="subsearch-step-btn" onclick="stepSubSeason(1)">+</button>
+                </div>
+
+                <!-- Episode Stepper -->
+                <div class="subsearch-stepper" title="Episode Number">
+                    <span class="subsearch-stepper-label">E</span>
+                    <button type="button" class="subsearch-step-btn" onclick="stepSubEpisode(-1)">−</button>
+                    <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="1" class="subsearch-stepper-input" oninput="updateSubSearchBadge()" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                    <button type="button" class="subsearch-step-btn" onclick="stepSubEpisode(1)">+</button>
                 </div>
 
                 <!-- Search Button -->
@@ -774,13 +754,6 @@
     </div>
 
 <div id="overlay" class="hide-main-ui">
-    <!-- Click Zones -->
-    <div class="click-zones">
-        <div class="click-zone" id="zoneLeft"></div>
-        <div class="click-zone" id="zoneCenter"></div>
-        <div class="click-zone" id="zoneRight"></div>
-    </div>
-
     <!-- Action Feedback Overlay -->
     <div id="actionFeedback" class="action-feedback">
         <div class="action-icon-wrap" id="actionFeedbackIcon"></div>
@@ -803,7 +776,7 @@
     <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none; z-index: var(--z-player-controls);">
         
         <div class="top-bar" style="pointer-events: auto;">
-            <button class="back-btn" id="backBtn">
+            <button class="back-btn" id="backBtn" data-command="back" title="Back">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             </button>
             <span id="titleDisplay" class="player-title">CloudStream Player</span>
@@ -872,23 +845,23 @@
             <!-- Left: playback controls -->
             <div class="ctrl-group">
                 <!-- Play/Pause -->
-                <button id="playPauseBtn" class="icon-btn large">
+                <button id="playPauseBtn" data-command="togglePlay" class="icon-btn large" title="Play / Pause (Space)">
                     <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%" class="play-pause-svg">
                         <path class="play-path" d="M8 5.14v14l11-7-11-7z" fill="currentColor"/>
                         <path class="pause-path" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
                     </svg>
                 </button>
                 <!-- Skip Back 10s -->
-                <button id="skipBackwardBtn" class="icon-btn" title="Rewind 10s">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>
+                <button id="skipBackwardBtn" data-command="seekBackward" class="icon-btn" title="Rewind 10s (Left Arrow)">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681-.111 1.212-.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>
                 </button>
                 <!-- Skip Forward 10s -->
-                <button id="skipForwardBtn" class="icon-btn" title="Forward 10s">
+                <button id="skipForwardBtn" data-command="seekForward" class="icon-btn" title="Forward 10s (Right Arrow)">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>
                 </button>
                 <!-- Volume -->
                 <div class="vol-group">
-                    <button id="muteBtn" class="icon-btn" title="Mute">
+                    <button id="muteBtn" data-command="toggleMute" class="icon-btn" title="Mute">
                         <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%">
                             <path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293Z" fill="currentColor"/>
                             <path id="volWave1" class="vol-anim" fill-rule="evenodd" clip-rule="evenodd" d="M16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12Z" fill="currentColor"/>
@@ -908,46 +881,46 @@
             <!-- Right: utility buttons -->
             <div class="ctrl-group right">
                 <!-- Next Episode (hidden by default) -->
-                <button id="nextEpBtn" class="icon-btn hidden" title="Next Episode">
+                <button id="nextEpBtn" data-command="nextEp" class="icon-btn hidden" title="Next Episode">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
                 </button>
                 <!-- Episodes -->
-                <button id="episodesBtn" class="icon-btn hidden" title="Episodes">
+                <button id="episodesBtn" data-command="episodes" class="icon-btn hidden" title="Episodes">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
                 </button>
                 <!-- Chapters (hidden by default unless stream has chapters) -->
-                <button id="chaptersBtn" class="icon-btn hidden" title="Chapters">
+                <button id="chaptersBtn" data-command="chapters" class="icon-btn hidden" title="Chapters">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path><path d="M6 6h10"></path><path d="M6 10h10"></path></svg>
                 </button>
                 <!-- Source / Server -->
-                <button id="serversBtn" class="icon-btn" title="Video Sources">
+                <button id="serversBtn" data-command="servers" class="icon-btn" title="Video Sources">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                 </button>
                 <!-- Audio Tracks -->
-                <button id="audioBtn" class="icon-btn" title="Audio Tracks">
+                <button id="audioBtn" data-command="audio" class="icon-btn" title="Audio Tracks">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
                 </button>
                 <!-- Quality -->
-                <button id="qualityBtn" class="icon-btn" title="Video Quality">
+                <button id="qualityBtn" data-command="quality" class="icon-btn" title="Video Quality">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
                 </button>
                 <!-- Aspect Ratio -->
-                <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
+                <button id="aspectBtn" data-command="aspect" class="icon-btn" title="Video Aspect Ratio">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect><path d="M7 12h10"></path></svg>
                 </button>
                 <!-- Playback Speed -->
-                <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 44px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
+                <button id="speedBtn" data-command="speed" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 44px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
                 <!-- Subtitles -->
-                <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
+                <button id="subtitlesBtn" data-command="subtitles" class="icon-btn" title="Subtitles">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 3C1 2.44772 1.44772 2 2 2H22C22.5523 2 23 2.44772 23 3V17C23 17.5523 22.5523 18 22 18H19V21C19 21.3688 18.797 21.7077 18.4719 21.8817C18.1467 22.0557 17.7522 22.0366 17.4453 21.8321L11.6972 18H2C1.44772 18 1 17.5523 1 17V3ZM3 4V16H12H12.3028L12.5547 16.1679L17 19.1315V17V16H18H21V4H3ZM10 9L5 9V7L10 7V9ZM19 11H14V13H19V11ZM12 13L5 13V11L12 11V13ZM19 7H12V9H19V7Z" fill="currentColor"></path></svg>
                 </button>
                 <!-- Settings -->
-                <button id="settingsBtn" class="icon-btn" title="Settings">
+                <button id="settingsBtn" data-command="settings" class="icon-btn" title="Settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </button>
 
                 <!-- Fullscreen -->
-                <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
+                <button id="fullscreenBtn" data-command="toggleFullscreen" class="icon-btn" title="Fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 5a2 2 0 0 1 2-2h7v2H2v4H0V5Zm22 0h-7V3h7a2 2 0 0 1 2 2v4h-2V5ZM2 15v4h7v2H2a2 2 0 0 1-2-2v-4h2Zm20 4v-4h2v4a2 2 0 0 1-2 2h-7v-2h7Z" fill="currentColor"></path></svg>
                 </button>
             </div>
@@ -975,7 +948,7 @@
     <span id="playerHudText"></span>
 </div>
 
-<!-- ── Right-Click Context Menu ──────────────────────────────────────── -->
+<!-- ── Right-Click Context Menu (Hierarchical Desktop Native) ───────── -->
 <div id="contextMenuOverlay">
     <div class="ctx-item" onclick="togglePlayFromContext()">
         <div class="ctx-item-left">
@@ -992,64 +965,53 @@
         <span class="ctx-badge">Shift+N</span>
     </div>
     <div class="ctx-divider"></div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('serversPanel')">
+    <div class="ctx-item" onclick="copyCurrentTimecode()">
         <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
-            <span>Video Sources</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Copy Timecode</span>
+        </div>
+        <span class="ctx-badge" id="ctxCurrentTimecodeBadge">0:00</span>
+    </div>
+    <div class="ctx-item" onclick="copyCurrentStreamUrl()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span>Copy Stream Direct Link</span>
         </div>
     </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('qualityAudioPanel')">
+    <div class="ctx-item" onclick="toggleLoopPlayback()">
         <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            <span>Quality & Resolution</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span>Loop Episode</span>
         </div>
-        <span class="ctx-badge" id="ctxQualityBadge">Auto</span>
-    </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('audioPanel')">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
-            <span>Audio Tracks</span>
-        </div>
-        <span class="ctx-badge">A</span>
-    </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('subsPanel')">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="15" x2="11" y2="15"/><line x1="13" y1="15" x2="17" y2="15"/></svg>
-            <span>Subtitles</span>
-        </div>
-        <span class="ctx-badge">C / V</span>
-    </div>
-    <div class="ctx-item" onclick="closeContextMenu();openSubSearchModal()">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <span>Search Online Subtitles...</span>
-        </div>
-        <span class="ctx-badge">S</span>
-    </div>
-    <div class="ctx-item" onclick="closeContextMenu();send('openLocalSubtitlePicker','')">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>Load Local Subtitle (.srt / .ass)...</span>
-        </div>
+        <span class="ctx-badge" id="ctxLoopBadge">Off</span>
     </div>
     <div class="ctx-divider"></div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('speedPanel')">
+    <div class="ctx-item ctx-has-sub" data-submenu="ctxSub_speed">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>Playback Speed</span>
         </div>
-        <span class="ctx-badge" id="ctxSpeedBadge">1.0x</span>
+        <div class="ctx-item-right">
+            <span class="ctx-badge" id="ctxSpeedBadge">1.0x</span>
+            <span class="ctx-arrow">▸</span>
+        </div>
     </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('aspectPanel')">
+    <div class="ctx-item ctx-has-sub" data-submenu="ctxSub_aspect">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"/></svg>
             <span>Aspect Ratio</span>
         </div>
+        <div class="ctx-item-right">
+            <span class="ctx-arrow">▸</span>
+        </div>
     </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('shadersPanel')">
+    <div class="ctx-item ctx-has-sub" data-submenu="ctxSub_shaders">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>Shaders & Upscaling (Anime4K)</span>
+            <span>Shaders & Upscaling</span>
+        </div>
+        <div class="ctx-item-right">
+            <span class="ctx-arrow">▸</span>
         </div>
     </div>
     <div class="ctx-divider"></div>
@@ -1060,18 +1022,6 @@
         </div>
         <span class="ctx-badge">Shift+D</span>
     </div>
-    <div class="ctx-item" onclick="closeContextMenu();togglePanel('settingsPanel')">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>Player Settings</span>
-        </div>
-    </div>
-    <div class="ctx-item" onclick="copyCurrentTimecode()">
-        <div class="ctx-item-left">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>Copy Timecode</span>
-        </div>
-    </div>
     <div class="ctx-item" onclick="openShortcutsModal()">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/></svg>
@@ -1081,51 +1031,85 @@
     </div>
 </div>
 
-<!-- ── Keyboard Shortcuts Modal ─────────────────────────────────────── -->
+<!-- ── Context Menu Hierarchical Submenus ────────────────────────────── -->
+<div id="ctxSubmenuContainer">
+    <div id="ctxSub_speed" class="ctx-submenu">
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(0.5)">0.5x</div>
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(0.75)">0.75x</div>
+        <div class="ctx-sub-item active" data-speed="1" onclick="setSpeedFromCtx(1.0)">1.0x (Normal)</div>
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(1.25)">1.25x</div>
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(1.5)">1.5x</div>
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(1.75)">1.75x</div>
+        <div class="ctx-sub-item" onclick="setSpeedFromCtx(2.0)">2.0x</div>
+    </div>
+    <div id="ctxSub_aspect" class="ctx-submenu">
+        <div class="ctx-sub-item active" data-aspect="original" onclick="setAspectFromCtx('original')">Original Aspect</div>
+        <div class="ctx-sub-item" data-aspect="16:9" onclick="setAspectFromCtx('16:9')">16:9 Widescreen</div>
+        <div class="ctx-sub-item" data-aspect="4:3" onclick="setAspectFromCtx('4:3')">4:3 Standard</div>
+        <div class="ctx-sub-item" data-aspect="stretch" onclick="setAspectFromCtx('stretch')">Stretch to Fill</div>
+    </div>
+    <div id="ctxSub_shaders" class="ctx-submenu">
+        <div class="ctx-sub-item active" data-shader="none" onclick="setShaderFromCtx('none')">None (Passthrough)</div>
+        <div class="ctx-sub-item" data-shader="Anime4K_Upscale_Denoise_CNN_x2_M" onclick="setShaderFromCtx('Anime4K_Upscale_Denoise_CNN_x2_M')">Anime4K Ultra (2x)</div>
+        <div class="ctx-sub-item" data-shader="FSRCNNX_x2_8-0-4-1" onclick="setShaderFromCtx('FSRCNNX_x2_8-0-4-1')">FSRCNNX Sharp (2x)</div>
+        <div class="ctx-sub-item" data-shader="cas" onclick="setShaderFromCtx('cas')">CAS (Adaptive Sharpen)</div>
+        <div class="ctx-sub-item" data-shader="NVScaler" onclick="setShaderFromCtx('NVScaler')">Nvidia Super Resolution</div>
+    </div>
+</div>
+
+<!-- ── Keyboard Shortcuts Modal (Complete & Categorized) ──────────────── -->
 <div id="shortcutsModalOverlay" onclick="closeShortcutsModal(event)">
     <div class="shortcuts-dialog" onclick="event.stopPropagation()">
         <div class="shortcuts-header">
             <h3>
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-color)" stroke-width="2" width="22" height="22"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/></svg>
-                Keyboard Shortcuts
+                Keyboard Shortcuts Matrix
             </h3>
             <button class="shortcuts-close-btn" onclick="closeShortcutsModal()">&times;</button>
         </div>
         <div class="shortcuts-content">
             <div class="shortcut-group">
                 <div class="shortcut-group-title">Playback & Speed</div>
-                <div class="shortcut-row"><span>Play / Pause</span><span class="kbd">Space</span></div>
-                <div class="shortcut-row"><span>Speed Up (+0.25x)</span><span class="kbd">+</span></div>
-                <div class="shortcut-row"><span>Slow Down (-0.25x)</span><span class="kbd">-</span></div>
+                <div class="shortcut-row"><span>Play / Pause</span><span class="kbd">Space / K</span></div>
+                <div class="shortcut-row"><span>Next Episode</span><span class="kbd">Shift + N</span></div>
+                <div class="shortcut-row"><span>Speed Up (+0.25x)</span><span class="kbd">+ / ]</span></div>
+                <div class="shortcut-row"><span>Slow Down (-0.25x)</span><span class="kbd">- / [</span></div>
                 <div class="shortcut-row"><span>Reset Speed (1.0x)</span><span class="kbd">Backspace</span></div>
-                <div class="shortcut-row"><span>Toggle Fullscreen</span><span class="kbd">F</span></div>
-                <div class="shortcut-row"><span>Exit Player</span><span class="kbd">Esc</span></div>
+                <div class="shortcut-row"><span>Toggle Fullscreen</span><span class="kbd">F / Double-Click</span></div>
+                <div class="shortcut-row"><span>Exit Player / Close Panel</span><span class="kbd">Esc</span></div>
             </div>
             <div class="shortcut-group">
                 <div class="shortcut-group-title">Seeking & Navigation</div>
-                <div class="shortcut-row"><span>Seek ±10s</span><span class="kbd">← / →</span></div>
+                <div class="shortcut-row"><span>Seek ±10s</span><span class="kbd">← / → / J / L</span></div>
                 <div class="shortcut-row"><span>Micro-seek ±2s</span><span class="kbd">Shift + ← / →</span></div>
                 <div class="shortcut-row"><span>Skip Intro / OP (85s)</span><span class="kbd">Ctrl + →</span></div>
                 <div class="shortcut-row"><span>Jump to 0% – 90%</span><span class="kbd">0 – 9</span></div>
+                <div class="shortcut-row"><span>Previous / Next Chapter</span><span class="kbd">PageUp / PageDown</span></div>
             </div>
             <div class="shortcut-group">
                 <div class="shortcut-group-title">Audio & Volume</div>
                 <div class="shortcut-row"><span>Volume ±5%</span><span class="kbd">↑ / ↓</span></div>
+                <div class="shortcut-row"><span>Mouse Wheel Volume</span><span class="kbd">Scroll Anywhere</span></div>
                 <div class="shortcut-row"><span>Mute / Unmute</span><span class="kbd">M</span></div>
                 <div class="shortcut-row"><span>Cycle Audio Tracks</span><span class="kbd">A</span></div>
             </div>
             <div class="shortcut-group">
-                <div class="shortcut-group-title">Subtitles & Sync</div>
-                <div class="shortcut-row"><span>Cycle Subtitles</span><span class="kbd">C</span></div>
-                <div class="shortcut-row"><span>Toggle Visibility</span><span class="kbd">V</span></div>
+                <div class="shortcut-group-title">Subtitles & Live Sync</div>
                 <div class="shortcut-row"><span>Delay Sync (±100ms)</span><span class="kbd">Z / X</span></div>
+                <div class="shortcut-row"><span>Cycle Subtitle Tracks</span><span class="kbd">C</span></div>
+                <div class="shortcut-row"><span>Toggle Visibility</span><span class="kbd">V</span></div>
+                <div class="shortcut-row"><span>Search Subtitles</span><span class="kbd">S</span></div>
+            </div>
+            <div class="shortcut-group">
+                <div class="shortcut-group-title">Diagnostics & Tools</div>
+                <div class="shortcut-row"><span>Stats for Nerds (Bitrate/Dropped)</span><span class="kbd">Shift + D</span></div>
+                <div class="shortcut-row"><span>Context Action Menu</span><span class="kbd">Right Click</span></div>
+                <div class="shortcut-row"><span>This Help Modal</span><span class="kbd">? / F1</span></div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-/* JS_INJECT */
-</script>
+<script src="player.js"></script>
 </body>
 </html>

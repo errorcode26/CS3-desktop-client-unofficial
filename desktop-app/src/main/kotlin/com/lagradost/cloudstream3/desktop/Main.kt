@@ -119,7 +119,10 @@ fun main(args: Array<String> = emptyArray()) {
         val isPipMode by com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.collectAsState()
 
         Window(
-            onCloseRequest = ::exitApplication,
+            onCloseRequest = {
+                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
+                exitApplication()
+            },
             title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
             state = state,
             icon = painterResource("app_icon_small.png"),
@@ -129,7 +132,7 @@ fun main(args: Array<String> = emptyArray()) {
                 com.lagradost.cloudstream3.desktop.init.setNativePipMode(window, isPipMode)
             }
 
-            window.minimumSize = if (isPipMode) java.awt.Dimension(200, 150) else java.awt.Dimension(800, 600)
+            window.minimumSize = if (isPipMode) java.awt.Dimension(280, 180) else java.awt.Dimension(980, 640)
             fullscreenHelper.attachToWindow(window)
             setupWindowBackgroundAndListeners(fullscreenHelper.controller)
             val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()

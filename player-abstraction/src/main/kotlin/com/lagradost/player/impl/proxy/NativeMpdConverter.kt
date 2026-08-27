@@ -77,45 +77,55 @@ class NativeMpdConverter {
         sb.appendLine()
 
         val periods = mpd.getElementsByTagName("Period")
-        val firstPeriod = if (periods.length > 0) periods.item(0) as Element else mpd
-        val adaptationSets = firstPeriod.getElementsByTagName("AdaptationSet")
+        val periodList = if (periods.length > 0) {
+            (0 until periods.length).map { periods.item(it) as Element }
+        } else {
+            listOf(mpd)
+        }
+
         val audioTracks = mutableListOf<String>()
         val lazyAudioTracks = mutableListOf<ProxyTrack>()
+        val seenAudioReps = mutableSetOf<String>()
 
-        // 1. Find Audio Tracks
-        for (i in 0 until adaptationSets.length) {
-            val adapt = adaptationSets.item(i) as Element
-            val adaptMime = adapt.getAttribute("mimeType") ?: ""
-            val contentType = adapt.getAttribute("contentType") ?: ""
+        // 1. Find Audio Tracks across all periods
+        for (period in periodList) {
+            val adaptationSets = period.getElementsByTagName("AdaptationSet")
+            for (i in 0 until adaptationSets.length) {
+                val adapt = adaptationSets.item(i) as Element
+                val adaptMime = adapt.getAttribute("mimeType") ?: ""
+                val contentType = adapt.getAttribute("contentType") ?: ""
 
-            var isAudio = adaptMime.contains("audio") || contentType.contains("audio")
-            if (!isAudio) {
-                val reps = adapt.getElementsByTagName("Representation")
-                for (j in 0 until reps.length) {
-                    val rep = reps.item(j) as Element
-                    val repMime = rep.getAttribute("mimeType") ?: ""
-                    if (repMime.contains("audio")) {
-                        isAudio = true
-                        break
+                var isAudio = adaptMime.contains("audio") || contentType.contains("audio")
+                if (!isAudio) {
+                    val reps = adapt.getElementsByTagName("Representation")
+                    for (j in 0 until reps.length) {
+                        val rep = reps.item(j) as Element
+                        val repMime = rep.getAttribute("mimeType") ?: ""
+                        if (repMime.contains("audio")) {
+                            isAudio = true
+                            break
+                        }
                     }
                 }
-            }
 
-            if (isAudio) {
-                val lang = adapt.getAttribute("lang").takeIf { it.isNotBlank() } ?: "und"
-                val reps = adapt.getElementsByTagName("Representation")
-                for (j in 0 until reps.length) {
-                    val rep = reps.item(j) as Element
-                    val repId = rep.getAttribute("id")
+                if (isAudio) {
+                    val lang = adapt.getAttribute("lang").takeIf { it.isNotBlank() } ?: "und"
+                    val reps = adapt.getElementsByTagName("Representation")
+                    for (j in 0 until reps.length) {
+                        val rep = reps.item(j) as Element
+                        val repId = rep.getAttribute("id")
+                        if (seenAudioReps.contains(repId)) continue
+                        seenAudioReps.add(repId)
 
-                    val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
-                    var mediaUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
-                    if (clearKey != null) mediaUrl += "&ck=$clearKey"
+                        val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
+                        var mediaUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
+                        if (clearKey != null) mediaUrl += "&ck=$clearKey"
 
-                    val isDefault = audioTracks.isEmpty()
-                    sb.appendLine("""#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="$lang",NAME="${lang.uppercase()}",DEFAULT=${if (isDefault) "YES" else "NO"},AUTOSELECT=YES,URI="$mediaUrl"""")
-                    audioTracks.add(repId)
-                    lazyAudioTracks.add(ProxyTrack(mediaUrl, lang.uppercase(), lang))
+                        val isDefault = audioTracks.isEmpty()
+                        sb.appendLine("""#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="$lang",NAME="${lang.uppercase()}",DEFAULT=${if (isDefault) "YES" else "NO"},AUTOSELECT=YES,URI="$mediaUrl"""")
+                        audioTracks.add(repId)
+                        lazyAudioTracks.add(ProxyTrack(mediaUrl, lang.uppercase(), lang))
+                    }
                 }
             }
         }
@@ -123,53 +133,60 @@ class NativeMpdConverter {
         if (audioTracks.isNotEmpty()) sb.appendLine()
 
         val lazyVideoTracks = mutableListOf<ProxyTrack>()
+        val seenVideoReps = mutableSetOf<String>()
 
-        // 2. Find Video Tracks
-        for (i in 0 until adaptationSets.length) {
-            val adapt = adaptationSets.item(i) as Element
-            val adaptMime = adapt.getAttribute("mimeType") ?: ""
-            val contentType = adapt.getAttribute("contentType") ?: ""
-            val adaptWidth = adapt.getAttribute("width") ?: ""
+        // 2. Find Video Tracks across all periods
+        for (period in periodList) {
+            val adaptationSets = period.getElementsByTagName("AdaptationSet")
+            for (i in 0 until adaptationSets.length) {
+                val adapt = adaptationSets.item(i) as Element
+                val adaptMime = adapt.getAttribute("mimeType") ?: ""
+                val contentType = adapt.getAttribute("contentType") ?: ""
+                val adaptWidth = adapt.getAttribute("width") ?: ""
 
-            var isVideo = adaptMime.contains("video") || contentType.contains("video") || adaptWidth.isNotBlank()
-            if (!isVideo) {
-                val reps = adapt.getElementsByTagName("Representation")
-                for (j in 0 until reps.length) {
-                    val rep = reps.item(j) as Element
-                    val repMime = rep.getAttribute("mimeType") ?: ""
-                    if (repMime.contains("video") || rep.getAttribute("width").isNotBlank()) {
-                        isVideo = true
-                        break
+                var isVideo = adaptMime.contains("video") || contentType.contains("video") || adaptWidth.isNotBlank()
+                if (!isVideo) {
+                    val reps = adapt.getElementsByTagName("Representation")
+                    for (j in 0 until reps.length) {
+                        val rep = reps.item(j) as Element
+                        val repMime = rep.getAttribute("mimeType") ?: ""
+                        if (repMime.contains("video") || rep.getAttribute("width").isNotBlank()) {
+                            isVideo = true
+                            break
+                        }
                     }
                 }
-            }
 
-            if (isVideo) {
-                val reps = adapt.getElementsByTagName("Representation")
-                for (j in 0 until reps.length) {
-                    val rep = reps.item(j) as Element
-                    val repId = rep.getAttribute("id")
-                    val bw = rep.getAttribute("bandwidth") ?: "0"
-                    val w = rep.getAttribute("width").takeIf { it.isNotBlank() } ?: adapt.getAttribute("width")
-                    val h = rep.getAttribute("height").takeIf { it.isNotBlank() } ?: adapt.getAttribute("height")
-                    val codecs = rep.getAttribute("codecs").takeIf { it.isNotBlank() } ?: adapt.getAttribute("codecs")
+                if (isVideo) {
+                    val reps = adapt.getElementsByTagName("Representation")
+                    for (j in 0 until reps.length) {
+                        val rep = reps.item(j) as Element
+                        val repId = rep.getAttribute("id")
+                        if (seenVideoReps.contains(repId)) continue
+                        seenVideoReps.add(repId)
 
-                    val attrs = mutableListOf("BANDWIDTH=$bw")
-                    if (w.isNotBlank() && h.isNotBlank()) attrs.add("RESOLUTION=${w}x$h")
-                    if (codecs.isNotBlank()) attrs.add("""CODECS="$codecs"""")
-                    if (audioTracks.isNotEmpty()) attrs.add("""AUDIO="audio"""")
+                        val bw = rep.getAttribute("bandwidth") ?: "0"
+                        val w = rep.getAttribute("width").takeIf { it.isNotBlank() } ?: adapt.getAttribute("width")
+                        val h = rep.getAttribute("height").takeIf { it.isNotBlank() } ?: adapt.getAttribute("height")
+                        val codecs = rep.getAttribute("codecs").takeIf { it.isNotBlank() } ?: adapt.getAttribute("codecs")
 
-                    val name = if (!h.isNullOrBlank()) "${h}p" else "Variant ${bw}kbps"
-                    val bwInt = bw.toIntOrNull()
+                        val attrs = mutableListOf("BANDWIDTH=$bw")
+                        if (w.isNotBlank() && h.isNotBlank()) attrs.add("RESOLUTION=${w}x$h")
+                        if (codecs.isNotBlank()) attrs.add("""CODECS="$codecs"""")
+                        if (audioTracks.isNotEmpty()) attrs.add("""AUDIO="audio"""")
 
-                    val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
-                    var variantUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
-                    if (clearKey != null) variantUrl += "&ck=$clearKey"
+                        val name = if (!h.isNullOrBlank()) "${h}p" else "Variant ${bw}kbps"
+                        val bwInt = bw.toIntOrNull()
 
-                    lazyVideoTracks.add(ProxyTrack(variantUrl, name, "eng", bwInt))
+                        val encodedMpdUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(mpdUrl.toByteArray(Charsets.UTF_8))
+                        var variantUrl = "http://127.0.0.1:$port/proxy?s=$sessionId&u=$encodedMpdUrl&action=dash&rep=$repId"
+                        if (clearKey != null) variantUrl += "&ck=$clearKey"
 
-                    sb.appendLine("#EXT-X-STREAM-INF:${attrs.joinToString(",")}")
-                    sb.appendLine(variantUrl)
+                        lazyVideoTracks.add(ProxyTrack(variantUrl, name, "eng", bwInt))
+
+                        sb.appendLine("#EXT-X-STREAM-INF:${attrs.joinToString(",")}")
+                        sb.appendLine(variantUrl)
+                    }
                 }
             }
         }
@@ -177,6 +194,38 @@ class NativeMpdConverter {
         tracksListener?.onTracksDiscovered(lazyAudioTracks, emptyList(), lazyVideoTracks)
 
         return sb.toString()
+    }
+
+    private fun getFirstDirectChild(parent: Element?, tagName: String): Element? {
+        if (parent == null) return null
+        val children = parent.childNodes
+        for (i in 0 until children.length) {
+            val child = children.item(i)
+            if (child is Element && child.tagName == tagName) return child
+        }
+        return null
+    }
+
+    private fun formatUrlTemplate(template: String, repId: String, bandwidth: String, number: Long, time: Long): String {
+        var res = template
+            .replace("\$RepresentationID\$", repId)
+            .replace("\$Bandwidth\$", bandwidth)
+            .replace("\$Number\$", number.toString())
+            .replace("\$Time\$", time.toString())
+
+        res = res.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
+            val w = match.groupValues[1].toIntOrNull() ?: 1
+            number.toString().padStart(w, '0')
+        }
+        res = res.replace(Regex("\\\$Time%0(\\d+)d\\\$")) { match ->
+            val w = match.groupValues[1].toIntOrNull() ?: 1
+            time.toString().padStart(w, '0')
+        }
+        res = res.replace(Regex("\\\$Bandwidth%0(\\d+)d\\\$")) { match ->
+            val w = match.groupValues[1].toIntOrNull() ?: 1
+            bandwidth.padStart(w, '0')
+        }
+        return res
     }
 
     fun convertMediaPlaylist(
@@ -192,51 +241,12 @@ class NativeMpdConverter {
         val baseUrl = getBaseUrl(mpdUrl)
         val isLive = mpd.getAttribute("type") == "dynamic"
 
-        var targetRep: Element? = null
-        var adaptSet: Element? = null
-
-        val reps = mpd.getElementsByTagName("Representation")
-        for (i in 0 until reps.length) {
-            val rep = reps.item(i) as Element
-            if (rep.getAttribute("id") == repId) {
-                targetRep = rep
-                adaptSet = rep.parentNode as? Element
-                break
-            }
+        val periods = mpd.getElementsByTagName("Period")
+        val periodList = if (periods.length > 0) {
+            (0 until periods.length).map { periods.item(it) as Element }
+        } else {
+            listOf(mpd)
         }
-
-        if (targetRep == null) return ""
-
-        val period = adaptSet?.parentNode as? Element
-
-        fun getFirstDirectChild(parent: Element?, tagName: String): Element? {
-            if (parent == null) return null
-            val children = parent.childNodes
-            for (i in 0 until children.length) {
-                val child = children.item(i)
-                if (child is Element && child.tagName == tagName) return child
-            }
-            return null
-        }
-
-        val template = getFirstDirectChild(targetRep, "SegmentTemplate")
-            ?: getFirstDirectChild(adaptSet, "SegmentTemplate")
-            ?: getFirstDirectChild(period, "SegmentTemplate")
-
-        if (template == null) return "" // We only support SegmentTemplate for now
-
-        val timescale = template.getAttribute("timescale")?.toLongOrNull() ?: 1L
-        val bandwidth = targetRep.getAttribute("bandwidth") ?: adaptSet?.getAttribute("bandwidth") ?: "0"
-        val initAttr = template.getAttribute("initialization")
-            ?.replace("\$RepresentationID\$", repId)
-            ?.replace("\$Bandwidth\$", bandwidth)
-        val mediaAttr = template.getAttribute("media")
-            ?.replace("\$RepresentationID\$", repId)
-            ?.replace("\$Bandwidth\$", bandwidth) ?: ""
-
-        val initUrl = initAttr?.let { resolveUrl(baseUrl, it) }
-
-        val timeline = template.getElementsByTagName("SegmentTimeline").item(0) as? Element
 
         val sb = StringBuilder()
         sb.appendLine("#EXTM3U")
@@ -244,185 +254,247 @@ class NativeMpdConverter {
         sb.appendLine("#EXT-X-INDEPENDENT-SEGMENTS")
 
         val useDecryption = !clearKey.isNullOrBlank()
+        var maxOverallDuration = 0.0
+        val allSegments = mutableListOf<String>()
+        var initHeaderWritten = false
+        var firstPeriodStartSegNum = 1
+        var periodIndex = 0
 
-        if (initUrl != null) {
-            val proxyInitUrl = if (useDecryption) {
-                encodeProxyUrl(port, sessionId, initUrl, "init_decrypt")
-            } else {
-                encodeProxyUrl(port, sessionId, initUrl, "stream")
+        for (period in periodList) {
+            var targetRep: Element? = null
+            var adaptSet: Element? = null
+
+            val reps = period.getElementsByTagName("Representation")
+            for (i in 0 until reps.length) {
+                val rep = reps.item(i) as Element
+                if (rep.getAttribute("id") == repId) {
+                    targetRep = rep
+                    adaptSet = rep.parentNode as? Element
+                    break
+                }
             }
-            sb.appendLine("""#EXT-X-MAP:URI="$proxyInitUrl"""")
+
+            if (targetRep == null) continue
+
+            val template = getFirstDirectChild(targetRep, "SegmentTemplate")
+                ?: getFirstDirectChild(adaptSet, "SegmentTemplate")
+                ?: getFirstDirectChild(period, "SegmentTemplate")
+
+            val segmentList = getFirstDirectChild(targetRep, "SegmentList")
+                ?: getFirstDirectChild(adaptSet, "SegmentList")
+                ?: getFirstDirectChild(period, "SegmentList")
+
+            val bandwidth = targetRep.getAttribute("bandwidth") ?: adaptSet?.getAttribute("bandwidth") ?: "0"
+
+            if (periodIndex > 0 && allSegments.isNotEmpty()) {
+                allSegments.add("#EXT-X-DISCONTINUITY")
+            }
+            periodIndex++
+
+            if (template != null) {
+                val timescale = template.getAttribute("timescale")?.toLongOrNull() ?: 1L
+                val initAttr = template.getAttribute("initialization")
+                    ?.replace("\$RepresentationID\$", repId)
+                    ?.replace("\$Bandwidth\$", bandwidth)
+                val mediaAttr = template.getAttribute("media")
+                    ?.replace("\$RepresentationID\$", repId)
+                    ?.replace("\$Bandwidth\$", bandwidth) ?: ""
+
+                val initUrl = initAttr?.let { resolveUrl(baseUrl, it) }
+
+                if (!initHeaderWritten && initUrl != null) {
+                    val proxyInitUrl = if (useDecryption) {
+                        encodeProxyUrl(port, sessionId, initUrl, "init_decrypt")
+                    } else {
+                        encodeProxyUrl(port, sessionId, initUrl, "stream")
+                    }
+                    sb.appendLine("""#EXT-X-MAP:URI="$proxyInitUrl"""")
+                    initHeaderWritten = true
+                }
+
+                val timeline = template.getElementsByTagName("SegmentTimeline").item(0) as? Element
+
+                if (timeline != null) {
+                    val sElements = timeline.getElementsByTagName("S")
+                    var time = 0L
+                    val startSegNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
+                    var segNum = startSegNum
+                    if (periodIndex == 1) firstPeriodStartSegNum = startSegNum
+
+                    for (i in 0 until sElements.length) {
+                        val s = sElements.item(i) as Element
+                        val t = s.getAttribute("t")?.toLongOrNull()
+                        val d = s.getAttribute("d")?.toLongOrNull() ?: continue
+                        val r = s.getAttribute("r")?.toIntOrNull() ?: 0
+
+                        if (t != null) time = t
+                        val repeat = if (r < 0) 500 else r
+
+                        for (j in 0..repeat) {
+                            val duration = d.toDouble() / timescale.toDouble()
+                            if (duration > maxOverallDuration) maxOverallDuration = duration
+
+                            val segUrl = formatUrlTemplate(mediaAttr, repId, bandwidth, segNum.toLong(), time)
+                            val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
+
+                            val proxySeg = if (useDecryption) {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
+                            } else {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
+                            }
+
+                            allSegments.add("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                            allSegments.add(proxySeg)
+
+                            time += d
+                            segNum++
+                            if (allSegments.size > 4000) break
+                        }
+                        if (allSegments.size > 4000) break
+                    }
+                } else {
+                    val d = template.getAttribute("duration")?.toLongOrNull() ?: 1L
+                    val duration = d.toDouble() / timescale.toDouble()
+                    if (duration > maxOverallDuration) maxOverallDuration = duration
+
+                    if (isLive) {
+                        fun parseIsoInstant(raw: String): Long? {
+                            return try {
+                                java.time.Instant.parse(raw).toEpochMilli()
+                            } catch (_: Exception) {
+                                try {
+                                    java.time.format.DateTimeFormatter.ISO_DATE_TIME.parse(raw, java.time.Instant::from).toEpochMilli()
+                                } catch (_: Exception) { null }
+                            }
+                        }
+
+                        val availStartTimeStr = mpd.getAttribute("availabilityStartTime")
+                        val availStartTime = if (availStartTimeStr.isNotBlank()) parseIsoInstant(availStartTimeStr) else null
+                        val nowMs = System.currentTimeMillis()
+                        val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
+                        if (periodIndex == 1) firstPeriodStartSegNum = startNum
+
+                        val currentLiveSegIndex = if (availStartTime != null && duration > 0.0) {
+                            val elapsedSeconds = (nowMs - availStartTime) / 1000.0
+                            startNum + (elapsedSeconds / duration).toLong()
+                        } else {
+                            startNum.toLong()
+                        }
+
+                        val windowSize = 8
+                        val endSeg = (currentLiveSegIndex - 2).coerceAtLeast(startNum.toLong())
+                        val startSeg = (endSeg - windowSize + 1).coerceAtLeast(startNum.toLong())
+
+                        for (segNum in startSeg..endSeg) {
+                            val time = (segNum - startNum) * d
+                            val segUrl = formatUrlTemplate(mediaAttr, repId, bandwidth, segNum, time)
+                            val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
+
+                            val proxySeg = if (useDecryption) {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
+                            } else {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
+                            }
+
+                            allSegments.add("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                            allSegments.add(proxySeg)
+                        }
+                    } else {
+                        val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
+                        if (periodIndex == 1) firstPeriodStartSegNum = startNum
+
+                        fun parseMpdDuration(raw: String): Double? {
+                            if (!raw.startsWith("PT", ignoreCase = true)) return null
+                            val hoursMatch = Regex("(\\d+(?:\\.\\d+)?)H").find(raw)
+                            val minsMatch = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
+                            val secsMatch = Regex("(\\d+(?:\\.\\d+)?)S").find(raw)
+                            val hours = hoursMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+                            val mins = minsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+                            val secs = secsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+                            val total = hours * 3600.0 + mins * 60.0 + secs
+                            return if (total > 0.0) total else null
+                        }
+
+                        val mpdDurRaw = mpd.getAttribute("mediaPresentationDuration")
+                        val periodDurRaw = period.getAttribute("duration")
+
+                        val totalSecs = parseMpdDuration(mpdDurRaw)
+                            ?: parseMpdDuration(periodDurRaw ?: "")
+                            ?: 0.0
+
+                        val numSegments = if (totalSecs > 0.0 && duration > 0.0) {
+                            ceil(totalSecs / duration).toInt().coerceAtLeast(1)
+                        } else {
+                            500
+                        }
+
+                        var time = 0L
+                        for (i in 0 until numSegments) {
+                            val segNum = startNum + i
+                            val segUrl = formatUrlTemplate(mediaAttr, repId, bandwidth, segNum.toLong(), time)
+                            val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
+
+                            val proxySeg = if (useDecryption) {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
+                            } else {
+                                encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
+                            }
+
+                            allSegments.add("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                            allSegments.add(proxySeg)
+                            time += d
+                        }
+                    }
+                }
+            } else if (segmentList != null) {
+                // SegmentList fallback support
+                val timescale = segmentList.getAttribute("timescale")?.toLongOrNull() ?: 1L
+                val durationAttr = segmentList.getAttribute("duration")?.toLongOrNull() ?: 1L
+                val duration = durationAttr.toDouble() / timescale.toDouble()
+                if (duration > maxOverallDuration) maxOverallDuration = duration
+
+                val initEl = getFirstDirectChild(segmentList, "Initialization")
+                val initUrl = initEl?.getAttribute("sourceURL")?.let { resolveUrl(baseUrl, it) }
+
+                if (!initHeaderWritten && initUrl != null) {
+                    val proxyInitUrl = if (useDecryption) {
+                        encodeProxyUrl(port, sessionId, initUrl, "init_decrypt")
+                    } else {
+                        encodeProxyUrl(port, sessionId, initUrl, "stream")
+                    }
+                    sb.appendLine("""#EXT-X-MAP:URI="$proxyInitUrl"""")
+                    initHeaderWritten = true
+                }
+
+                val segUrls = segmentList.getElementsByTagName("SegmentURL")
+                for (k in 0 until segUrls.length) {
+                    val segUrlEl = segUrls.item(k) as Element
+                    val mediaRel = segUrlEl.getAttribute("media") ?: continue
+                    val absUrl = resolveUrl(baseUrl, mediaRel)
+
+                    val proxySeg = if (useDecryption) {
+                        encodeProxyUrl(port, sessionId, absUrl, "decrypt", clearKey, initUrl)
+                    } else {
+                        encodeProxyUrl(port, sessionId, absUrl, "stream")
+                    }
+
+                    allSegments.add("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
+                    allSegments.add(proxySeg)
+                }
+            }
         }
 
-        if (timeline != null) {
-            // SegmentTimeline processing
-            val sElements = timeline.getElementsByTagName("S")
-            var time = 0L
-            val startSegNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
-            var segNum = startSegNum
+        val targetDuration = ceil(if (maxOverallDuration > 0.0) maxOverallDuration else DEFAULT_TARGET_DURATION.toDouble()).toInt()
+        sb.appendLine("#EXT-X-TARGETDURATION:$targetDuration")
 
-            val segments = mutableListOf<String>()
-            var maxDuration = 0.0
-
-            for (i in 0 until sElements.length) {
-                val s = sElements.item(i) as Element
-                val t = s.getAttribute("t")?.toLongOrNull()
-                val d = s.getAttribute("d")?.toLongOrNull() ?: continue
-                val r = s.getAttribute("r")?.toIntOrNull() ?: 0
-
-                if (t != null) time = t
-                val repeat = if (r < 0) 500 else r
-
-                for (j in 0..repeat) {
-                    val duration = d.toDouble() / timescale.toDouble()
-                    if (duration > maxDuration) maxDuration = duration
-
-                    var segUrl = mediaAttr
-                        .replace("\$Number\$", segNum.toString())
-                        .replace("\$Time\$", time.toString())
-
-                    segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
-                        val w = match.groupValues[1].toIntOrNull() ?: 1
-                        segNum.toString().padStart(w, '0')
-                    }
-                    val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
-
-                    val proxySeg = if (useDecryption) {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
-                    } else {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
-                    }
-
-                    segments.add("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
-                    segments.add(proxySeg)
-
-                    time += d
-                    segNum++
-                    if (segments.size > 2000) break
-                }
-                if (segments.size > 2000) break
-            }
-
-            sb.appendLine("#EXT-X-TARGETDURATION:${ceil(maxDuration).toInt()}")
-            if (isLive && segments.size > 16) {
-                val windowSegments = segments.takeLast(12) // 6 chunks (each chunk = 2 lines)
-                val windowStartSegNum = (segNum - 6).coerceAtLeast(startSegNum)
-                sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$windowStartSegNum")
-                windowSegments.forEach { sb.appendLine(it) }
-            } else {
-                if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSegNum")
-                segments.forEach { sb.appendLine(it) }
-            }
+        if (isLive && allSegments.size > 20) {
+            val windowSegments = allSegments.takeLast(16)
+            val windowStartSeq = (firstPeriodStartSegNum + (allSegments.size / 2) - 8).coerceAtLeast(firstPeriodStartSegNum)
+            sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$windowStartSeq")
+            windowSegments.forEach { sb.appendLine(it) }
         } else {
-            // Duration-based processing
-            val d = template.getAttribute("duration")?.toLongOrNull() ?: 1L
-            val duration = d.toDouble() / timescale.toDouble()
-
-            if (isLive) {
-                fun parseIsoInstant(raw: String): Long? {
-                    return try {
-                        java.time.Instant.parse(raw).toEpochMilli()
-                    } catch (_: Exception) {
-                        try {
-                            java.time.format.DateTimeFormatter.ISO_DATE_TIME.parse(raw, java.time.Instant::from).toEpochMilli()
-                        } catch (_: Exception) { null }
-                    }
-                }
-
-                val availStartTimeStr = mpd.getAttribute("availabilityStartTime")
-                val availStartTime = if (availStartTimeStr.isNotBlank()) parseIsoInstant(availStartTimeStr) else null
-                val nowMs = System.currentTimeMillis()
-                val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
-
-                val currentLiveSegIndex = if (availStartTime != null && duration > 0.0) {
-                    val elapsedSeconds = (nowMs - availStartTime) / 1000.0
-                    startNum + (elapsedSeconds / duration).toLong()
-                } else {
-                    startNum.toLong()
-                }
-
-                // Provide a sliding window of 6 segments leading up to the live edge (with a 2-segment safety buffer)
-                val windowSize = 6
-                val endSeg = (currentLiveSegIndex - 2).coerceAtLeast(startNum.toLong())
-                val startSeg = (endSeg - windowSize + 1).coerceAtLeast(startNum.toLong())
-
-                sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
-                sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$startSeg")
-
-                for (segNum in startSeg..endSeg) {
-                    val time = (segNum - startNum) * d
-                    var segUrl = mediaAttr
-                        .replace("\$Number\$", segNum.toString())
-                        .replace("\$Time\$", time.toString())
-
-                    segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
-                        val w = match.groupValues[1].toIntOrNull() ?: 1
-                        segNum.toString().padStart(w, '0')
-                    }
-                    val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
-
-                    val proxySeg = if (useDecryption) {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
-                    } else {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
-                    }
-
-                    sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
-                    sb.appendLine(proxySeg)
-                }
-            } else {
-                sb.appendLine("#EXT-X-TARGETDURATION:${ceil(duration).toInt()}")
-                val startNum = template.getAttribute("startNumber")?.toIntOrNull() ?: 1
-
-                fun parseMpdDuration(raw: String): Double? {
-                    if (!raw.startsWith("PT", ignoreCase = true)) return null
-                    val hoursMatch = Regex("(\\d+(?:\\.\\d+)?)H").find(raw)
-                    val minsMatch = Regex("(\\d+(?:\\.\\d+)?)M").find(raw)
-                    val secsMatch = Regex("(\\d+(?:\\.\\d+)?)S").find(raw)
-                    val hours = hoursMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-                    val mins = minsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-                    val secs = secsMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
-                    val total = hours * 3600.0 + mins * 60.0 + secs
-                    return if (total > 0.0) total else null
-                }
-
-                val mpdDurRaw = mpd.getAttribute("mediaPresentationDuration")
-                val periodDurRaw = period?.getAttribute("duration")
-
-                val totalSecs = parseMpdDuration(mpdDurRaw)
-                    ?: parseMpdDuration(periodDurRaw ?: "")
-                    ?: 0.0
-
-                val numSegments = if (totalSecs > 0.0 && duration > 0.0) {
-                    ceil(totalSecs / duration).toInt() + 1
-                } else {
-                    500
-                }
-
-                var time = 0L
-                for (i in 0 until numSegments) {
-                    val segNum = startNum + i
-                    var segUrl = mediaAttr
-                        .replace("\$Number\$", segNum.toString())
-                        .replace("\$Time\$", time.toString())
-
-                    segUrl = segUrl.replace(Regex("\\\$Number%0(\\d+)d\\\$")) { match ->
-                        val w = match.groupValues[1].toIntOrNull() ?: 1
-                        segNum.toString().padStart(w, '0')
-                    }
-                    val absoluteSegUrl = resolveUrl(baseUrl, segUrl)
-
-                    val proxySeg = if (useDecryption) {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "decrypt", clearKey, initUrl)
-                    } else {
-                        encodeProxyUrl(port, sessionId, absoluteSegUrl, "stream")
-                    }
-
-                    sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", duration)},")
-                    sb.appendLine(proxySeg)
-                    time += d
-                }
-            }
+            if (isLive) sb.appendLine("#EXT-X-MEDIA-SEQUENCE:$firstPeriodStartSegNum")
+            allSegments.forEach { sb.appendLine(it) }
         }
 
         if (!isLive) sb.appendLine("#EXT-X-ENDLIST")

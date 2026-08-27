@@ -40,6 +40,10 @@ data class PlayerUiSyncState(
     val currentChapterIndex: Int = -1,
     val activeSkipInterval: SkipIntervalPayload? = null,
     val skipIntervals: List<SkipIntervalPayload> = emptyList(),
+    val isLive: Boolean = false,
+    val countdownToNextEpisode: Int? = null,
+    val accentColor: String? = null,
+    val accentColorRgb: String? = null,
 )
 
 data class SkipIntervalPayload(

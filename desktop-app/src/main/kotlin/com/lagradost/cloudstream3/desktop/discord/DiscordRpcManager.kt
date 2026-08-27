@@ -25,7 +25,7 @@ object DiscordRpcManager {
 
     sealed interface PresenceState {
         data object None : PresenceState
-        data class Browsing(val screen: String) : PresenceState
+        data class Browsing(val screen: String, val extra: String? = null) : PresenceState
         data class Playing(
             val title: String,
             val episodeInfo: String?,
@@ -34,6 +34,7 @@ object DiscordRpcManager {
             val isPaused: Boolean,
             val posterUrl: String? = null,
             val isFullscreen: Boolean = false,
+            val isLive: Boolean = false,
         ) : PresenceState
     }
 
@@ -46,6 +47,7 @@ object DiscordRpcManager {
     private var lastPlayingEpisode: String? = null
     private var lastPlayingPaused: Boolean? = null
     private var lastPlayingPositionSec: Long = -1L
+    private var lastPlayingDurationSec: Long = -1L
     private var lastPlayingTimestampMs: Long = 0L
     private var lastPlayingFullscreen: Boolean = false
 
@@ -95,10 +97,10 @@ object DiscordRpcManager {
         }
     }
 
-    fun updateBrowsing(screen: String) {
+    fun updateBrowsing(screen: String, extra: String? = null) {
         val isEnabled = isRpcEnabled()
         val showBrowsing = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_DISCORD_RPC_SHOW_BROWSING) ?: true
-        AppLogger.d(TAG, "updateBrowsing('$screen') enabled=$isEnabled showBrowsing=$showBrowsing")
+        AppLogger.d(TAG, "updateBrowsing('$screen', extra='$extra') enabled=$isEnabled showBrowsing=$showBrowsing")
         if (!isEnabled || !showBrowsing) {
             if (currentState is PresenceState.Browsing) {
                 currentState = PresenceState.None
@@ -106,7 +108,7 @@ object DiscordRpcManager {
             }
             return
         }
-        val newState = PresenceState.Browsing(screen)
+        val newState = PresenceState.Browsing(screen, extra)
         currentState = newState
         updateChannel.trySend(newState)
     }
@@ -118,6 +120,7 @@ object DiscordRpcManager {
         durationSeconds: Long,
         isPaused: Boolean,
         posterUrl: String? = null,
+        isLive: Boolean = false,
     ) {
         if (!isRpcEnabled()) {
             currentState = PresenceState.None
@@ -128,18 +131,18 @@ object DiscordRpcManager {
         val now = System.currentTimeMillis()
         val isMediaChanged = title != lastPlayingTitle || episodeInfo != lastPlayingEpisode
         val isPauseChanged = isPaused != lastPlayingPaused
-        // Tighter seek threshold (3s) for faster Discord bar correction
+        val isDurationChanged = durationSeconds > 0 && durationSeconds != lastPlayingDurationSec
         val elapsedSec = if (lastPlayingTimestampMs > 0 && !isPaused) (now - lastPlayingTimestampMs) / 1000L else 0L
         val expectedPosSec = lastPlayingPositionSec + elapsedSec
-        val isSeekDetected = lastPlayingPositionSec >= 0 && kotlin.math.abs(positionSeconds - expectedPosSec) >= 3L
-        // Always re-anchor when resuming from pause so the progress bar resets correctly
+        val isSeekDetected = lastPlayingPositionSec >= 0 && kotlin.math.abs(positionSeconds - expectedPosSec) >= 2L
         val isResuming = lastSentIsPaused == true && !isPaused
 
-        if (isMediaChanged || isPauseChanged || isSeekDetected || isResuming || lastPlayingPositionSec < 0) {
-            AppLogger.d(TAG, "updatePlaying: title='$title' ep='$episodeInfo' pos=${positionSeconds}s paused=$isPaused")
+        if (isMediaChanged || isPauseChanged || isDurationChanged || isSeekDetected || isResuming || lastPlayingPositionSec < 0) {
+            AppLogger.d(TAG, "updatePlaying: title='$title' ep='$episodeInfo' pos=${positionSeconds}s dur=${durationSeconds}s live=$isLive paused=$isPaused")
             lastPlayingTitle = title
             lastPlayingEpisode = episodeInfo
             lastPlayingPaused = isPaused
+            lastPlayingDurationSec = durationSeconds
             lastPlayingPositionSec = positionSeconds
             lastPlayingTimestampMs = now
 
@@ -151,6 +154,7 @@ object DiscordRpcManager {
                 isPaused = isPaused,
                 posterUrl = posterUrl,
                 isFullscreen = lastPlayingFullscreen,
+                isLive = isLive,
             )
             currentState = newState
             updateChannel.trySend(newState)
@@ -175,6 +179,7 @@ object DiscordRpcManager {
         lastPlayingEpisode = null
         lastPlayingPaused = null
         lastPlayingPositionSec = -1L
+        lastPlayingDurationSec = -1L
         lastPlayingTimestampMs = 0L
         lastSentIsPaused = null
 
@@ -212,6 +217,7 @@ object DiscordRpcManager {
     fun shutdown() {
         try {
             client.clearActivity()
+            Thread.sleep(60)
         } catch (_: Exception) {}
         try {
             client.close()
@@ -300,8 +306,19 @@ object DiscordRpcManager {
 
         when (state) {
             is PresenceState.Browsing -> {
-                activityMap["type"] = 3 // WATCHING
-                activityMap["details"] = "Browsing ${state.screen}".limit(128)
+                activityMap["type"] = 0 // PLAYING
+                val detailsText = when (state.screen.lowercase()) {
+                    "settings" -> "Tuning the flux capacitor"
+                    "search" -> "Searching for something to watch for 45 minutes"
+                    "extensions" -> "Hoarding every plugin in existence"
+                    "history", "watch history" -> "Revisiting past life choices"
+                    "library" -> "Organizing the watchlist archive"
+                    "explore", "explore & catalogs" -> "Scouring the global catalog"
+                    "details" -> if (!state.extra.isNullOrBlank()) "Deciding if '${state.extra}' is worth 2 hours" else "Deciding if this title is worth 2 hours"
+                    else -> "Doom-scrolling through movies"
+                }
+                activityMap["details"] = detailsText.limit(128)
+                activityMap["state"] = "CloudStream Desktop"
                 // Timestamps: Discord expects UNIX seconds, not milliseconds
                 activityMap["timestamps"] = mapOf("start" to sessionStartEpochSec)
                 activityMap["assets"] = mapOf(
@@ -324,17 +341,21 @@ object DiscordRpcManager {
                 val nowSec = System.currentTimeMillis() / 1000L
                 val fsSuffix = if (state.isFullscreen) " (Fullscreen)" else ""
 
-                if (state.isPaused) {
+                if (state.isLive) {
+                    val liveState = if (state.isPaused) "🔴 Live Stream • Paused" else "🔴 Live Stream"
+                    activityMap["state"] = ((if (episodeText != null) "$episodeText • $liveState" else liveState) + fsSuffix).limit(128)
+                    if (!state.isPaused) {
+                        // Live streams count elapsed watching time
+                        activityMap["timestamps"] = mapOf("start" to (nowSec - state.positionSeconds.coerceAtLeast(0)))
+                    }
+                } else if (state.isPaused) {
                     val timeInfo = if (state.durationSeconds > 0) {
                         "${formatDuration(state.positionSeconds)} / ${formatDuration(state.durationSeconds)} • Paused"
                     } else {
                         "Paused"
                     }
                     activityMap["state"] = ((if (episodeText != null) "$episodeText • $timeInfo" else timeInfo) + fsSuffix).limit(128)
-                    // Frozen timestamp: start is anchored at the current playback position
-                    // Discord shows elapsed from start which equals positionSeconds and stays static
-                    // We use a past anchor point far enough that the progress bar reads the right position
-                    activityMap["timestamps"] = mapOf("start" to (nowSec - state.positionSeconds))
+                    // When paused, do NOT set timestamps so Discord's internal live timer stays static
                 } else {
                     if (episodeText != null) {
                         activityMap["state"] = (episodeText + fsSuffix).limit(128)
@@ -357,6 +378,7 @@ object DiscordRpcManager {
                     assetsMap["small_image"] = DEFAULT_ASSET_KEY
 
                     val statusText = when {
+                        state.isLive -> "🔴 Live Broadcast"
                         state.isPaused -> "Paused"
                         state.isFullscreen -> "Watching in Fullscreen"
                         else -> "CloudStream Desktop"

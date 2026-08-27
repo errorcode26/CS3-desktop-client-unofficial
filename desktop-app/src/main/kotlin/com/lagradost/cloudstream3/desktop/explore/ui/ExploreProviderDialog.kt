@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,14 +37,17 @@ import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.utils.ExtractorLink
 
 @Composable
 fun ExploreProviderDialog(
     item: ExploreItem?,
     matches: List<ProviderMatch>,
+    stremioStreams: List<ExtractorLink> = emptyList(),
     isSearching: Boolean,
     onDismissRequest: () -> Unit,
     onOpenDetails: (providerName: String, url: String, title: String) -> Unit,
+    onPlayDirectStream: ((ExtractorLink, ExploreItem) -> Unit)? = null,
 ) {
     if (item == null) return
 
@@ -84,6 +88,8 @@ fun ExploreProviderDialog(
                         color = theme.TextPrimary,
                     )
 
+                    val totalCount = matches.size + stremioStreams.size
+
                     // Results status pill
                     if (isSearching) {
                         Surface(
@@ -100,9 +106,9 @@ fun ExploreProviderDialog(
                                     modifier = Modifier.size(10.dp),
                                     strokeWidth = 1.5.dp,
                                     color = MaterialTheme.colorScheme.primary,
-                                )
+                                    )
                                 Text(
-                                    text = "Searching extensions...",
+                                    text = if (totalCount > 0) "$totalCount Found (Searching...)" else "Searching extensions & addons...",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary,
@@ -116,7 +122,7 @@ fun ExploreProviderDialog(
                             border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFF10B981).copy(alpha = 0.4f)),
                         ) {
                             Text(
-                                text = "${matches.size} Streams Found",
+                                text = "$totalCount Streams Found",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF34D399),
@@ -242,7 +248,7 @@ fun ExploreProviderDialog(
                         .weight(0.68f)
                         .fillMaxHeight(),
                 ) {
-                    if (isSearching && matches.isEmpty()) {
+                    if (isSearching && matches.isEmpty() && stremioStreams.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -261,14 +267,14 @@ fun ExploreProviderDialog(
                                     strokeWidth = 3.dp,
                                 )
                                 Text(
-                                    text = "Searching active extensions for matching streams...",
+                                    text = "Searching extensions & addons for matching streams...",
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = theme.TextMuted,
                                 )
                             }
                         }
-                    } else if (!isSearching && matches.isEmpty()) {
+                    } else if (!isSearching && matches.isEmpty() && stremioStreams.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -295,7 +301,7 @@ fun ExploreProviderDialog(
                                     color = theme.TextPrimary,
                                 )
                                 Text(
-                                    text = "Try installing additional provider extensions in Extensions tab or search directly.",
+                                    text = "Try installing additional provider extensions or Stremio stream addons in Settings.",
                                     fontSize = 12.5.sp,
                                     color = theme.TextMuted,
                                 )
@@ -306,6 +312,42 @@ fun ExploreProviderDialog(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
+                            // Section 1: Direct Stremio Streams (if any)
+                            if (stremioStreams.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "DIRECT STREMIO STREAMS (${stremioStreams.size})",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF10B981),
+                                        letterSpacing = 0.5.sp,
+                                        modifier = Modifier.padding(bottom = 2.dp, top = 2.dp),
+                                    )
+                                }
+
+                                items(stremioStreams) { stream ->
+                                    StremioStreamMatchRow(
+                                        stream = stream,
+                                        onPlay = { onPlayDirectStream?.invoke(stream, item) },
+                                    )
+                                }
+
+                                if (matches.isNotEmpty()) {
+                                    item {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "MATCHING EXTENSIONS (${matches.size})",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = theme.TextMuted,
+                                            letterSpacing = 0.5.sp,
+                                            modifier = Modifier.padding(bottom = 2.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Section 2: Matching Extensions
                             items(matches) { match ->
                                 ProviderMatchRow(
                                     match = match,
@@ -446,6 +488,107 @@ private fun ProviderMatchRow(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         modifier = Modifier.size(13.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StremioStreamMatchRow(
+    stream: ExtractorLink,
+    onPlay: () -> Unit,
+) {
+    val theme = LocalDesktopTheme.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .border(
+                0.5.dp,
+                if (isHovered) Color(0xFF10B981).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.12f),
+                RoundedCornerShape(10.dp),
+            )
+            .hoverable(interactionSource)
+            .clickable(onClick = onPlay),
+        color = if (isHovered) Color(0xFF10B981).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Stremio Badge Pill
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF10B981).copy(alpha = 0.20f))
+                        .border(0.5.dp, Color(0xFF10B981).copy(alpha = 0.55f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = stream.source,
+                        color = Color(0xFF10B981),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                // Stream Label
+                Text(
+                    text = stream.name,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = theme.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+
+                // Quality Badge
+                val qualText = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(stream.quality)
+                if (qualText.isNotBlank()) {
+                    DesktopBadgeComponents.QualityBadge(quality = qualText)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Play Now Button
+            Button(
+                onClick = onPlay,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.Black,
+                ),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        text = "Play Stream",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
                     )
                 }
             }

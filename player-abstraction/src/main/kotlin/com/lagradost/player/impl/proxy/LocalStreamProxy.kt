@@ -11,6 +11,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondBytesWriter
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.writeFully
@@ -80,6 +81,11 @@ object LocalStreamProxy {
         val mpdCache: java.util.concurrent.ConcurrentHashMap<String, String> = java.util.concurrent.ConcurrentHashMap(),
     )
 
+    // Fast in-memory init segment cache (10 minutes TTL)
+    data class InitCacheEntry(val data: ByteArray, val timestamp: Long)
+    private val initSegmentCache = java.util.concurrent.ConcurrentHashMap<String, InitCacheEntry>()
+    private const val INIT_CACHE_TTL_MS = 600_000L // 10 minutes
+
     // Capped LRU cache to prevent memory leaks from abandoned video sessions
     private val sessions = java.util.Collections.synchronizedMap(
         object : java.util.LinkedHashMap<String, ProxySession>(100, 0.75f, true) {
@@ -91,12 +97,13 @@ object LocalStreamProxy {
 
     private val proxyClient by lazy {
         app.baseClient.newBuilder()
-            .followRedirects(false)
-            .followSslRedirects(false)
-            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .fastFallback(true)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .connectionPool(okhttp3.ConnectionPool(128, 300, java.util.concurrent.TimeUnit.SECONDS))
             .dispatcher(
                 okhttp3.Dispatcher().apply {
@@ -111,6 +118,7 @@ object LocalStreamProxy {
     private val imageProxyClient by lazy {
         val cacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache_http").also { it.mkdirs() }
         app.baseClient.newBuilder()
+            .fastFallback(true)
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -135,6 +143,54 @@ object LocalStreamProxy {
                 get("/image") {
                     handleImageRequest(call)
                 }
+                get("/trailer") {
+                    val id = call.request.queryParameters["id"] ?: ""
+                    val u = call.request.queryParameters["u"] ?: ""
+                    val html = if (id.isNotBlank()) {
+                        """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <meta name="referrer" content="strict-origin-when-cross-origin">
+                            <style>
+                                * { margin: 0; padding: 0; box-sizing: border-box; }
+                                html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+                                iframe { width: 100%; height: 100%; border: none; }
+                            </style>
+                        </head>
+                        <body>
+                            <iframe
+                                src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&fs=1"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                                allowfullscreen="true"
+                                referrerpolicy="strict-origin-when-cross-origin">
+                            </iframe>
+                        </body>
+                        </html>
+                        """.trimIndent()
+                    } else {
+                        """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                * { margin: 0; padding: 0; box-sizing: border-box; }
+                                html, body { width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+                                video { width: 100%; height: 100%; object-fit: contain; }
+                            </style>
+                        </head>
+                        <body>
+                            <video src="$u" autoplay muted controls playsinline></video>
+                        </body>
+                        </html>
+                        """.trimIndent()
+                    }
+                    call.respondText(html, ContentType.Text.Html)
+                }
             }
         }.start(wait = false)
 
@@ -148,6 +204,7 @@ object LocalStreamProxy {
         server?.stop(1000, 2000)
         server = null
         sessions.clear()
+        initSegmentCache.clear()
     }
 
     fun registerSession(headers: Map<String, String>): String {
@@ -332,6 +389,15 @@ object LocalStreamProxy {
                 }
             }
 
+            if (action == "init_decrypt" || action == "init") {
+                val cached = initSegmentCache[url]
+                if (cached != null && System.currentTimeMillis() - cached.timestamp < INIT_CACHE_TTL_MS) {
+                    call.response.header("Content-Type", "video/mp4")
+                    call.respondBytes(cached.data, status = HttpStatusCode.OK)
+                    return
+                }
+            }
+
             if (action == "dash" && rep != null) {
                 val cachedMpd = session.mpdCache[url]
                 val isLive = cachedMpd?.contains("type=\"dynamic\"") == true || cachedMpd?.contains("type='dynamic'") == true
@@ -446,6 +512,7 @@ object LocalStreamProxy {
                 }
                 response.body?.close()
                 val cleaned = StreamDecryptor.cleanInitSegment(rawBytes)
+                initSegmentCache[url] = InitCacheEntry(cleaned, System.currentTimeMillis())
                 call.response.header("Content-Type", "video/mp4")
                 call.respondBytes(cleaned, status = HttpStatusCode.OK)
                 return

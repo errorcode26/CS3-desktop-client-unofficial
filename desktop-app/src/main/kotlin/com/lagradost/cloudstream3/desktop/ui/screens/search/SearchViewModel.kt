@@ -1,12 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search
 
-import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
+import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
-import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_ACTIVE_PROVIDERS
-import com.lagradost.cloudstream3.desktop.ui.screens.home.isRealProvider
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiState
@@ -20,7 +18,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
 private const val PREF_SEARCH_HISTORY = "search_history"
 private const val MAX_HISTORY_SIZE = 20
 
@@ -32,10 +29,23 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     private var lastSearchedQuery: String = ""
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
-            val activeProviders = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
-            val selectedProviderName = activeProviders?.firstOrNull() ?: DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER)
-            updateState { copy(selectedProviderName = selectedProviderName) }
+        // Collect real providers reactively
+        viewModelScope.launch {
+            ActiveProviderRepository.allRealProviders.collectLatest { providers ->
+                updateState { copy(providers = providers) }
+            }
+        }
+
+        // Collect current selected provider reactively from the shared domain repository
+        viewModelScope.launch {
+            ActiveProviderRepository.currentSelectedProvider.collectLatest { provider ->
+                updateState {
+                    copy(
+                        selectedProviderName = provider?.name,
+                        selectedProviderSource = provider?.sourcePlugin,
+                    )
+                }
+            }
         }
 
         // Load search history
@@ -44,16 +54,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
             updateState { copy(searchHistory = history) }
         }
 
-        viewModelScope.launch {
-            uiState.map { it.selectedProviderName }.distinctUntilChanged().collect { providerName ->
-                providerName?.let { name ->
-                    withContext(Dispatchers.IO) {
-                        DesktopDataStore.setKey(PREF_SELECTED_PROVIDER, name)
-                    }
-                }
-            }
-        }
-
+        // Debounced search query
         viewModelScope.launch {
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             uiState.map { it.searchQuery }
@@ -69,16 +70,10 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 }
         }
 
+        // Remote plugin icons
         viewModelScope.launch {
             DesktopRepositoryManager.remotePluginIcons.collectLatest { icons ->
                 updateState { copy(pluginIcons = icons) }
-            }
-        }
-
-        viewModelScope.launch {
-            DesktopRepositoryManager.syncGeneration.collectLatest {
-                val providers = APIHolder.allProviders.filter { it.isRealProvider() }
-                updateState { copy(providers = providers) }
             }
         }
     }
@@ -102,7 +97,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 }
             }
             is SearchUiEvent.OnProviderSelected -> {
-                updateState { copy(selectedProviderName = event.providerName, selectedProviderSource = event.sourcePlugin) }
+                ActiveProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin)
                 if (!uiState.value.isGlobalSearchEnabled && uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -165,9 +160,11 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
                     providers.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
                 } else {
+                    val selName = uiState.value.selectedProviderName
+                    val selSource = uiState.value.selectedProviderSource
                     val active = providers.find {
-                        it.name == uiState.value.selectedProviderName &&
-                            (uiState.value.selectedProviderSource == null || it.sourcePlugin == uiState.value.selectedProviderSource)
+                        (selName != null && (it.name == selName || it.name == selName.substringAfter("::"))) &&
+                            (selSource == null || it.sourcePlugin == selSource)
                     } ?: providers.firstOrNull()
                     active?.let { listOf(it) } ?: emptyList()
                 }

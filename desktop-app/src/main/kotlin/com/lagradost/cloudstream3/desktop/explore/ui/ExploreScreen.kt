@@ -35,12 +35,15 @@ import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescript
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.EXPLORE_YEAR_OPTIONS
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel
+import com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer
+import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.common.storage.WatchHistory
 
 @Composable
 fun ExploreScreen(
@@ -48,6 +51,7 @@ fun ExploreScreen(
     onNavigate: (Config) -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
+    val playVideo = LocalVideoPlayer.current
     val uiState by viewModel.uiState.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
 
@@ -354,7 +358,11 @@ fun ExploreScreen(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         contentPadding = PaddingValues(bottom = 28.dp),
                     ) {
-                        items(uiState.displayItems, key = { it.id }) { item ->
+                        items(
+                            count = uiState.displayItems.size,
+                            key = { index -> "${uiState.displayItems[index].id}_$index" },
+                        ) { index ->
+                            val item = uiState.displayItems[index]
                             ExplorePosterCard(
                                 item = item,
                                 onClick = { viewModel.onEvent(ExploreUiEvent.OpenProviderPicker(item)) },
@@ -369,6 +377,7 @@ fun ExploreScreen(
         ExploreProviderDialog(
             item = uiState.selectedItemForMatch,
             matches = uiState.providerMatches,
+            stremioStreams = uiState.stremioStreamMatches,
             isSearching = uiState.isSearchingProviders,
             onDismissRequest = { viewModel.onEvent(ExploreUiEvent.CloseProviderPicker) },
             onOpenDetails = { providerName, url, title ->
@@ -378,6 +387,32 @@ fun ExploreScreen(
                         providerName = providerName,
                         url = url,
                         preloadedName = title,
+                    )
+                )
+            },
+            onPlayDirectStream = { stream, item ->
+                viewModel.onEvent(ExploreUiEvent.CloseProviderPicker)
+                playVideo(
+                    VideoLaunchData(
+                        links = listOf(stream),
+                        initialIndex = 0,
+                        title = item.name,
+                        subtitles = emptyList(),
+                        startPositionMs = 0L,
+                        history = WatchHistory(
+                            parentId = "stremio_${item.id}",
+                            showName = item.name,
+                            showUrl = item.id,
+                            apiName = stream.source,
+                            posterUrl = item.posterUrl ?: item.backgroundUrl,
+                            episodeThumbnailUrl = null,
+                            screenshotUrl = null,
+                            episode = if (item.type.equals("series", ignoreCase = true)) 1 else null,
+                            season = if (item.type.equals("series", ignoreCase = true)) 1 else null,
+                            episodeId = item.id,
+                            position = 0L,
+                            duration = 0L,
+                        ),
                     )
                 )
             },

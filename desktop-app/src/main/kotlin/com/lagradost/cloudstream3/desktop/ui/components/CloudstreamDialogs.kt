@@ -113,6 +113,7 @@ fun CloudstreamCustomDialog(
     show: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    containerColor: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val transitionState = remember { MutableTransitionState(false) }
@@ -130,6 +131,8 @@ fun CloudstreamCustomDialog(
     if (isVisible) {
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
         val isAmoled = appThemeBackground == "Pure Black"
+        val effectiveColor = containerColor ?: (if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface)
+        val showBorder = isAmoled && containerColor == null
 
         Dialog(
             onDismissRequest = onDismissRequest,
@@ -142,9 +145,9 @@ fun CloudstreamCustomDialog(
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface,
+                    color = effectiveColor,
                     contentColor = if (isAmoled) Color.White else androidx.compose.material3.contentColorFor(MaterialTheme.colorScheme.surface),
-                    modifier = modifier.then(if (isAmoled) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
+                    modifier = modifier.then(if (showBorder) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)) else Modifier),
                 ) {
                     content()
                 }

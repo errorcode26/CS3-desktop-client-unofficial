@@ -63,6 +63,18 @@ class DefaultRootComponent(
                     title = config.title,
                 ),
             )
+            is Config.Person -> RootComponent.Child.Person(
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.PersonComponent(
+                    componentContext = componentContext,
+                    config = config,
+                ),
+            )
+            is Config.Studio -> RootComponent.Child.Studio(
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.StudioComponent(
+                    componentContext = componentContext,
+                    config = config,
+                ),
+            )
         }
 
     override fun push(config: Config) {

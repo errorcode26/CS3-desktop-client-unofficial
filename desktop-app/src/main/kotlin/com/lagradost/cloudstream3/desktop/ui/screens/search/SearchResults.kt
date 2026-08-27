@@ -69,6 +69,7 @@ fun SearchResults(
                         val defaultMin = when (gridScale) {
                             "Compact" -> 150.dp
                             "Large" -> 220.dp
+
                             else -> 190.dp
                         }
                         if (hasLandscapeItems) (defaultMin * 1.45f) else defaultMin
@@ -102,7 +103,7 @@ fun SearchResults(
                         verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(items.size, key = { index -> items[index].url }) { index ->
+                        items(items.size, key = { index -> "${items[index].url}_$index" }) { index ->
                             val item = items[index]
                             val heroMeta = heroMetaMap[item.url]
                             PosterCard(
@@ -165,7 +166,7 @@ fun SearchResults(
                                 rowContentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                                 itemSpacing = if (isCompact) 8.dp else 12.dp,
                             ) {
-                                items(items.size, key = { itemIdx -> items[itemIdx].url }) { itemIdx ->
+                                items(items.size, key = { itemIdx -> "${items[itemIdx].url}_$itemIdx" }) { itemIdx ->
                                     val item = items[itemIdx]
                                     val heroMeta = heroMetaMap[item.url]
                                     val isLand = item.type == TvType.Live || item.posterHeaders?.containsKey("landscape") == true

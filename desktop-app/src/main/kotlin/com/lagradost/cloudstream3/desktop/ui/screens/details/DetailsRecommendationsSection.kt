@@ -101,7 +101,12 @@ fun DetailsRecommendationsSection(
                 }
             },
         ) {
-            items(validRecs.take(18), key = { "${it.apiName}_${it.url}" }) { rec ->
+            val displayRecs = validRecs.take(18)
+            items(
+                count = displayRecs.size,
+                key = { index -> "${displayRecs[index].apiName}_${displayRecs[index].url}_$index" },
+            ) { index ->
+                val rec = displayRecs[index]
                 val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName)
                 if (recProvider != null) {
                     PosterCard(

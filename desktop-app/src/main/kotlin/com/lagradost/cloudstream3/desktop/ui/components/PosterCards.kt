@@ -141,6 +141,11 @@ fun PosterCard(
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
 
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnPlayClick by rememberUpdatedState(onPlayClick)
+    val currentItem by rememberUpdatedState(item)
+    val currentProvider by rememberUpdatedState(provider)
+
     Column(modifier = modifier.width(width)) {
         Box {
             if (isHovered && posterHoverGlowEnabled) {
@@ -174,13 +179,13 @@ fun PosterCard(
                                     if (event.button == PointerButton.Secondary) {
                                         GlobalContextMenuState.showForPoster(
                                             bounds = bounds,
-                                            item = item,
-                                            provider = provider,
-                                            onClick = onClick,
-                                            onPlayClick = onPlayClick,
+                                            item = currentItem,
+                                            provider = currentProvider,
+                                            onClick = currentOnClick,
+                                            onPlayClick = currentOnPlayClick,
                                         )
                                     } else if (event.button == PointerButton.Primary) {
-                                        onClick()
+                                        currentOnClick()
                                     }
                                 }
                             }
@@ -196,7 +201,7 @@ fun PosterCard(
                         .aspectRatio(effectiveAspectRatio),
                 ) {
                     if (imgUrl != null) {
-                        // Actual poster — Crop to fill the entire box with explicit downsampled memory footprint
+                        // Crop to fill the entire box with explicit downsampled memory footprint
                         val context = coil3.compose.LocalPlatformContext.current
                         val imageRequest = remember(imgUrl) {
                             coil3.request.ImageRequest.Builder(context)
@@ -662,25 +667,14 @@ fun BoxScope.PosterBadges(
         )
     }
 
-    // Rating Resolution
+    // Rating Resolution - Use provider native score or cached rating without firing background queries
     val nativeScore = item.score?.let { score ->
         val v = score.toFloat(10).toDouble()
         if (v > 0.0) v else null
     }
 
-    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
-    val verifiedRating = remember(meta.displayTitle, ratingsSignal) {
+    val verifiedRating = remember(meta.displayTitle) {
         FastRatingEnricher.getCachedRating(meta.displayTitle)
-    }
-
-    LaunchedEffect(meta.displayTitle, ratingPolicy) {
-        if (ratingPolicy != RatingSourcePolicy.SCRAPER_NATIVE && verifiedRating == null) {
-            FastRatingEnricher.requestRatingAsync(
-                cleanTitle = meta.displayTitle,
-                isAnime = isAnime,
-                isSeries = item.type == com.lagradost.cloudstream3.TvType.TvSeries || item.type == com.lagradost.cloudstream3.TvType.Anime,
-            )
-        }
     }
 
     val effectiveRating = when (ratingPolicy) {

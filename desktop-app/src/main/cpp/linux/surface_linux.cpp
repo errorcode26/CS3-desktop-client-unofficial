@@ -80,7 +80,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 }
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_warmupWebView2(
-    JNIEnv* env, jobject thiz)
+    JNIEnv* env, jobject thiz, jstring controlsUrl)
 {
 }
 

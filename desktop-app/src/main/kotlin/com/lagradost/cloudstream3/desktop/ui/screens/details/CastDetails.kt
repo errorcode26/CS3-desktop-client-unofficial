@@ -97,7 +97,13 @@ fun CastDetailsDialog(
                 val d = details ?: return@Box
                 val coroutineScope = rememberCoroutineScope()
 
-                Column(modifier = Modifier.fillMaxSize()) {
+                val mainScrollState = rememberScrollState()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(mainScrollState),
+                ) {
                     // Header with image and basic info
                     Row(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                         if (d.profilePath != null) {
@@ -149,7 +155,6 @@ fun CastDetailsDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
                             .padding(24.dp),
                     ) {
                         if (d.biography != null) {
@@ -157,13 +162,10 @@ fun CastDetailsDialog(
                             Spacer(modifier = Modifier.height(12.dp))
                             var isBioExpanded by remember { mutableStateOf(false) }
                             var showReadMoreButton by remember { mutableStateOf(false) }
-                            val scrollState = rememberScrollState()
 
                             Column(
                                 modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .verticalScroll(scrollState)
-                                    .padding(end = 12.dp)
+                                    .fillMaxWidth()
                                     .animateContentSize(),
                             ) {
                                 Text(
@@ -171,7 +173,7 @@ fun CastDetailsDialog(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     lineHeight = 22.sp,
-                                    maxLines = if (isBioExpanded) Int.MAX_VALUE else 4,
+                                    maxLines = if (isBioExpanded) Int.MAX_VALUE else 5,
                                     overflow = TextOverflow.Ellipsis,
                                     onTextLayout = { textLayoutResult ->
                                         if (!isBioExpanded && textLayoutResult.hasVisualOverflow) {

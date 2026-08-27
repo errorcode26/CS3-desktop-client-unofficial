@@ -183,13 +183,17 @@ class DesktopMpvEngine(
             val command = "loadfile \"$url\" replace"
             MpvLibrary.INSTANCE.mpv_command_string(handle, command)
 
-            // Inject subtitles
-            subtitles.forEach { sub ->
-                if (sub.url.isNotBlank()) {
-                    val subCommand = "sub-add \"${sub.url}\" auto \"${sub.lang ?: ""}\""
+            // Inject subtitles with deduplication
+            subtitles
+                .filter { it.url.isNotBlank() }
+                .distinctBy { it.url.trim().lowercase() }
+                .forEach { sub ->
+                    val cleanUrl = sub.url.trim()
+                    val escapedSub = cleanUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val subCommand = "sub-add \"$escapedSub\" auto \"$escapedTitle\""
                     MpvLibrary.INSTANCE.mpv_command_string(handle, subCommand)
                 }
-            }
         }
     }
 

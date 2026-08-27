@@ -353,23 +353,43 @@ class DetailsViewModel(
         val data = uiState.value.response ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
-            DesktopDataStore.removeEpisodeWatched(parentId, ep.data)
+            val currentDataUrl = data.url
+            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
+            val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
+
+            DesktopDataStore.removeEpisodeWatched(currentParentId, ep.data)
+            if (fallbackParentId != currentParentId) {
+                DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
+            }
         }
     }
 
     private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val parentId = DesktopDataStore.watchHistoryId(
+            val currentDataUrl = data.url
+            val currentParentId = DesktopDataStore.watchHistoryId(
                 apiName = provider.name,
-                showUrl = data.url,
+                showUrl = currentDataUrl,
             )
-            val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+            val fallbackParentId = DesktopDataStore.watchHistoryId(
+                apiName = provider.name,
+                showUrl = url,
+            )
+
+            if (!isWatched) {
+                DesktopDataStore.removeEpisodeWatched(currentParentId, ep.data)
+                if (fallbackParentId != currentParentId) {
+                    DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
+                }
+                return@launch
+            }
+
+            val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
+                ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
             val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
-            val newPos = if (isWatched) dur else 0L
             val history = WatchHistory(
-                parentId = parentId,
+                parentId = currentParentId,
                 showName = data.name,
                 showUrl = data.url,
                 apiName = provider.name,
@@ -379,46 +399,45 @@ class DetailsViewModel(
                 episode = ep.episode,
                 season = ep.season,
                 episodeId = ep.data,
-                position = newPos,
+                position = dur,
                 duration = dur,
             )
             DesktopDataStore.setLastWatched(history)
 
-            if (isWatched) {
-                val allEps = when (data) {
-                    is TvSeriesLoadResponse -> data.episodes
-                    is AnimeLoadResponse -> data.episodes.values.flatten()
-                    else -> emptyList()
-                }
-                val currentIdx = allEps.indexOfFirst { it.data == ep.data }
-                if (currentIdx != -1 && currentIdx + 1 < allEps.size) {
-                    val nextEp = allEps[currentIdx + 1]
-                    val existingNext = DesktopDataStore.getEpisodeWatched(parentId, nextEp.data)
-                    if (existingNext == null) {
-                        val nextEpHistory = WatchHistory(
-                            parentId = parentId,
-                            showName = data.name,
-                            showUrl = data.url,
-                            apiName = provider.name,
-                            posterUrl = data.posterUrl,
-                            episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
-                            screenshotUrl = null,
-                            episode = nextEp.episode,
-                            season = nextEp.season,
-                            episodeId = nextEp.data,
-                            position = 0,
-                            duration = 0,
+            val allEps = when (data) {
+                is TvSeriesLoadResponse -> data.episodes
+                is AnimeLoadResponse -> data.episodes.values.flatten()
+                else -> emptyList()
+            }
+            val currentIdx = allEps.indexOfFirst { it.data == ep.data }
+            if (currentIdx != -1 && currentIdx + 1 < allEps.size) {
+                val nextEp = allEps[currentIdx + 1]
+                val existingNext = DesktopDataStore.getEpisodeWatched(currentParentId, nextEp.data)
+                    ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, nextEp.data)
+                if (existingNext == null) {
+                    val nextEpHistory = WatchHistory(
+                        parentId = currentParentId,
+                        showName = data.name,
+                        showUrl = data.url,
+                        apiName = provider.name,
+                        posterUrl = data.posterUrl,
+                        episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
+                        screenshotUrl = null,
+                        episode = nextEp.episode,
+                        season = nextEp.season,
+                        episodeId = nextEp.data,
+                        position = 0,
+                        duration = 0,
+                        updateTime = System.currentTimeMillis() + 1000,
+                    )
+                    DesktopDataStore.setLastWatched(nextEpHistory)
+                } else if (existingNext.position < (existingNext.duration * 0.9)) {
+                    DesktopDataStore.setLastWatched(
+                        existingNext.copy(
                             updateTime = System.currentTimeMillis() + 1000,
-                        )
-                        DesktopDataStore.setLastWatched(nextEpHistory)
-                    } else if (existingNext.position < (existingNext.duration * 0.9)) {
-                        DesktopDataStore.setLastWatched(
-                            existingNext.copy(
-                                updateTime = System.currentTimeMillis() + 1000,
-                                episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
-                            ),
-                        )
-                    }
+                            episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
+                        ),
+                    )
                 }
             }
         }
@@ -427,7 +446,9 @@ class DetailsViewModel(
     private fun handleToggleSeasonWatched(episodes: List<Episode>, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val parentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
+            val currentDataUrl = data.url
+            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
+            val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
 
             if (isWatched) {
                 // Marking as watched. Save backup of current states.
@@ -439,11 +460,12 @@ class DetailsViewModel(
                     if (hist != null) {
                         newBackupMap[ep.data] = hist
                     }
-                    val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+                    val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
+                        ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
                     val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
                     historiesToSave.add(
                         WatchHistory(
-                            parentId = parentId,
+                            parentId = currentParentId,
                             showName = data.name,
                             showUrl = data.url,
                             apiName = provider.name,
@@ -470,11 +492,12 @@ class DetailsViewModel(
                     val lastIdx = allEps.indexOfFirst { it.data == lastWatchedEp.data }
                     if (lastIdx != -1 && lastIdx + 1 < allEps.size) {
                         val nextEp = allEps[lastIdx + 1]
-                        val existingNext = DesktopDataStore.getEpisodeWatched(parentId, nextEp.data)
+                        val existingNext = DesktopDataStore.getEpisodeWatched(currentParentId, nextEp.data)
+                            ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, nextEp.data)
                         if (existingNext == null) {
                             historiesToSave.add(
                                 WatchHistory(
-                                    parentId = parentId,
+                                    parentId = currentParentId,
                                     showName = data.name,
                                     showUrl = data.url,
                                     apiName = provider.name,
@@ -513,7 +536,7 @@ class DetailsViewModel(
                         val dur = if (backup.duration > 0L) backup.duration else 60L
                         historiesToRestore.add(
                             WatchHistory(
-                                parentId = parentId,
+                                parentId = currentParentId,
                                 showName = data.name,
                                 showUrl = data.url,
                                 apiName = provider.name,
@@ -531,8 +554,15 @@ class DetailsViewModel(
                         episodesToRemove.add(ep.data)
                     }
                 }
-                DesktopDataStore.setMultipleLastWatched(historiesToRestore)
-                DesktopDataStore.removeMultipleEpisodesWatched(parentId, episodesToRemove)
+                if (historiesToRestore.isNotEmpty()) {
+                    DesktopDataStore.setMultipleLastWatched(historiesToRestore)
+                }
+                if (episodesToRemove.isNotEmpty()) {
+                    DesktopDataStore.removeMultipleEpisodesWatched(currentParentId, episodesToRemove)
+                    if (fallbackParentId != currentParentId) {
+                        DesktopDataStore.removeMultipleEpisodesWatched(fallbackParentId, episodesToRemove)
+                    }
+                }
                 updateState { copy(backupSeasonHistory = emptyMap()) }
             }
         }

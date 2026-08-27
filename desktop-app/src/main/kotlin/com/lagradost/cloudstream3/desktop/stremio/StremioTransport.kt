@@ -48,4 +48,11 @@ object StremioTransport {
         val encodedId = URLEncoder.encode(id, "UTF-8").replace("+", "%20")
         return "$baseUrl/meta/$type/$encodedId.json$query"
     }
+
+    fun buildStreamUrl(manifestUrl: String, type: String, id: String): String {
+        val baseUrl = getBaseUrl(manifestUrl)
+        val query = getQueryParams(manifestUrl)
+        val encodedId = URLEncoder.encode(id, "UTF-8").replace("+", "%20")
+        return "$baseUrl/stream/$type/$encodedId.json$query"
+    }
 }

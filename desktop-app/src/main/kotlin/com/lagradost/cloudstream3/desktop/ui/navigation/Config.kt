@@ -20,4 +20,15 @@ sealed class Config {
         val providerName: String,
         val title: String,
     ) : Config()
+    data class Person(
+        val name: String,
+        val image: String? = null,
+        val tmdbId: Int? = null,
+    ) : Config()
+    data class Studio(
+        val name: String,
+        val companyId: Int? = null,
+        val logoUrl: String? = null,
+        val originCountry: String? = null,
+    ) : Config()
 }

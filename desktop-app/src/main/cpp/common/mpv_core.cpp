@@ -33,13 +33,10 @@ void dispatchPlayerEvent(const std::wstring& message) {
     if (!g_jvm || !g_listener || !g_listenerMethod) return;
 
     JNIEnv* env = nullptr;
-    bool didAttach = false;
     jint getEnvStat = g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
     
     if (getEnvStat == JNI_EDETACHED) {
-        if (g_jvm->AttachCurrentThread((void**)&env, nullptr) == JNI_OK) {
-            didAttach = true;
-        } else {
+        if (g_jvm->AttachCurrentThreadAsDaemon((void**)&env, nullptr) != JNI_OK) {
             return;
         }
     } else if (getEnvStat == JNI_EVERSION) {
@@ -51,10 +48,6 @@ void dispatchPlayerEvent(const std::wstring& message) {
     env->CallVoidMethod(g_listener, g_listenerMethod, jType, jVal);
     env->DeleteLocalRef(jType);
     env->DeleteLocalRef(jVal);
-
-    if (didAttach) {
-        g_jvm->DetachCurrentThread();
-    }
 }
 
 extern "C" {

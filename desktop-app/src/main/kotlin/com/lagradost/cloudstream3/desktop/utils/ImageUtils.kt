@@ -33,14 +33,15 @@ object ImageUtils {
     }
 
     /**
-     * Upgrades backdrop / hero banner URLs to full crisp 1080p/w1280 resolution.
+     * Upgrades backdrop / hero banner URLs to full uncompressed original 4K/1080p resolution.
      */
     fun enhanceBackdropUrl(url: String?): String? {
         if (url.isNullOrBlank()) return null
         if (url.contains("image.tmdb.org/t/p/")) {
-            return url.replace("/w300/", "/w1280/")
-                .replace("/w500/", "/w1280/")
-                .replace("/w780/", "/w1280/")
+            return url.replace("/w300/", "/original/")
+                .replace("/w500/", "/original/")
+                .replace("/w780/", "/original/")
+                .replace("/w1280/", "/original/")
         }
         return enhancePosterUrl(url)
     }

@@ -43,6 +43,17 @@ class RateLimitInterceptor(private val minDelayMs: Long = 500L) : okhttp3.Interc
         }
 
         val host = request.url.host
+        val hostLower = host.lowercase()
+
+        // Skip rate-limiting for fast, high-capacity metadata CDNs and local endpoints
+        if (hostLower.contains("themoviedb.org") || hostLower.contains("tmdb.org") ||
+            hostLower.contains("strem.io") || hostLower.contains("anilist.co") ||
+            hostLower.contains("kitsu.io") || hostLower.contains("fanart.tv") ||
+            hostLower.contains("github.com") || hostLower.contains("githubusercontent.com") ||
+            hostLower.contains("127.0.0.1") || hostLower.contains("localhost")) {
+            return chain.proceed(request)
+        }
+
         val lock = hostLocks.getOrPut(host) { Any() }
 
         synchronized(lock) {
@@ -172,9 +183,9 @@ object NetworkConfig {
         val baseBuilder = app.baseClient.newBuilder()
             .followRedirects(true)
             .followSslRedirects(true)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(12, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
             .cookieJar(cookieJar)
 
         // Apply DoH Provider

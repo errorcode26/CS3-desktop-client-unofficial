@@ -102,6 +102,7 @@ fun BaseMpvPlayer(
     subtitles: List<com.lagradost.cloudstream3.SubtitleFile>,
     startPositionMs: Long,
     shouldPauseForResume: Boolean = false,
+    isLive: Boolean = false,
     onPlaybackReady: () -> Unit,
     onPlaybackError: (String) -> Unit,
     onFinished: () -> Unit,
@@ -123,6 +124,7 @@ fun BaseMpvPlayer(
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     var hasEverPlayed by remember { mutableStateOf(false) }
+    var hasFiredFinished by remember { mutableStateOf(false) }
     var showShortcutsModal by remember { mutableStateOf(false) }
     // Guards against false-positive onPlaybackReady after a stop()+loadfile sequence.
     // Set to true just before loadfile, cleared on MPV_EVENT_START_FILE.
@@ -353,15 +355,8 @@ fun BaseMpvPlayer(
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Playback active (MPV_EVENT_FILE_LOADED / RESTART)")
 
                                         if (startPositionMs > 2000L) {
-                                            val isSeekable = MpvLibrary.getPropertyString(h, "seekable") != "no"
-                                            if (!isSeekable && startPositionMs >= 10_000L) {
-                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream reports seekable=no and resume was requested at $startPositionMs ms. Notifying failover to next candidate link...")
-                                                currentOnPlaybackError("Stream is non-seekable (Cannot resume from saved position)")
-                                                break
-                                            }
-
-                                            val currentLoadedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
                                             val targetSec = startPositionMs / 1000.0
+                                            val currentLoadedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
                                             if (currentLoadedPos < 1.0 || kotlin.math.abs(currentLoadedPos - targetSec) > 3.0) {
                                                 com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial start position ($targetSec s) not reached by demuxer (current=$currentLoadedPos s). Executing fallback seek...")
                                                 val seekRes = MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute+exact")
@@ -370,21 +365,6 @@ fun BaseMpvPlayer(
                                                 }
                                             }
                                             playerState?._positionMs?.value = startPositionMs
-
-                                            // Thread verification check after brief buffer phase
-                                            Thread({
-                                                try {
-                                                    Thread.sleep(600)
-                                                    val verifiedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
-                                                    if (verifiedPos < 1.0 && startPositionMs >= 3000L) {
-                                                        com.lagradost.common.logging.AppLogger.w("Player:MPV", "Initial start position retry: still at $verifiedPos s. Re-attempting seek to $targetSec s")
-                                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute")
-                                                    }
-                                                } catch (_: InterruptedException) { }
-                                            }, "cs3-seek-verify").apply {
-                                                isDaemon = true
-                                                start()
-                                            }
                                         } else if (startPositionMs > 0) {
                                             com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial playback started at $startPositionMs ms")
                                             playerState?._positionMs?.value = startPositionMs
@@ -472,6 +452,13 @@ fun BaseMpvPlayer(
                                                         playerState?._isProbing?.value = prop.data!!.getInt(0) != 0
                                                     }
                                                 }
+                                                "eof-reached" -> {
+                                                    if (prop.format == 3 && prop.data!!.getInt(0) != 0 && hasEverPlayed && !hasFiredFinished) {
+                                                        hasFiredFinished = true
+                                                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "EOF reached via eof-reached property.")
+                                                        currentOnFinished()
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -518,6 +505,17 @@ fun BaseMpvPlayer(
                                 // Refresh buffer indicator
                                 MpvLibrary.getPropertyString(h, "paused-for-cache")?.let { s ->
                                     playerState?._isBuffering?.value = s == "yes"
+                                }
+
+                                // Robust EOF fallback in case property events were dropped
+                                if (!hasFiredFinished && hasEverPlayed && lastDur > 5.0) {
+                                    val isEofReached = MpvLibrary.getPropertyString(h, "eof-reached") == "yes"
+                                    val isAtEnd = lastPos >= (lastDur - 0.5)
+                                    if (isEofReached || isAtEnd) {
+                                        hasFiredFinished = true
+                                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "EOF detected in poll loop (isEof=$isEofReached, isAtEnd=$isAtEnd, pos=$lastPos, dur=$lastDur)")
+                                        currentOnFinished()
+                                    }
                                 }
                             }
                         }
@@ -566,10 +564,11 @@ fun BaseMpvPlayer(
         }
     }
 
-    LaunchedEffect(link, mpvHandle) {
+    LaunchedEffect(link, title, startPositionMs, mpvHandle) {
         // Reset guards IMMEDIATELY so the concurrent event loop never sees stale state
         // from the previous link attempt when event 8 fires for the new link.
         hasEverPlayed = false
+        hasFiredFinished = false
         waitingForTimePosReset = true
 
         val handle = mpvHandle ?: return@LaunchedEffect
@@ -634,7 +633,7 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(
                     handle,
                     "demuxer-lavf-o",
-                    "extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=4xx",
+                    "extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=2,reconnect_on_http_error=5xx",
                 )
                 // Allow demuxer to seek ahead aggressively:
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
@@ -650,7 +649,7 @@ fun BaseMpvPlayer(
                 val lavfDashOpts = buildString {
                     // Reconnect on HTTP errors. Commas MUST be avoided in the value to prevent
                     // corrupting MPV's option parser (which uses commas to separate key=val pairs).
-                    append("extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=4xx")
+                    append("extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=2,reconnect_on_http_error=5xx")
                     if (validated.clearKeyHex != null) {
                         append(",cenc_decryption_key=${validated.clearKeyHex}")
                     }
@@ -668,18 +667,18 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(
                     handle,
                     "demuxer-lavf-o",
-                    "extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=4xx",
+                    "extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=2,reconnect_on_http_error=5xx",
                 )
                 // Stream-level reconnect is critical for live MPEG-TS over HTTP.
                 // Setting method=GET prevents Cloudflare Workers from returning 403 Forbidden to HEAD requests.
                 lib.mpv_set_property_string(
                     handle,
                     "stream-lavf-o",
-                    "reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,method=GET",
+                    "reconnect=1,reconnect_streamed=1,reconnect_delay_max=2,method=GET",
                 )
-                // MKV/MP4 files from CDNs like Pixeldrain often use one-time download links.
-                // Seeking forces MPV to open a new HTTP connection with a Range header, which returns 404.
-                // By massively increasing the buffer and forcing seekable-cache, MPV can seek entirely in memory!
+                // Binary media files from direct file hosts often use single-token download links.
+                // Seeking can force the player to open new HTTP connections with Range headers that might expire.
+                // By massively increasing the buffer and enabling seekable-cache, playback seeks smoothly in memory!
                 lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000") // 400MB forward
                 lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "100000000") // 100MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
@@ -782,33 +781,38 @@ fun BaseMpvPlayer(
             null
         }
 
-        val finalSubtitles = subtitles.map { sub ->
-            var fixedUrl = sub.url
-            if (fixedUrl.contains("*") && videoUrlHost != null) {
-                try {
-                    val subUri = java.net.URI(fixedUrl)
-                    if (subUri.host?.contains("*") == true) {
-                        fixedUrl = fixedUrl.replace(subUri.host, videoUrlHost)
+        val finalSubtitles = subtitles
+            .filter { it.url.isNotBlank() }
+            .distinctBy { it.url.trim().lowercase() }
+            .map { sub ->
+                var fixedUrl = sub.url.trim()
+                if (fixedUrl.contains("*") && videoUrlHost != null) {
+                    try {
+                        val subUri = java.net.URI(fixedUrl)
+                        if (subUri.host?.contains("*") == true) {
+                            fixedUrl = fixedUrl.replace(subUri.host, videoUrlHost)
+                        }
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.w("Failed to parse subtitle URI: $fixedUrl", e)
                     }
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.w("Failed to parse subtitle URI: $fixedUrl", e)
+                }
+                if (sessionId != null) {
+                    sub.copy(url = com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, fixedUrl))
+                } else {
+                    sub.copy(url = fixedUrl)
                 }
             }
-            if (sessionId != null) {
-                sub.copy(url = com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(sessionId, fixedUrl))
-            } else {
-                sub.copy(url = fixedUrl)
-            }
-        }
         val capturedHandle = handle
 
         // Let MPV handle network timeouts natively (8s aggressive timeout)
         lib.mpv_set_property_string(capturedHandle, "network-timeout", "8")
 
         launch(kotlinx.coroutines.Dispatchers.IO) {
-            val defaultSub = finalSubtitles.firstOrNull()
+            val addedUrls = mutableSetOf<String>()
             finalSubtitles.forEach { sub ->
-                if (mpvHandle != null) {
+                val urlKey = sub.url.trim().lowercase()
+                if (mpvHandle != null && urlKey !in addedUrls) {
+                    addedUrls.add(urlKey)
                     val escapedSub = sub.url.replace("\\", "\\\\").replace("\"", "\\\"")
                     val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
                     try {
@@ -957,31 +961,9 @@ fun BaseMpvPlayer(
                             if (mpvKey?.contains("QUIT_OVERRIDE") == true || e.keyCode == KeyEvent.VK_ESCAPE) {
                                 currentOnCloseRequest()
                             } else if (mpvKey != null) {
-                                val lower = mpvKey.lowercase()
-                                when {
-                                    lower == "space" || lower == "k" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
-                                    lower == "left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
-                                    lower == "right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
-                                    lower == "shift+left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -2")
-                                    lower == "shift+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 2")
-                                    lower == "ctrl+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 85")
-                                    lower == "up" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume 5")
-                                    lower == "down" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume -5")
-                                    lower == "m" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
-                                    lower == "+" || lower == "=" || lower == "]" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed 0.25")
-                                    lower == "-" || lower == "_" || lower == "[" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed -0.25")
-                                    lower == "bs" || lower == "backspace" -> MpvLibrary.INSTANCE.mpv_command_string(h, "set speed 1.0")
-                                    lower == "z" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay -0.1")
-                                    lower == "x" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay 0.1")
-                                    lower == "c" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
-                                    lower == "v" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
-                                    lower == "f" || lower == "f11" -> currentOnFullscreenToggle?.invoke()
-                                    lower == "?" || lower == "f1" || lower == "h" -> currentOnShowShortcuts()
-                                    lower.length == 1 && lower[0].isDigit() -> {
-                                        val pct = (lower[0] - '0') * 10
-                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek $pct absolute-percent")
-                                    }
-                                }
+                                // We only handle Escape and QUIT natively, all other shortcuts
+                                // (Space, Arrows, M, F, etc.) are handled by the web UI (player.js)
+                                // to prevent double-triggering commands (e.g. double-toggling pause).
                             }
                         }
                     }

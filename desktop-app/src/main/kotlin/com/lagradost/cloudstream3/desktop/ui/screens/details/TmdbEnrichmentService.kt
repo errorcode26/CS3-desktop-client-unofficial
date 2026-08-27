@@ -128,6 +128,288 @@ object TmdbEnrichmentService {
         }
     }
 
+    suspend fun fetchPersonDetail(
+        name: String,
+        tmdbId: Int? = null,
+    ): com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val resolvedId = if (tmdbId != null && tmdbId > 0) {
+                    tmdbId
+                } else {
+                    TmdbRateLimiter.acquire()
+                    val searchUrl = "https://api.themoviedb.org/3/search/person?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(name, "UTF-8")}&page=1"
+                    val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                    val results = searchData?.get("results")
+                    val firstResult = if (results != null && results.isArray && results.size() > 0) results.get(0) else null
+                    firstResult?.get("id")?.asInt() ?: return@withContext null
+                }
+
+                TmdbRateLimiter.acquire()
+                val detailsUrl = "https://api.themoviedb.org/3/person/$resolvedId?api_key=$TMDB_API_KEY&append_to_response=combined_credits"
+                val detailsData = com.lagradost.cloudstream3.app.get(detailsUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>() ?: return@withContext null
+
+                val personName = detailsData.get("name")?.asText()?.takeIf { it.isNotBlank() } ?: name
+                val bio = detailsData.get("biography")?.asText()?.takeIf { it.isNotBlank() }
+                val bday = detailsData.get("birthday")?.asText()?.takeIf { it.isNotBlank() }
+                val pob = detailsData.get("place_of_birth")?.asText()?.takeIf { it.isNotBlank() }
+                val dday = detailsData.get("deathday")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                val profilePath = detailsData.get("profile_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                val profileUrl = tmdbImageUrl(profilePath, "original")
+                val department = detailsData.get("known_for_department")?.asText()?.takeIf { it.isNotBlank() }
+
+                val castNode = detailsData.get("combined_credits")?.get("cast")
+                val movieCredits = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit>()
+                val tvCredits = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit>()
+
+                if (castNode != null && castNode.isArray) {
+                    val sortedList = castNode.toList().sortedByDescending { it.get("popularity")?.asDouble() ?: 0.0 }
+                    val seenIds = mutableSetOf<String>()
+
+                    sortedList.forEach { credit ->
+                        val creditId = credit.get("id")?.asInt() ?: return@forEach
+                        val mediaTypeStr = credit.get("media_type")?.asText() ?: "movie"
+                        val key = "$mediaTypeStr-$creditId"
+                        if (!seenIds.add(key)) return@forEach
+
+                        val title = credit.get("title")?.asText() ?: credit.get("name")?.asText() ?: return@forEach
+                        val posterPath = credit.get("poster_path")?.asText()
+                        val backdropPath = credit.get("backdrop_path")?.asText()
+                        val releaseDate = credit.get("release_date")?.asText() ?: credit.get("first_air_date")?.asText()
+                        val releaseYear = releaseDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
+                        val character = credit.get("character")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                        val voteAverage = credit.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
+                        val popularity = credit.get("popularity")?.asDouble() ?: 0.0
+                        val overview = credit.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+
+                        val item = com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit(
+                            tmdbId = creditId,
+                            title = title,
+                            posterUrl = tmdbImageUrl(posterPath, "w500"),
+                            backdropUrl = tmdbImageUrl(backdropPath, "original"),
+                            releaseYear = releaseYear,
+                            characterOrJob = character,
+                            mediaType = if (mediaTypeStr == "tv") com.lagradost.cloudstream3.TvType.TvSeries else com.lagradost.cloudstream3.TvType.Movie,
+                            voteAverage = voteAverage,
+                            popularity = popularity,
+                            overview = overview,
+                        )
+
+                        if (mediaTypeStr == "tv") {
+                            tvCredits.add(item)
+                        } else {
+                            movieCredits.add(item)
+                        }
+                    }
+                }
+
+                com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail(
+                    tmdbId = resolvedId,
+                    name = personName,
+                    biography = bio,
+                    birthday = bday,
+                    deathday = dday,
+                    placeOfBirth = pob,
+                    profileUrl = profileUrl,
+                    knownForDepartment = department,
+                    movieCredits = movieCredits,
+                    tvCredits = tvCredits,
+                )
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("TmdbEnrichmentService: Failed to fetch person detail", e)
+                null
+            }
+        }
+    }
+
+    suspend fun fetchStudioDetail(
+        companyId: Int? = null,
+        name: String,
+    ): com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail? {
+        return withContext(Dispatchers.IO) {
+            try {
+                var resolvedId = if (companyId != null && companyId > 0) companyId else null
+                var studioName = name
+                var description: String? = null
+                var headquarters: String? = null
+                var originCountry: String? = null
+                var homepage: String? = null
+                var logoUrl: String? = null
+
+                if (resolvedId == null && name.isNotBlank()) {
+                    TmdbRateLimiter.acquire()
+                    val searchUrl = "https://api.themoviedb.org/3/search/company?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(name, "UTF-8")}&page=1"
+                    val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                    val results = searchData?.get("results")
+                    if (results != null && results.isArray && results.size() > 0) {
+                        val first = results.get(0)
+                        resolvedId = first.get("id")?.asInt()
+                        val resName = first.get("name")?.asText()
+                        if (!resName.isNullOrBlank()) studioName = resName
+                        val logoPath = first.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                        if (logoPath != null) logoUrl = tmdbImageUrl(logoPath, "w500")
+                        originCountry = first.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                    }
+                }
+
+                if (resolvedId != null && resolvedId > 0) {
+                    try {
+                        TmdbRateLimiter.acquire()
+                        val detailsUrl = "https://api.themoviedb.org/3/company/$resolvedId?api_key=$TMDB_API_KEY"
+                        val detailsData = com.lagradost.cloudstream3.app.get(detailsUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                        if (detailsData != null) {
+                            val cName = detailsData.get("name")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                            if (cName != null) studioName = cName
+                            description = detailsData.get("description")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                            headquarters = detailsData.get("headquarters")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                            originCountry = detailsData.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" } ?: originCountry
+                            homepage = detailsData.get("homepage")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                            val logoPath = detailsData.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                            if (logoPath != null) logoUrl = tmdbImageUrl(logoPath, "w500")
+                        }
+                    } catch (_: Exception) {
+                        // ignore company details fetch failure, continue with discover
+                    }
+                }
+
+                if (resolvedId == null || resolvedId <= 0) return@withContext null
+
+                val movieTitles = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem>()
+                val tvTitles = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem>()
+
+                // Discover movies by company
+                try {
+                    TmdbRateLimiter.acquire()
+                    val movieUrl = "https://api.themoviedb.org/3/discover/movie?api_key=$TMDB_API_KEY&with_companies=$resolvedId&sort_by=popularity.desc&page=1"
+                    val movieData = com.lagradost.cloudstream3.app.get(movieUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                    val results = movieData?.get("results")
+                    if (results != null && results.isArray) {
+                        results.forEach { item ->
+                            val id = item.get("id")?.asInt() ?: return@forEach
+                            val title = item.get("title")?.asText() ?: item.get("name")?.asText() ?: return@forEach
+                            val posterPath = item.get("poster_path")?.asText()
+                            val backdropPath = item.get("backdrop_path")?.asText()
+                            val releaseDate = item.get("release_date")?.asText()
+                            val releaseYear = releaseDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
+                            val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
+                            val popularity = item.get("popularity")?.asDouble() ?: 0.0
+                            val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+
+                            movieTitles.add(
+                                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
+                                    tmdbId = id,
+                                    title = title,
+                                    posterUrl = tmdbImageUrl(posterPath, "w500"),
+                                    backdropUrl = tmdbImageUrl(backdropPath, "original"),
+                                    releaseYear = releaseYear,
+                                    mediaType = com.lagradost.cloudstream3.TvType.Movie,
+                                    voteAverage = voteAverage,
+                                    popularity = popularity,
+                                    overview = overview,
+                                )
+                            )
+                        }
+                    }
+                } catch (_: Exception) {
+                    // ignore movie discover errors
+                }
+
+                // Discover TV shows by company
+                try {
+                    TmdbRateLimiter.acquire()
+                    val tvUrl = "https://api.themoviedb.org/3/discover/tv?api_key=$TMDB_API_KEY&with_companies=$resolvedId&sort_by=popularity.desc&page=1"
+                    val tvData = com.lagradost.cloudstream3.app.get(tvUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                    val results = tvData?.get("results")
+                    if (results != null && results.isArray) {
+                        results.forEach { item ->
+                            val id = item.get("id")?.asInt() ?: return@forEach
+                            val title = item.get("name")?.asText() ?: item.get("title")?.asText() ?: return@forEach
+                            val posterPath = item.get("poster_path")?.asText()
+                            val backdropPath = item.get("backdrop_path")?.asText()
+                            val firstAirDate = item.get("first_air_date")?.asText()
+                            val releaseYear = firstAirDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
+                            val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
+                            val popularity = item.get("popularity")?.asDouble() ?: 0.0
+                            val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+
+                            tvTitles.add(
+                                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
+                                    tmdbId = id,
+                                    title = title,
+                                    posterUrl = tmdbImageUrl(posterPath, "w500"),
+                                    backdropUrl = tmdbImageUrl(backdropPath, "original"),
+                                    releaseYear = releaseYear,
+                                    mediaType = com.lagradost.cloudstream3.TvType.TvSeries,
+                                    voteAverage = voteAverage,
+                                    popularity = popularity,
+                                    overview = overview,
+                                )
+                            )
+                        }
+                    }
+                } catch (_: Exception) {
+                    // ignore tv discover errors
+                }
+
+                // If tvTitles is empty, also try with_networks in case resolvedId is a TV network
+                if (tvTitles.isEmpty()) {
+                    try {
+                        TmdbRateLimiter.acquire()
+                        val tvNetUrl = "https://api.themoviedb.org/3/discover/tv?api_key=$TMDB_API_KEY&with_networks=$resolvedId&sort_by=popularity.desc&page=1"
+                        val tvNetData = com.lagradost.cloudstream3.app.get(tvNetUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                        val results = tvNetData?.get("results")
+                        if (results != null && results.isArray) {
+                            results.forEach { item ->
+                                val id = item.get("id")?.asInt() ?: return@forEach
+                                val title = item.get("name")?.asText() ?: item.get("title")?.asText() ?: return@forEach
+                                val posterPath = item.get("poster_path")?.asText()
+                                val backdropPath = item.get("backdrop_path")?.asText()
+                                val firstAirDate = item.get("first_air_date")?.asText()
+                                val releaseYear = firstAirDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
+                                val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
+                                val popularity = item.get("popularity")?.asDouble() ?: 0.0
+                                val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+
+                                tvTitles.add(
+                                    com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
+                                        tmdbId = id,
+                                        title = title,
+                                        posterUrl = tmdbImageUrl(posterPath, "w500"),
+                                        backdropUrl = tmdbImageUrl(backdropPath, "original"),
+                                        releaseYear = releaseYear,
+                                        mediaType = com.lagradost.cloudstream3.TvType.TvSeries,
+                                        voteAverage = voteAverage,
+                                        popularity = popularity,
+                                        overview = overview,
+                                    )
+                                )
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // ignore
+                    }
+                }
+
+                if (movieTitles.isEmpty() && tvTitles.isEmpty()) return@withContext null
+
+                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail(
+                    id = resolvedId,
+                    name = studioName,
+                    description = description,
+                    headquarters = headquarters,
+                    originCountry = originCountry,
+                    homepage = homepage,
+                    logoUrl = logoUrl,
+                    movieTitles = movieTitles,
+                    tvTitles = tvTitles,
+                )
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("TmdbEnrichmentService: Failed to fetch studio detail", e)
+                null
+            }
+        }
+    }
+
     suspend fun enrich(
         loaded: LoadResponse,
         url: String,

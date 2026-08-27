@@ -6,6 +6,10 @@ import com.lagradost.cloudstream3.desktop.subtitles.LanguageNormalizer
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -14,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Universal Manager for External Stremio Addons in CloudStream Desktop.
@@ -115,6 +120,7 @@ object StremioAddonManager {
                 enabled = true,
                 providesSubtitles = manifest.providesSubtitles,
                 providesMetadata = manifest.providesMetadata,
+                providesStreams = manifest.providesStreams,
                 types = manifest.types,
                 idPrefixes = manifest.idPrefixes,
             )
@@ -174,6 +180,7 @@ object StremioAddonManager {
                             logoUrl = manifest.logoUrl,
                             providesSubtitles = manifest.providesSubtitles,
                             providesMetadata = manifest.providesMetadata,
+                            providesStreams = manifest.providesStreams,
                             types = manifest.types,
                             idPrefixes = manifest.idPrefixes,
                             errorMessage = null,
@@ -196,6 +203,116 @@ object StremioAddonManager {
 
     fun getEnabledMetadataAddons(): List<ManagedStremioAddon> {
         return _addons.value.filter { it.enabled && it.providesMetadata }
+    }
+
+    fun getEnabledStreamAddons(): List<ManagedStremioAddon> {
+        return _addons.value.filter { it.enabled && it.providesStreams }
+    }
+
+    suspend fun searchStreams(
+        imdbId: String?,
+        season: Int? = null,
+        episode: Int? = null,
+        onLink: (ExtractorLink) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        val cleanImdb = imdbId?.trim()?.takeIf { it.startsWith("tt", ignoreCase = true) }
+        if (cleanImdb == null) {
+            AppLogger.d(TAG, "Skipping Stremio stream query: No verified IMDb ID")
+            return@withContext
+        }
+
+        val activeAddons = getEnabledStreamAddons()
+        if (activeAddons.isEmpty()) return@withContext
+
+        val isSeries = (season != null && season > 0) || (episode != null && episode > 0)
+        val requestType = if (isSeries) "series" else "movie"
+        val requestVideoId = if (isSeries) {
+            "$cleanImdb:${season ?: 1}:${episode ?: 1}"
+        } else {
+            cleanImdb
+        }
+
+        AppLogger.i(TAG, "Querying ${activeAddons.size} Stremio stream addons for $requestType:$requestVideoId")
+
+        val deferred = activeAddons.map { addon ->
+            async {
+                withTimeoutOrNull(5000L) {
+                    try {
+                        val streamUrl = StremioTransport.buildStreamUrl(
+                            manifestUrl = addon.manifestUrl,
+                            type = requestType,
+                            id = requestVideoId,
+                        )
+                        AppLogger.d(TAG, "Querying stream addon '${addon.name}': $streamUrl")
+                        val responseText = app.get(streamUrl, timeout = 4500L).text
+                        val parsed = mapper.readValue(responseText, StremioStreamResponse::class.java)
+                        val streams = parsed.streams ?: return@withTimeoutOrNull
+
+                        for (item in streams) {
+                            val streamUrlStr = item.url?.trim() ?: continue
+                            if (streamUrlStr.isBlank() || !streamUrlStr.startsWith("http", ignoreCase = true)) continue
+
+                            val titleText = item.title ?: item.description ?: ""
+                            val addonName = addon.name.ifBlank { "Stremio" }
+                            val parsedQuality = parseQualityFromText(titleText, item.name)
+
+                            val headers = item.behaviorHints?.headers ?: emptyMap()
+                            val isM3u8 = streamUrlStr.contains(".m3u8", ignoreCase = true) || streamUrlStr.contains("m3u8", ignoreCase = true)
+                            val isDash = streamUrlStr.contains(".mpd", ignoreCase = true)
+
+                            val linkType = when {
+                                isM3u8 -> ExtractorLinkType.M3U8
+                                isDash -> ExtractorLinkType.DASH
+                                else -> ExtractorLinkType.VIDEO
+                            }
+
+                            val cleanLabel = buildString {
+                                append("⚡ [Stremio] $addonName")
+                                val itemDesc = if (!item.name.isNullOrBlank() && !item.name.equals(addonName, ignoreCase = true)) {
+                                    item.name.trim()
+                                } else if (titleText.isNotBlank()) {
+                                    titleText.lines().firstOrNull()?.trim()
+                                } else null
+
+                                if (!itemDesc.isNullOrBlank()) {
+                                    append(" - $itemDesc")
+                                }
+                            }
+
+                            val extractorLink = newExtractorLink(
+                                source = addonName,
+                                name = cleanLabel,
+                                url = streamUrlStr,
+                                type = linkType,
+                            ) {
+                                this.referer = headers["Referer"] ?: ""
+                                this.quality = parsedQuality
+                                this.headers = headers
+                            }
+
+                            onLink(extractorLink)
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.w(TAG, "Stream query failed for '${addon.name}': ${e.message}")
+                    }
+                }
+            }
+        }
+
+        deferred.awaitAll()
+    }
+
+    private fun parseQualityFromText(title: String, name: String?): Int {
+        val combined = "$title ${name ?: ""}".lowercase()
+        return when {
+            combined.contains("4k") || combined.contains("2160p") || combined.contains("uhd") -> Qualities.P2160.value
+            combined.contains("1440p") || combined.contains("2k") -> Qualities.P1440.value
+            combined.contains("1080p") || combined.contains("fhd") || combined.contains("full hd") -> Qualities.P1080.value
+            combined.contains("720p") || combined.contains("hd") -> Qualities.P720.value
+            combined.contains("480p") || combined.contains("sd") -> Qualities.P480.value
+            combined.contains("360p") -> Qualities.P360.value
+            else -> Qualities.P1080.value
+        }
     }
 
     suspend fun searchSubtitles(

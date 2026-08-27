@@ -943,7 +943,7 @@ private fun RenderEpisodesSection(
 
     if (currentMode == 1 || currentMode == 2) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-            val desiredWidth = 560f
+            val desiredWidth = 420f
             val columns = if (currentMode == 2) 1 else maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
             val gapDp = 24.dp
             val totalGapDp = gapDp * (columns - 1)
@@ -1004,11 +1004,11 @@ private fun RenderEpisodesSection(
             val isCompact = maxWidth < 600.dp
             val cardWidth = remember(maxWidth) {
                 when {
-                    maxWidth >= 1800.dp -> 580.dp
-                    maxWidth >= 1400.dp -> 540.dp
-                    maxWidth >= 1000.dp -> 480.dp
+                    maxWidth >= 1800.dp -> 440.dp
+                    maxWidth >= 1400.dp -> 410.dp
+                    maxWidth >= 1000.dp -> 380.dp
                     maxWidth < 600.dp -> (maxWidth * 0.78f).coerceAtMost(280.dp)
-                    else -> minOf(420.dp, maxWidth * 0.85f)
+                    else -> minOf(360.dp, maxWidth * 0.85f)
                 }
             }
             LazyRow(

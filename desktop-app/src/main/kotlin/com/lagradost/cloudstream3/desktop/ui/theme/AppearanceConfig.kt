@@ -103,9 +103,21 @@ enum class NavigationStyle(val label: String) {
     }
 }
 
+enum class HeroBannerStyle(val label: String) {
+    CINEMA_PEEKING("Cinema (Peeking Rails)"),
+    FULLSCREEN_IMMERSIVE("Fullscreen Immersive"),
+    THUMBNAIL_STRIP("Thumbnail Filmstrip"),
+    ;
+
+    companion object {
+        fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) || it.label.equals(v, ignoreCase = true) } ?: CINEMA_PEEKING
+    }
+}
+
 object AppearanceConfig {
     private const val PREF_GLOBAL_UI_SCALE = "pref_global_ui_scale"
     private const val PREF_NAVIGATION_STYLE = "pref_navigation_style"
+    private const val PREF_HERO_BANNER_STYLE = "pref_hero_banner_style"
     private const val PREF_THEME_ACCENT = "pref_theme_accent"
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
     private const val PREF_LIGHT_MODE = "pref_light_mode"
@@ -240,6 +252,8 @@ object AppearanceConfig {
     val screensaverEnabled: StateFlow<Boolean> = _screensaverEnabled.asStateFlow()
     private val _heroAutoSlideDelaySeconds = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10)
     val heroAutoSlideDelaySeconds: StateFlow<Int> = _heroAutoSlideDelaySeconds.asStateFlow()
+    private val _heroBannerStyle = MutableStateFlow(HeroBannerStyle.fromString(DesktopDataStore.getKey<String>(PREF_HERO_BANNER_STYLE)))
+    val heroBannerStyle: StateFlow<HeroBannerStyle> = _heroBannerStyle.asStateFlow()
     private val _continueWatchingStyle = MutableStateFlow(ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE)))
     val continueWatchingStyle: StateFlow<ContinueWatchingStyle> = _continueWatchingStyle.asStateFlow()
     private val _posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
@@ -444,6 +458,11 @@ object AppearanceConfig {
     fun setHeroAutoSlideDelaySeconds(seconds: Int) {
         _heroAutoSlideDelaySeconds.value = seconds
         DesktopDataStore.setKey(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
+    }
+
+    fun setHeroBannerStyle(style: HeroBannerStyle) {
+        _heroBannerStyle.value = style
+        DesktopDataStore.setKey(PREF_HERO_BANNER_STYLE, style.name)
     }
 
     fun setHomeSpacingDp(dp: Int) {
@@ -803,6 +822,7 @@ object AppearanceConfig {
         _selectedFont.value = DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter"
         _screensaverEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true
         _heroAutoSlideDelaySeconds.value = DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10
+        _heroBannerStyle.value = HeroBannerStyle.fromString(DesktopDataStore.getKey<String>(PREF_HERO_BANNER_STYLE))
         _continueWatchingStyle.value = ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE))
         _posterHoverGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true
         _posterTitlePosition.value = PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION))

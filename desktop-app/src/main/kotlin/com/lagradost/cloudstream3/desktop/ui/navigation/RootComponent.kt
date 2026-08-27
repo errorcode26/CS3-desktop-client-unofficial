@@ -22,5 +22,7 @@ interface RootComponent {
         class Settings(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent) : Child()
         class Details(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent) : Child()
         class CategoryGrid(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.CategoryGridComponent) : Child()
+        class Person(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.PersonComponent) : Child()
+        class Studio(val component: com.lagradost.cloudstream3.desktop.ui.navigation.components.StudioComponent) : Child()
     }
 }

@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
+
 const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
 
 /**
@@ -22,37 +24,7 @@ const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
  * - Excludes built-in MetaProviders (Trakt, TMDB, CrossTMDB)
  * - Excludes "NONE"
  */
-fun MainAPI.isRealProvider(): Boolean {
-    if (name == "NONE" || name == "None") return false
-    if (providerType == com.lagradost.cloudstream3.ProviderType.MetaProvider) return false
-    return true
-}
-
-private fun MainAPI.getProviderKey(): String {
-    val src = sourcePlugin
-    if (!src.isNullOrBlank() && src != "built-in") {
-        val folder = java.io.File(src).parentFile?.name ?: ""
-        if (folder.isNotBlank()) return "$folder::$name"
-    }
-    return name
-}
-
-private fun MainAPI.matchesKey(key: String): Boolean {
-    return getProviderKey() == key || name == key
-}
-
-private fun computeActiveProviderApis(activeProviders: List<String>, providers: List<MainAPI>): List<MainAPI> {
-    return activeProviders.mapNotNull { key ->
-        providers.firstOrNull { p ->
-            val pKey = if (p.sourcePlugin != null && p.sourcePlugin != "built-in") {
-                "${java.io.File(p.sourcePlugin).parentFile?.name ?: ""}::${p.name}"
-            } else {
-                p.name
-            }
-            pKey == key || p.name == key
-        }
-    }
-}
+fun MainAPI.isRealProvider(): Boolean = ActiveProviderRepository.isRealContentProvider(this)
 
 class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
@@ -62,42 +34,33 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     // UI should collect `uiState` and read properties directly from the immutable snapshot.
 
     init {
-        updateProviders()
-
         viewModelScope.launch {
             BookmarksRepository.bookmarksFlow.collect { bookmarks ->
                 updateState { copy(bookmarks = bookmarks) }
             }
         }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            val savedNames = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
-            if (savedNames != null) {
-                val validNames = savedNames.filter { name -> APIHolder.allProviders.any { it.matchesKey(name) && it.isRealProvider() } }
+        // Reactively observe providers from single source of truth
+        viewModelScope.launch {
+            ActiveProviderRepository.allRealProviders.collectLatest { realProviders ->
+                updateState { copy(providers = realProviders) }
+            }
+        }
+
+        viewModelScope.launch {
+            ActiveProviderRepository.activeProviders.collectLatest { activeApis ->
+                val keys = activeApis.map { ActiveProviderRepository.getProviderKey(it) }
                 updateState {
                     copy(
-                        activeProviders = validNames,
-                        activeProviderApis = computeActiveProviderApis(validNames, providers),
+                        activeProviderApis = activeApis,
+                        activeProviders = keys,
                     )
-                }
-            } else {
-                // Fallback to old key or empty
-                val oldName = DesktopDataStore.getKey<String>("preferred_provider_name")
-                if (oldName != null && APIHolder.allProviders.any { it.matchesKey(oldName) && it.isRealProvider() }) {
-                    val list = listOf(oldName)
-                    updateState {
-                        copy(
-                            activeProviders = list,
-                            activeProviderApis = computeActiveProviderApis(list, providers),
-                        )
-                    }
                 }
             }
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            uiState.map { it.activeProviders }.distinctUntilChanged().drop(1).collect { names ->
-                DesktopDataStore.setKey(PREF_ACTIVE_PROVIDERS, names)
+            uiState.map { it.activeProviders }.distinctUntilChanged().collect { names ->
                 val disabledMap = names.associateWith { name ->
                     DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
                 }
@@ -108,7 +71,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         viewModelScope.launch {
             DesktopRepositoryManager.syncGeneration.collect { syncGen ->
                 if (syncGen > 0) {
-                    updateProviders()
                     reloadIcons()
                 }
             }
@@ -127,40 +89,24 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     override fun handleEvent(event: HomeUiEvent) {
         when (event) {
             is HomeUiEvent.OnToggleProviderActive -> {
-                updateState {
-                    val current = activeProviders.toMutableList()
-                    if (event.isActive) {
-                        if (!current.contains(event.providerName)) current.add(event.providerName)
-                    } else {
-                        current.remove(event.providerName)
-                    }
-                    copy(
-                        activeProviders = current,
-                        activeProviderApis = computeActiveProviderApis(current, providers),
-                    )
+                val current = uiState.value.activeProviders.toMutableList()
+                if (event.isActive) {
+                    if (!current.contains(event.providerName)) current.add(event.providerName)
+                } else {
+                    current.remove(event.providerName)
                 }
+                ActiveProviderRepository.setActiveProviders(current)
             }
             is HomeUiEvent.OnSetSingleProvider -> {
-                updateState {
-                    val list = listOf(event.providerName)
-                    copy(
-                        activeProviders = list,
-                        activeProviderApis = computeActiveProviderApis(list, providers),
-                    )
-                }
+                ActiveProviderRepository.setActiveProviders(listOf(event.providerName))
             }
             is HomeUiEvent.OnMoveProvider -> {
-                updateState {
-                    val current = activeProviders.toMutableList()
-                    if (event.fromIndex in current.indices && event.toIndex in current.indices) {
-                        val item = current.removeAt(event.fromIndex)
-                        current.add(event.toIndex, item)
-                    }
-                    copy(
-                        activeProviders = current,
-                        activeProviderApis = computeActiveProviderApis(current, providers),
-                    )
+                val current = uiState.value.activeProviders.toMutableList()
+                if (event.fromIndex in current.indices && event.toIndex in current.indices) {
+                    val item = current.removeAt(event.fromIndex)
+                    current.add(event.toIndex, item)
                 }
+                ActiveProviderRepository.setActiveProviders(current)
             }
             is HomeUiEvent.OnClearHistory -> clearHistory()
             is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
@@ -186,51 +132,7 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-    private fun updateProviders() {
-        val currentProviders = APIHolder.allProviders.filter { it.isRealProvider() }
-        updateState {
-            if (currentProviders.size != providers.size || !currentProviders.containsAll(providers)) {
-                val validActive = activeProviders.filter { active -> currentProviders.any { it.matchesKey(active) } }
 
-                if (validActive.isNotEmpty()) {
-                    copy(
-                        providers = currentProviders,
-                        activeProviders = validActive,
-                        activeProviderApis = computeActiveProviderApis(validActive, currentProviders),
-                    )
-                } else if (currentProviders.isNotEmpty()) {
-                    val restored = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)?.filter { active -> currentProviders.any { it.matchesKey(active) } }
-                    if (!restored.isNullOrEmpty()) {
-                        copy(
-                            providers = currentProviders,
-                            activeProviders = restored,
-                            activeProviderApis = computeActiveProviderApis(restored, currentProviders),
-                        )
-                    } else {
-                        val fallbackOld = DesktopDataStore.getKey<String>("preferred_provider_name")
-                        val fallbackActive = if (fallbackOld != null && currentProviders.any { it.matchesKey(fallbackOld) }) {
-                            listOf(fallbackOld)
-                        } else {
-                            listOf(currentProviders.first().getProviderKey())
-                        }
-                        copy(
-                            providers = currentProviders,
-                            activeProviders = fallbackActive,
-                            activeProviderApis = computeActiveProviderApis(fallbackActive, currentProviders),
-                        )
-                    }
-                } else {
-                    copy(
-                        providers = currentProviders,
-                        activeProviders = emptyList(),
-                        activeProviderApis = emptyList(),
-                    )
-                }
-            } else {
-                this
-            }
-        }
-    }
 
     private fun updateHistory() {
         val all = DesktopDataStore.getAllWatchHistory()
@@ -307,14 +209,15 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
     private fun reloadProvider() {
         com.lagradost.cloudstream3.desktop.ui.screens.home.HomeCategorySectionCache.clear()
         viewModelScope.launch {
-            val current = uiState.value.activeProviders
-            if (current.isNotEmpty()) {
+            val currentApis = ActiveProviderRepository.activeProviders.value
+            val currentKeys = uiState.value.activeProviders
+            if (currentApis.isNotEmpty()) {
                 updateState { copy(activeProviders = emptyList(), activeProviderApis = emptyList()) }
                 kotlinx.coroutines.delay(50)
                 updateState {
                     copy(
-                        activeProviders = current,
-                        activeProviderApis = computeActiveProviderApis(current, providers),
+                        activeProviders = currentKeys,
+                        activeProviderApis = currentApis,
                     )
                 }
             }

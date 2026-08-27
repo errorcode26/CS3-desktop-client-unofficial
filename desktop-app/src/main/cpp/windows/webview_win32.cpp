@@ -70,47 +70,148 @@ public:
             };
 
             std::wstring evType = extractStr(L"type");
+            std::wstring evValStr = extractStr(L"value");
+            std::string valUtf8(evValStr.begin(), evValStr.end());
             bool handled = false;
 
-            if ((evType == L"seekTo" || evType == L"seekBy") &&
-                    g_mpv_command_string && g_mpv_set_property_string) {
-                std::wstring wval = extractNum(L"value");
-                if (!wval.empty()) {
-                    double ms = _wtof(wval.c_str());
-                    double sec = ms / 1000.0;
-                    char buf[64];
-                    if (evType == L"seekTo") {
-                        char startBuf[32];
-                        snprintf(startBuf, sizeof(startBuf), "%.3f", sec);
-                        snprintf(buf, sizeof(buf), "seek %.3f absolute", sec);
-                        std::lock_guard<std::mutex> lk(g_mpvMutex);
-                        if (g_mpvHandle) {
-                            g_mpv_set_property_string(g_mpvHandle, "start", startBuf);
-                            g_mpv_command_string(g_mpvHandle, buf);
-                            handled = true;
-                        }
-                    } else {
-                        snprintf(buf, sizeof(buf), "seek %.3f relative", sec);
-                        std::lock_guard<std::mutex> lk(g_mpvMutex);
-                        if (g_mpvHandle) {
-                            g_mpv_command_string(g_mpvHandle, buf);
-                            handled = true;
+            if (g_mpv_command_string && g_mpv_set_property_string) {
+                if (evType == L"seekTo" || evType == L"seekBy") {
+                    std::wstring wval = extractNum(L"value");
+                    if (!wval.empty()) {
+                        double ms = _wtof(wval.c_str());
+                        double sec = ms / 1000.0;
+                        char buf[64];
+                        if (evType == L"seekTo") {
+                            char startBuf[32];
+                            snprintf(startBuf, sizeof(startBuf), "%.3f", sec);
+                            snprintf(buf, sizeof(buf), "seek %.3f absolute", sec);
+                            std::lock_guard<std::mutex> lk(g_mpvMutex);
+                            if (g_mpvHandle) {
+                                g_mpv_set_property_string(g_mpvHandle, "start", startBuf);
+                                g_mpv_command_string(g_mpvHandle, buf);
+                                handled = true;
+                            }
+                        } else {
+                            snprintf(buf, sizeof(buf), "seek %.3f relative", sec);
+                            std::lock_guard<std::mutex> lk(g_mpvMutex);
+                            if (g_mpvHandle) {
+                                g_mpv_command_string(g_mpvHandle, buf);
+                                handled = true;
+                            }
                         }
                     }
-                }
-            } else if (evType == L"toggleStats") {
-                g_statsVisible = !g_statsVisible;
-            } else if (evType == L"setVolume" && g_mpv_command_string) {
-                std::wstring wval = extractNum(L"value");
-                if (!wval.empty()) {
-                    char buf[64];
-                    snprintf(buf, sizeof(buf), "set volume %.1f", _wtof(wval.c_str()));
+                } else if (evType == L"togglePlay") {
                     std::lock_guard<std::mutex> lk(g_mpvMutex);
                     if (g_mpvHandle) {
-                        g_mpv_command_string(g_mpvHandle, buf);
+                        g_mpv_command_string(g_mpvHandle, "cycle pause");
                         handled = true;
                     }
+                } else if (evType == L"play") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "pause", "no");
+                        handled = true;
+                    }
+                } else if (evType == L"pause") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "pause", "yes");
+                        handled = true;
+                    }
+                } else if (evType == L"toggleMute") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_command_string(g_mpvHandle, "cycle mute");
+                        handled = true;
+                    }
+                } else if (evType == L"setVolume") {
+                    std::wstring wval = extractNum(L"value");
+                    if (!wval.empty()) {
+                        char buf[64];
+                        snprintf(buf, sizeof(buf), "set volume %.1f", _wtof(wval.c_str()));
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_command_string(g_mpvHandle, buf);
+                            handled = true;
+                        }
+                    }
+                } else if (evType == L"setSpeed") {
+                    std::wstring wval = extractNum(L"value");
+                    if (!wval.empty()) {
+                        std::string sp(wval.begin(), wval.end());
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_set_property_string(g_mpvHandle, "speed", sp.c_str());
+                            handled = true;
+                        }
+                    }
+                } else if (evType == L"setSubDelay") {
+                    std::wstring wval = extractNum(L"value");
+                    if (!wval.empty()) {
+                        char buf[64];
+                        snprintf(buf, sizeof(buf), "add sub-delay %.3f", _wtof(wval.c_str()));
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_command_string(g_mpvHandle, buf);
+                            handled = true;
+                        }
+                    }
+                } else if (evType == L"cycleSubtitles") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_command_string(g_mpvHandle, "cycle sub");
+                        handled = true;
+                    }
+                } else if (evType == L"toggleSubVisibility") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_command_string(g_mpvHandle, "cycle sub-visibility");
+                        handled = true;
+                    }
+                } else if (evType == L"setSubtitleTrack") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "sid", valUtf8.c_str());
+                        handled = true;
+                    }
+                } else if (evType == L"setAudioTrack") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "aid", valUtf8.c_str());
+                        handled = true;
+                    }
+                } else if (evType == L"setVideoTrack") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "vid", valUtf8.c_str());
+                        handled = true;
+                    }
+                } else if (evType == L"setAspect") {
+                    std::lock_guard<std::mutex> lk(g_mpvMutex);
+                    if (g_mpvHandle) {
+                        g_mpv_set_property_string(g_mpvHandle, "video-aspect-override", valUtf8.c_str());
+                        handled = true;
+                    }
+                } else if (evType == L"setMpvProperty") {
+                    auto colonPos = valUtf8.find(':');
+                    if (colonPos != std::string::npos) {
+                        std::string pName = valUtf8.substr(0, colonPos);
+                        std::string pVal = valUtf8.substr(colonPos + 1);
+                        std::lock_guard<std::mutex> lk(g_mpvMutex);
+                        if (g_mpvHandle) {
+                            g_mpv_set_property_string(g_mpvHandle, pName.c_str(), pVal.c_str());
+                            handled = true;
+                        }
+                    }
+                } else if (evType == L"exitPlayer") {
+                    dispatchPlayerEvent(wjson);
+                    handled = true;
                 }
+            }
+
+            if (evType == L"toggleStats") {
+                g_statsVisible = !g_statsVisible;
+                handled = true;
             }
 
             if (evType == L"ui_ready") {
@@ -119,7 +220,9 @@ public:
                 }
             }
 
-            dispatchPlayerEvent(wjson);
+            if (!handled) {
+                dispatchPlayerEvent(wjson);
+            }
         }
         return S_OK;
     }
@@ -154,11 +257,80 @@ public:
             return S_OK;
         }
 
+        if (virtualKey == VK_ESCAPE &&
+            (keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN ||
+             keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN)) {
+            BOOL isFullScreen = FALSE;
+            if (g_webview && SUCCEEDED(g_webview->get_ContainsFullScreenElement(&isFullScreen)) && isFullScreen) {
+                // Let WebView2 handle exiting fullscreen
+            } else {
+                args->put_Handled(TRUE);
+                dispatchPlayerEvent(L"{\"type\":\"close\",\"value\":\"\"}");
+            }
+            return S_OK;
+        }
+
         if (virtualKey == VK_F11 &&
             (keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN ||
              keyEventKind == COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN)) {
             args->put_Handled(TRUE);
             dispatchPlayerEvent(L"{\"type\":\"toggleFullscreen\",\"value\":\"\"}");
+        }
+        return S_OK;
+    }
+};
+
+class FullScreenChangedHandler : public ICoreWebView2ContainsFullScreenElementChangedEventHandler {
+    ULONG m_refCount = 1;
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2ContainsFullScreenElementChangedEventHandler) {
+            *ppvObject = this; AddRef(); return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++m_refCount; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        ULONG count = --m_refCount;
+        if (count == 0) delete this;
+        return count;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, IUnknown* args) override {
+        BOOL isFullScreen = FALSE;
+        if (sender && SUCCEEDED(sender->get_ContainsFullScreenElement(&isFullScreen))) {
+            postUiTask([isFullScreen]() {
+                if (isFullScreen) {
+                    if (g_containerHwnd) {
+                        HMONITOR hMon = MonitorFromWindow(g_containerHwnd, MONITOR_DEFAULTTONEAREST);
+                        MONITORINFO mi = { sizeof(mi) };
+                        if (GetMonitorInfoW(hMon, &mi)) {
+                            int monW = mi.rcMonitor.right - mi.rcMonitor.left;
+                            int monH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+                            SetParent(g_containerHwnd, nullptr);
+                            SetWindowLongPtrW(g_containerHwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+                            SetWindowPos(g_containerHwnd, HWND_TOPMOST, mi.rcMonitor.left, mi.rcMonitor.top, monW, monH, SWP_SHOWWINDOW);
+                            if (g_webviewController) {
+                                RECT r = {0, 0, (LONG)monW, (LONG)monH};
+                                g_webviewController->put_Bounds(r);
+                            }
+                        }
+                    }
+                } else {
+                    if (g_containerHwnd && g_hostHwnd) {
+                        SetWindowLongPtrW(g_containerHwnd, GWL_STYLE, WS_CHILD | WS_VISIBLE);
+                        SetParent(g_containerHwnd, g_hostHwnd);
+                        RECT clientRect = {};
+                        GetClientRect(g_hostHwnd, &clientRect);
+                        int w = clientRect.right - clientRect.left;
+                        int h = clientRect.bottom - clientRect.top;
+                        SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, w, h, SWP_SHOWWINDOW);
+                        if (g_webviewController) {
+                            RECT r = {0, 0, (LONG)w, (LONG)h};
+                            g_webviewController->put_Bounds(r);
+                        }
+                    }
+                }
+            });
         }
         return S_OK;
     }
@@ -219,6 +391,9 @@ public:
 
         EventRegistrationToken accelToken;
         g_webviewController->add_AcceleratorKeyPressed(new AcceleratorKeyPressedHandler(), &accelToken);
+
+        EventRegistrationToken fsToken;
+        g_webview->add_ContainsFullScreenElementChanged(new FullScreenChangedHandler(), &fsToken);
 
         g_webviewReady = true;
         LOG_TO_FILE("[NativeBridge] WebView2 Initialized Successfully!");
@@ -333,7 +508,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         static bool hasFiredDismiss = false;
                         if (is_buffering) {
                             hasFiredDismiss = false;
-                        } else if (position > 0.1 && !hasFiredDismiss) {
+                        } else if ((duration > 0.0 || position > 0.05) && !hasFiredDismiss) {
                             hasFiredDismiss = true;
                             g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
                         }
@@ -529,8 +704,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
 
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content --disk-cache-size=1 "
-        L"--disable-application-cache --aggressive-cache-discard");
+        L"--allow-running-insecure-content");
 
     HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
     LOG_TO_FILE("[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec);
@@ -578,6 +752,7 @@ std::mutex gWebView2WarmupMutex;
 std::condition_variable gWebView2WarmupCv;
 std::thread gWebView2WarmupThread;
 DWORD gWebView2WarmupThreadId = 0;
+std::wstring g_warmupControlsUrl;
 bool gWebView2WarmupStarted = false;
 
 ICoreWebView2Environment* g_warmupEnv = nullptr;
@@ -603,6 +778,10 @@ public:
             g_warmupCtrl->AddRef();
             g_warmupCtrl->put_IsVisible(FALSE);
             g_warmupCtrl->get_CoreWebView2(&g_warmupWebView);
+            if (g_warmupWebView && !g_warmupControlsUrl.empty()) {
+                LOG_TO_FILE("[NativeBridge] Prewarming WebView2 with URL: " << std::string(g_warmupControlsUrl.begin(), g_warmupControlsUrl.end()));
+                g_warmupWebView->Navigate(g_warmupControlsUrl.c_str());
+            }
         } else {
             PostQuitMessage(0);
         }
@@ -635,7 +814,8 @@ public:
     }
 };
 
-void runWebView2WarmupThread() {
+void runWebView2WarmupThread(std::wstring controlsUrl) {
+    g_warmupControlsUrl = controlsUrl;
     {
         std::lock_guard<std::mutex> lock(gWebView2WarmupMutex);
         gWebView2WarmupThreadId = GetCurrentThreadId();
@@ -676,8 +856,7 @@ void runWebView2WarmupThread() {
 
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content --disk-cache-size=1 "
-        L"--disable-application-cache --aggressive-cache-discard");
+        L"--allow-running-insecure-content");
 
     createEnvFunc(nullptr, userData.c_str(), nullptr, new WarmupEnvHandler());
 
@@ -694,11 +873,11 @@ void runWebView2WarmupThread() {
     if (didOleInitialize) OleUninitialize();
 }
 
-void startWebView2Warmup() {
+void startWebView2Warmup(std::wstring controlsUrl) {
     std::lock_guard<std::mutex> lock(gWebView2WarmupMutex);
     if (!gWebView2WarmupStarted) {
         gWebView2WarmupStarted = true;
-        gWebView2WarmupThread = std::thread(runWebView2WarmupThread);
+        gWebView2WarmupThread = std::thread(runWebView2WarmupThread, controlsUrl);
     }
 }
 
@@ -826,8 +1005,16 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
     });
 }
 
-JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_warmupWebView2(JNIEnv* env, jobject thiz) {
-    startWebView2Warmup();
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_warmupWebView2(
+    JNIEnv* env, jobject thiz, jstring controlsUrl)
+{
+    std::wstring urlW = L"";
+    if (controlsUrl) {
+        const jchar* chars = env->GetStringChars(controlsUrl, NULL);
+        urlW = std::wstring((wchar_t*)chars, env->GetStringLength(controlsUrl));
+        env->ReleaseStringChars(controlsUrl, chars);
+    }
+    startWebView2Warmup(urlW);
 }
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_shutdownWebView2Warmup(JNIEnv* env, jobject thiz) {

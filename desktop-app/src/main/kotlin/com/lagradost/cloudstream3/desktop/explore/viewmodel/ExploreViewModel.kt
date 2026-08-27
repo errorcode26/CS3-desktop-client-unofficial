@@ -15,6 +15,7 @@ import com.lagradost.cloudstream3.desktop.ui.base.UiEffect
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.cloudstream3.desktop.ui.screens.home.isRealProvider
+import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.*
@@ -51,6 +52,7 @@ data class ExploreUiState(
     val isLoading: Boolean = false,
     val selectedItemForMatch: ExploreItem? = null,
     val providerMatches: List<ProviderMatch> = emptyList(),
+    val stremioStreamMatches: List<ExtractorLink> = emptyList(),
     val isSearchingProviders: Boolean = false,
 ) : UiState
 
@@ -309,6 +311,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
             copy(
                 selectedItemForMatch = item,
                 providerMatches = emptyList(),
+                stremioStreamMatches = emptyList(),
                 isSearchingProviders = true,
             )
         }
@@ -316,8 +319,27 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         providerSearchJob?.cancel()
         providerSearchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Uses the exact same installed providers as the Search screen
-                val activeProviders: List<MainAPI> = APIHolder.allProviders.filter { it.isRealProvider() }
+                val cleanImdb = item.id.takeIf { it.startsWith("tt", ignoreCase = true) }?.substringBefore(":")
+                val aggregatedStremioLinks = CopyOnWriteArrayList<ExtractorLink>()
+
+                // Decoupled Stremio Stream query (runs safely in parallel)
+                if (cleanImdb != null) {
+                    launch {
+                        StremioAddonManager.searchStreams(
+                            imdbId = cleanImdb,
+                            season = 1,
+                            episode = 1,
+                            onLink = { link ->
+                                aggregatedStremioLinks.add(link)
+                                updateState { copy(stremioStreamMatches = aggregatedStremioLinks.toList()) }
+                            }
+                        )
+                    }
+                }
+
+                // Uses the single-source-of-truth real content providers
+                val activeProviders: List<MainAPI> = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+                    .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
                 if (activeProviders.isEmpty()) {
                     updateState { copy(isSearchingProviders = false) }
                     return@launch
@@ -367,6 +389,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                 updateState {
                     copy(
                         providerMatches = aggregatedMatches.toList(),
+                        stremioStreamMatches = aggregatedStremioLinks.toList(),
                         isSearchingProviders = false,
                     )
                 }

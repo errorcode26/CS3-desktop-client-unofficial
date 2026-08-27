@@ -368,10 +368,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
                         .filter { it.sourcePlugin == plugin.file.absolutePath }
                         .map { it.name }
-                    val activeProviders = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS)
-                    val activeProvider = activeProviders?.firstOrNull()
-                    if (activeProvider != null && pluginProviders.contains(activeProvider)) {
-                        sendEffect(ExtensionsUiEffect.ClearActiveProvider(activeProvider))
+                    val activeKeys = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.activeProviderKeys.value
+                    val updatedKeys = activeKeys.filter { key -> !pluginProviders.any { p -> key.contains(p) } }
+                    if (updatedKeys.size != activeKeys.size) {
+                        com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.setActiveProviders(updatedKeys)
                     }
 
                     // Step 4: Delete ONLY this plugin's own files.

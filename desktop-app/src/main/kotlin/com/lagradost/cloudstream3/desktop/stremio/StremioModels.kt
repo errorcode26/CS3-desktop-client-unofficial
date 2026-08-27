@@ -26,6 +26,9 @@ data class StremioManifest(
 
     val providesMetadata: Boolean
         get() = resources.any { it.name.equals("meta", ignoreCase = true) }
+
+    val providesStreams: Boolean
+        get() = resources.any { it.name.equals("stream", ignoreCase = true) }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -53,6 +56,7 @@ data class ManagedStremioAddon(
     @JsonProperty("enabled") val enabled: Boolean = true,
     @JsonProperty("providesSubtitles") val providesSubtitles: Boolean = false,
     @JsonProperty("providesMetadata") val providesMetadata: Boolean = false,
+    @JsonProperty("providesStreams") val providesStreams: Boolean = false,
     @JsonProperty("types") val types: List<String> = emptyList(),
     @JsonProperty("idPrefixes") val idPrefixes: List<String> = emptyList(),
     @JsonProperty("errorMessage") val errorMessage: String? = null,
@@ -72,3 +76,28 @@ data class StremioSubtitleItem(
     @JsonProperty("m") val matchType: String? = null,
     @JsonProperty("g") val rating: String? = null,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class StremioStreamResponse(
+    @JsonProperty("streams") val streams: List<StremioStreamItem>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class StremioStreamItem(
+    @JsonProperty("name") val name: String? = null,
+    @JsonProperty("title") val title: String? = null,
+    @JsonProperty("description") val description: String? = null,
+    @JsonProperty("url") val url: String? = null,
+    @JsonProperty("ytId") val ytId: String? = null,
+    @JsonProperty("infoHash") val infoHash: String? = null,
+    @JsonProperty("fileIdx") val fileIdx: Int? = null,
+    @JsonProperty("behaviorHints") val behaviorHints: StremioStreamBehaviorHints? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class StremioStreamBehaviorHints(
+    @JsonProperty("notWebReady") val notWebReady: Boolean = false,
+    @JsonProperty("bingeGroup") val bingeGroup: String? = null,
+    @JsonProperty("headers") val headers: Map<String, String>? = null,
+)
+

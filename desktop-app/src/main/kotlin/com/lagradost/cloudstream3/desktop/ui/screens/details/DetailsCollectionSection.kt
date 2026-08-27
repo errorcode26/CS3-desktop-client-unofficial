@@ -99,7 +99,11 @@ fun DetailsCollectionSection(
                                 }
                             },
                     ) {
-                        items(collItems, key = { "${it.apiName}_${it.url}" }) { partItem ->
+                        items(
+                            count = collItems.size,
+                            key = { index -> "${collItems[index].apiName}_${collItems[index].url}_$index" },
+                        ) { index ->
+                            val partItem = collItems[index]
                             PosterCard(
                                 item = partItem,
                                 provider = provider,

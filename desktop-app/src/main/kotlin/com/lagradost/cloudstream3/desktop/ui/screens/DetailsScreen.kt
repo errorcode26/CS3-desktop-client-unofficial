@@ -294,8 +294,8 @@ fun DetailsContent(
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(true) }
     var trailersExpanded by remember { mutableStateOf(true) }
+    var activeTrailer by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData?>(null) }
     var pendingExternalUrl by remember { mutableStateOf<String?>(null) }
-    var selectedActor by remember { mutableStateOf<com.lagradost.cloudstream3.ActorData?>(null) }
 
     val isMovieLike = remember(data) {
         data is com.lagradost.cloudstream3.MovieLoadResponse || data is com.lagradost.cloudstream3.TorrentLoadResponse || data is com.lagradost.cloudstream3.LiveStreamLoadResponse ||
@@ -382,11 +382,14 @@ fun DetailsContent(
                         onCastClick = {
                             coroutineScope.launch { scrollState.animateScrollToItem(2) }
                         },
-                        onActorClick = { actor -> selectedActor = actor },
+                        onActorClick = { actor ->
+                            val searchName = actor.voiceActor?.name?.takeIf { it.isNotBlank() } ?: actor.actor.name
+                            onNavigate(Config.Person(name = searchName, image = actor.actor.image, tmdbId = null))
+                        },
                         onTrailerClick = { url ->
-                            com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
-                                pendingExternalUrl = it
-                            }
+                            val trailer = uiState?.enrichedTrailers?.find { it.url == url }
+                                ?: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData(id = url, name = "${data.name} Official Trailer", url = url)
+                            activeTrailer = trailer
                         },
                     )
 
@@ -655,7 +658,10 @@ fun DetailsContent(
                                         data = data,
                                         provider = provider,
                                         uiState = uiState,
-                                        onActorClick = { actor -> selectedActor = actor },
+                                        onActorClick = { actor ->
+                                            val searchName = actor.voiceActor?.name?.takeIf { it.isNotBlank() } ?: actor.actor.name
+                                            onNavigate(Config.Person(name = searchName, image = actor.actor.image, tmdbId = null))
+                                        },
                                         horizontalPadding = hPadding,
                                     )
                                 }
@@ -681,6 +687,16 @@ fun DetailsContent(
                                             data = data,
                                             uiState = uiState,
                                             modifier = Modifier.padding(horizontal = hPadding),
+                                            onCompanyClick = { comp ->
+                                                onNavigate(
+                                                    Config.Studio(
+                                                        name = comp.name,
+                                                        companyId = comp.id.takeIf { it > 0 },
+                                                        logoUrl = comp.logoUrl,
+                                                        originCountry = comp.originCountry,
+                                                    )
+                                                )
+                                            },
                                         )
                                     }
                                 }
@@ -699,9 +715,9 @@ fun DetailsContent(
                                             trailersExpanded = trailersExpanded,
                                             onToggleExpand = { trailersExpanded = !trailersExpanded },
                                             onTrailerClick = { url ->
-                                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.openOrPrompt(url) {
-                                                    pendingExternalUrl = it
-                                                }
+                                                val trailer = enrichedTrailers.find { it.url == url }
+                                                    ?: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData(id = url, name = "${data.name} Official Trailer", url = url)
+                                                activeTrailer = trailer
                                             },
                                             horizontalPadding = hPadding,
                                         )
@@ -827,23 +843,17 @@ fun DetailsContent(
             }
         }
 
-        if (selectedActor != null) {
-            com.lagradost.cloudstream3.desktop.ui.screens.details.CastDetailsDialog(
-                actor = selectedActor!!,
-                onDismiss = { selectedActor = null },
-                onMovieClick = { rec ->
-                    val recProvider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(rec.apiName) ?: provider
-                    onNavigate(Config.Details(recProvider.name, rec.url, rec.name, rec.posterUrl, null, false))
-                },
-            )
-        }
-
         if (pendingExternalUrl != null) {
             com.lagradost.cloudstream3.desktop.utils.ExternalLinkConfirmationDialog(
                 url = pendingExternalUrl,
                 onDismiss = { pendingExternalUrl = null },
             )
         }
+
+        com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs.TrailerPlayerDialog(
+            trailer = activeTrailer,
+            onDismissRequest = { activeTrailer = null },
+        )
     }
 }
 

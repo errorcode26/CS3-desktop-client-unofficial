@@ -173,13 +173,17 @@ fun HomeCategorySection(
                         val isHorizontalCategory = pageData.horizontalImages || section.list.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
                         val categoryAspectRatio = if (isHorizontalCategory) 16f / 9f else 2f / 3f
 
+                        val isCompactScreen = paddingStart < 50.dp
+                        val effectivePaddingStart = if (isCompactScreen) 8.dp else paddingStart
+                        val effectivePaddingEnd = if (isCompactScreen) 8.dp else paddingEnd
+
                         BoxWithConstraints(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = effectivePaddingStart, end = effectivePaddingEnd),
                         ) {
                             val availableWidth = this.maxWidth
                             val isCompact = availableWidth < 600.dp
-                            val effectivePaddingStart = if (isCompact) 8.dp else paddingStart
-                            val effectivePaddingEnd = if (isCompact) 8.dp else paddingEnd
 
                             val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
                             val homeSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeSpacingDp.collectAsState()
@@ -190,7 +194,7 @@ fun HomeCategorySection(
                                 if (isHorizontalCategory) 160.dp else 115.dp
                             } else {
                                 val baseWidth = if (isHorizontalCategory) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
-                                // Subtract 20.dp (10.dp horizontal content padding) from availableWidth
+                                // Subtract 20.dp (10.dp start + 10.dp end horizontal content padding) from availableWidth
                                 val netWidth = availableWidth - 20.dp
                                 val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
                                 val columns = exactColumns.toInt().coerceAtLeast(1)
@@ -198,7 +202,7 @@ fun HomeCategorySection(
                             }
 
                             CategoryRowWithHeader(
-                                modifier = Modifier.padding(start = effectivePaddingStart, end = effectivePaddingEnd),
+                                modifier = Modifier.fillMaxWidth(),
                                 title = titleStr,
                                 itemCount = section.list.size,
                                 isInfinite = isLoop,
