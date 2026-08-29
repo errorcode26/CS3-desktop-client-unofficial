@@ -1,21 +1,13 @@
 # A PowerShell script to compile the JNI native bridge for CloudStream Desktop.
 # Requirements: MinGW-w64 (g++) in your PATH, and JAVA_HOME environment variable set.
 
-$ScriptDir = $PSScriptRoot
-if (-not $ScriptDir) { $ScriptDir = "." }
-
-$DllDir = Join-Path $ScriptDir "..\..\..\appResources\windows\jni"
+$DllDir = "..\..\..\appResources\windows\jni"
 if (-not (Test-Path $DllDir)) {
     New-Item -ItemType Directory -Force -Path $DllDir | Out-Null
 }
-$DllOutput = Join-Path $DllDir "player_bridge.dll"
-$Sources = @(
-    (Join-Path $ScriptDir "common\mpv_core.cpp"),
-    (Join-Path $ScriptDir "windows\surface_win32.cpp"),
-    (Join-Path $ScriptDir "windows\webview_win32.cpp")
-)
-$CommonInclude = Join-Path $ScriptDir "include"
-$WebviewInclude = Join-Path $ScriptDir "webview2\build\native\include"
+$DllOutput = "$DllDir\player_bridge.dll"
+$Source = "player_bridge.cpp"
+$WebviewInclude = "webview2\build\native\include"
 
 if (-not $env:JAVA_HOME) {
     Write-Error "JAVA_HOME environment variable is not set. Please set it to your JDK path."
@@ -25,12 +17,12 @@ if (-not $env:JAVA_HOME) {
 $JavaInclude = "$env:JAVA_HOME\include"
 $JavaIncludeWin32 = "$env:JAVA_HOME\include\win32"
 
-Write-Host "Compiling modular player_bridge.dll..."
+Write-Host "Compiling player_bridge.dll..."
 
 # -shared: Create a DLL
 # -static: Statically link libstdc++, libgcc, and libwinpthread so the DLL doesn't require MinGW runtime on user PCs
 # -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid: Required Windows system libraries for WebView2 and DWM chrome
-g++ -shared -static -std=c++17 -o "$DllOutput" $Sources -I"$CommonInclude" -I"$JavaInclude" -I"$JavaIncludeWin32" -I"$WebviewInclude" -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid
+g++ -shared -static -o "$DllOutput" "$Source" -I"$JavaInclude" -I"$JavaIncludeWin32" -I"$WebviewInclude" -lole32 -luser32 -ldwmapi -ladvapi32 -lgdi32 -luuid
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Compilation successful! DLL output to: $DllOutput" -ForegroundColor Green

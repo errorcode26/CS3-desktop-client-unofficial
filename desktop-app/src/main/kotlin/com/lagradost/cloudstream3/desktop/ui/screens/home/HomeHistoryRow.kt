@@ -70,6 +70,7 @@ fun HomeHistoryRow(
         val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
         val continueWatchingStyle by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.continueWatchingStyle.collectAsState()
         val posterWidthDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.posterWidthDp.collectAsState()
+        val homeVerticalSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeVerticalSpacingDp.collectAsState()
         val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
         val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
 
@@ -86,14 +87,14 @@ fun HomeHistoryRow(
                 rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = effectivePaddingStart,
                     end = effectivePaddingEnd,
-                    top = if (isCompact) 8.dp else 16.dp,
-                    bottom = if (isCompact) 8.dp else 16.dp,
+                    top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                    bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
                 ),
                 headerPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = effectivePaddingStart,
                     end = effectivePaddingEnd,
-                    top = 12.dp,
-                    bottom = 8.dp,
+                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                    bottom = 4.dp,
                 ),
                 trailingHeaderExtra = if (!isCompact) {
                     {

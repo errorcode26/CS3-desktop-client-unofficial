@@ -114,10 +114,37 @@ enum class HeroBannerStyle(val label: String) {
     }
 }
 
+enum class TopBarProviderStyle(val label: String) {
+    ICON_ONLY("Icon Only (Clean)"),
+    ICON_AND_NAME("Icon & Name"),
+    ;
+
+    companion object {
+        fun fromString(value: String?): TopBarProviderStyle {
+            return entries.find { it.name.equals(value, ignoreCase = true) || it.label.equals(value, ignoreCase = true) } ?: ICON_AND_NAME
+        }
+    }
+}
+
+enum class ProviderBadgeDisplayMode(val label: String) {
+    HIDDEN("Hidden (Clean)"),
+    ICON_ONLY("Icon Only"),
+    FULL_BADGE("Full Badge"),
+    ;
+
+    companion object {
+        fun fromString(value: String?): ProviderBadgeDisplayMode {
+            return entries.find { it.name.equals(value, ignoreCase = true) || it.label.equals(value, ignoreCase = true) } ?: HIDDEN
+        }
+    }
+}
+
 object AppearanceConfig {
     private const val PREF_GLOBAL_UI_SCALE = "pref_global_ui_scale"
     private const val PREF_NAVIGATION_STYLE = "pref_navigation_style"
     private const val PREF_HERO_BANNER_STYLE = "pref_hero_banner_style"
+    private const val PREF_TOP_BAR_PROVIDER_STYLE = "pref_top_bar_provider_style"
+    private const val PREF_PROVIDER_BADGE_DISPLAY_MODE = "pref_provider_badge_display_mode"
     private const val PREF_THEME_ACCENT = "pref_theme_accent"
     private const val PREF_AMOLED_MODE = "pref_amoled_mode"
     private const val PREF_LIGHT_MODE = "pref_light_mode"
@@ -256,6 +283,10 @@ object AppearanceConfig {
     val heroBannerStyle: StateFlow<HeroBannerStyle> = _heroBannerStyle.asStateFlow()
     private val _continueWatchingStyle = MutableStateFlow(ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE)))
     val continueWatchingStyle: StateFlow<ContinueWatchingStyle> = _continueWatchingStyle.asStateFlow()
+    private val _topBarProviderStyle = MutableStateFlow(TopBarProviderStyle.fromString(DesktopDataStore.getKey<String>(PREF_TOP_BAR_PROVIDER_STYLE)))
+    val topBarProviderStyle: StateFlow<TopBarProviderStyle> = _topBarProviderStyle.asStateFlow()
+    private val _providerBadgeDisplayMode = MutableStateFlow(ProviderBadgeDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_PROVIDER_BADGE_DISPLAY_MODE)))
+    val providerBadgeDisplayMode: StateFlow<ProviderBadgeDisplayMode> = _providerBadgeDisplayMode.asStateFlow()
     private val _posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
     val posterHoverGlowEnabled: StateFlow<Boolean> = _posterHoverGlowEnabled.asStateFlow()
     private val _posterTitlePosition = MutableStateFlow(PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION)))
@@ -508,6 +539,16 @@ object AppearanceConfig {
     fun setContinueWatchingStyle(style: ContinueWatchingStyle) {
         _continueWatchingStyle.value = style
         DesktopDataStore.setKey(PREF_CONTINUE_WATCHING_STYLE, style.name)
+    }
+
+    fun setTopBarProviderStyle(style: TopBarProviderStyle) {
+        _topBarProviderStyle.value = style
+        DesktopDataStore.setKey(PREF_TOP_BAR_PROVIDER_STYLE, style.name)
+    }
+
+    fun setProviderBadgeDisplayMode(mode: ProviderBadgeDisplayMode) {
+        _providerBadgeDisplayMode.value = mode
+        DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, mode.name)
     }
 
     fun setPosterHoverGlowEnabled(enabled: Boolean) {
@@ -824,6 +865,8 @@ object AppearanceConfig {
         _heroAutoSlideDelaySeconds.value = DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10
         _heroBannerStyle.value = HeroBannerStyle.fromString(DesktopDataStore.getKey<String>(PREF_HERO_BANNER_STYLE))
         _continueWatchingStyle.value = ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE))
+        _topBarProviderStyle.value = TopBarProviderStyle.fromString(DesktopDataStore.getKey<String>(PREF_TOP_BAR_PROVIDER_STYLE))
+        _providerBadgeDisplayMode.value = ProviderBadgeDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_PROVIDER_BADGE_DISPLAY_MODE))
         _posterHoverGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true
         _posterTitlePosition.value = PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION))
         _homeSpacingDp.value = DesktopDataStore.getKey<Int>(PREF_HOME_SPACING_DP) ?: 12

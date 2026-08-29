@@ -72,6 +72,7 @@ fun DetailsBackdrop(
     modifier: Modifier = Modifier,
     dynamicColorEnabled: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
+    activeBgUrl: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -89,34 +90,9 @@ fun DetailsBackdrop(
     ) {
         val currentPhase = enrichmentPhase
 
-        val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
-        val screenshots = uiState?.screenshots ?: emptyList()
-        var currentScreenshotIndex by remember { mutableStateOf(-1) }
-
-        val isFallback = remember(data, currentScreenshotIndex, screenshots, uiState) {
-            if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) return@remember false
-            if (!uiState?.enrichedBackdropUrl.isNullOrBlank()) return@remember false
-            data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
-        }
-
-        LaunchedEffect(screensaverEnabled, screenshots) {
-            if (screensaverEnabled && screenshots.isNotEmpty()) {
-                currentScreenshotIndex = 0
-                while (true) {
-                    kotlinx.coroutines.delay(10_000)
-                    currentScreenshotIndex = (currentScreenshotIndex + 1) % screenshots.size
-                }
-            } else {
-                currentScreenshotIndex = -1
-            }
-        }
-
         val baseBgUrl = remember(data, currentPhase, uiState) {
             // Always prefer enriched TMDB backdrop
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
-                // Only fall back to the provider's (potentially CF-protected) URL AFTER enrichment
-                // finishes. If we fall back mid-enrichment we trigger a CF storm for an image
-                // we'll crossfade away in 2 seconds anyway.
                 ?: if (uiState?.isEnriching == false) {
                     provider.fixUrlNull(data.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
                         ?: provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
@@ -125,10 +101,10 @@ fun DetailsBackdrop(
                 }
         }
 
-        val bgUrl = if (currentScreenshotIndex >= 0 && screenshots.isNotEmpty()) {
-            screenshots[currentScreenshotIndex]
-        } else {
-            baseBgUrl
+        val bgUrl = activeBgUrl ?: baseBgUrl
+        val isFallback = remember(data, bgUrl, uiState) {
+            if (!uiState?.enrichedBackdropUrl.isNullOrBlank()) return@remember false
+            data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
         }
 
         if (bgUrl != null) {
@@ -142,28 +118,32 @@ fun DetailsBackdrop(
                     .graphicsLayer { alpha = 0.99f }
                     .drawWithCache {
                         val verticalFade = Brush.verticalGradient(
-                            0.0f to Color.Black,
-                            0.65f to Color.Black,
-                            1.0f to Color.Transparent,
+                            0.00f to Color.Black,
+                            0.35f to Color.Black,
+                            0.60f to Color.Black.copy(alpha = 0.85f),
+                            0.80f to Color.Black.copy(alpha = 0.40f),
+                            0.94f to Color.Black.copy(alpha = 0.08f),
+                            1.00f to Color.Transparent,
                         )
                         val scrimBase = Color.Black
                         // Smooth horizontal sweep from left — many stops so the edge is completely invisible
                         val logoVignette = Brush.horizontalGradient(
-                            0.00f to scrimBase.copy(alpha = 0.82f),
-                            0.08f to scrimBase.copy(alpha = 0.78f),
-                            0.18f to scrimBase.copy(alpha = 0.68f),
-                            0.30f to scrimBase.copy(alpha = 0.52f),
-                            0.42f to scrimBase.copy(alpha = 0.32f),
-                            0.54f to scrimBase.copy(alpha = 0.16f),
+                            0.00f to scrimBase.copy(alpha = 0.85f),
+                            0.08f to scrimBase.copy(alpha = 0.80f),
+                            0.18f to scrimBase.copy(alpha = 0.70f),
+                            0.30f to scrimBase.copy(alpha = 0.55f),
+                            0.42f to scrimBase.copy(alpha = 0.35f),
+                            0.54f to scrimBase.copy(alpha = 0.18f),
                             0.64f to scrimBase.copy(alpha = 0.06f),
                             0.72f to Color.Transparent,
                             1.00f to Color.Transparent,
                         )
                         val bottomScrim = Brush.verticalGradient(
-                            0.0f to Color.Transparent,
-                            0.40f to Color.Transparent,
-                            0.75f to scrimBase.copy(alpha = 0.25f),
-                            1.0f to scrimBase.copy(alpha = 0.35f),
+                            0.00f to Color.Transparent,
+                            0.35f to Color.Transparent,
+                            0.65f to Color(0xFF0F0F0F).copy(alpha = 0.50f),
+                            0.85f to Color(0xFF0F0F0F).copy(alpha = 0.88f),
+                            1.00f to Color(0xFF0F0F0F),
                         )
                         onDrawWithContent {
                             drawContent()
@@ -285,21 +265,26 @@ fun DetailsMetadata(
 
             // The logo and text should scale together and have similar sensible maximums
             // so the logo never dwarfs the text on massive monitors.
-            val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.4f)
-            val responsivePlotMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.85f else 0.45f)
+            val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.42f)
+            val responsivePlotMaxWidth = minOf(580.dp, maxWidth * if (isNarrow) 0.85f else 0.46f)
 
             val responsiveLogoMaxHeight = when {
-                isCompactHeight -> 100.dp
-                isMediumHeight -> 140.dp
-                else -> minOf(180.dp, actualMaxHeight * 0.25f)
+                isCompactHeight -> 96.dp
+                isMediumHeight -> 130.dp
+                else -> 165.dp
             }
             val responsiveTopPadding = when {
-                isCompactHeight -> 16.dp
-                isMediumHeight -> if (isNarrow) 24.dp else 40.dp
-                else -> if (isNarrow) 32.dp else 56.dp
+                isCompactHeight -> 48.dp
+                isMediumHeight -> if (isNarrow) 56.dp else 64.dp
+                else -> if (isNarrow) 64.dp else 72.dp
             }
 
-            val responsiveBottomPadding = 148.dp
+            val isMovie = data.type == TvType.Movie || data.type == TvType.AnimeMovie || data.type == TvType.Live
+            val responsiveBottomPadding = when {
+                isCompactHeight -> 14.dp
+                isMovie -> 36.dp
+                else -> 28.dp
+            }
 
             AdaptiveMetadataLayout(
                 isNarrow = isNarrow,
@@ -345,11 +330,21 @@ fun DetailsMetadata(
                                     .heightIn(max = responsiveLogoMaxHeight),
                                 contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                             ) {
-                                val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                    .data(activeLogoUrl)
-                                    .size(1600, 800)
-                                    .crossfade(true)
-                                    .build()
+                                var isDarkLogo by remember(activeLogoUrl) { mutableStateOf(false) }
+                                val platformContext = coil3.compose.LocalPlatformContext.current
+
+                                val logoRequest = remember(activeLogoUrl, platformContext) {
+                                    coil3.request.ImageRequest.Builder(platformContext)
+                                        .data(activeLogoUrl)
+                                        .size(1600, 800)
+                                        .crossfade(true)
+                                        .listener(
+                                            onSuccess = { _, result ->
+                                                isDarkLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                            },
+                                        )
+                                        .build()
+                                }
                                 AsyncImage(
                                     model = logoRequest,
                                     contentDescription = null,
@@ -375,32 +370,23 @@ fun DetailsMetadata(
                                     filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier.fillMaxSize(),
                                     alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                                    colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
                                     error = {
                                         Text(
                                             text = displayName,
                                             style = MaterialTheme.typography.headlineLarge.copy(
-                                                fontSize = when {
-                                                    displayName.length > 40 -> 28.sp
-                                                    displayName.length > 24 -> 34.sp
-                                                    displayName.length > 14 -> 40.sp
-                                                    else -> 46.sp
-                                                },
-                                                fontWeight = FontWeight.Black,
-                                                letterSpacing = (-0.5).sp,
-                                                lineHeight = when {
-                                                    displayName.length > 40 -> 34.sp
-                                                    displayName.length > 24 -> 40.sp
-                                                    displayName.length > 14 -> 46.sp
-                                                    else -> 52.sp
-                                                },
+                                                fontSize = if (displayName.length > 28) 34.sp else 40.sp,
+                                                lineHeight = if (displayName.length > 28) 42.sp else 48.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                letterSpacing = (-0.3).sp,
                                                 shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.85f),
+                                                    color = Color.Black.copy(alpha = 0.65f),
                                                     offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 16f,
+                                                    blurRadius = 4f,
                                                 ),
                                             ),
                                             color = Color.White,
-                                            maxLines = 3,
+                                            maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
                                             textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                                             modifier = Modifier
@@ -414,28 +400,18 @@ fun DetailsMetadata(
                             Text(
                                 text = displayName,
                                 style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontSize = when {
-                                        displayName.length > 40 -> 28.sp
-                                        displayName.length > 24 -> 34.sp
-                                        displayName.length > 14 -> 40.sp
-                                        else -> 46.sp
-                                    },
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = (-0.5).sp,
-                                    lineHeight = when {
-                                        displayName.length > 40 -> 34.sp
-                                        displayName.length > 24 -> 40.sp
-                                        displayName.length > 14 -> 46.sp
-                                        else -> 52.sp
-                                    },
+                                    fontSize = if (displayName.length > 28) 34.sp else 40.sp,
+                                    lineHeight = if (displayName.length > 28) 42.sp else 48.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = (-0.3).sp,
                                     shadow = androidx.compose.ui.graphics.Shadow(
-                                        color = Color.Black.copy(alpha = 0.85f),
+                                        color = Color.Black.copy(alpha = 0.65f),
                                         offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                        blurRadius = 16f,
+                                        blurRadius = 4f,
                                     ),
                                 ),
                                 color = Color.White,
-                                maxLines = 3,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                                 modifier = Modifier
@@ -461,7 +437,7 @@ fun DetailsMetadata(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     if (!isLoading) {
                         // Row 1: Primary Meta Information & Status Badges
@@ -525,8 +501,8 @@ fun DetailsMetadata(
                             if (metaItems.isNotEmpty()) {
                                 Text(
                                     text = metaItems.joinToString("  •  "),
-                                    color = Color.White.copy(alpha = 0.85f),
-                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.90f),
+                                    fontSize = 15.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                             }
@@ -551,17 +527,17 @@ fun DetailsMetadata(
                                     else -> rawStatus
                                 }
                                 Surface(
-                                    shape = RoundedCornerShape(5.5.dp),
+                                    shape = RoundedCornerShape(6.dp),
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                                     border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                                 ) {
                                     Text(
                                         text = cleanStatus,
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 11.5.sp,
+                                        fontSize = 12.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         letterSpacing = 0.3.sp,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     )
                                 }
                             }
@@ -589,7 +565,7 @@ fun DetailsMetadata(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
                                         ) {
                                             Surface(
                                                 shape = RoundedCornerShape(3.dp),
@@ -598,7 +574,7 @@ fun DetailsMetadata(
                                                 Text(
                                                     text = "IMDb",
                                                     color = Color.Black,
-                                                    fontSize = 10.sp,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Black,
                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                                 )
@@ -607,7 +583,7 @@ fun DetailsMetadata(
                                             Text(
                                                 text = String.format(java.util.Locale.US, "%.1f", imdbScore),
                                                 color = Color(0xFFF5C518),
-                                                fontSize = 12.sp,
+                                                fontSize = 13.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         }
@@ -623,7 +599,7 @@ fun DetailsMetadata(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
                                         ) {
                                             Surface(
                                                 shape = RoundedCornerShape(3.dp),
@@ -632,7 +608,7 @@ fun DetailsMetadata(
                                                 Text(
                                                     text = "TMDB",
                                                     color = Color.Black,
-                                                    fontSize = 10.sp,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Black,
                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                                 )
@@ -641,7 +617,7 @@ fun DetailsMetadata(
                                             Text(
                                                 text = String.format(java.util.Locale.US, "%.1f", tmdbScore),
                                                 color = Color(0xFF01B4E4),
-                                                fontSize = 12.sp,
+                                                fontSize = 13.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         }
@@ -657,7 +633,7 @@ fun DetailsMetadata(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
                                         ) {
                                             Surface(
                                                 shape = RoundedCornerShape(3.dp),
@@ -666,7 +642,7 @@ fun DetailsMetadata(
                                                 Text(
                                                     text = "AniList",
                                                     color = Color.White,
-                                                    fontSize = 10.sp,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                                 )
@@ -675,7 +651,7 @@ fun DetailsMetadata(
                                             Text(
                                                 text = "${(anilistScore * 10).toInt()}%",
                                                 color = Color(0xFF02A9FF),
-                                                fontSize = 12.sp,
+                                                fontSize = 13.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         }
@@ -701,23 +677,23 @@ fun DetailsMetadata(
                                     ) {
                                         Text(
                                             text = tag,
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                            color = Color.White.copy(alpha = 0.92f),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                                         )
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                     if (!isLoading && !data.plot.isNullOrBlank()) {
                         Text(
                             text = data.plot ?: "",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 15.sp,
-                            lineHeight = 22.sp,
+                            color = Color.White.copy(alpha = 0.88f),
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.widthIn(max = responsivePlotMaxWidth),
@@ -725,7 +701,7 @@ fun DetailsMetadata(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     val bookmarkId = "${provider.name}_${data.url.hashCode()}"
                     val allBookmarks = uiState?.bookmarks ?: emptyMap()
@@ -909,18 +885,15 @@ fun DetailsMetadata(
                     } else {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
+                            modifier = Modifier.align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                         ) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    heroAction(Modifier.fillMaxWidth())
-                                }
-                                libraryButton(Modifier)
-                                downloadAction?.invoke(Modifier)
+                                heroAction(Modifier.wrapContentWidth())
+                                libraryButton(Modifier.wrapContentWidth())
+                                downloadAction?.invoke(Modifier.wrapContentWidth())
                             }
                         }
                     }
@@ -991,17 +964,38 @@ fun DetailsMetadata(
                             shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                         )
 
-                        // Pin Toggle Row
+                        // Action Bar Row (Screensaver Toggle + Pin Toggle)
                         if (!isNarrow) {
-                            val pinAlpha by androidx.compose.animation.core.animateFloatAsState(
+                            val actionAlpha by androidx.compose.animation.core.animateFloatAsState(
                                 targetValue = if (isRightColumnHovered) 1f else 0f,
-                                label = "pinAlpha",
+                                label = "actionAlpha",
                             )
+                            val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+                            val screenshots = uiState?.screenshots ?: emptyList()
+
                             Row(
-                                modifier = Modifier.graphicsLayer { alpha = pinAlpha },
-                                horizontalArrangement = Arrangement.End,
+                                modifier = Modifier.graphicsLayer { alpha = actionAlpha },
+                                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                if (screenshots.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = {
+                                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                AppearanceConfig.setScreensaverEnabled(!screensaverEnabled)
+                                            }
+                                        },
+                                        modifier = Modifier.size(36.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = if (screensaverEnabled) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = if (screensaverEnabled) "Pause backdrop screensaver" else "Resume backdrop screensaver",
+                                            tint = if (screensaverEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+
                                 IconButton(
                                     onClick = {
                                         val nextPinned = !isRightColumnPinned
@@ -1114,17 +1108,27 @@ private fun DetailsMetadataCompact(
                     .heightIn(min = 60.dp, max = 95.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                val logoRequest = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                    .data(activeLogoUrl)
-                    .size(1200, 600)
-                    .crossfade(true)
-                    .build()
+                var isDarkLogo by remember(activeLogoUrl) { mutableStateOf(false) }
+                val platformContext = coil3.compose.LocalPlatformContext.current
+                val logoRequest = remember(activeLogoUrl, platformContext) {
+                    coil3.request.ImageRequest.Builder(platformContext)
+                        .data(activeLogoUrl)
+                        .size(1200, 600)
+                        .crossfade(true)
+                        .listener(
+                            onSuccess = { _, result ->
+                                isDarkLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                            },
+                        )
+                        .build()
+                }
                 coil3.compose.SubcomposeAsyncImage(
                     model = logoRequest,
                     contentDescription = displayName,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),
                     alignment = Alignment.Center,
+                    colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
                     error = {
                         Text(
                             text = displayName,
@@ -1535,6 +1539,15 @@ fun DetailsCastSection(
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
         val hPad = if (isCompact) 12.dp else horizontalPadding
+        val netWidth = (maxWidth - (hPad * 2)).coerceAtLeast(100.dp)
+        val spacingDp = if (isCompact) 12.dp else 16.dp
+        val minCardWidth = if (isCompact) 110.dp else 140.dp
+
+        // Dynamic column calculation: exact number of columns that fit comfortably within netWidth
+        val columns = maxOf(2, ((netWidth + spacingDp) / (minCardWidth + spacingDp)).toInt())
+        val totalSpacingDp = spacingDp * (columns - 1)
+        // Exact dynamic width ensuring 100% of netWidth is filled edge-to-edge across safe zone
+        val dynamicCardWidth = (netWidth - totalSpacingDp) / columns
 
         if (cast.isNotEmpty() || directors.isNotEmpty()) {
             Column(
@@ -1543,14 +1556,34 @@ fun DetailsCastSection(
                     .padding(horizontal = hPad, vertical = 8.dp),
             ) {
                 val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
+                var showAllCast by remember { androidx.compose.runtime.mutableStateOf(false) }
+                val displayedCast = if (showAllCast) cast else cast.take(columns * 2)
 
                 if (cast.isNotEmpty()) {
-                    Text(
-                        text = "Cast",
-                        style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Cast",
+                            style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (!isCompact && cast.size > columns * 2) {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showAllCast = !showAllCast },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = if (showAllCast) "Show Less" else "View All (${cast.size})",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
                     if (isCompact) {
                         LazyRow(
@@ -1567,17 +1600,19 @@ fun DetailsCastSection(
                         }
                     } else {
                         androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(spacingDp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
+                            maxItemsInEachRow = columns,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            cast.take(18).forEach { actor ->
+                            displayedCast.forEach { actor ->
                                 ActorCard(
                                     actor = actor,
                                     provider = provider,
                                     isInverted = invertedMap[actor] == true,
                                     onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
                                     onClick = { onActorClick(actor) },
+                                    modifier = Modifier.width(dynamicCardWidth),
                                 )
                             }
                         }
@@ -1589,13 +1624,34 @@ fun DetailsCastSection(
                 }
 
                 if (directors.isNotEmpty()) {
+                    var showAllDirectors by remember { androidx.compose.runtime.mutableStateOf(false) }
+                    val displayedDirectors = if (showAllDirectors) directors else directors.take(columns)
                     val headerTitle = if (directors.any { it.roleString?.equals("Creator", ignoreCase = true) == true }) "Directors & Creators" else "Directors"
-                    Text(
-                        text = headerTitle,
-                        style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = headerTitle,
+                            style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (!isCompact && directors.size > columns) {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showAllDirectors = !showAllDirectors },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = if (showAllDirectors) "Show Less" else "View All (${directors.size})",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
                     if (isCompact) {
                         LazyRow(
@@ -1612,17 +1668,19 @@ fun DetailsCastSection(
                         }
                     } else {
                         androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(spacingDp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
+                            maxItemsInEachRow = columns,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            directors.forEach { actor ->
+                            displayedDirectors.forEach { actor ->
                                 ActorCard(
                                     actor = actor,
                                     provider = provider,
                                     isInverted = invertedMap[actor] == true,
                                     onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
                                     onClick = { onActorClick(actor) },
+                                    modifier = Modifier.width(dynamicCardWidth),
                                 )
                             }
                         }
@@ -1641,7 +1699,14 @@ private fun CompactActorCard(
 ) {
     val actorImg = provider.fixUrlNull(actor.actor.image ?: actor.voiceActor?.image)
     val actorName = actor.actor.name
-    val roleStr = actor.roleString ?: actor.role?.name
+    val roleStr = when {
+        actor.voiceActor?.name?.isNotBlank() == true -> "🎙 ${actor.voiceActor?.name}"
+        !actor.roleString.isNullOrBlank() && !actor.roleString.equals("Director", ignoreCase = true) && !actor.roleString.equals("Creator", ignoreCase = true) -> {
+            val raw = actor.roleString!!.trim()
+            if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+        }
+        else -> actor.roleString ?: actor.role?.name
+    }
 
     Column(
         modifier = Modifier
@@ -1708,6 +1773,7 @@ private fun ActorCard(
     isInverted: Boolean,
     onInvertToggle: () -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var isHovered by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(
@@ -1739,14 +1805,21 @@ private fun ActorCard(
     }
 
     val secondaryText = when {
-        !subName.isNullOrBlank() -> subName
-        !actor.roleString.isNullOrBlank() && actor.roleString?.equals("Director", ignoreCase = true) != true && actor.roleString?.equals("Creator", ignoreCase = true) != true -> actor.roleString
+        !subName.isNullOrBlank() -> {
+            if (!isInverted) "🎙 Voice: $subName" else {
+                val raw = subName.trim()
+                if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+            }
+        }
+        !actor.roleString.isNullOrBlank() && actor.roleString?.equals("Director", ignoreCase = true) != true && actor.roleString?.equals("Creator", ignoreCase = true) != true -> {
+            val raw = actor.roleString!!.trim()
+            if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+        }
         else -> null
     }
 
     Column(
-        modifier = Modifier
-            .width(165.dp)
+        modifier = modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -1896,10 +1969,10 @@ private fun ActorCard(
         if (!secondaryText.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = if (!subName.isNullOrBlank()) "🎙 $secondaryText" else secondaryText,
+                text = secondaryText,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

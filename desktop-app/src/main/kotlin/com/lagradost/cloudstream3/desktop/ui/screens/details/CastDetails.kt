@@ -133,9 +133,26 @@ fun CastDetailsDialog(
 
                         Spacer(modifier = Modifier.width(24.dp))
 
+                        val characterRole = when {
+                            actor.voiceActor != null -> "🎙 Voice for ${actor.actor.name}"
+                            !actor.roleString.isNullOrBlank() && !actor.roleString.equals("Director", ignoreCase = true) && !actor.roleString.equals("Creator", ignoreCase = true) -> {
+                                val raw = actor.roleString!!.trim()
+                                if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+                            }
+                            else -> null
+                        }
+
                         Column {
                             Text(d.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.height(12.dp))
+                            if (!characterRole.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = characterRole,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
                             if (d.birthday != null) {
                                 Text("Born: ${d.birthday}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(modifier = Modifier.height(4.dp))

@@ -463,30 +463,36 @@ object TmdbEnrichmentService {
                 TmdbRateLimiter.acquire()
                 val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
 
-                val findMatch = { results: com.fasterxml.jackson.databind.JsonNode? ->
-                    val possible = mutableListOf<Pair<com.fasterxml.jackson.databind.JsonNode, Double>>()
-                    if (results != null && results.isArray) {
-                        for (result in results) {
-                            val mediaType = result.get("media_type")?.asText()
-                            if (mediaType == "person") continue
+                val isAnime = loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.OVA ||
+                    loaded.tags?.any { it.contains("anime", ignoreCase = true) || it.contains("animation", ignoreCase = true) } == true
 
-                            // Reject if the provider says it's a Movie but TMDB says TV show (and vice versa)
-                            // A dummy item on the Home Page defaults to Movie if unknown, so we should skip the strict movie != tv rejection.
+                val isTv = loaded.type == com.lagradost.cloudstream3.TvType.TvSeries ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.AsianDrama ||
+                    loaded.type == com.lagradost.cloudstream3.TvType.Cartoon
+
+                val findMatch: (com.fasterxml.jackson.databind.JsonNode?, String) -> com.fasterxml.jackson.databind.JsonNode? = { resultsNode, queryName ->
+                    if (resultsNode == null || !resultsNode.isArray) {
+                        null
+                    } else {
+                        val possible = mutableListOf<Pair<com.fasterxml.jackson.databind.JsonNode, Double>>()
+                        for (result in resultsNode) {
+                            val mediaType = result.get("media_type")?.asText()
+                            if (mediaType != "movie" && mediaType != "tv") continue
                             if (!isDummy || loaded.type != com.lagradost.cloudstream3.TvType.Movie) {
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.Movie && mediaType == "tv") continue
                                 if (loaded.type == com.lagradost.cloudstream3.TvType.TvSeries && mediaType == "movie") continue
-                                if (loaded.type == com.lagradost.cloudstream3.TvType.Anime && mediaType == "movie") continue
                             }
 
                             val resultName = result.get("name")?.asText() ?: result.get("title")?.asText() ?: result.get("original_name")?.asText() ?: ""
-                            val cleanCompare = cleanName.lowercase().removePrefix("the ").trim()
+                            val cleanCompare = queryName.lowercase().removePrefix("the ").trim()
                             val resultCompare = resultName.lowercase().removePrefix("the ").trim()
 
                             val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
                             val strippedCleanName = cleanCompare.replace(Regex("[^a-zA-Z0-9]"), "")
-
-                            val cleanWords = cleanCompare.replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
-                            val resultWords = resultCompare.replace(Regex("[^a-z0-9 ]"), "").split(" ").filter { it.isNotBlank() }
 
                             // Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
                             val numbers1 = Regex("""\b\d+\b""").findAll(cleanCompare).map { it.value }.toSet()
@@ -495,52 +501,57 @@ object TmdbEnrichmentService {
                             val romans1 = romanRegex.findAll(cleanCompare).map { it.value }.toSet()
                             val romans2 = romanRegex.findAll(resultCompare).map { it.value }.toSet()
                             val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
+                            if (hasNumberMismatch) continue
 
                             val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
+
+                            val genreArray = result.get("genre_ids")
+                            val isAnimation = genreArray?.isArray == true && genreArray.any { it.asInt() == 16 }
+                            val originArray = result.get("origin_country")
+                            val isEastAsian = originArray?.isArray == true && originArray.any { it.asText() in setOf("JP", "CN", "KR") }
+
+                            // 1. Hard Domain Check for Anime: Never let live action hijack anime!
+                            if (isAnime && !isAnimation && !isEastAsian) {
+                                continue
+                            }
 
                             val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
                             val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
 
-                            // Strictly reject if years don't match (allowing a 1-year tolerance for release date weirdness)
+                            // 2. Year Validation:
                             val loadedYear = tempYear
-                            val yearMismatch = resultYear != null && loadedYear != null && Math.abs(resultYear - loadedYear) > 1
-                            if (yearMismatch) continue
-
-                            var score = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName, strippedResultName)
-
-                            if (isStrictMatch) {
-                                score = 1.0
+                            if (resultYear != null && loadedYear != null) {
+                                if (isTv) {
+                                    // For TV Series / Anime, parent show's first_air_date can start on or before season year
+                                    if (resultYear > loadedYear + 1) continue
+                                } else {
+                                    // For Movies, must be within 1 year
+                                    if (Math.abs(resultYear - loadedYear) > 1) continue
+                                }
                             }
 
-                            if (hasNumberMismatch) {
-                                score = 0.0
+                            var similarity = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName, strippedResultName)
+                            if (isStrictMatch) similarity = 1.0
+
+                            if (similarity < 0.65) continue
+
+                            var score = similarity * 10.0
+                            if (isAnime && isAnimation) score += 20.0
+                            if (resultYear != null && loadedYear != null) {
+                                if (resultYear == loadedYear) score += 5.0
+                                else if (isTv && resultYear <= loadedYear) score += 2.0
                             }
 
-                            // Threshold: only accept if similarity is >= 80%
-                            if (score >= 0.80) {
-                                possible.add(Pair(result, score))
-                            }
+                            val popularity = result.get("popularity")?.asDouble() ?: 0.0
+                            score += Math.min(5.0, popularity / 20.0)
+
+                            possible.add(Pair(result, score))
                         }
-                    }
-                    if (possible.isEmpty()) {
-                        null
-                    } else {
-                        // Sort by score descending
-                        possible.sortByDescending { it.second }
-                        if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                            // If it's anime, try to prioritize anime among the top matches (those within 5% of the highest score)
-                            val highestScore = possible.first().second
-                            val topMatches = possible.filter { it.second >= highestScore - 0.05 }
 
-                            topMatches.find { resPair ->
-                                val res = resPair.first
-                                val genreArray = res.get("genre_ids")
-                                val isAnimation = genreArray?.isArray == true && genreArray.any { it.asInt() == 16 }
-                                val originArray = res.get("origin_country")
-                                val isJP = originArray?.isArray == true && originArray.any { it.asText() == "JP" }
-                                isAnimation || isJP
-                            }?.first ?: possible.first().first
+                        if (possible.isEmpty()) {
+                            null
                         } else {
+                            possible.sortByDescending { it.second }
                             possible.first().first
                         }
                     }
@@ -550,9 +561,6 @@ object TmdbEnrichmentService {
                 var resolvedIsMovie: Boolean = loaded.type == com.lagradost.cloudstream3.TvType.Movie
 
                 // Fast path 1: We have an IMDb ID — use /find/ for zero-ambiguity type detection.
-                // This MUST run before directTmdbId so we get the correct movie/tv type from TMDB.
-                // (Cinemeta's directTmdbId doesn't carry type info — it relies on us knowing movie vs tv
-                // from the plugin, which is wrong when e.g. a plugin reports "Movie" for an anime series.)
                 if (directImdbId != null) {
                     TmdbRateLimiter.acquire()
                     val findUrl = "https://api.themoviedb.org/3/find/$directImdbId?api_key=$TMDB_API_KEY&external_source=imdb_id"
@@ -573,32 +581,38 @@ object TmdbEnrichmentService {
                 }
 
                 // Fast path 2: Cinemeta gave us a direct TMDB ID — use it only if IMDb /find/ failed.
-                // We avoid using this as the primary path because it doesn't carry type (movie vs tv).
                 if (resolvedMatchId == null && directTmdbId != null) {
                     resolvedMatchId = directTmdbId
                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: direct TMDB ID → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
                 }
 
                 if (resolvedMatchId == null) {
-                    // Text search fallback — only reached when Cinemeta had no match
-                    val searchUrl = "https://api.themoviedb.org/3/search/multi?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(cleanName, "UTF-8")}&page=1&language=en-US"
-                    val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    var matchNode = findMatch(searchData?.get("results"))
+                    // Text search fallback across all progressive root candidates
+                    val searchCandidates = com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractRootTitleCandidates(loaded.name)
+                    for (cand in searchCandidates) {
+                        val q = cand.first
+                        val searchUrl = "https://api.themoviedb.org/3/search/multi?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1&language=en-US"
+                        val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                        var matchNode = findMatch(searchData?.get("results"), q)
 
-                    // Pass 2: no language filter for non-English titles
-                    if (matchNode == null) {
-                        TmdbRateLimiter.acquire()
-                        val fallbackUrl = "https://api.themoviedb.org/3/search/multi?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(cleanName, "UTF-8")}&page=1"
-                        val fallbackData = com.lagradost.cloudstream3.app.get(fallbackUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                        matchNode = findMatch(fallbackData?.get("results"))
+                        // Pass 2: no language filter for non-English titles
+                        if (matchNode == null) {
+                            TmdbRateLimiter.acquire()
+                            val fallbackUrl = "https://api.themoviedb.org/3/search/multi?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1"
+                            val fallbackData = com.lagradost.cloudstream3.app.get(fallbackUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                            matchNode = findMatch(fallbackData?.get("results"), q)
+                        }
+
+                        if (matchNode != null) {
+                            resolvedMatchId = matchNode.get("id")?.asInt()
+                            resolvedIsMovie = matchNode.get("media_type")?.asText() == "movie"
+                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: text search ('$q') → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
+                            break
+                        }
                     }
 
-                    if (matchNode != null) {
-                        resolvedMatchId = matchNode.get("id")?.asInt()
-                        resolvedIsMovie = matchNode.get("media_type")?.asText() == "movie"
-                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: text search → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
-                    } else {
-                        com.lagradost.common.logging.AppLogger.w("Enrichment", "  TMDB: text search for '$cleanName' found no match")
+                    if (resolvedMatchId == null) {
+                        com.lagradost.common.logging.AppLogger.w("Enrichment", "  TMDB: text search for '${loaded.name}' found no match across candidates")
                     }
                 }
 
@@ -784,7 +798,7 @@ object TmdbEnrichmentService {
                                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: set backdrop from poster_path (fallback)")
                                 }
 
-                                if ((overwrite || loaded.posterUrl.isNullOrBlank()) && posterPath != null && posterPath != "null") {
+                                if (posterPath != null && posterPath != "null") {
                                     loaded.posterUrl = tmdbImageUrl(posterPath, "original")
                                 }
 
@@ -1057,6 +1071,7 @@ object TmdbEnrichmentService {
                             // Signal episode thumbnails were mutated
                             onEpisodeThumbnailsEnriched()
 
+                            var resolvedLogoUrl: String? = null
                             val logosNode = tmdbData.get("images")?.get("logos")
                             if (logosNode != null && logosNode.isArray && logosNode.size() > 0) {
                                 val allLogos = logosNode.mapNotNull { node ->
@@ -1078,15 +1093,55 @@ object TmdbEnrichmentService {
 
                                 if (bestLogoPath != null && bestLogoPath != "null") {
                                     val sizeParam = if (bestLogoPath.endsWith(".svg", ignoreCase = true)) "original" else "w500"
-                                    val logoUrl = tmdbImageUrl(bestLogoPath, sizeParam)
-                                    withContext(Dispatchers.Main.immediate) {
-                                        if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
-                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
-                                        } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
-                                        } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                                            if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logoUrl
-                                        }
+                                    resolvedLogoUrl = tmdbImageUrl(bestLogoPath, sizeParam)
+                                }
+                            }
+
+                            // Fallback for anime / multi-season TV shows: inherit root show logo if sub-entry has no logo
+                            if (resolvedLogoUrl.isNullOrBlank()) {
+                                val rootCandidates = com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractRootTitleCandidates(loaded.name)
+                                if (rootCandidates.size > 1) {
+                                    for (i in 1 until rootCandidates.size) {
+                                        val rootName = rootCandidates[i].first
+                                        try {
+                                            TmdbRateLimiter.acquire()
+                                            val rootSearchUrl = "https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(rootName, "UTF-8")}&page=1"
+                                            val rootSearchData = com.lagradost.cloudstream3.app.get(rootSearchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                                            val rootTvId = rootSearchData?.get("results")?.firstOrNull()?.get("id")?.asInt()
+                                            if (rootTvId != null) {
+                                                TmdbRateLimiter.acquire()
+                                                val rootImagesUrl = "https://api.themoviedb.org/3/tv/$rootTvId/images?api_key=$TMDB_API_KEY&include_image_language=en,en-US,null"
+                                                val rootImagesData = com.lagradost.cloudstream3.app.get(rootImagesUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                                                val rootLogos = rootImagesData?.get("logos")
+                                                if (rootLogos != null && rootLogos.isArray && rootLogos.size() > 0) {
+                                                    val rootPath = rootLogos.mapNotNull { node ->
+                                                        val path = node.get("file_path")?.asText()
+                                                        val lang = node.get("iso_639_1")?.asText()
+                                                        val votes = node.get("vote_average")?.asDouble() ?: 0.0
+                                                        if (path != null && path != "null") Triple(path, lang, votes) else null
+                                                    }.filter { it.first.endsWith(".png", ignoreCase = true) }
+                                                        .maxByOrNull { it.third }?.first
+
+                                                    if (rootPath != null) {
+                                                        resolvedLogoUrl = tmdbImageUrl(rootPath, "w500")
+                                                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ Inherited root TV logo from '$rootName' (id=$rootTvId)")
+                                                        break
+                                                    }
+                                                }
+                                            }
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            }
+
+                            if (!resolvedLogoUrl.isNullOrBlank()) {
+                                withContext(Dispatchers.Main.immediate) {
+                                    if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
+                                        if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = resolvedLogoUrl
+                                    } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                                        if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = resolvedLogoUrl
+                                    } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                                        if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = resolvedLogoUrl
                                     }
                                 }
                             }
@@ -1206,13 +1261,8 @@ object TmdbEnrichmentService {
                 }
 
                 // Fetch AniList anime character art and voice actors
-                val isAnime = tmdbIsAnime ||
-                    loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
-                    loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
-                    loaded.type == com.lagradost.cloudstream3.TvType.OVA ||
-                    loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
-                    loaded.tags?.any { it.equals("animation", ignoreCase = true) || it.equals("anime", ignoreCase = true) } == true
-                if (isAnime && fetchCast) {
+                val shouldFetchAniList = tmdbIsAnime || isAnime
+                if (shouldFetchAniList && fetchCast) {
                     kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
                         try {
                             val aniListCast = fetchAniListCast(cleanName, loaded.year)

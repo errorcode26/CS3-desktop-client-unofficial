@@ -52,12 +52,9 @@ fun ComposeNativeWebPlayer(
     onEpisodeChange: ((String) -> Unit)? = null,
     onNextEpisode: (() -> Unit)? = null,
     onReplayEpisode: (() -> Unit)? = null,
-    onCancelCountdown: (() -> Unit)? = null,
     plot: String? = null,
     year: Int? = null,
     tags: List<String>? = null,
-    isLive: Boolean = false,
-    countdownToNextEpisode: Int? = null,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val scope = rememberCoroutineScope()
@@ -143,6 +140,7 @@ fun ComposeNativeWebPlayer(
                 currentLinkIndex = currentLinkIndex,
                 failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value) },
                 links = links.mapIndexed { index, l ->
+                    val isTorrent = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(l)
                     LinkPayload(
                         index = index,
                         name = l.name,
@@ -151,6 +149,7 @@ fun ComposeNativeWebPlayer(
                         isM3u8 = l.isM3u8,
                         isDash = l.isDash,
                         url = l.url,
+                        isTorrent = isTorrent,
                     )
                 },
                 episodes = episodes.map {
@@ -215,10 +214,6 @@ fun ComposeNativeWebPlayer(
                 skipIntervals = skipIntervals.map {
                     SkipIntervalPayload(it.startMs, it.endMs, it.type.name, it.label, it.providerId)
                 },
-                isLive = isLive,
-                countdownToNextEpisode = countdownToNextEpisode,
-                accentColor = accentColorHex,
-                accentColorRgb = accentColorRgb,
             )
 
             val wrapper = MetadataUpdatePayloadWrapper(
@@ -230,7 +225,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, activeSubtitleOverrideEnabled, isLive, countdownToNextEpisode) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
         if (isUiReady) {
             pushSyncStateToWebView()
         }
@@ -244,6 +239,28 @@ fun ComposeNativeWebPlayer(
                 "message" to toastMessage,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
+        }
+    }
+
+    val p2pTelemetry by com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.telemetry.collectAsState()
+    LaunchedEffect(isUiReady, p2pTelemetry) {
+        if (isUiReady) {
+            val payload = com.lagradost.cloudstream3.desktop.player.P2pStatsUpdatePayload(
+                active = p2pTelemetry.active,
+                downloadSpeed = p2pTelemetry.downloadSpeed,
+                uploadSpeed = p2pTelemetry.uploadSpeed,
+                peers = p2pTelemetry.peers,
+                seeds = p2pTelemetry.seeds,
+                preloadedBytes = p2pTelemetry.preloadedBytes,
+                totalBytes = p2pTelemetry.totalBytes,
+                progressPercent = p2pTelemetry.progressPercent,
+                statusText = p2pTelemetry.statusText,
+            )
+            try {
+                NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
+            } catch (e: Throwable) {
+                com.lagradost.common.logging.AppLogger.e("pushP2pTelemetry error: ${e.message}")
+            }
         }
     }
 
@@ -303,7 +320,6 @@ fun ComposeNativeWebPlayer(
         subtitles = subtitles,
         startPositionMs = startPositionMs,
         shouldPauseForResume = shouldPauseForResume,
-        isLive = isLive,
         onPlaybackReady = {
             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.__dismissProbingOverlay) window.__dismissProbingOverlay();")
             currentOnPlaybackReady()
@@ -339,7 +355,52 @@ fun ComposeNativeWebPlayer(
             }
         },
         onPostInitialize = { handle ->
-            val playerAssets = NativePlayerBridge.playerUiAssets
+            val webView2DataDir = File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
+            webView2DataDir.mkdirs()
+            val tempFile = File(webView2DataDir, "cloudstream_controls.html")
+
+            val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+
+            val rawInitialBackdrop = backdropUrl ?: (episodes.find { it.data == currentEpisodeId }?.posterUrl ?: "")
+            val initialBackdropUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialBackdrop) ?: rawInitialBackdrop
+            val initialBackdropClass = if (initialBackdropUrl.isNotEmpty()) "loaded" else ""
+            val rawInitialLogo = logoUrl ?: ""
+            val initialLogoUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialLogo) ?: rawInitialLogo
+            val hasLogo = initialLogoUrl.isNotEmpty()
+            val initialLogoStyle = if (hasLogo) "display: block;" else "display: none;"
+            val initialTitleStyle = if (hasLogo) "display: none;" else "display: block;"
+
+            val activeEp = episodes.find { it.data == currentEpisodeId }
+            val initialTitle = (title ?: "").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+            val initialSubtitle = if (activeEp != null) {
+                val s = activeEp.season ?: 1
+                val ep = activeEp.episode
+                val epTitle = activeEp.name?.ifEmpty { "Episode $ep" } ?: "Episode $ep"
+                "S$s:E$ep • $epTitle"
+            } else ""
+            val initialSubtitleStyle = if (initialSubtitle.isNotEmpty()) "display: block;" else "display: none;"
+
+            val htmlContent = htmlTemplate
+                .replace("/* CSS_INJECT */", cssContent)
+                .replace("/* JS_INJECT */", jsContent)
+                .replace("{{ACCENT_COLOR}}", accentColorHex)
+                .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
+                .replace("{{INITIAL_BACKDROP_URL}}", initialBackdropUrl)
+                .replace("{{INITIAL_BACKDROP_CLASS}}", initialBackdropClass)
+                .replace("{{INITIAL_LOGO_URL}}", initialLogoUrl)
+                .replace("{{INITIAL_LOGO_STYLE}}", initialLogoStyle)
+                .replace("{{INITIAL_TITLE}}", initialTitle)
+                .replace("{{INITIAL_TITLE_STYLE}}", initialTitleStyle)
+                .replace("{{INITIAL_SUBTITLE}}", initialSubtitle)
+                .replace("{{INITIAL_SUBTITLE_STYLE}}", initialSubtitleStyle)
+
+            if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
+                tempFile.writeText(htmlContent, Charsets.UTF_8)
+            } else {
+                com.lagradost.common.logging.AppLogger.e("[NativePlayer] player-ui resources not found!")
+            }
 
             NativePlayerBridge.setEventListener(object : NativePlayerBridge.NativePlayerEventListener {
                 override fun onPlayerEvent(type: String, value: String) {
@@ -496,19 +557,12 @@ fun ComposeNativeWebPlayer(
                             playerState?.pause()
                         }
                         "toggleMute" -> {
-                            val isNowMuted = !(playerState?.isMuted?.value ?: false)
-                            playerState?.let { it._isMuted.value = isNowMuted }
-                            if (h != null) {
-                                MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
-                            }
+                            playerState?.let { it._isMuted.value = !it.isMuted.value }
                         }
                         "setVolume" -> {
                             val vol = eventValue.toDoubleOrNull()
                             if (vol != null) {
                                 playerState?._volume?.value = vol.toFloat()
-                                if (h != null) {
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "volume", vol.toString())
-                                }
                             }
                         }
                         "setSpeed" -> {
@@ -529,6 +583,13 @@ fun ComposeNativeWebPlayer(
                         }
                         "toggleSubVisibility" -> {
                             MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
+                        }
+                        "toggleLoop" -> {
+                            val loopVal = if (eventValue == "true") "inf" else "no"
+                            MpvLibrary.INSTANCE.mpv_set_property_string(h, "loop-file", loopVal)
+                        }
+                        "screenshot" -> {
+                            MpvLibrary.INSTANCE.mpv_command_string(h, "screenshot video")
                         }
                         "togglePip" -> {
                             val nextPip = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
@@ -573,7 +634,7 @@ fun ComposeNativeWebPlayer(
                             )
                         }
                         "toggleFullscreen" -> {
-                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnFullscreenToggle?.invoke()
                             }
                         }
@@ -581,17 +642,17 @@ fun ComposeNativeWebPlayer(
                             NativePlayerBridge.focusWebView()
                         }
                         "exitPlayer" -> {
-                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnCloseRequest()
                             }
                         }
                         "changeLink" -> {
-                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 if (eventValue.isNotEmpty()) onLinkChange?.invoke(eventValue)
                             }
                         }
                         "loadEpisode" -> {
-                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onEpisodeChange?.invoke(eventValue)
                             }
                         }
@@ -696,8 +757,9 @@ fun ComposeNativeWebPlayer(
                                 playerState?.setSubtitleOverrideEnabled(false)
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-color", "#FFFFFF")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-font-size", "45")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", "#00000000")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", "outline-and-shadow")
+                                val (defMpvBg, defBorderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(null)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", defMpvBg)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", defBorderStyle)
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", "#000000")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", "3")
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", "#000000")
@@ -710,8 +772,8 @@ fun ComposeNativeWebPlayer(
                         "setSubtitleBackground" -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", eventValue)
-                                val borderStyle = if (eventValue == "#00000000" || eventValue.isBlank() || eventValue.startsWith("#00")) "outline-and-shadow" else "background-box"
+                                val (mpvBgColor, borderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(eventValue)
+                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", mpvBgColor)
                                 MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", borderStyle)
                             }
                         }
@@ -846,11 +908,6 @@ fun ComposeNativeWebPlayer(
                                 onReplayEpisode?.invoke()
                             }
                         }
-                        "cancelCountdown" -> {
-                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                onCancelCountdown?.invoke()
-                            }
-                        }
                         "setMpvProperty" -> {
                             val parts = eventValue.split(":", limit = 2)
                             if (parts.size == 2) {
@@ -874,8 +931,8 @@ fun ComposeNativeWebPlayer(
                 }
             })
 
-            if (playerAssets.htmlFile.exists()) {
-                NativePlayerBridge.loadUrl(playerAssets.url)
+            if (tempFile.exists()) {
+                NativePlayerBridge.loadUrl(tempFile.absoluteFile.toURI().toString())
             }
         },
         videoRenderer = { videoCanvas, currentMpvHandle ->

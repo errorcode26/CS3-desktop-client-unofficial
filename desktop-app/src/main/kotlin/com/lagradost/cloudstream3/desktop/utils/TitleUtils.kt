@@ -46,9 +46,10 @@ object TitleUtils {
     // Includes '(' to catch patterns like "(Season 1 – 3)", "(2026)", "[Hindi]".
     private val DELIMITER_REGEX = Regex("""[\[\]{}|(]""")
 
-    // Season / episode markers — must come BEFORE digits to avoid matching sequel numbers.
-    // Catches: "(Season 1", " Season 2", "- Season 3", "(S01"
-    private val SEASON_REGEX = Regex("""(?i)\s*[\(-]?\s*\b(season|series|episode|ep\.?)\s*\d""")
+    // Season / episode / part / cour / arc markers — must come BEFORE digits to avoid matching sequel numbers.
+    // Catches: "(Season 1", " Season 2", "- Season 3", "(S01", "Part 2", "Cour 2", "The Final Season"
+    private val SEASON_REGEX = Regex("""(?i)\s*[\(-]?\s*\b(season|series|episode|ep\.?|part|cour|arc)\s*\d+""")
+    private val FINAL_SEASON_REGEX = Regex("""(?i)\s*[\(-]?\s*\b(the\s+final\s+season|final\s+season)\b""")
 
     // Trailing punctuation / whitespace after slicing
     private val TRAILING_JUNK_REGEX = Regex("""[\s\-:(\[{|]+$""")
@@ -73,6 +74,9 @@ object TitleUtils {
                 SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
                     if (pos > 0) add(pos)
                 }
+                FINAL_SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
+                    if (pos > 0) add(pos)
+                }
                 // Dash-space-digit pattern: " - 720p", " - 2026"
                 Regex("""\s+-\s*\d""").find(raw)?.range?.first?.let { add(it) }
             }
@@ -82,6 +86,57 @@ object TitleUtils {
         val cleaned = TRAILING_JUNK_REGEX.replace(sliced, "").trim()
 
         return Pair(if (cleaned.isBlank()) raw.trim() else cleaned, year)
+    }
+
+    /**
+     * Normalizes attached punctuation like "-Starting" -> " - Starting" or "Re:ZERO" spacing
+     * to prevent search engine tokenization failures.
+     */
+    fun normalizePunctuation(str: String): String {
+        return str.replace(Regex("""-(?=[a-zA-Z])"""), " - ")
+            .replace(Regex(""":(?=[a-zA-Z])"""), ": ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+    }
+
+    /**
+     * Returns an ordered list of title candidates for progressive fallback matching.
+     * 1. Primary cleaned title
+     * 2. Punctuation normalized title
+     * 3. Pre-colon root title (e.g. "Re:ZERO - Starting..." -> "Re:ZERO")
+     * 4. Pre-hyphen root title (e.g. "Solo Leveling - Arise" -> "Solo Leveling")
+     */
+    fun extractRootTitleCandidates(raw: String): List<Pair<String, Int?>> {
+        val primary = cleanProviderTitle(raw)
+        val list = mutableListOf(primary)
+        val cleanName = primary.first
+        val year = primary.second
+
+        // Candidate 2: Normalized punctuation
+        val normalized = normalizePunctuation(cleanName)
+        if (!normalized.equals(cleanName, ignoreCase = true) && !list.any { it.first.equals(normalized, ignoreCase = true) }) {
+            list.add(Pair(normalized, year))
+        }
+
+        // Candidate 3: Pre-colon root
+        if (cleanName.contains(":")) {
+            val preColon = cleanName.substringBefore(":").trim()
+            val cleanedPre = TRAILING_JUNK_REGEX.replace(preColon, "").trim()
+            if (cleanedPre.length >= 3 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
+                list.add(Pair(cleanedPre, year))
+            }
+        }
+
+        // Candidate 4: Pre-hyphen root
+        if (cleanName.contains(" - ") || cleanName.contains("-")) {
+            val preHyphen = cleanName.substringBefore(" - ").substringBefore("-").trim()
+            val cleanedPre = TRAILING_JUNK_REGEX.replace(preHyphen, "").trim()
+            if (cleanedPre.length >= 3 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
+                list.add(Pair(cleanedPre, year))
+            }
+        }
+
+        return list
     }
 
     /**

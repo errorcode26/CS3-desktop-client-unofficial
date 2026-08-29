@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -26,6 +28,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -413,4 +417,44 @@ fun androidx.compose.ui.unit.Dp.applyShadowMultiplier(): androidx.compose.ui.uni
     val enabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.elementShadowsEnabled.collectAsState()
     val multiplier by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.elementShadowMultiplier.collectAsState()
     return if (enabled) this * multiplier else 0.dp
+}
+
+fun Modifier.desktopDragScroll(
+    state: androidx.compose.foundation.lazy.LazyListState,
+): Modifier {
+    return this.pointerInput(state) {
+        awaitPointerEventScope {
+            while (true) {
+                val downEvent = awaitPointerEvent(pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val down = downEvent.changes.firstOrNull { it.pressed } ?: continue
+                var totalDx = 0f
+                var totalDy = 0f
+                var dragging = false
+
+                while (true) {
+                    val event = awaitPointerEvent(pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+
+                    val delta = change.position - change.previousPosition
+                    totalDx += delta.x
+                    totalDy += delta.y
+
+                    if (!dragging) {
+                        val horizontalDrag = kotlin.math.abs(totalDx) > viewConfiguration.touchSlop && kotlin.math.abs(totalDx) > kotlin.math.abs(totalDy)
+                        val verticalDrag = kotlin.math.abs(totalDy) > viewConfiguration.touchSlop && kotlin.math.abs(totalDy) > kotlin.math.abs(totalDx)
+
+                        when {
+                            verticalDrag -> break
+                            horizontalDrag -> dragging = true
+                            else -> continue
+                        }
+                    }
+
+                    state.dispatchRawDelta(-delta.x)
+                    change.consume()
+                }
+            }
+        }
+    }
 }

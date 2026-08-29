@@ -78,4 +78,64 @@ object ImageUtils {
         } catch (_: Throwable) {}
         return resolved
     }
+
+    val InvertColorMatrix = androidx.compose.ui.graphics.ColorMatrix(
+        floatArrayOf(
+            -1f,  0f,  0f, 0f, 255f,
+             0f, -1f,  0f, 0f, 255f,
+             0f,  0f, -1f, 0f, 255f,
+             0f,  0f,  0f, 1f,   0f,
+        )
+    )
+
+    /**
+     * Samples the visible pixels of a logo bitmap to determine if it is strictly pure pitch-black text.
+     * Returns true ONLY if >= 85% of visible pixels are monochrome near-black (lum < 0.15, sat < 0.10).
+     * Saturated red, blue, green, and multi-colored logos will always return false and remain 100% untouched.
+     */
+    fun isDarkImage(image: coil3.Image?): Boolean {
+        if (image == null) return false
+        val bitmap = (image as? coil3.BitmapImage)?.bitmap ?: return false
+        return isDarkBitmap(bitmap)
+    }
+
+    fun isDarkBitmap(bitmap: org.jetbrains.skia.Bitmap): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) return false
+
+        val stepX = maxOf(1, width / 25)
+        val stepY = maxOf(1, height / 25)
+        var pureBlackPixels = 0
+        var visiblePixels = 0
+
+        for (y in 0 until height step stepY) {
+            for (x in 0 until width step stepX) {
+                val color = bitmap.getColor(x, y)
+                val a = (color ushr 24 and 0xFF) / 255.0
+                // Only inspect non-transparent pixels
+                if (a > 0.25) {
+                    val r = (color ushr 16 and 0xFF) / 255.0
+                    val g = (color ushr 8 and 0xFF) / 255.0
+                    val b = (color and 0xFF) / 255.0
+
+                    val maxC = maxOf(r, g, b)
+                    val minC = minOf(r, g, b)
+                    val sat = if (maxC > 0.0) (maxC - minC) / maxC else 0.0
+                    val lum = 0.299 * r + 0.587 * g + 0.114 * b
+
+                    // A pixel is "pure black monochrome" if luminance < 0.15 and saturation < 0.10
+                    if (lum < 0.15 && sat < 0.10) {
+                        pureBlackPixels++
+                    }
+                    visiblePixels++
+                }
+            }
+        }
+
+        if (visiblePixels == 0) return false
+        // Strictly require >= 85% of visible text to be pitch black monochrome
+        return (pureBlackPixels.toDouble() / visiblePixels) >= 0.85
+    }
 }
+

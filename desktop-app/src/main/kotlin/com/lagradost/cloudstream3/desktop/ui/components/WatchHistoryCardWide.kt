@@ -1,9 +1,9 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,15 +20,16 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
@@ -36,9 +38,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
+import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -56,14 +61,17 @@ fun WatchHistoryCardWide(
 ) {
     val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
-    val shape = RoundedCornerShape(posterCornerRadius.dp)
-    val cardShape = RoundedCornerShape(posterCornerRadius.dp + 4.dp) // slightly larger for the outer card
+    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+
+    val shape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp) }
+    val cardShape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp + 4.dp) }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val scale by animateFloatAsState(
         targetValue = if (isHovered) 1.03f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(200),
+        animationSpec = tween(200),
         label = "scale",
     )
 
@@ -89,8 +97,55 @@ fun WatchHistoryCardWide(
 
     var bounds by remember { mutableStateOf(Rect.Zero) }
     val primary = MaterialTheme.colorScheme.primary
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
+
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val displayTitle = remember(history.showName, autoCleanTitles) {
+        if (autoCleanTitles) {
+            CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
+        } else {
+            history.showName
+        }
+    }
+
+    // Cached Rating Lookup & Background Enrichment
+    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
+    val cachedRating = remember(displayTitle, ratingsSignal) {
+        FastRatingEnricher.getCachedRating(displayTitle)
+    }
+    LaunchedEffect(displayTitle) {
+        if (cachedRating == null) {
+            FastRatingEnricher.requestRatingAsync(displayTitle, isAnime = false, isSeries = isSeries)
+        }
+    }
+
+    // Remaining Time Calculation
+    val remainingText = remember(history.position, history.duration, progress) {
+        if (history.duration > 0) {
+            if (progress >= 0.95f) {
+                "Completed"
+            } else {
+                val leftSeconds = maxOf(0L, history.duration - history.position)
+                val leftMins = leftSeconds / 60L
+                if (leftMins >= 60) {
+                    "${leftMins / 60}h ${leftMins % 60}m left"
+                } else if (leftMins > 0) {
+                    "${leftMins}m left"
+                } else {
+                    "<1m left"
+                }
+            }
+        } else if (history.position == 0L) {
+            "Up Next"
+        } else {
+            null
+        }
+    }
+
+    // Plugin Icon Resolution
+    val pluginIconUrl = remember(provider?.name) {
+        DesktopRepositoryManager.getPluginIcon(provider?.name)
+    }
 
     Box(
         modifier = modifier
@@ -107,7 +162,7 @@ fun WatchHistoryCardWide(
                     .background(primary.copy(alpha = 0.65f), cardShape),
             )
         }
-        
+
         // Outer Card
         Row(
             modifier = Modifier
@@ -142,14 +197,14 @@ fun WatchHistoryCardWide(
                             }
                         }
                     }
-                }
+                },
         ) {
-            // Left: Vertical Poster
+            // Left: Vertical Poster with Play Button Overlay
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .aspectRatio(2f/3f)
-                    .clip(shape)
+                    .aspectRatio(2f / 3f)
+                    .clip(shape),
             ) {
                 val rawPoster = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
                 val enhancedPoster = remember(rawPoster) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawPoster) }
@@ -158,141 +213,236 @@ fun WatchHistoryCardWide(
                     contentDescription = history.showName,
                     contentScale = ContentScale.Crop,
                     filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 )
-                // Play overlay
+
+                // Play action overlay
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = if (isHovered) 0.3f else 0.1f)),
-                    contentAlignment = Alignment.Center
+                        .background(Color.Black.copy(alpha = if (isHovered) 0.35f else 0.05f)),
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (isHovered) {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier.size(48.dp)
-                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = primary.copy(alpha = 0.90f),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.size(46.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = "Play",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // Right: Content Details
+            // Right: Content Details & Metadata
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
-                val isNarrow = maxWidth < 180.dp
-                val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-                val displayTitle = remember(history.showName, autoCleanTitles) {
-                    if (autoCleanTitles) {
-                        CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
-                    } else {
-                        history.showName
-                    }
-                }
+                val isNarrow = maxWidth < 190.dp
 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(if (isNarrow) 8.dp else 16.dp),
+                        .padding(if (isNarrow) 10.dp else 16.dp),
                 ) {
-                    // Top area: Title and Tags
+                    // Top area: Title and Metadata Badges
                     Column(
                         modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
                     ) {
                         Text(
                             text = displayTitle,
                             fontWeight = FontWeight.Bold,
-                            fontSize = if (isNarrow) 13.5.sp else 20.sp,
+                            fontSize = if (isNarrow) 14.sp else 19.sp,
+                            lineHeight = if (isNarrow) 18.sp else 23.sp,
                             color = Color.White,
-                            maxLines = if (isNarrow) 2 else 3,
+                            maxLines = if (isNarrow) 2 else 2,
                             overflow = TextOverflow.Ellipsis,
+                            style = LocalTextStyle.current.copy(
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    offset = Offset(0f, 1f),
+                                    blurRadius = 4f,
+                                ),
+                            ),
                         )
+
                         Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 8.dp))
+
+                        // Metadata Badges Row (Rating, Type, Provider Icon/Badge)
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 5.dp else 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (provider != null) {
-                                // Provider badge
+                            // ⭐ Verified Cached Rating
+                            if (cachedRating != null && cachedRating > 0.0) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(primary.copy(alpha = 0.8f))
-                                        .padding(horizontal = if (isNarrow) 4.dp else 6.dp, vertical = 2.dp),
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.Black.copy(alpha = 0.60f))
+                                        .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.50f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
                                 ) {
-                                    Text(
-                                        text = provider.name,
-                                        fontSize = if (isNarrow) 9.sp else 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Star,
+                                            contentDescription = "Rating",
+                                            tint = Color(0xFFFFD700),
+                                            modifier = Modifier.size(10.dp),
+                                        )
+                                        Text(
+                                            text = String.format(java.util.Locale.US, "%.1f", cachedRating),
+                                            fontSize = if (isNarrow) 9.5.sp else 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFFFFD700),
+                                        )
+                                    }
                                 }
                             }
-                            if (isSeries) {
-                                // Series badge
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White.copy(alpha = 0.1f))
-                                        .padding(horizontal = if (isNarrow) 4.dp else 6.dp, vertical = 2.dp),
-                                ) {
-                                    Text(
-                                        text = "SERIES",
-                                        fontSize = if (isNarrow) 9.sp else 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White.copy(alpha = 0.8f),
-                                    )
+
+                            // 🎬 Series / Movie Type Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = if (isSeries) "SERIES" else "MOVIE",
+                                    fontSize = if (isNarrow) 9.sp else 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                )
+                            }
+
+                            // 🔌 Provider Branding (Controlled by Appearance Settings)
+                            if (provider != null) {
+                                when (providerBadgeDisplayMode) {
+                                    ProviderBadgeDisplayMode.HIDDEN -> {
+                                        // Clean mode: Zero scraper clutter
+                                    }
+                                    ProviderBadgeDisplayMode.ICON_ONLY -> {
+                                        if (pluginIconUrl != null) {
+                                            AsyncImage(
+                                                model = pluginIconUrl,
+                                                contentDescription = provider.name,
+                                                modifier = Modifier
+                                                    .size(18.dp)
+                                                    .clip(CircleShape)
+                                                    .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape),
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(18.dp)
+                                                    .clip(CircleShape)
+                                                    .background(primary.copy(alpha = 0.85f)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = provider.name.take(1).uppercase(),
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color.White,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    ProviderBadgeDisplayMode.FULL_BADGE -> {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(primary.copy(alpha = 0.80f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            ) {
+                                                if (pluginIconUrl != null) {
+                                                    AsyncImage(
+                                                        model = pluginIconUrl,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(12.dp).clip(CircleShape),
+                                                    )
+                                                }
+                                                Text(
+                                                    text = provider.name,
+                                                    fontSize = if (isNarrow) 9.sp else 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Bottom area: Episode & Progress
+                    // Bottom area: Episode Badge, Progress Bar & Time Remaining
                     Column(
                         modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 6.dp),
                     ) {
-                        if (isSeries) {
-                            val isUpNext = history.duration == 0L && history.position == 0L
-                            val prefix = if (isUpNext) "Up Next • " else ""
-                            Text(
-                                text = "$prefix$seText",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = if (isNarrow) 11.5.sp else 14.sp,
-                                color = if (isUpNext) primary else Color.White,
-                            )
-                            Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 10.dp))
+                        // Season & Episode / Time Left Info Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (isSeries && seText.isNotBlank()) {
+                                val isUpNext = history.duration == 0L && history.position == 0L
+                                Text(
+                                    text = if (isUpNext) "Up Next • $seText" else seText,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = if (isNarrow) 11.5.sp else 13.5.sp,
+                                    color = if (isUpNext) primary else Color.White,
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.width(1.dp))
+                            }
+
+                            if (remainingText != null) {
+                                Text(
+                                    text = remainingText,
+                                    fontSize = if (isNarrow) 10.5.sp else 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFE2E8F0).copy(alpha = 0.75f),
+                                )
+                            }
                         }
 
-                        // Progress Bar
+                        // Cinematic Progress Bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(if (isNarrow) 4.dp else 6.dp)
+                                .height(if (isNarrow) 4.dp else 5.dp)
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(Color.White.copy(alpha = 0.2f)),
+                                .background(Color.White.copy(alpha = 0.20f)),
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(progress)
                                     .fillMaxHeight()
+                                    .clip(RoundedCornerShape(3.dp))
                                     .background(primary),
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 8.dp))
-
-                        // Progress text
-                        val progressPercentage = (progress * 100).toInt()
-                        Text(
-                            text = if (progressPercentage >= 95) "Completed" else "$progressPercentage% watched",
-                            fontSize = if (isNarrow) 10.sp else 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
                     }
                 }
             }

@@ -360,32 +360,15 @@ fun SettingsPlayer(
 
             SettingsGroupCard(title = "Auto-Play Features") {
                 MviSettingsToggle(
-                    key = PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS,
-                    label = "Wait for links before Auto-playing",
-                    subtitle = "When enabled, waits for all providers to finish scraping to pick the best source. When disabled, plays immediately on the first available source.",
+                    key = PlayerConfig.PREF_AUTO_PLAY,
+                    label = "Auto-Play Streams",
+                    subtitle = "Automatically select and stream the highest scoring seekable source when clicking an episode or movie.",
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     defaultValue = true,
                 )
 
-                // Note: The previous logic was "Enable Download Buttons" checked = !autoPlay
-                // Because autoPlay is the internal key, but we want to present it as "Download Buttons"
-                // To properly do this with MviSettingsToggle, we must invert the key representation.
-                // But since MviSettingsToggle strictly binds the UI switch to the DB value,
-                // if we want to invert it, we'd need a custom manual toggle.
-                // Let's just rename it back to Auto Play for simplicity and accuracy,
-                // or we use a manual SettingsToggleItem for this specific one.
-                // Using a manual one is better to maintain exact UX.
-
                 val autoPlay = uiState.booleanSettings[PlayerConfig.PREF_AUTO_PLAY] ?: remember { DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true }
-                SettingsToggleItem(
-                    label = "Enable Download Buttons",
-                    subtitle = "Shows download buttons on episodes and movies that open the link loader.",
-                    checked = !autoPlay,
-                    onCheckedChange = {
-                        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_AUTO_PLAY, !it))
-                    },
-                )
 
                 if (autoPlay) {
                     MviSettingsDropdown(

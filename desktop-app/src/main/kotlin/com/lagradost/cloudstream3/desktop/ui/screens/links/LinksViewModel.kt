@@ -69,19 +69,18 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                 }
             }
 
-            if (dataUrl.startsWith("tt", ignoreCase = true)) {
-                val cleanImdb = dataUrl.substringBefore(":")
-                val parts = dataUrl.split(":")
-                val season = parts.getOrNull(1)?.toIntOrNull()
-                val episode = parts.getOrNull(2)?.toIntOrNull()
-                viewModelScope.launch(Dispatchers.IO) {
-                    com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.searchStreams(
-                        imdbId = cleanImdb,
-                        season = season,
-                        episode = episode,
-                        onLink = { linkCallback(it) },
-                    )
-                }
+            val cleanImdb = if (dataUrl.startsWith("tt", ignoreCase = true)) dataUrl.substringBefore(":") else null
+            val parts = if (dataUrl.startsWith("tt", ignoreCase = true)) dataUrl.split(":") else emptyList()
+            val season = parts.getOrNull(1)?.toIntOrNull()
+            val episode = parts.getOrNull(2)?.toIntOrNull()
+            viewModelScope.launch(Dispatchers.IO) {
+                com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.searchStreams(
+                    imdbId = cleanImdb,
+                    season = season,
+                    episode = episode,
+                    title = provider.name,
+                    onLink = { linkCallback(it) },
+                )
             }
 
             val result = SafePluginInvoker.invoke(

@@ -56,6 +56,7 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState
@@ -275,28 +276,65 @@ fun LibraryActionBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(modifier = Modifier.weight(1f)) {
+                    val selIcon = remember(uiState.selectedProvider) {
+                        DesktopRepositoryManager.getPluginIcon(uiState.selectedProvider)
+                    }
                     OutlinedButton(
                         onClick = { providerExpanded = true },
                         modifier = Modifier.fillMaxWidth().height(42.dp),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp),
                     ) {
-                        Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
+                        if (selIcon != null) {
+                            AsyncImage(
+                                model = selIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp).clip(CircleShape),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        } else {
+                            Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
                         Text(uiState.selectedProvider ?: "All Providers", maxLines = 1, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false), overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     DropdownMenu(expanded = providerExpanded, onDismissRequest = { providerExpanded = false }) {
                         DropdownMenuItem(
-                            text = { Text("All Providers") },
+                            text = { Text("All Providers", fontWeight = if (uiState.selectedProvider == null) FontWeight.Bold else FontWeight.Normal) },
                             onClick = {
                                 onProviderChange(null)
                                 providerExpanded = false
                             },
                         )
                         uiState.availableProviders.forEach { prov ->
+                            val provIcon = DesktopRepositoryManager.getPluginIcon(prov)
                             DropdownMenuItem(
-                                text = { Text(prov) },
+                                leadingIcon = {
+                                    if (provIcon != null) {
+                                        AsyncImage(
+                                            model = provIcon,
+                                            contentDescription = prov,
+                                            modifier = Modifier.size(20.dp).clip(CircleShape),
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = prov.take(1).uppercase(),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                            )
+                                        }
+                                    }
+                                },
+                                text = { Text(prov, fontWeight = if (uiState.selectedProvider == prov) FontWeight.Bold else FontWeight.Normal) },
                                 onClick = {
                                     onProviderChange(prov)
                                     providerExpanded = false

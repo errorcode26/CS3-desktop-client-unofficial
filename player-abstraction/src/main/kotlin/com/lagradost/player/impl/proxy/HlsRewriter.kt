@@ -248,6 +248,15 @@ object HlsRewriter {
                     appendLine(proxied)
                 }
             }
+
+            val hasEndList = content.contains("#EXT-X-ENDLIST")
+            val isLiveStream = content.contains("#EXT-X-PLAYLIST-TYPE:EVENT") ||
+                (content.contains("#EXT-X-MEDIA-SEQUENCE") && !hasEndList && !content.contains("#EXT-X-PLAYLIST-TYPE:VOD"))
+
+            // Guarantee #EXT-X-ENDLIST for VOD episodes/movies so MPV knows the exact duration and enables full seeking
+            if (!hasEndList && !isLiveStream) {
+                appendLine("#EXT-X-ENDLIST")
+            }
         }
         return rewritten
     }

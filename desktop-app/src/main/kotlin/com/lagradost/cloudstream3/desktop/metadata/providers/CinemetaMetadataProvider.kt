@@ -39,53 +39,75 @@ object CinemetaMetadataProvider : MetadataProvider {
         val stringType = if (type == TvType.Movie) "movie" else "series"
         val altType = if (stringType == "movie") "series" else "movie"
 
-        val (cleanName, titleYear) = TitleUtils.cleanProviderTitle(title)
-        val targetYear = year ?: titleYear
-
+        val titleCandidates = TitleUtils.extractRootTitleCandidates(title)
         var searchResult: StremioAddonClient.StremioMetaItem? = null
         var resolvedType = stringType
+        var bestScore = 0.0
 
-        for (searchType in listOf(stringType, altType)) {
-            val searchResults = StremioAddonClient.search(cleanName, searchType)
-            AppLogger.i(TAG, "Search '$cleanName' ($searchType) → ${searchResults?.size ?: 0} results")
+        for (candidate in titleCandidates) {
+            val cleanName = candidate.first
+            val targetYear = year ?: candidate.second
 
-            if (!searchResults.isNullOrEmpty()) {
-                for (result in searchResults) {
-                    val searchResultName = result.name ?: continue
-                    val cleanCompare = cleanName.lowercase().removePrefix("the ").trim()
-                    val resultCompare = searchResultName.lowercase().removePrefix("the ").trim()
+            for (searchType in listOf(stringType, altType)) {
+                val searchResults = StremioAddonClient.search(cleanName, searchType)
+                AppLogger.i(TAG, "Search '$cleanName' ($searchType) → ${searchResults?.size ?: 0} results")
 
-                    val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
-                    val strippedCleanName = cleanCompare.replace(Regex("[^a-zA-Z0-9]"), "")
+                if (!searchResults.isNullOrEmpty()) {
+                    for (result in searchResults) {
+                        val searchResultName = result.name ?: continue
+                        val cleanCompare = cleanName.lowercase().removePrefix("the ").trim()
+                        val resultCompare = searchResultName.lowercase().removePrefix("the ").trim()
 
-                    // Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
-                    val numbers1 = Regex("""\b\d+\b""").findAll(cleanCompare).map { it.value }.toSet()
-                    val numbers2 = Regex("""\b\d+\b""").findAll(resultCompare).map { it.value }.toSet()
-                    val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
-                    val romans1 = romanRegex.findAll(cleanCompare).map { it.value }.toSet()
-                    val romans2 = romanRegex.findAll(resultCompare).map { it.value }.toSet()
-                    val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
+                        val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
+                        val strippedCleanName = cleanCompare.replace(Regex("[^a-zA-Z0-9]"), "")
 
-                    val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
+                        // Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
+                        val numbers1 = Regex("""\b\d+\b""").findAll(cleanCompare).map { it.value }.toSet()
+                        val numbers2 = Regex("""\b\d+\b""").findAll(resultCompare).map { it.value }.toSet()
+                        val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
+                        val romans1 = romanRegex.findAll(cleanCompare).map { it.value }.toSet()
+                        val romans2 = romanRegex.findAll(resultCompare).map { it.value }.toSet()
+                        val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
+                        if (hasNumberMismatch) continue
 
-                    // Strictly reject if years don't match (allowing a 1-year tolerance for release date differences)
-                    val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
-                    val yearMismatch = resultYear != null && targetYear != null && Math.abs(resultYear - targetYear) > 1
-                    if (yearMismatch) continue
+                        val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
+                        val isTv = type == TvType.TvSeries || type == TvType.Anime || type == TvType.AsianDrama || type == TvType.Cartoon
+                        val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
 
-                    var score = StringUtils.similarity(strippedCleanName, strippedResultName)
-                    if (isStrictMatch) score = 1.0
-                    if (hasNumberMismatch) score = 0.0
+                        // Year validation: for TV series, start year can precede season year
+                        if (resultYear != null && targetYear != null) {
+                            if (isTv) {
+                                if (resultYear > targetYear + 1) continue
+                            } else {
+                                if (Math.abs(resultYear - targetYear) > 1) continue
+                            }
+                        }
 
-                    if (score >= 0.80) {
-                        AppLogger.i(TAG, "✓ Match: '$searchResultName' (${result.id}) score=$score year=${result.releaseInfo} type=$searchType")
-                        searchResult = result
-                        resolvedType = searchType
-                        break
+                        var nameSimilarity = StringUtils.similarity(strippedCleanName, strippedResultName)
+                        if (isStrictMatch) nameSimilarity = 1.0
+
+                        if (nameSimilarity < 0.65) continue
+
+                        // Calculate weighted composite score:
+                        val compositeScore = nameSimilarity * 10.0 + when {
+                            resultYear == targetYear -> 5.0
+                            isTv && resultYear != null && targetYear != null && resultYear <= targetYear -> 2.0
+                            else -> 0.0
+                        }
+
+                        if (compositeScore > bestScore) {
+                            bestScore = compositeScore
+                            searchResult = result
+                            resolvedType = searchType
+                            AppLogger.i(TAG, "✓ Candidate match: '$searchResultName' (${result.id}) compositeScore=$compositeScore year=${result.releaseInfo} type=$searchType")
+                            if (isStrictMatch && resultYear == targetYear) break
+                        }
                     }
                 }
+                if (bestScore >= 15.0) break
             }
-            if (searchResult != null) break
+            if (bestScore >= 15.0) break
+            if (searchResult != null && bestScore >= 8.0) break
         }
 
         val matchId = searchResult?.id ?: return null
@@ -101,8 +123,8 @@ object CinemetaMetadataProvider : MetadataProvider {
 
         return MetadataMatch(
             providerId = id,
-            matchedTitle = searchResult.name ?: cleanName,
-            matchedYear = searchResult.releaseInfo?.take(4)?.toIntOrNull() ?: targetYear,
+            matchedTitle = searchResult.name ?: (titleCandidates.firstOrNull()?.first ?: title),
+            matchedYear = searchResult.releaseInfo?.take(4)?.toIntOrNull() ?: year ?: titleCandidates.firstOrNull()?.second,
             imdbId = imdbId,
             tmdbId = tmdbId,
             posterUrl = fullMeta?.poster ?: searchResult.poster,
@@ -128,10 +150,10 @@ object CinemetaMetadataProvider : MetadataProvider {
             if (loaded.name.isBlank()) {
                 loaded.name = match.matchedTitle
             }
-            if (loaded.posterUrl.isNullOrBlank() && match.posterUrl != null) {
+            if (match.posterUrl != null) {
                 loaded.posterUrl = match.posterUrl
             }
-            if (loaded.backgroundPosterUrl.isNullOrBlank() && match.backdropUrl != null) {
+            if (match.backdropUrl != null) {
                 loaded.backgroundPosterUrl = match.backdropUrl
             }
             if (loaded.plot.isNullOrBlank() && match.description != null) {

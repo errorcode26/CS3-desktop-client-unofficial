@@ -133,17 +133,42 @@ fun ComposeDetailsScreen(
                 }
             }
         }
+        val screensaverEnabled by AppearanceConfig.screensaverEnabled.collectAsState()
+        val screenshotsList = screenshots ?: emptyList()
+        var currentScreenshotIndex by remember { mutableStateOf(-1) }
 
-        val bgUrl = remember(response?.backgroundPosterUrl, response?.posterUrl, uiState.enrichedBackdropUrl, provider) {
+        LaunchedEffect(screensaverEnabled, screenshotsList) {
+            if (screenshotsList.isEmpty()) {
+                currentScreenshotIndex = -1
+                return@LaunchedEffect
+            }
+            if (currentScreenshotIndex < 0) {
+                currentScreenshotIndex = 0
+            }
+            if (screensaverEnabled) {
+                while (true) {
+                    kotlinx.coroutines.delay(10_000)
+                    currentScreenshotIndex = (currentScreenshotIndex + 1) % screenshotsList.size
+                }
+            }
+        }
+
+        val baseBgUrl = remember(response?.backgroundPosterUrl, response?.posterUrl, uiState.enrichedBackdropUrl, provider) {
             uiState.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.posterUrl)?.takeIf { it.isNotBlank() }
         }
 
+        val activeBgUrl = if (currentScreenshotIndex >= 0 && screenshotsList.isNotEmpty()) {
+            screenshotsList[currentScreenshotIndex]
+        } else {
+            baseBgUrl
+        }
+
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            if (heroBackgroundBlurEnabled && bgUrl != null) {
+            if (heroBackgroundBlurEnabled && activeBgUrl != null) {
                 androidx.compose.animation.Crossfade(
-                    targetState = bgUrl,
+                    targetState = activeBgUrl,
                     animationSpec = androidx.compose.animation.core.tween(2000),
                     label = "global_backdrop_crossfade",
                     modifier = Modifier.fillMaxSize(),
@@ -167,7 +192,7 @@ fun ComposeDetailsScreen(
             }
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = onBack,
@@ -176,7 +201,7 @@ fun ComposeDetailsScreen(
                     )
                 }
             } else if (response != null) {
-                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory)
+                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -282,6 +307,7 @@ fun DetailsContent(
     dynamicColorEnabled: Boolean = false,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
+    activeBgUrl: String? = null,
 ) {
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -316,14 +342,10 @@ fun DetailsContent(
             scrollState = scrollState,
             hazeState = hazeState,
             enrichmentPhase = enrichmentPhase,
-            modifier = Modifier
-                .fillMaxWidth()
-                .run {
-                    if (isWindowCompact) this.height(minOf(360.dp, viewportHeight * 0.48f))
-                    else this.fillMaxHeight()
-                },
+            modifier = Modifier.fillMaxSize(),
             dynamicColorEnabled = dynamicColorEnabled,
             uiState = uiState,
+            activeBgUrl = activeBgUrl,
         )
 
         val remoteIcons by com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.remotePluginIcons.collectAsState()
@@ -360,9 +382,17 @@ fun DetailsContent(
             ),
         ) {
             item(key = "HeroAndTabs") {
+                val heroMinHeight = if (isWindowCompact) {
+                    null
+                } else if (isMovieLike) {
+                    minOf(740.dp, maxOf(500.dp, viewportHeight * 0.68f))
+                } else {
+                    minOf(640.dp, maxOf(460.dp, viewportHeight * 0.58f))
+                }
+
                 Box(
                     modifier = Modifier.fillMaxWidth().run {
-                        if (isWindowCompact) this else this.heightIn(min = viewportHeight)
+                        if (heroMinHeight != null) this.heightIn(min = heroMinHeight) else this
                     },
                     contentAlignment = if (isWindowCompact) Alignment.TopStart else Alignment.BottomStart,
                 ) {
@@ -452,40 +482,7 @@ fun DetailsContent(
 
                     val showTimePill = (showCurrentTime && currentFormattedTime.isNotBlank()) || (showEndTime && formattedEndTime != null)
 
-                    val progressInfo = remember(latestHistory, progress) {
-                        if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
-                            val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
-                            val leftMins = leftSeconds / 60L
-                            val hours = leftMins / 60L
-                            val mins = leftMins % 60L
-                            val timeStr = when {
-                                hours > 0 && mins > 0 -> "${hours}h ${mins}m left"
-                                hours > 0 -> "${hours}h left"
-                                leftMins > 0 -> "${leftMins}m left"
-                                else -> "< 1m left"
-                            }
-                            val pctStr = "${(progress * 100).toInt()}%"
-                            "$pctStr watched • $timeStr"
-                        } else {
-                            null
-                        }
-                    }
-
-                    val progressLabel = remember(latestHistory) {
-                        if (latestHistory != null) {
-                            val ep = latestHistory.episode
-                            val s = latestHistory.season
-                            when {
-                                s != null && s > 0 && ep != null && ep > 0 -> "CONTINUE WATCHING S$s: E$ep"
-                                ep != null && ep > 0 -> "CONTINUE WATCHING E$ep"
-                                else -> "CONTINUE WATCHING"
-                            }
-                        } else {
-                            "CONTINUE WATCHING"
-                        }
-                    }
-
-                    if (progressInfo != null || showTimePill) {
+                    if (showTimePill) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -493,123 +490,76 @@ fun DetailsContent(
                                 .padding(
                                     start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
                                     end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
-                                    bottom = 64.dp,
+                                    bottom = 32.dp,
                                 ),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Column(
-                                modifier = Modifier.widthIn(max = 500.dp).fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            Box(
+                                modifier = Modifier
+                                    .shadow(
+                                        elevation = 8.dp,
+                                        shape = RoundedCornerShape(100.dp),
+                                        ambientColor = Color.Black.copy(alpha = 0.5f),
+                                        spotColor = Color.Black.copy(alpha = 0.5f),
+                                    )
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(Color.Black.copy(alpha = 0.48f))
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(100.dp))
+                                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                if (progressInfo != null && progress > 0f && progress < 1f) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = progressLabel,
-                                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp, letterSpacing = 1.sp),
-                                            color = Color.White.copy(alpha = 0.75f),
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                        Text(
-                                            text = progressInfo,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp)
-                                            .shadow(elevation = 8.dp, shape = RoundedCornerShape(2.5.dp), spotColor = Color.Black, ambientColor = Color.Black)
-                                            .clip(RoundedCornerShape(2.5.dp))
-                                            .background(Color.White.copy(alpha = 0.25f))
-                                            .border(0.5.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(2.5.dp)),
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth(progress)
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(2.5.dp))
-                                                .background(Color.White),
-                                        )
-                                    }
-                                }
-
-                                if (showTimePill) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.CenterHorizontally)
-                                            .padding(top = 6.dp)
-                                            .shadow(
-                                                elevation = 8.dp,
-                                                shape = RoundedCornerShape(100.dp),
-                                                ambientColor = Color.Black.copy(alpha = 0.5f),
-                                                spotColor = Color.Black.copy(alpha = 0.5f),
-                                            )
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .background(Color.Black.copy(alpha = 0.48f))
-                                            .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(100.dp))
-                                            .padding(horizontal = 14.dp, vertical = 5.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (showCurrentTime && currentFormattedTime.isNotBlank()) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
-                                            if (showCurrentTime && currentFormattedTime.isNotBlank()) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                ) {
-                                                    Text(
-                                                        text = "🕒",
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                                    )
-                                                    Text(
-                                                        text = currentFormattedTime,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontSize = 11.5.sp,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            letterSpacing = 0.3.sp,
-                                                        ),
-                                                        color = Color.White.copy(alpha = 0.95f),
-                                                    )
-                                                }
-                                            }
+                                            Text(
+                                                text = "🕒",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            )
+                                            Text(
+                                                text = currentFormattedTime,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    letterSpacing = 0.3.sp,
+                                                ),
+                                                color = Color.White.copy(alpha = 0.95f),
+                                            )
+                                        }
+                                    }
 
-                                            if (showCurrentTime && currentFormattedTime.isNotBlank() && showEndTime && formattedEndTime != null) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(3.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color.White.copy(alpha = 0.4f)),
-                                                )
-                                            }
+                                    if (showCurrentTime && currentFormattedTime.isNotBlank() && showEndTime && formattedEndTime != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(3.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White.copy(alpha = 0.4f)),
+                                        )
+                                    }
 
-                                            if (showEndTime && formattedEndTime != null) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                ) {
-                                                    Text(
-                                                        text = "⏳",
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                                    )
-                                                    Text(
-                                                        text = formattedEndTime,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                            fontSize = 11.5.sp,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            letterSpacing = 0.3.sp,
-                                                        ),
-                                                        color = Color.White.copy(alpha = 0.85f),
-                                                    )
-                                                }
-                                            }
+                                    if (showEndTime && formattedEndTime != null) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Text(
+                                                text = "⏳",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            )
+                                            Text(
+                                                text = formattedEndTime,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    letterSpacing = 0.3.sp,
+                                                ),
+                                                color = Color.White.copy(alpha = 0.85f),
+                                            )
                                         }
                                     }
                                 }
@@ -626,7 +576,7 @@ fun DetailsContent(
                             item(key = "Episodes") {
                                 BoxWithConstraints {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
-                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
                                             provider = provider,
                                             data = data,

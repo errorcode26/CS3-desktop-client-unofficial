@@ -111,20 +111,58 @@ fun DetailsPlayButton(
         }
     }
 
+    val progress = remember(latestHistory, isLatestCompleted) {
+        if (latestHistory != null && latestHistory.duration > 0 && !isLatestCompleted && latestHistory.position > 0) {
+            (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    }
+
+    val timeLeftStr = remember(latestHistory, progress) {
+        if (latestHistory != null && latestHistory.duration > 0 && progress > 0f && progress < 1f) {
+            val leftSeconds = (latestHistory.duration - latestHistory.position).coerceAtLeast(0)
+            val leftMins = leftSeconds / 60L
+            val hours = leftMins / 60L
+            val mins = leftMins % 60L
+            when {
+                hours > 0 && mins > 0 -> "${hours}h ${mins}m left"
+                hours > 0 -> "${hours}h left"
+                leftMins > 0 -> "${leftMins}m left"
+                else -> "< 1m left"
+            }
+        } else {
+            null
+        }
+    }
+
+    val finalButtonText = remember(buttonLabel, timeLeftStr) {
+        if (!timeLeftStr.isNullOrBlank()) {
+            "$buttonLabel  •  $timeLeftStr"
+        } else {
+            buttonLabel
+        }
+    }
+
     BoxWithConstraints(modifier = modifier) {
         val isNarrow = maxWidth < 260.dp
+        val shape = RoundedCornerShape(if (isNarrow) 10.dp else 12.dp)
+
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .wrapContentWidth()
                 .height(if (isNarrow) 42.dp else 56.dp)
-                .widthIn(min = if (isNarrow) 130.dp else 190.dp)
-                .clip(RoundedCornerShape(if (isNarrow) 10.dp else 12.dp))
+                .widthIn(min = if (isNarrow) 130.dp else 180.dp)
+                .clip(shape)
                 .background(Color.White)
                 .clickable { targetActionEp?.let { onPlay(it) } }
-                .padding(horizontal = if (isNarrow) 14.dp else 32.dp),
+                .padding(horizontal = if (isNarrow) 16.dp else 28.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = "Play",
@@ -133,10 +171,10 @@ fun DetailsPlayButton(
                 )
                 Spacer(Modifier.width(if (isNarrow) 6.dp else 10.dp))
                 Text(
-                    text = buttonLabel,
+                    text = finalButtonText,
                     color = Color(0xFF0F0F0F),
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = if (isNarrow) 13.5.sp else 16.sp,
+                    fontSize = if (isNarrow) 13.sp else 16.sp,
                     maxLines = 1,
                 )
             }

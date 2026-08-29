@@ -564,6 +564,11 @@ object DesktopDataStore {
     const val PREF_DISCORD_RPC_SHOW_BROWSING = "DISCORD_RPC_SHOW_BROWSING"
     const val PREF_DISCORD_CUSTOM_APP_ID = "DISCORD_CUSTOM_APP_ID"
 
+    const val PREF_P2P_ENABLED = "p2p_torrent_enabled"
+    const val PREF_P2P_PORT = "p2p_torrent_port"
+    const val PREF_P2P_CACHE_SIZE_GB = "p2p_torrent_cache_gb"
+    const val PREF_P2P_SHOW_HUD = "p2p_torrent_show_hud"
+
     private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
 
     fun getTrustedPlugins(): Set<String> {

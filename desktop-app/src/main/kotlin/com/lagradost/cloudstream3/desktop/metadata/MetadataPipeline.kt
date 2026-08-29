@@ -27,7 +27,7 @@ object MetadataPipeline {
     private const val TAG = "MetadataPipeline"
 
     private val identityCache = ConcurrentHashMap<String, MetadataMatch>()
-    private val inFlightResolutions = ConcurrentHashMap<String, Deferred<MetadataMatch?>>()
+    private val inFlightResolutions = ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<MetadataMatch?>>()
 
     private val providers = mutableListOf<MetadataProvider>(
         TmdbMetadataProvider,
@@ -126,15 +126,22 @@ object MetadataPipeline {
             var activeMatch: MetadataMatch? = identityCache[identityKey]
 
             if (activeMatch == null) {
-                val existingDeferred = inFlightResolutions[identityKey]
-                val matchDeferred = existingDeferred ?: coroutineScope {
-                    async(Dispatchers.IO) {
+                var isInitiator = false
+                val deferred = inFlightResolutions.computeIfAbsent(identityKey) {
+                    isInitiator = true
+                    kotlinx.coroutines.CompletableDeferred()
+                }
+
+                if (isInitiator) {
+                    try {
+                        var resolved: MetadataMatch? = null
                         for (resolver in sortedResolvers) {
                             try {
-                                val match = resolver.resolve(cleanName, loaded.year, loaded.type, urlClean)
+                                val match = resolver.resolve(loaded.name, loaded.year, loaded.type, urlClean)
                                 if (match != null) {
                                     AppLogger.i(TAG, "✓ Resolved match via ${resolver.id}: '${match.matchedTitle}' (IMDb: ${match.imdbId}, TMDB: ${match.tmdbId}, AniList: ${match.anilistId})")
-                                    return@async match
+                                    resolved = match
+                                    break
                                 }
                             } catch (e: CancellationException) {
                                 throw e
@@ -142,17 +149,17 @@ object MetadataPipeline {
                                 AppLogger.w(TAG, "Resolver ${resolver.id} threw an exception", e)
                             }
                         }
-                        null
+                        deferred.complete(resolved)
+                    } catch (t: Throwable) {
+                        deferred.completeExceptionally(t)
+                    } finally {
+                        inFlightResolutions.remove(identityKey)
                     }
-                }.also { inFlightResolutions[identityKey] = it }
+                }
 
-                try {
-                    activeMatch = matchDeferred.await()
-                    if (activeMatch != null) {
-                        identityCache[identityKey] = activeMatch
-                    }
-                } finally {
-                    inFlightResolutions.remove(identityKey)
+                activeMatch = deferred.await()
+                if (activeMatch != null) {
+                    identityCache[identityKey] = activeMatch
                 }
             } else {
                 AppLogger.i(TAG, "✓ Reusing cached match for '$cleanName' (IMDb: ${activeMatch.imdbId}, TMDB: ${activeMatch.tmdbId})")

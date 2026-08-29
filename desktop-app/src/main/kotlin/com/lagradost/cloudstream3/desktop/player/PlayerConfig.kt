@@ -19,7 +19,6 @@ object PlayerConfig {
     const val PREF_PREFERRED_AUDIO_LANG = "player_preferred_audio_lang"
     const val PREF_PREFERRED_SUB_LANG = "player_preferred_sub_lang"
     const val PREF_AUTO_PLAY = "player_auto_play"
-    const val PREF_AUTO_PLAY_WAIT_FOR_LINKS = "player_auto_play_wait_for_links"
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
     const val PREF_INTERPOLATION = "player_interpolation_enabled"
     const val PREF_DEBAND = "player_deband"
@@ -39,6 +38,14 @@ object PlayerConfig {
     const val PREF_AUTO_SKIP_INTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_INTRO
     const val PREF_AUTO_SKIP_OUTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_OUTRO
 
+    fun toMpvBackgroundColor(hexOrRgba: String?): Pair<String, String> {
+        return when (hexOrRgba?.trim()?.lowercase()) {
+            "#80000000", "semi-transparent", "0.0/0.0/0.0/0.5" -> Pair("0.0/0.0/0.0/0.5", "background-box")
+            "#ff000000", "#000000", "solid", "0.0/0.0/0.0/1.0" -> Pair("0.0/0.0/0.0/1.0", "background-box")
+            else -> Pair("0.0/0.0/0.0/0.0", "outline-and-shadow")
+        }
+    }
+
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
         // Unlock maximum rendering quality
         lib.mpv_set_option_string(handle, "profile", "gpu-hq")
@@ -57,10 +64,10 @@ object PlayerConfig {
         val subColor = DesktopDataStore.getKey<String>(PREF_SUB_COLOR) ?: "#FFFFFF"
         lib.mpv_set_option_string(handle, "sub-color", subColor)
 
-        // Subtitle Background (Default: None/Transparent -> #00000000)
+        // Subtitle Background (Default: None/Transparent -> 0.0/0.0/0.0/0.0)
         val subBg = DesktopDataStore.getKey<String>(PREF_SUB_BG) ?: "#00000000"
-        lib.mpv_set_option_string(handle, "sub-back-color", subBg)
-        val borderStyle = if (subBg == "#00000000" || subBg.isBlank() || subBg.startsWith("#00")) "outline-and-shadow" else "background-box"
+        val (mpvBgColor, borderStyle) = toMpvBackgroundColor(subBg)
+        lib.mpv_set_option_string(handle, "sub-back-color", mpvBgColor)
         lib.mpv_set_option_string(handle, "sub-border-style", borderStyle)
 
         // Advanced Subtitle Styling

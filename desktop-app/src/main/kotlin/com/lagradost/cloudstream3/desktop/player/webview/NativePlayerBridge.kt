@@ -86,46 +86,10 @@ object NativePlayerBridge {
      */
     external fun notifyThemeChange(isDarkMode: Boolean)
 
-    data class PlayerUiAssets(
-        val htmlFile: java.io.File,
-        val url: String,
-    )
-
-    val playerUiAssets: PlayerUiAssets by lazy {
-        exportPlayerUiAssets()
-    }
-
-    private fun exportPlayerUiAssets(): PlayerUiAssets {
-        val baseCacheDir = java.io.File(System.getProperty("java.io.tmpdir"), "cs3-player-ui").apply { mkdirs() }
-        val sessionDir = java.io.File(baseCacheDir, System.currentTimeMillis().toString(36)).apply { mkdirs() }
-        val htmlFile = java.io.File(sessionDir, "player.html")
-        val cssFile = java.io.File(sessionDir, "player.css")
-        val jsFile = java.io.File(sessionDir, "player.js")
-
-        runCatching {
-            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { input ->
-                htmlFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { input ->
-                cssFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { input ->
-                jsFile.outputStream().use { output -> input.copyTo(output) }
-            }
-        }.onFailure {
-            AppLogger.e("Failed to export player UI assets", it)
-        }
-
-        return PlayerUiAssets(
-            htmlFile = htmlFile,
-            url = htmlFile.absoluteFile.toURI().toString(),
-        )
-    }
-
     /**
-     * Initializes an invisible WebView2 instance in the background to warm up Chromium with player.html.
+     * Initializes an invisible WebView2 instance in the background to warm up Chromium.
      */
-    external fun warmupWebView2(url: String)
+    external fun warmupWebView2(controlsUrl: String? = null)
 
     /**
      * Shuts down the background warmup thread.
@@ -134,16 +98,43 @@ object NativePlayerBridge {
 
     /**
      * Asynchronously warms up the WebView2 environment if running on Windows.
-     * Prevents the initial frame stutter and white flash when opening the player.
+     * Prevents the 2-second stutter and unrendered DOM flashes when opening the player.
      */
     fun preloadAsync() {
         if (!preloadStarted.compareAndSet(false, true)) return
 
         Thread {
             runCatching {
-                val assets = playerUiAssets
-                AppLogger.i("Starting NativePlayerBridge warmup with URL: ${assets.url}")
-                warmupWebView2(assets.url)
+                AppLogger.i("Starting NativePlayerBridge warmup...")
+                val webView2DataDir = java.io.File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
+                webView2DataDir.mkdirs()
+                val tempFile = java.io.File(webView2DataDir, "cloudstream_controls.html")
+
+                if (!tempFile.exists()) {
+                    val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                    val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                    val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+
+                    val htmlContent = htmlTemplate
+                        .replace("/* CSS_INJECT */", cssContent)
+                        .replace("/* JS_INJECT */", jsContent)
+                        .replace("{{ACCENT_COLOR}}", "#7C4DFF")
+                        .replace("{{ACCENT_COLOR_RGB}}", "124, 77, 255")
+                        .replace("{{INITIAL_BACKDROP_URL}}", "")
+                        .replace("{{INITIAL_BACKDROP_CLASS}}", "")
+                        .replace("{{INITIAL_LOGO_URL}}", "")
+                        .replace("{{INITIAL_LOGO_STYLE}}", "display: none;")
+                        .replace("{{INITIAL_TITLE}}", "CloudStream")
+                        .replace("{{INITIAL_TITLE_STYLE}}", "display: block;")
+                        .replace("{{INITIAL_SUBTITLE}}", "")
+                        .replace("{{INITIAL_SUBTITLE_STYLE}}", "display: none;")
+
+                    if (htmlContent.isNotEmpty()) {
+                        tempFile.writeText(htmlContent, Charsets.UTF_8)
+                    }
+                }
+                val url = if (tempFile.exists()) tempFile.toURI().toString() else null
+                warmupWebView2(url)
             }.onFailure {
                 AppLogger.e("Failed to warmup NativePlayerBridge: ${it.message}")
             }

@@ -425,6 +425,7 @@ class PlayerState {
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "sid", "no")
                 } else {
                     MpvLibrary.INSTANCE.mpv_set_property_string(it, "sid", id.toString())
+                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-visibility", "yes")
                 }
             }
         }

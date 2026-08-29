@@ -611,6 +611,20 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
             SettingsGroupCard(title = "Top Bar & Profile") {
                 val topBarShowProfile by AppearanceConfig.topBarShowProfile.collectAsState()
                 val topBarShowProfileName by AppearanceConfig.topBarShowProfileName.collectAsState()
+                val topBarProviderStyle by AppearanceConfig.topBarProviderStyle.collectAsState()
+
+                SettingsDropdownItem(
+                    label = "Top Bar Provider Button Style",
+                    subtitle = "Switch between a compact 42dp icon-only button and a full badge with provider name",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.TopBarProviderStyle.ICON_ONLY to "Icon Only (Clean)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.TopBarProviderStyle.ICON_AND_NAME to "Icon & Name",
+                    ),
+                    currentValue = topBarProviderStyle,
+                    onSelectionChanged = { AppearanceConfig.setTopBarProviderStyle(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsToggleItem(
                     label = "Show Profile in Top Bar",
@@ -883,12 +897,40 @@ fun SettingsAppearanceLayoutScreen(onNavigateToSubScreen: (SettingsSubScreen) ->
                 )
             }
 
-            SettingsGroupCard(title = "Poster Badges & Title Cleanup") {
+            SettingsGroupCard(title = "Poster Badges & Provider Branding") {
                 val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
                 val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
                 val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
                 val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
-                val ratingPolicy by CardMetadataConfig.ratingPolicy.collectAsState()
+                val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
+                val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
+
+                SettingsDropdownItem(
+                    label = "Provider Badges on Cards",
+                    subtitle = "Choose how plugin/provider branding appears across Continue Watching and media cards",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden (Clean)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon Only",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full Badge",
+                    ),
+                    currentValue = providerBadgeDisplayMode,
+                    onSelectionChanged = { AppearanceConfig.setProviderBadgeDisplayMode(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                SettingsDropdownItem(
+                    label = "Continue Watching Card Style",
+                    subtitle = "Switch between modern wide horizontal card and classic thumbnail layout",
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide Card (Modern)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic (16:9)",
+                    ),
+                    currentValue = continueWatchingStyle,
+                    onSelectionChanged = { AppearanceConfig.setContinueWatchingStyle(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 SettingsToggleItem(
                     label = "Auto-Clean Messy Poster Titles",
@@ -1589,6 +1631,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
     val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
     val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
+    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
 
     var isControlsExpanded by remember { mutableStateOf(true) }
@@ -2068,6 +2111,26 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                         FilterChip(
                                             selected = continueWatchingStyle == style,
                                             onClick = { AppearanceConfig.setContinueWatchingStyle(style) },
+                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                            shape = RoundedCornerShape(8.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Provider Badges on Cards
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Provider Badges on Cards", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(
+                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden (Clean)",
+                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon Only",
+                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full Badge",
+                                    ).forEach { (mode, label) ->
+                                        FilterChip(
+                                            selected = providerBadgeDisplayMode == mode,
+                                            onClick = { AppearanceConfig.setProviderBadgeDisplayMode(mode) },
                                             label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                                             shape = RoundedCornerShape(8.dp),
                                         )

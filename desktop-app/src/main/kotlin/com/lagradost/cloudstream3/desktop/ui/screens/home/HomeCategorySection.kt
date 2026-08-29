@@ -209,13 +209,13 @@ fun HomeCategorySection(
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
                                 rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
                                     horizontal = if (isCompact) 4.dp else 10.dp,
-                                    vertical = if (isCompact) 8.dp else 16.dp,
+                                    vertical = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
                                 ),
                                 headerPadding = androidx.compose.foundation.layout.PaddingValues(
                                     start = 10.dp,
                                     end = 10.dp,
-                                    top = 12.dp,
-                                    bottom = 8.dp,
+                                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                    bottom = 4.dp,
                                 ),
                                 itemSpacing = spacingDp,
                             ) {

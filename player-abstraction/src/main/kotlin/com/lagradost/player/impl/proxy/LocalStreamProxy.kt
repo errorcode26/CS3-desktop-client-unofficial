@@ -100,16 +100,16 @@ object LocalStreamProxy {
             .fastFallback(true)
             .followRedirects(true)
             .followSslRedirects(true)
-            .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-            .callTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
             .connectionPool(okhttp3.ConnectionPool(128, 300, java.util.concurrent.TimeUnit.SECONDS))
             .dispatcher(
                 okhttp3.Dispatcher().apply {
                     maxRequests = 256
-                    // Video chunking hits the same CDN host repeatedly, requiring high parallel limits
-                    maxRequestsPerHost = 64
+                    // Video chunking hits the same CDN host repeatedly, requiring paced parallel limits
+                    maxRequestsPerHost = 32
                 },
             )
             .build()
@@ -438,6 +438,17 @@ object LocalStreamProxy {
                 mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
 
+            if (mergedHeaders.keys.none { it.equals("Referer", ignoreCase = true) }) {
+                try {
+                    val uri = java.net.URI(url)
+                    val origin = "${uri.scheme}://${uri.host}"
+                    mergedHeaders["Referer"] = "$origin/"
+                    if (mergedHeaders.keys.none { it.equals("Origin", ignoreCase = true) }) {
+                        mergedHeaders["Origin"] = origin
+                    }
+                } catch (ignored: Exception) {}
+            }
+
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
             mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
 
@@ -710,7 +721,7 @@ object LocalStreamProxy {
                     response.header("Content-Range")?.let { call.response.header("Content-Range", it) }
                 }
 
-                response.header("Accept-Ranges")?.let { call.response.header("Accept-Ranges", it) }
+                call.response.header("Accept-Ranges", response.header("Accept-Ranges") ?: "bytes")
 
                 // Since OkHttp's readTimeout is robust (60s), we no longer need the unbounded
                 // channel buffer. Stream directly to Ktor to avoid GC allocation churn from

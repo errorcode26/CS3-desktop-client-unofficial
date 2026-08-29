@@ -32,18 +32,21 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
 import com.lagradost.cloudstream3.desktop.ui.badges.RatingSourcePolicy
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -286,11 +289,16 @@ fun PosterCard(
                                 )
                                 .padding(horizontal = 10.dp, vertical = 10.dp),
                         ) {
-                            Column {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
                                 Text(
                                     text = displayTitle,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.White,
@@ -317,13 +325,15 @@ fun PosterCard(
                     .fillMaxWidth()
                     .height(38.dp)
                     .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.TopStart,
+                contentAlignment = Alignment.TopCenter,
             ) {
                 Text(
                     text = displayTitle,
                     maxLines = 2,
                     minLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelLarge.copy(
                         shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                     ),
@@ -389,6 +399,30 @@ fun WatchHistoryCard(
     val currentOnRemove by rememberUpdatedState(onRemove)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPlayClick by rememberUpdatedState(onPlayClick)
+
+    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val displayTitle = remember(history.showName, autoCleanTitles) {
+        if (autoCleanTitles) {
+            CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
+        } else {
+            history.showName
+        }
+    }
+
+    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
+    val cachedRating = remember(displayTitle, ratingsSignal) {
+        FastRatingEnricher.getCachedRating(displayTitle)
+    }
+    LaunchedEffect(displayTitle) {
+        if (cachedRating == null) {
+            FastRatingEnricher.requestRatingAsync(displayTitle, isAnime = false, isSeries = isSeries)
+        }
+    }
+
+    val pluginIconUrl = remember(provider?.name) {
+        DesktopRepositoryManager.getPluginIcon(provider?.name)
+    }
 
     Box(
         modifier = modifier
@@ -502,7 +536,7 @@ fun WatchHistoryCard(
                 }
             }
 
-            // Top-left badges (Provider and Episode)
+            // Top-left badges (Provider Branding and Episode)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -511,28 +545,55 @@ fun WatchHistoryCard(
                     .padding(12.dp),
             ) {
                 if (provider != null) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 3.dp),
-                    ) {
-                        Text(
-                            text = provider.name.uppercase(),
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp,
-                            style = androidx.compose.ui.text.TextStyle(
-                                lineHeight = 9.sp,
-                                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-                                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
-                                ),
-                            ),
-                        )
+                    when (providerBadgeDisplayMode) {
+                        ProviderBadgeDisplayMode.HIDDEN -> {
+                            // Clean Mode: Scraper name hidden
+                        }
+                        ProviderBadgeDisplayMode.ICON_ONLY -> {
+                            if (pluginIconUrl != null) {
+                                AsyncImage(
+                                    model = pluginIconUrl,
+                                    contentDescription = provider.name,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), CircleShape),
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(primary.copy(alpha = 0.85f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = provider.name.take(1).uppercase(),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White,
+                                    )
+                                }
+                            }
+                        }
+                        ProviderBadgeDisplayMode.FULL_BADGE -> {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                            ) {
+                                Text(
+                                    text = provider.name.uppercase(),
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp,
+                                )
+                            }
+                        }
                     }
                 }
                 if (seText.isNotBlank()) {
@@ -551,13 +612,37 @@ fun WatchHistoryCard(
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp,
-                            style = androidx.compose.ui.text.TextStyle(
-                                lineHeight = 9.sp,
-                                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-                                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-                                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
-                                ),
-                            ),
+                        )
+                    }
+                }
+            }
+
+            // Top-right Gold Rating Badge
+            if (cachedRating != null && cachedRating > 0.0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.40f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Rating",
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(10.dp),
+                        )
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.1f", cachedRating),
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFFFD700),
                         )
                     }
                 }
@@ -573,7 +658,7 @@ fun WatchHistoryCard(
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Text(
-                    text = history.showName,
+                    text = displayTitle,
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -587,9 +672,9 @@ fun WatchHistoryCard(
                 } else if (progress >= 1f) {
                     "Completed"
                 } else if (history.duration > 0) {
-                    val leftSeconds = history.duration - history.position
+                    val leftSeconds = maxOf(0L, history.duration - history.position)
                     val leftMins = leftSeconds / 60L
-                    if (leftMins > 0) "${leftMins}m left" else "<1m left"
+                    if (leftMins >= 60) "${leftMins / 60}h ${leftMins % 60}m left" else if (leftMins > 0) "${leftMins}m left" else "<1m left"
                 } else {
                     "${(progress * 100).toInt()}%"
                 }

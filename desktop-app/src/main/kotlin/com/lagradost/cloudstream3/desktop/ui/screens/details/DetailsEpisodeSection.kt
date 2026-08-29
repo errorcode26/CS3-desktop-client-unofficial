@@ -31,9 +31,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopActionBadge
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopFilterChip
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopIconButton
+import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -104,6 +106,7 @@ fun DetailsEpisodeSection(
             },
         )
     }
+    var showSeasonModal by remember { mutableStateOf(false) }
 
     var isSortAscending by remember(data.url) { mutableStateOf(true) }
     var selectedEpisodeChunk by remember(data.url) { mutableStateOf(0) }
@@ -154,10 +157,10 @@ fun DetailsEpisodeSection(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .padding(top = 16.dp, bottom = 28.dp),
         ) {
             val isCompact = maxWidth < 600.dp
-            val hPadding = if (isCompact) 12.dp else 24.dp
+            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
 
             when (data) {
                 is MovieLoadResponse, is TorrentLoadResponse, is LiveStreamLoadResponse -> {
@@ -215,7 +218,7 @@ fun DetailsEpisodeSection(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
-                                    } else {
+                                    } else if (seasons.size <= 4) {
                                         LazyRow(
                                             state = seasonListState,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -234,6 +237,13 @@ fun DetailsEpisodeSection(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                        SeasonSelectorButton(
+                                            seasonName = currentSeasonName,
+                                            onClick = { showSeasonModal = true },
+                                        )
                                     }
                                 }
 
@@ -313,7 +323,7 @@ fun DetailsEpisodeSection(
                         }
                     } else {
                         // Desktop single-line header
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding)) {
                             Row(
                                 modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -329,19 +339,14 @@ fun DetailsEpisodeSection(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
-                                    } else {
+                                    } else if (seasons.size <= 4) {
                                         LazyRow(
                                             state = seasonListState,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier
                                                 .weight(1f, fill = false)
-                                                .pointerInput(Unit) {
-                                                    detectHorizontalDragGestures { change, dragAmount ->
-                                                        change.consume()
-                                                        seasonListState.dispatchRawDelta(-dragAmount)
-                                                    }
-                                                },
+                                                .desktopDragScroll(seasonListState),
                                         ) {
                                             items(seasons, key = { it }) { season ->
                                                 val isSelected = selectedSeason == season
@@ -356,6 +361,13 @@ fun DetailsEpisodeSection(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                        SeasonSelectorButton(
+                                            seasonName = currentSeasonName,
+                                            onClick = { showSeasonModal = true },
+                                        )
                                     }
                                 }
                             }
@@ -498,7 +510,7 @@ fun DetailsEpisodeSection(
                         val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
                         if (showCarouselArrows) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     DesktopIconButton(
                                         icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -567,7 +579,7 @@ fun DetailsEpisodeSection(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
-                                    } else {
+                                    } else if (seasons.size <= 4) {
                                         LazyRow(
                                             state = animeSeasonListState,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -586,6 +598,13 @@ fun DetailsEpisodeSection(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                        SeasonSelectorButton(
+                                            seasonName = currentSeasonName,
+                                            onClick = { showSeasonModal = true },
+                                        )
                                     }
                                 }
 
@@ -684,7 +703,7 @@ fun DetailsEpisodeSection(
                         }
                     } else {
                         // Desktop single-line header
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding)) {
                             Row(
                                 modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -700,19 +719,14 @@ fun DetailsEpisodeSection(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
-                                    } else {
+                                    } else if (seasons.size <= 4) {
                                         LazyRow(
                                             state = animeSeasonListState,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier
                                                 .weight(1f, fill = false)
-                                                .pointerInput(Unit) {
-                                                    detectHorizontalDragGestures { change, dragAmount ->
-                                                        change.consume()
-                                                        animeSeasonListState.dispatchRawDelta(-dragAmount)
-                                                    }
-                                                },
+                                                .desktopDragScroll(animeSeasonListState),
                                         ) {
                                             items(seasons, key = { it }) { season ->
                                                 val isSelected = selectedSeason == season
@@ -727,6 +741,13 @@ fun DetailsEpisodeSection(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                        val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                        SeasonSelectorButton(
+                                            seasonName = currentSeasonName,
+                                            onClick = { showSeasonModal = true },
+                                        )
                                     }
                                 }
 
@@ -888,7 +909,7 @@ fun DetailsEpisodeSection(
                         val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
                         if (showCarouselArrows) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     DesktopIconButton(
                                         icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -909,6 +930,116 @@ fun DetailsEpisodeSection(
                 else -> {}
             }
         } // BoxWithConstraints
+
+        if (showSeasonModal) {
+            val allEpisodesList = remember(data) {
+                when (data) {
+                    is TvSeriesLoadResponse -> data.episodes
+                    is AnimeLoadResponse -> data.episodes.values.flatten()
+                    else -> emptyList()
+                }
+            }
+
+            CloudstreamCustomDialog(
+                show = showSeasonModal,
+                onDismissRequest = { showSeasonModal = false },
+                modifier = Modifier
+                    .widthIn(min = 340.dp, max = 440.dp)
+                    .heightIn(max = 520.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Select Season",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        IconButton(
+                            onClick = { showSeasonModal = false },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        items(seasons, key = { it }) { season ->
+                            val isSelected = season == selectedSeason
+                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+                            val epCount = allEpisodesList.count { it.season == season || (it.season == null && season == 1) }
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedSeason = season
+                                        showSeasonModal = false
+                                    },
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                        Text(
+                                            text = seasonName,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 15.sp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+
+                                    if (epCount > 0) {
+                                        Text(
+                                            text = "$epCount Episodes",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -942,16 +1073,18 @@ private fun RenderEpisodesSection(
     val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
 
     if (currentMode == 1 || currentMode == 2) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-            val desiredWidth = 420f
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 600.dp
+            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
+            val desiredWidth = if (isCompact) 280f else 340f
             val columns = if (currentMode == 2) 1 else maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
-            val gapDp = 24.dp
+            val gapDp = if (isCompact) 10.dp else 14.dp
             val totalGapDp = gapDp * (columns - 1)
-            val cardWidth = if (currentMode == 2) maxWidth else (maxWidth - totalGapDp - 1.dp) / columns
+            val cardWidth = if (currentMode == 2) maxWidth else (maxWidth - (hPadding * 2) - totalGapDp - 1.dp) / columns
 
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
                 horizontalArrangement = Arrangement.spacedBy(gapDp),
                 verticalArrangement = Arrangement.spacedBy(gapDp),
                 maxItemsInEachRow = columns,
@@ -1002,25 +1135,24 @@ private fun RenderEpisodesSection(
     } else {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val isCompact = maxWidth < 600.dp
+            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
+            val itemSpacing = if (isCompact) 10.dp else 16.dp
+
             val cardWidth = remember(maxWidth) {
+                val netWidth = maxWidth - (hPadding * 2)
                 when {
-                    maxWidth >= 1800.dp -> 440.dp
-                    maxWidth >= 1400.dp -> 410.dp
-                    maxWidth >= 1000.dp -> 380.dp
-                    maxWidth < 600.dp -> (maxWidth * 0.78f).coerceAtMost(280.dp)
-                    else -> minOf(360.dp, maxWidth * 0.85f)
+                    maxWidth < 600.dp -> (netWidth * 0.85f).coerceIn(280.dp, 340.dp)
+                    maxWidth < 1100.dp -> ((netWidth - itemSpacing * 2) / 2.3f).coerceIn(320.dp, 390.dp)
+                    maxWidth < 1600.dp -> ((netWidth - itemSpacing * 3) / 3.4f).coerceIn(360.dp, 440.dp)
+                    maxWidth < 2200.dp -> ((netWidth - itemSpacing * 4) / 4.4f).coerceIn(380.dp, 460.dp)
+                    else -> ((netWidth - itemSpacing * 5) / 5.4f).coerceIn(400.dp, 480.dp)
                 }
             }
             LazyRow(
                 state = episodesScrollState,
-                contentPadding = PaddingValues(horizontal = if (isCompact) 12.dp else 24.dp, vertical = if (isCompact) 8.dp else 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 18.dp),
-                modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                    detectHorizontalDragGestures { change: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
-                        change.consume()
-                        episodesScrollState.dispatchRawDelta(-dragAmount)
-                    }
-                },
+                contentPadding = PaddingValues(horizontal = hPadding, vertical = if (isCompact) 6.dp else 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                modifier = Modifier.fillMaxWidth().desktopDragScroll(episodesScrollState),
             ) {
                 items(allFilteredEpisodes) { ep ->
                     val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
@@ -1044,6 +1176,38 @@ private fun RenderEpisodesSection(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SeasonSelectorButton(
+    seasonName: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+        modifier = modifier.clickable { onClick() },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = seasonName,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.5.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = "Select Season",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

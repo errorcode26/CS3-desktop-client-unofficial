@@ -33,12 +33,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.profile.Profile
 import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.profile.ProfilePalette
+import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.TopBarProviderStyle
 import kotlinx.coroutines.launch
 
 @Composable
@@ -55,6 +59,7 @@ fun WindowControlsPill(
     val theme = LocalDesktopTheme.current
     val coroutineScope = rememberCoroutineScope()
     val refreshRotation = remember { Animatable(0f) }
+    val topBarProviderStyle by AppearanceConfig.topBarProviderStyle.collectAsState()
 
     // Fetch provider states for the global pill
     val providers = homeUiState?.providers ?: emptyList()
@@ -63,11 +68,17 @@ fun WindowControlsPill(
 
     // Resolve logo URL for the single active provider, if any
     val activeIconUrl: String? = if (activeProviders.size == 1) {
-        val pName = activeProviders.first().lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
-        mergedPluginIcons.entries.firstOrNull { (k, _) ->
-            val kName = k.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
-            kName.length >= 3 && pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
-        }?.value
+        val pRaw = activeProviders.first()
+        val pClean = pRaw.substringAfter("::")
+        DesktopRepositoryManager.getPluginIcon(pClean)
+            ?: DesktopRepositoryManager.getPluginIcon(pRaw)
+            ?: run {
+                val pName = pClean.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+                mergedPluginIcons.entries.firstOrNull { (k, _) ->
+                    val kName = k.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
+                    kName.length >= 3 && pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
+                }?.value
+            }
     } else {
         null
     }
@@ -107,7 +118,7 @@ fun WindowControlsPill(
             }
         }
 
-            // 2. Provider Selector Pill (with Logo + Name)
+            // 2. Provider Selector Pill (with Logo + Name or Icon Only)
             val activeApis = homeUiState?.activeProviderApis ?: emptyList()
             val displayText = when {
                 activeApis.size == 1 -> {
@@ -125,53 +136,97 @@ fun WindowControlsPill(
                 else -> "Select Provider"
             }
 
+            val isIconOnly = topBarProviderStyle == TopBarProviderStyle.ICON_ONLY
+            val resolvedIcon = activeIconUrl ?: DesktopRepositoryManager.getPluginIcon(displayText)
+
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = theme.SurfaceElevated.copy(alpha = 0.6f),
                 border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
                 shadowElevation = 8.dp.applyShadowMultiplier(),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowHomeManagement(true)) }
-                        .padding(horizontal = 14.dp),
-                ) {
-                    if (activeIconUrl != null) {
-                        coil3.compose.AsyncImage(
-                            model = activeIconUrl,
-                            contentDescription = "Provider Logo",
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                            modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                if (isIconOnly) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowHomeManagement(true)) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (resolvedIcon != null) {
+                            coil3.compose.AsyncImage(
+                                model = resolvedIcon,
+                                contentDescription = displayText,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
+                            )
+                        } else if (displayText != "Select Provider") {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = displayText.take(1).uppercase(),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                )
+                            }
+                        } else {
                             Icon(
                                 Icons.Default.Extension,
-                                contentDescription = "Providers",
+                                contentDescription = displayText,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnShowHomeManagement(true)) }
+                            .padding(horizontal = 14.dp),
+                    ) {
+                        if (resolvedIcon != null) {
+                            coil3.compose.AsyncImage(
+                                model = resolvedIcon,
+                                contentDescription = "Provider Logo",
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Default.Extension,
+                                    contentDescription = "Providers",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            }
+                        }
 
-                    Spacer(Modifier.width(9.dp))
+                        Spacer(Modifier.width(9.dp))
 
-                    Text(
-                        text = displayText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = theme.TextPrimary,
-                        maxLines = 1,
-                    )
+                        Text(
+                            text = displayText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = theme.TextPrimary,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

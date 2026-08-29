@@ -31,6 +31,19 @@ object DesktopRepositoryManager {
     private val _remotePluginIcons = MutableStateFlow<Map<String, String>>(emptyMap())
     val remotePluginIcons: StateFlow<Map<String, String>> = _remotePluginIcons.asStateFlow()
 
+    fun getPluginIcon(providerName: String?): String? {
+        if (providerName.isNullOrBlank()) return null
+        val icons = _remotePluginIcons.value
+        icons[providerName]?.let { return it }
+        val sanitizeRegex = Regex("[^a-zA-Z0-9]")
+        val pName = providerName.lowercase().replace(sanitizeRegex, "").replace("provider", "").replace("plugin", "")
+        return icons.entries.firstOrNull { (k, _) ->
+            val kName = k.lowercase().replace(sanitizeRegex, "").replace("provider", "").replace("plugin", "")
+            if (kName.length < 3) return@firstOrNull false
+            pName.isNotEmpty() && (pName.contains(kName) || kName.contains(pName))
+        }?.value
+    }
+
     private val _syncGeneration = MutableStateFlow(0)
     val syncGeneration: StateFlow<Int> = _syncGeneration.asStateFlow()
 

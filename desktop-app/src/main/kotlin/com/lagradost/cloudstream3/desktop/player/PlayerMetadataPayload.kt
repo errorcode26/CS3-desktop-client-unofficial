@@ -40,10 +40,6 @@ data class PlayerUiSyncState(
     val currentChapterIndex: Int = -1,
     val activeSkipInterval: SkipIntervalPayload? = null,
     val skipIntervals: List<SkipIntervalPayload> = emptyList(),
-    val isLive: Boolean = false,
-    val countdownToNextEpisode: Int? = null,
-    val accentColor: String? = null,
-    val accentColorRgb: String? = null,
 )
 
 data class SkipIntervalPayload(
@@ -73,6 +69,9 @@ data class LinkPayload(
     val isM3u8: Boolean,
     val isDash: Boolean,
     val url: String,
+    val isTorrent: Boolean = false,
+    val seeds: Int? = null,
+    val peers: Int? = null,
 )
 
 data class EpisodePayload(
@@ -111,6 +110,19 @@ data class AppStateUpdatePayload(
     val autoPlayEnabled: Boolean = true,
     val showEndTime: Boolean = false,
     val showClock: Boolean = false,
+)
+
+data class P2pStatsUpdatePayload(
+    val type: String = "p2p_stats_update",
+    val active: Boolean,
+    val downloadSpeed: Long,
+    val uploadSpeed: Long,
+    val peers: Int,
+    val seeds: Int,
+    val preloadedBytes: Long,
+    val totalBytes: Long,
+    val progressPercent: Int,
+    val statusText: String?,
 )
 
 data class ToastPayload(

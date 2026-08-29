@@ -213,11 +213,15 @@ object StremioAddonManager {
         imdbId: String?,
         season: Int? = null,
         episode: Int? = null,
+        title: String? = null,
         onLink: (ExtractorLink) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        val cleanImdb = imdbId?.trim()?.takeIf { it.startsWith("tt", ignoreCase = true) }
+        var cleanImdb = imdbId?.trim()?.takeIf { it.startsWith("tt", ignoreCase = true) }
+        if (cleanImdb == null && !title.isNullOrBlank()) {
+            cleanImdb = resolveImdbId(title, isSeries = (season != null && season > 0))
+        }
         if (cleanImdb == null) {
-            AppLogger.d(TAG, "Skipping Stremio stream query: No verified IMDb ID")
+            AppLogger.d(TAG, "Skipping Stremio stream query: No verified IMDb ID (title='$title')")
             return@withContext
         }
 

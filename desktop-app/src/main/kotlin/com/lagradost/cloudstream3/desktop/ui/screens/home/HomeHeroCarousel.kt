@@ -331,11 +331,23 @@ private fun HeroMetadataLayer(
                     .heightIn(max = if (isCompact) 85.dp else DesktopDimens.HeroLogoMaxHeight),
                 contentAlignment = Alignment.BottomStart,
             ) {
-                coil3.compose.AsyncImage(
-                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                var isDarkLogo by remember(meta.logoUrl) { mutableStateOf(false) }
+                val platformContext = coil3.compose.LocalPlatformContext.current
+
+                val logoRequest = remember(meta.logoUrl, platformContext) {
+                    coil3.request.ImageRequest.Builder(platformContext)
                         .data(meta.logoUrl)
                         .size(1600, 800)
-                        .build(),
+                        .crossfade(true)
+                        .listener(
+                            onSuccess = { _, result ->
+                                isDarkLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                            },
+                        )
+                        .build()
+                }
+                coil3.compose.AsyncImage(
+                    model = logoRequest,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
@@ -352,14 +364,12 @@ private fun HeroMetadataLayer(
                     colorFilter = DesktopDimens.LogoShadowFilter,
                 )
                 coil3.compose.SubcomposeAsyncImage(
-                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                        .data(meta.logoUrl)
-                        .size(1600, 800)
-                        .build(),
+                    model = logoRequest,
                     contentDescription = "Logo",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
+                    colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
                     error = {
                         if (displayTitle.isNotBlank()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {

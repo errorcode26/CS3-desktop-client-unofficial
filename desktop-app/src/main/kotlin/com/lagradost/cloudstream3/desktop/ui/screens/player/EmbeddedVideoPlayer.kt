@@ -197,7 +197,6 @@ fun EmbeddedVideoPlayer(
                     } else {
                         null
                     }
-                    val isLiveStream = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
 
                     ComposeNativeWebPlayer(
                         link = safeLink,
@@ -221,8 +220,6 @@ fun EmbeddedVideoPlayer(
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,
                         logoUrl = resolvedLogoUrl,
-                        isLive = isLiveStream,
-                        countdownToNextEpisode = uiState.countdownToNextEpisode,
                         onLinkChange = { targetUrl ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange -> $targetUrl")
                             playerState.pause()
@@ -250,17 +247,12 @@ fun EmbeddedVideoPlayer(
                             playerState.pause()
                             playerState.reset()
                             isLoading = true
-                            val updatedHistory = actualLaunchData.history.copy(position = 0L)
-                            viewModel.onEvent(PlayerUiEvent.OnSavePosition(updatedHistory))
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             if (currentEp != null) {
                                 viewModel.onEvent(PlayerUiEvent.OnLoadEpisode(currentEp))
                             } else {
-                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData.copy(startPositionMs = 0L, history = updatedHistory)))
+                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData.copy(startPositionMs = 0L)))
                             }
-                        },
-                        onCancelCountdown = {
-                            viewModel.onEvent(PlayerUiEvent.OnCancelCountdown)
                         },
                         onPlaybackReady = {
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onPlaybackReady for link index $displayLinkIndex")
@@ -286,8 +278,7 @@ fun EmbeddedVideoPlayer(
                             playerState.updateDurationFromPlayer(durMs)
                             val durSec = durMs / 1000L
                             val posSec = posMs / 1000L
-                            // Strict persistence gating: Only save when playing, not during scraping/transitions, and posSec > 1
-                            if (posSec > 1 && !isLoading && !isLoadingNextEpisode && !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Playing || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing)) {
+                            if (posSec > 0) {
                                 val updatedHistory = actualLaunchData.history.copy(
                                     position = posSec,
                                     duration = if (durSec > 0) durSec else actualLaunchData.history.duration,

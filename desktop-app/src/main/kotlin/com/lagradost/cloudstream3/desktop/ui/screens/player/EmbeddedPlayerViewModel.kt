@@ -43,13 +43,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private val linkRetries = mutableMapOf<String, Int>()
     companion object {
         private const val MAX_RETRIES = 2
-
-        fun isValidResumePosition(posSec: Long, durSec: Long): Boolean {
-            if (durSec <= 0 || posSec <= 5) return false
-            if (posSec >= durSec - 20) return false
-            if (posSec >= (durSec * 0.95).toLong()) return false
-            return true
-        }
     }
 
     init {
@@ -66,6 +59,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             playerState.positionMs.collect { posMs ->
                 val currentPosSec = posMs / 1000L
                 val durSec = playerState.durationMs.value / 1000L
+                val isPaused = playerState.isPaused.value
                 val currentData = uiState.value.launchData
 
                 if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
@@ -77,7 +71,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                             updateTime = System.currentTimeMillis(),
                         )
                         savePosition(updatedHistory)
-                        syncDiscordRpc()
                     }
                 }
 
@@ -87,46 +80,51 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 } else if (percentage < 0.85f && preScrapeJob?.isActive == true) {
                     preScrapeJob?.cancel()
                 }
+
+                if (currentData != null) {
+                    val title = currentData.title ?: currentData.history.showName
+                    val season = currentData.history.season
+                    val episode = currentData.history.episode
+                    val episodeInfo = when {
+                        season != null && episode != null -> "S$season • E$episode"
+                        episode != null -> "Episode $episode"
+                        else -> null
+                    }
+                    com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
+                        title = title,
+                        episodeInfo = episodeInfo,
+                        positionSeconds = currentPosSec,
+                        durationSeconds = durSec,
+                        isPaused = isPaused,
+                        posterUrl = currentData.history.posterUrl,
+                    )
+                }
             }
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            playerState.isPaused.collect {
-                syncDiscordRpc()
+            playerState.isPaused.collect { isPaused ->
+                val currentData = uiState.value.launchData ?: return@collect
+                val currentPosSec = playerState.positionMs.value / 1000L
+                val durSec = playerState.durationMs.value / 1000L
+                val title = currentData.title ?: currentData.history.showName
+                val season = currentData.history.season
+                val episode = currentData.history.episode
+                val episodeInfo = when {
+                    season != null && episode != null -> "S$season • E$episode"
+                    episode != null -> "Episode $episode"
+                    else -> null
+                }
+                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
+                    title = title,
+                    episodeInfo = episodeInfo,
+                    positionSeconds = currentPosSec,
+                    durationSeconds = durSec,
+                    isPaused = isPaused,
+                    posterUrl = currentData.history.posterUrl,
+                )
             }
         }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            playerState.durationMs.collect {
-                syncDiscordRpc()
-            }
-        }
-    }
-
-    private fun syncDiscordRpc() {
-        val currentData = uiState.value.launchData ?: return
-        val currentPosSec = playerState.positionMs.value / 1000L
-        val durSec = playerState.durationMs.value / 1000L
-        val isPaused = playerState.isPaused.value
-        val title = currentData.title ?: currentData.history.showName
-        val season = currentData.history.season
-        val episode = currentData.history.episode
-        val episodeInfo = when {
-            season != null && episode != null -> "S$season • E$episode"
-            episode != null -> "Episode $episode"
-            else -> null
-        }
-        val isLive = currentData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
-
-        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
-            title = title,
-            episodeInfo = episodeInfo,
-            positionSeconds = currentPosSec,
-            durationSeconds = durSec,
-            isPaused = isPaused,
-            posterUrl = currentData.history.posterUrl,
-            isLive = isLive,
-        )
     }
 
     override fun dispose() {
@@ -237,7 +235,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
                 val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "8000"
-                val timeoutMs = timeoutStr.toLongOrNull() ?: 8_000L
+                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 8_000L
+                val isP2p = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(phase.link) || phase.link.url.contains("127.0.0.1:8091")
+                val timeoutMs = if (isP2p) 35_000L else baseTimeoutMs
                 timeoutJob = viewModelScope.launch {
                     delay(timeoutMs)
                     if (uiState.value.phase is PlayerPhase.Probing && (uiState.value.phase as? PlayerPhase.Probing)?.link?.url == timedOutUrl) {
@@ -261,8 +261,12 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     private fun handlePlaybackReady() {
         timeoutJob?.cancel()
+        val currentPhase = uiState.value.phase
+        if (currentPhase is PlayerPhase.Probing && !currentPhase.isInitial) {
+            val qualStr = if (currentPhase.link.quality > 0) " (${com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(currentPhase.link.quality)})" else ""
+            sendEffect(PlayerUiEffect.ShowToast("Now playing: ${currentPhase.link.name}$qualStr"))
+        }
         updateState {
-            val currentPhase = phase
             if (currentPhase is PlayerPhase.Probing) {
                 copy(phase = PlayerPhase.Playing(currentPhase.link, currentPhase.stillScraping))
             } else {
@@ -357,9 +361,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val currentState = uiState.value
         val isTimeout = reason.contains("Timeout", ignoreCase = true) || reason.contains("Timed Out", ignoreCase = true)
         val isPermanentError = isTimeout || reason.contains("403") || reason.contains("404") ||
-            reason.contains("401") || reason.contains("410") || reason.contains("Forbidden") ||
-            reason.contains("Not Found") || reason.contains("Unsupported") ||
-            reason.contains("Empty") || reason.contains("EOF") || reason.contains("HTML", ignoreCase = true)
+            reason.contains("401") || reason.contains("Forbidden") ||
+            reason.contains("Not Found") || reason.contains("Unsupported")
 
         val retries = linkRetries.getOrDefault(failedUrl, 0)
 
@@ -369,8 +372,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
             val currentLink = currentState.launchData?.links?.find { it.url == failedUrl }
             if (currentLink != null) {
-                val isActivelyPlaying = currentState.phase is PlayerPhase.Playing
-                val currentPos = if (isActivelyPlaying) playerState.positionMs.value else 0L
+                sendEffect(PlayerUiEffect.ShowToast("Stream error ($reason). Reconnecting (${retries + 1}/$MAX_RETRIES)..."))
+                val currentPos = playerState.positionMs.value
                 val startPos = if (currentPos > 0L) currentPos else currentState.launchData.startPositionMs
                 updateState {
                     copy(launchData = launchData?.copy(startPositionMs = startPos))
@@ -383,18 +386,20 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         AppLogger.e("EmbeddedPlayerViewModel", "Playback error on $failedUrl: $reason")
         val newFailed = currentState.failedLinks + (failedUrl to reason)
         val links = currentState.nextEpisodeLinks.ifEmpty { currentState.launchData?.links ?: emptyList() }
-        val isActivelyPlaying = currentState.phase is PlayerPhase.Playing
-        val currentPos = if (isActivelyPlaying) playerState.positionMs.value else 0L
+        val currentPos = playerState.positionMs.value
         val startPos = if (currentPos > 0L) currentPos else (currentState.launchData?.startPositionMs ?: 0L)
         val next = pickBestActiveLink(links, newFailed.keys, startPos)
 
         if (next != null) {
+            val failedLinkName = currentState.launchData?.links?.find { it.url == failedUrl }?.name ?: "Source"
+            val nextQual = if (next.quality > 0) " (${com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(next.quality)})" else ""
+            sendEffect(PlayerUiEffect.ShowToast("$failedLinkName failed ($reason). Falling back to ${next.name}$nextQual..."))
             updateState {
                 copy(launchData = launchData?.copy(startPositionMs = startPos))
             }
             viewModelScope.launch {
-                // Swift 200ms transition so the user doesn't experience long buffering delays
-                delay(200)
+                // Graceful 500ms breather so the UI can highlight the failed item in red with its reason
+                delay(500)
                 updatePhase(PlayerPhase.Probing(next, uiState.value.isScrapingLinks, isInitial = false), newFailed)
             }
         } else if (currentState.isScrapingLinks) {
@@ -414,8 +419,9 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val currentState = uiState.value
         val link = currentState.launchData?.links?.find { it.url == url }
         if (link != null) {
-            val isActivelyPlaying = currentState.phase is PlayerPhase.Playing
-            val currentPos = if (isActivelyPlaying) playerState.positionMs.value else 0L
+            val qualStr = if (link.quality > 0) " (${com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(link.quality)})" else ""
+            sendEffect(PlayerUiEffect.ShowToast("Switching to ${link.name}$qualStr..."))
+            val currentPos = playerState.positionMs.value
             val startPos = if (currentPos > 0L) currentPos else currentState.launchData.startPositionMs
             updateState {
                 copy(launchData = launchData?.copy(startPositionMs = startPos))
@@ -487,95 +493,92 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     private fun init(initialData: VideoLaunchData) {
         linkRetries.clear()
-        loadLinksJob?.cancel()
-        preScrapeJob?.cancel()
-        countdownJob?.cancel()
-        timeoutJob?.cancel()
+        if (uiState.value.launchData == null) {
+            val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
+            val adjustedData = if (isFinished) {
+                initialData.copy(
+                    startPositionMs = 0L,
+                    history = initialData.history.copy(position = 0L),
+                )
+            } else {
+                initialData
+            }
+            updateState { copy(launchData = adjustedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
 
-        val isFinished = initialData.history.duration > 0 && !isValidResumePosition(initialData.history.position, initialData.history.duration) && initialData.history.position > 0
-        val adjustedData = if (isFinished) {
-            initialData.copy(
-                startPositionMs = 0L,
-                history = initialData.history.copy(position = 0L),
-            )
-        } else {
-            initialData
-        }
-        updateState { copy(launchData = adjustedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
-
-        // If launched from history without full metadata, fetch it in the background
-        // This is required to populate the episode list so "Auto Next" and the Episodes panel work!
-        if (adjustedData.loadResponse == null) {
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    val apiName = adjustedData.history.apiName
-                    val showUrl = adjustedData.history.showUrl
-                    val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
-                        it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
-                    } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
-                    if (provider != null) {
-                        val res = SafePluginInvoker.invokeOrNull(
-                            tag = "HistoryLaunch:${provider.name}",
-                            timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
-                        ) {
-                            provider.load(adjustedData.history.showUrl)
-                        }
-                        if (res is com.lagradost.cloudstream3.LoadResponse) {
-                            updateState {
-                                val currentLaunch = launchData
-                                if (currentLaunch != null) {
-                                    copy(launchData = currentLaunch.copy(loadResponse = res))
-                                } else {
-                                    this
+            // If launched from history without full metadata, fetch it in the background
+            // This is required to populate the episode list so "Auto Next" and the Episodes panel work!
+            if (adjustedData.loadResponse == null) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        val apiName = adjustedData.history.apiName
+                        val showUrl = adjustedData.history.showUrl
+                        val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                            it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                        } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+                        if (provider != null) {
+                            val res = SafePluginInvoker.invokeOrNull(
+                                tag = "HistoryLaunch:${provider.name}",
+                                timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                            ) {
+                                provider.load(adjustedData.history.showUrl)
+                            }
+                            if (res is com.lagradost.cloudstream3.LoadResponse) {
+                                updateState {
+                                    val currentLaunch = launchData
+                                    if (currentLaunch != null) {
+                                        copy(launchData = currentLaunch.copy(loadResponse = res))
+                                    } else {
+                                        this
+                                    }
                                 }
                             }
                         }
+                    } catch (e: Throwable) {
+                        com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                     }
-                } catch (e: Throwable) {
-                    com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                 }
             }
-        }
 
-        // Auto-scrape initial episode if links are empty
-        if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
-            val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
-            val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
-            val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
-                it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
-            } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
-            if (provider != null) {
-                val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
-                    this.name = adjustedData.history.showName
-                    this.season = adjustedData.history.season
-                    this.episode = adjustedData.history.episode
-                }
-                updateState {
-                    copy(
-                        phase = PlayerPhase.Scraping,
-                        targetEpisodeData = targetEp,
-                        nextEpisodeLinks = emptyList(),
-                        nextEpisodeSubtitles = adjustedData.subtitles,
-                    )
-                }
+            // Auto-scrape initial episode if links are empty
+            if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
+                val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
+                val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
+                val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                    it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+                if (provider != null) {
+                    val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
+                        this.name = adjustedData.history.showName
+                        this.season = adjustedData.history.season
+                        this.episode = adjustedData.history.episode
+                    }
+                    updateState {
+                        copy(
+                            phase = PlayerPhase.Scraping,
+                            targetEpisodeData = targetEp,
+                            nextEpisodeLinks = emptyList(),
+                            nextEpisodeSubtitles = adjustedData.subtitles,
+                        )
+                    }
 
-                loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                    scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
+                    loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
+                        scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
+                    }
+                } else {
+                    // Plugin not installed or apiName unknown — can't scrape, can't play.
+                    // Surface an error immediately rather than leaving the player on a blank screen.
+                    AppLogger.e("EmbeddedPlayerViewModel", "Provider not found for apiName='$apiName'. Cannot scrape links.")
+                    sendEffect(PlayerUiEffect.ShowError("Plugin not found — cannot load video."))
+                    sendEffect(PlayerUiEffect.ClosePlayer)
                 }
-            } else {
-                // Plugin not installed or apiName unknown — can't scrape, can't play.
-                // Surface an error immediately rather than leaving the player on a blank screen.
-                AppLogger.e("EmbeddedPlayerViewModel", "Provider not found for apiName='$apiName'. Cannot scrape links.")
-                sendEffect(PlayerUiEffect.ShowError("Plugin not found — cannot load video."))
-                sendEffect(PlayerUiEffect.ClosePlayer)
-            }
-        } else if (adjustedData.links.isNotEmpty()) {
-            // Links already provided at launch (e.g. direct open) — pick immediately
-            val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
-            if (best != null) {
-                updatePhase(PlayerPhase.Probing(best, false))
-            } else {
-                updatePhase(PlayerPhase.Idle)
+            } else if (adjustedData.links.isNotEmpty()) {
+                // Links already provided at launch (e.g. direct open) — pick immediately
+                val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
+                if (best != null) {
+                    updatePhase(PlayerPhase.Probing(best, false))
+                } else {
+                    updatePhase(PlayerPhase.Idle)
+                }
             }
         }
     }
@@ -596,7 +599,6 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         countdownJob?.cancel()
         loadLinksJob?.cancel()
-        playerState.reset()
         updateState {
             copy(
                 phase = PlayerPhase.Scraping,
@@ -613,7 +615,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         if (provider != null) {
             loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                scrapeAndPlay(provider, episode.data, currentData, episode, forceStartAtZero = true)
+                scrapeAndPlay(provider, episode.data, currentData, episode)
             }
         } else {
             updateState {
@@ -648,7 +650,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             episodeId = epData.data,
         )
 
-        val startPos = if (pastHistory != null && isValidResumePosition(pastHistory.position, pastHistory.duration)) {
+        val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
             pastHistory.position * 1000L
         } else {
             0L
@@ -803,7 +805,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             } else {
                 null
             }
-            val resumeStartPos = if (pastHistory != null && isValidResumePosition(pastHistory.position, pastHistory.duration)) {
+            val resumeStartPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
                 pastHistory.position * 1000L
             } else {
                 startPos
@@ -864,16 +866,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
     private fun sortLinks(
         links: List<ExtractorLink>,
         startPositionMs: Long = 0L,
-        isLive: Boolean = false,
     ): List<ExtractorLink> {
-        val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        val effectiveIsLive = isLive || uiState.value.launchData?.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live
-        return com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(
-            links = links,
-            startPositionMs = startPositionMs,
-            preferredQualitySetting = prefQuality,
-            isLive = effectiveIsLive,
-        )
+        return com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(links)
     }
 
     private suspend fun scrapeAndPlay(
@@ -881,43 +875,47 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         targetEpisodeId: String,
         baseLaunchData: VideoLaunchData,
         targetEpisodeData: Episode? = null,
-        forceStartAtZero: Boolean = false,
     ) {
         val hasStartedPlaying = AtomicBoolean(false)
 
         // Fetch DB data outside of the callbacks and StateFlow CAS loops!
         val current = uiState.value.launchData ?: baseLaunchData
-        val effectiveEpId = targetEpisodeData?.data ?: targetEpisodeId
-        val pastHistory = DesktopDataStore.getEpisodeWatched(
-            parentId = current.history.parentId,
-            episodeId = effectiveEpId,
-        )
+        val pastHistory = if (targetEpisodeData != null) {
+            DesktopDataStore.getEpisodeWatched(
+                parentId = current.history.parentId,
+                episodeId = targetEpisodeData.data,
+            )
+        } else {
+            null
+        }
 
-        val startPos = if (forceStartAtZero) {
-            0L
-        } else if (pastHistory != null && isValidResumePosition(pastHistory.position, pastHistory.duration)) {
+        val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
             pastHistory.position * 1000L
         } else {
             0L
         }
 
-        val newHistory = current.history.copy(
-            episodeId = effectiveEpId,
-            episode = targetEpisodeData?.episode ?: current.history.episode,
-            season = targetEpisodeData?.season ?: current.history.season,
-            position = startPos / 1000L,
-            duration = pastHistory?.duration ?: 0L,
-        )
+        val newHistory = if (targetEpisodeData != null) {
+            current.history.copy(
+                episodeId = targetEpisodeData.data,
+                episode = targetEpisodeData.episode,
+                season = targetEpisodeData.season,
+            )
+        } else {
+            null
+        }
 
-        val formatTitle = { hist: com.lagradost.common.storage.WatchHistory ->
-            buildString {
-                append(hist.showName)
-                if (hist.season != null && hist.episode != null) {
-                    append(" - S${hist.season}E${hist.episode}")
-                } else if (hist.episode != null) {
-                    append(" - E${hist.episode}")
-                }
+        val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
+
+        if (!autoPlay) {
+            val sortedLinks = sortLinks(current.links, startPos)
+            val bestLink = pickBestActiveLink(sortedLinks, uiState.value.failedLinks.keys, startPos)
+            if (bestLink != null) {
+                updatePhase(PlayerPhase.Probing(bestLink, false))
+            } else {
+                updatePhase(PlayerPhase.Idle)
             }
+            return
         }
 
         val cached = LinkCache.get(targetEpisodeId)
@@ -925,14 +923,29 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
             val sortedLinks = sortLinks(cached.links, startPos)
 
-            val newLaunchData = current.copy(
-                links = sortedLinks,
-                subtitles = cached.subtitles,
-                history = newHistory,
-                initialIndex = 0,
-                startPositionMs = startPos,
-                title = formatTitle(newHistory),
-            )
+            val newLaunchData = if (targetEpisodeData != null && newHistory != null) {
+                current.copy(
+                    links = sortedLinks,
+                    subtitles = cached.subtitles,
+                    history = newHistory.copy(position = startPos / 1000L, duration = pastHistory?.duration ?: 0L),
+                    initialIndex = 0,
+                    startPositionMs = startPos,
+                    title = buildString {
+                        append(newHistory.showName)
+                        if (newHistory.season != null && newHistory.episode != null) {
+                            append(" - S${newHistory.season}E${newHistory.episode}")
+                        } else if (newHistory.episode != null) {
+                            append(" - E${newHistory.episode}")
+                        }
+                    },
+                )
+            } else {
+                current.copy(
+                    links = sortedLinks,
+                    subtitles = cached.subtitles,
+                    initialIndex = 0,
+                )
+            }
 
             val bestLink = pickBestActiveLink(sortedLinks, emptySet(), startPos)
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Cache hit — picked link: ${bestLink?.url?.take(60)}")
@@ -954,29 +967,26 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             return
         }
 
-        val waitForLinks = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY_WAIT_FOR_LINKS) ?: true
         val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
 
         val sharedSubtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub: SubtitleFile ->
             val cleanUrl = sub.url.trim()
-            if (cleanUrl.isBlank()) return@wrapCallback
-            val cleanSub = sub.copy(url = cleanUrl, lang = sub.lang.trim())
-            AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${cleanSub.lang}] ${cleanSub.url}")
-            updateState {
-                if (nextEpisodeSubtitles.any { it.url.trim().equals(cleanUrl, ignoreCase = true) }) {
-                    return@updateState this
-                }
-                val newSubs = (nextEpisodeSubtitles + cleanSub).distinctBy { it.url.trim().lowercase() }
-                if (!hasStartedPlaying.get()) {
-                    copy(nextEpisodeSubtitles = newSubs)
-                } else {
-                    val cur = launchData
-                    val updatedLaunch = if (cur != null && cur.history.episodeId == targetEpisodeId) {
-                        cur.copy(subtitles = (cur.subtitles + cleanSub).distinctBy { it.url.trim().lowercase() })
+            if (cleanUrl.isNotBlank()) {
+                val cleanSub = sub.copy(url = cleanUrl, lang = sub.lang.trim())
+                AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${cleanSub.lang}] ${cleanSub.url}")
+                updateState {
+                    val newSubs = (nextEpisodeSubtitles + cleanSub).distinctBy { it.url.trim().lowercase() }
+                    if (!hasStartedPlaying.get()) {
+                        copy(nextEpisodeSubtitles = newSubs)
                     } else {
-                        cur
+                        val cur = launchData
+                        val updatedLaunch = if (cur != null && cur.history.episodeId == targetEpisodeId) {
+                            cur.copy(subtitles = (cur.subtitles + cleanSub).distinctBy { it.url.trim().lowercase() })
+                        } else {
+                            cur
+                        }
+                        copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                     }
-                    copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                 }
             }
         }
@@ -984,66 +994,45 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         val sharedLinkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
             AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
             com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
-            var bestLinkFound: ExtractorLink? = null
-            var shouldUpdatePhase = false
+
+            // Probe range seekability for non-HLS/DASH streams in background
+            if (!link.isM3u8 && !link.isDash && link.type != com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 && link.type != com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    val isSeekable = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.probeRangeSeekability(link)
+                    if (isSeekable) {
+                        updateState {
+                            if (!isScrapingLinks) return@updateState this
+                            val reSorted = sortLinks(nextEpisodeLinks, startPos)
+                            val curLaunch = launchData
+                            val updated = if (curLaunch != null && curLaunch.history.episodeId == targetEpisodeId) {
+                                curLaunch.copy(links = reSorted)
+                            } else curLaunch
+                            copy(nextEpisodeLinks = reSorted, launchData = updated)
+                        }
+                    }
+                }
+            }
 
             updateState {
                 if (!isScrapingLinks) {
                     return@updateState this
                 }
                 val newLinks = sortLinks(nextEpisodeLinks + link, startPos)
-
-                // When waitForLinks is enabled:
-                // Wait for all providers to finish scraping before auto-probing the best stream.
-                // When waitForLinks is disabled:
-                // Start immediately on the very first playable link received.
-                val shouldStartNow = !waitForLinks
-
-                if (shouldStartNow && hasStartedPlaying.compareAndSet(false, true)) {
-                    val newLaunchData = current.copy(
-                        links = newLinks,
-                        subtitles = nextEpisodeSubtitles,
-                        history = newHistory,
-                        initialIndex = 0,
-                        startPositionMs = startPos,
-                        title = formatTitle(newHistory),
-                    )
-
-                    shouldUpdatePhase = true
-                    bestLinkFound = pickBestActiveLink(newLinks, failedLinks.keys, startPos)
-
-                    copy(
-                        nextEpisodeLinks = newLinks,
-                        launchData = newLaunchData,
-                        targetEpisodeData = null,
-                        nextEpisodeError = null,
-                    )
+                val currentLaunch = launchData
+                val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
+                    currentLaunch.copy(links = newLinks)
                 } else {
-                    val currentLaunch = launchData
-                    val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
-                        currentLaunch.copy(links = newLinks)
-                    } else {
-                        currentLaunch
-                    }
-
-                    if (hasStartedPlaying.get() && activeLink == null) {
-                        shouldUpdatePhase = true
-                        bestLinkFound = pickBestActiveLink(newLinks, failedLinks.keys, startPos)
-                    }
-
-                    copy(
-                        nextEpisodeLinks = newLinks,
-                        launchData = updatedLaunch,
-                    )
+                    currentLaunch
                 }
-            }
 
-            if (shouldUpdatePhase && bestLinkFound != null) {
-                updatePhase(PlayerPhase.Probing(bestLinkFound!!, true))
+                copy(
+                    nextEpisodeLinks = newLinks,
+                    launchData = updatedLaunch,
+                )
             }
         }
 
-        // Concurrently query installed Stremio stream addons if an authoritative IMDb ID is available
+        // Concurrently query installed Stremio stream addons
         val epHistoryId = current.history.episodeId
         val loadResp = current.loadResponse
         val resolvedImdbId = when {
@@ -1054,17 +1043,16 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             else -> com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(current.history.showName)
         }
 
-        if (resolvedImdbId != null) {
-            val epNumber = current.history.episode ?: targetEpisodeData?.episode
-            val seasonNumber = current.history.season ?: targetEpisodeData?.season
-            viewModelScope.launch(Dispatchers.IO) {
-                StremioAddonManager.searchStreams(
-                    imdbId = resolvedImdbId,
-                    season = seasonNumber,
-                    episode = epNumber,
-                    onLink = { link -> sharedLinkCallback(link) },
-                )
-            }
+        val epNumber = current.history.episode ?: targetEpisodeData?.episode
+        val seasonNumber = current.history.season ?: targetEpisodeData?.season
+        viewModelScope.launch(Dispatchers.IO) {
+            StremioAddonManager.searchStreams(
+                imdbId = resolvedImdbId,
+                season = seasonNumber,
+                episode = epNumber,
+                title = current.history.showName,
+                onLink = { link -> sharedLinkCallback(link) },
+            )
         }
 
         val result = SafePluginInvoker.invoke(
@@ -1075,7 +1063,7 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
             // be in UI. A slow/dead extractor should not trip the circuit breaker.
             penalizeOnTimeout = false,
         ) {
-            AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (waitForLinks=$waitForLinks)")
+            AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (autoPlay=$autoPlay)")
             provider.loadLinks(
                 data = targetEpisodeId,
                 isCasting = false,
@@ -1095,14 +1083,29 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                         val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
                         if (best != null) {
                             bestLinkToProbe = best
-                            val launch = current.copy(
-                                links = sortedLinks,
-                                subtitles = nextEpisodeSubtitles,
-                                history = newHistory,
-                                initialIndex = 0,
-                                startPositionMs = startPos,
-                                title = formatTitle(newHistory),
-                            )
+                            val launch = if (targetEpisodeData != null && newHistory != null) {
+                                current.copy(
+                                    links = sortedLinks,
+                                    subtitles = nextEpisodeSubtitles,
+                                    history = newHistory,
+                                    initialIndex = 0,
+                                    startPositionMs = startPos,
+                                    title = buildString {
+                                        append(newHistory.showName)
+                                        if (newHistory.season != null && newHistory.episode != null) {
+                                            append(" - S${newHistory.season}E${newHistory.episode}")
+                                        } else if (newHistory.episode != null) {
+                                            append(" - E${newHistory.episode}")
+                                        }
+                                    },
+                                )
+                            } else {
+                                current.copy(
+                                    links = sortedLinks,
+                                    subtitles = nextEpisodeSubtitles,
+                                    initialIndex = 0,
+                                )
+                            }
                             LinkCache.set(targetEpisodeId, sortedLinks, nextEpisodeSubtitles)
                             copy(
                                 nextEpisodeLinks = sortedLinks,
