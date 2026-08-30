@@ -53,13 +53,14 @@ enum class DockItemKey(
     EXPLORE("explore", "Explore", "Browse movies, series & anime catalogs by genre and year"),
     SEARCH("search", "Search", "Global search & provider explorer"),
     LIBRARY("library", "Library", "Bookmarked shows, movies, and custom lists"),
+    DOWNLOADS("downloads", "Downloads", "Multi-threaded offline downloads & active queue"),
     SETTINGS("settings", "Settings", "Preferences, appearance, player, and plugins", isRequired = true),
     HISTORY("history", "Watch History", "Recently watched episodes & resume points"),
     EXTENSIONS("extensions", "Extensions", "Installed plugins, repos, and updates"),
     ;
 
     companion object {
-        val DEFAULT_ORDER = listOf(HOME, EXPLORE, SEARCH, LIBRARY, SETTINGS, HISTORY, EXTENSIONS)
+        val DEFAULT_ORDER = listOf(HOME, EXPLORE, SEARCH, LIBRARY, DOWNLOADS, SETTINGS, HISTORY, EXTENSIONS)
         val DEFAULT_DISABLED = setOf(HISTORY, EXTENSIONS)
 
         fun parseOrder(raw: String?): List<DockItemKey> {
@@ -206,6 +207,7 @@ object AppearanceConfig {
     private const val PREF_DOCK_DISABLED_ITEMS = "pref_dock_disabled_items"
     private const val PREF_TOPBAR_SHOW_PROFILE = "pref_topbar_show_profile"
     private const val PREF_TOPBAR_SHOW_PROFILE_NAME = "pref_topbar_show_profile_name"
+    private const val PREF_SHOW_CONTINUE_WATCHING = "pref_show_continue_watching"
 
     private val _dockItemOrder = MutableStateFlow(
         DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
@@ -226,6 +228,11 @@ object AppearanceConfig {
         DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
     )
     val topBarShowProfileName: StateFlow<Boolean> = _topBarShowProfileName.asStateFlow()
+
+    private val _showContinueWatching = MutableStateFlow(
+        DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true
+    )
+    val showContinueWatching: StateFlow<Boolean> = _showContinueWatching.asStateFlow()
 
     private val _themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
     val themeAccent: StateFlow<String> = _themeAccent.asStateFlow()
@@ -834,11 +841,17 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_TOPBAR_SHOW_PROFILE_NAME, enabled)
     }
 
+    fun setShowContinueWatching(enabled: Boolean) {
+        _showContinueWatching.value = enabled
+        DesktopDataStore.setKey(PREF_SHOW_CONTINUE_WATCHING, enabled)
+    }
+
     fun reloadFromDataStore() {
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
         _dockDisabledItems.value = DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
         _topBarShowProfile.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: true
         _topBarShowProfileName.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
+        _showContinueWatching.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true
         _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple"
         _antiSpoilerEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true
         _lockUnreleasedEpisodes.value = DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true

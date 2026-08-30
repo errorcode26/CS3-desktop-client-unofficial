@@ -60,7 +60,7 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 
 @Composable
 fun DetailsBackdrop(
@@ -86,7 +86,7 @@ fun DetailsBackdrop(
                     alpha = 0f
                 }
             }
-            .haze(state = hazeState),
+            .hazeSource(state = hazeState),
     ) {
         val currentPhase = enrichmentPhase
 

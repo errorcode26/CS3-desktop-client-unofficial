@@ -162,7 +162,7 @@ fun EpisodeCard(
     isAntiSpoiler: Boolean = false,
     thumbnailVersion: Int = 0,
     modifier: Modifier = Modifier,
-    enableDownloadButtons: Boolean = false,
+    enableDownloadButtons: Boolean = true,
     isContextMenuEnabled: Boolean = true,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,

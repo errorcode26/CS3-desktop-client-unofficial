@@ -3,12 +3,14 @@ package com.lagradost.cloudstream3.desktop.ui
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -36,10 +38,16 @@ import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 val LocalSafeArea = compositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
+val LocalHazeState = compositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
+
+object TopBarScrollState {
+    var isScrolled by mutableStateOf(false)
+}
 
 @Composable
 fun DesktopAppShell(
@@ -57,8 +65,12 @@ fun DesktopAppShell(
     val snackbarHostState = remember { SnackbarHostState() }
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val posterCardStyle = com.lagradost.cloudstream3.desktop.ui.components.rememberPosterCardStyle()
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
 
-    CompositionLocalProvider(com.lagradost.cloudstream3.desktop.ui.components.LocalPosterCardStyle provides posterCardStyle) {
+    CompositionLocalProvider(
+        com.lagradost.cloudstream3.desktop.ui.components.LocalPosterCardStyle provides posterCardStyle,
+        LocalHazeState provides hazeState,
+    ) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val isCompact = maxWidth < 600.dp
@@ -463,6 +475,21 @@ private fun NavigationDock(
                         onClick = { onNavigate(Config.Library) },
                     )
                 }
+                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.DOWNLOADS -> {
+                    val activeSpeed by com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.activeSpeed.collectAsState()
+                    val activeTasks by com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.tasks.collectAsState()
+                    val downloadingCount = activeTasks.count { it.status == com.lagradost.cloudstream3.desktop.downloader.DownloadStatus.DOWNLOADING }
+
+                    DockItem(
+                        icon = PremiumIcons.Downloads,
+                        label = "Downloads",
+                        selected = currentTitle == "Downloads",
+                        isHorizontal = isHorizontal,
+                        indicatorAtTop = isTop,
+                        badge = if (downloadingCount > 0) downloadingCount.toString() else null,
+                        onClick = { onNavigate(Config.Downloads) },
+                    )
+                }
                 com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> {
                     DockItem(
                         icon = PremiumIcons.History,
@@ -499,8 +526,16 @@ private fun NavigationDock(
 
     val navStyle by AppearanceConfig.navigationStyle.collectAsState()
     val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
-
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val dockHazeState = LocalHazeState.current
+    val isTopOrBottom = isTop || isBottom
+
+    val barBase = when {
+        isLightMode -> Color(0xFFFAFAFC)
+        amoledMode -> Color.Black
+        else -> Color(0xFF14141A)
+    }
 
     if (isSeamless) {
         // ── Seamless Edge-to-Edge Navigation Bar Mode ──
@@ -511,38 +546,54 @@ private fun NavigationDock(
             else -> Modifier.fillMaxHeight().width(64.dp)
         }
 
-        val barBgBrush = when {
-            isRight -> androidx.compose.ui.graphics.Brush.horizontalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
+        val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom) {
+            Modifier.hazeEffect(
+                state = dockHazeState,
+                style = dev.chrisbanes.haze.HazeStyle(
+                    backgroundColor = barBase.copy(alpha = if (amoledMode) 0.85f else 0.65f),
+                    tint = dev.chrisbanes.haze.HazeTint(barBase.copy(alpha = if (amoledMode) 0.85f else 0.65f)),
+                    blurRadius = 24.dp,
                 ),
             )
-            isTop -> androidx.compose.ui.graphics.Brush.verticalGradient(
-                colors = listOf(
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
-                    Color.Transparent,
-                ),
-            )
-            isBottom -> androidx.compose.ui.graphics.Brush.verticalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
-                ),
-            )
-            else -> androidx.compose.ui.graphics.Brush.horizontalGradient(
-                colors = listOf(
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.40f),
-                    (if (isLightMode) Color.White else Color.Black).copy(alpha = 0.15f),
-                    Color.Transparent,
-                ),
-            )
+        } else {
+            Modifier
         }
 
-        Box(modifier = modifier.then(barModifier).background(barBgBrush)) {
+        val borderModifier = when {
+            isBottom -> Modifier.drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    drawLine(
+                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, 0f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
+            }
+            isTop -> Modifier.drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    drawLine(
+                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
+                        start = Offset(0f, size.height),
+                        end = Offset(size.width, size.height),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
+            }
+            else -> Modifier
+        }
+
+        Box(
+            modifier = modifier
+                .then(barModifier)
+                .then(seamlessHazeModifier)
+                .then(borderModifier)
+                .pointerInput(Unit) {
+                    detectTapGestures { }
+                },
+        ) {
             if (isHorizontal) {
                 Row(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -563,54 +614,77 @@ private fun NavigationDock(
         }
     } else {
         // ── Floating Dock Mode ──
+        val pillShape = RoundedCornerShape(26.dp)
         val surfaceModifier = when {
-            isBottom -> Modifier.padding(bottom = 14.dp).height(54.dp).wrapContentWidth()
-            isTop -> Modifier.padding(top = 14.dp).height(54.dp).wrapContentWidth()
-            isRight -> Modifier.padding(end = 14.dp).width(54.dp).wrapContentHeight()
-            else -> Modifier.padding(start = 14.dp).width(54.dp).wrapContentHeight()
+            isBottom -> Modifier.padding(bottom = 16.dp).height(52.dp).wrapContentWidth()
+            isTop -> Modifier.padding(top = 16.dp).height(52.dp).wrapContentWidth()
+            isRight -> Modifier.padding(end = 16.dp).width(52.dp).wrapContentHeight()
+            else -> Modifier.padding(start = 16.dp).width(52.dp).wrapContentHeight()
         }
 
         val paddingInsideSurface = if (isHorizontal) {
-            Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
         } else {
-            Modifier.padding(vertical = 14.dp, horizontal = 6.dp)
+            Modifier.padding(vertical = 8.dp, horizontal = 5.dp)
+        }
+
+        val glassBase = when {
+            isLightMode -> Color.White
+            amoledMode -> Color.Black
+            else -> Color(0xFF14141A)
+        }
+        val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                glassBase.copy(alpha = if (amoledMode) 0.85f else 0.70f),
+                glassBase.copy(alpha = if (amoledMode) 0.70f else 0.55f),
+            ),
+        )
+        val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.45f),
+                if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.20f),
+            ),
+        )
+
+        val dockHazeModifier = if (dockHazeState != null && isTopOrBottom) {
+            Modifier.hazeEffect(
+                state = dockHazeState,
+                style = dev.chrisbanes.haze.HazeStyle(
+                    backgroundColor = glassBase.copy(alpha = if (amoledMode) 0.65f else 0.45f),
+                    tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = if (amoledMode) 0.65f else 0.45f)),
+                    blurRadius = 20.dp,
+                ),
+            )
+        } else {
+            Modifier
         }
 
         Box(modifier = modifier) {
             Box(modifier = surfaceModifier) {
-                // Drop shadow without occlusion to prevent weird whitish middle bar artifact
+                // Drop shadow
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .blur(12.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                        .background(Color.Black.copy(alpha = 0.40f), RoundedCornerShape(20.dp)),
+                        .blur(14.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                        .background(Color.Black.copy(alpha = 0.45f), pillShape),
                 )
 
-                val glassBase = if (isLightMode) Color.White else Color(0xFF1E1E24)
-                val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(
-                        glassBase.copy(alpha = 0.60f),
-                        glassBase.copy(alpha = 0.45f),
-                    ),
-                )
-                val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(
-                        if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
-                        if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f),
-                    ),
-                )
-
+                // Main Glass Pill Container (Strictly clipped to pillShape, with pointer consumption)
                 Box(
                     modifier = Modifier
-                        .background(glassGradient, RoundedCornerShape(20.dp))
-                        .border(1.5.dp, borderGradient, RoundedCornerShape(20.dp))
-                        .clip(RoundedCornerShape(20.dp)),
+                        .clip(pillShape)
+                        .then(dockHazeModifier)
+                        .background(glassGradient)
+                        .border(1.2.dp, borderGradient, pillShape)
+                        .pointerInput(Unit) {
+                            detectTapGestures { }
+                        },
                 ) {
                     if (isHorizontal) {
                         Row(
                             modifier = paddingInsideSurface,
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             dockItems()
                         }
@@ -618,7 +692,7 @@ private fun NavigationDock(
                         Column(
                             modifier = paddingInsideSurface,
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             dockItems()
                         }

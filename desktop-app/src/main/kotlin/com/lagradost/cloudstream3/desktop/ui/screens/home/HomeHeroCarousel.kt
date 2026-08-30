@@ -532,19 +532,19 @@ private fun HeroActionButtons(
             contentColor = Color.Black,
         ),
         shape = RoundedCornerShape(if (isCompact) 10.dp else 12.dp),
-        contentPadding = PaddingValues(horizontal = if (isCompact) 16.dp else 28.dp),
-        modifier = if (isCompact) Modifier.height(40.dp).fillMaxWidth() else Modifier.height(48.dp).widthIn(min = 180.dp),
+        contentPadding = PaddingValues(horizontal = if (isCompact) 16.dp else 24.dp),
+        modifier = if (isCompact) Modifier.height(40.dp).fillMaxWidth() else Modifier.height(48.dp).widthIn(min = 160.dp),
     ) {
-        Text(
-            "View Details",
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = if (isCompact) 13.sp else 15.sp,
+        Icon(
+            Icons.Default.PlayArrow,
+            contentDescription = null,
+            modifier = Modifier.size(if (isCompact) 18.dp else 22.dp),
         )
         Spacer(Modifier.width(if (isCompact) 6.dp else 8.dp))
-        Icon(
-            Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            modifier = Modifier.size(if (isCompact) 16.dp else 18.dp),
+        Text(
+            "Watch Now",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = if (isCompact) 13.sp else 15.sp,
         )
     }
 }

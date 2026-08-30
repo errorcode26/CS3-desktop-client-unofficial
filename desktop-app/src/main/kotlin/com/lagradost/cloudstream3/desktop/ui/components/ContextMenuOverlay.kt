@@ -68,7 +68,7 @@ object GlobalContextMenuState {
     var episode: Episode? by mutableStateOf(null)
     var loadResponse: LoadResponse? by mutableStateOf(null)
     var isAntiSpoiler: Boolean by mutableStateOf(false)
-    var enableDownloadButtons: Boolean by mutableStateOf(false)
+    var enableDownloadButtons: Boolean by mutableStateOf(true)
 
     var onRemove: (() -> Unit)? by mutableStateOf(null)
     var onDetailsClick: (() -> Unit)? by mutableStateOf(null)
@@ -173,7 +173,7 @@ object GlobalContextMenuState {
         history: WatchHistory?,
         provider: MainAPI?,
         isAntiSpoiler: Boolean = false,
-        enableDownloadButtons: Boolean = false,
+        enableDownloadButtons: Boolean = true,
         onPlay: (Episode) -> Unit,
         onDownload: ((Episode) -> Unit)? = null,
         onToggleWatched: (Episode, Boolean) -> Unit,

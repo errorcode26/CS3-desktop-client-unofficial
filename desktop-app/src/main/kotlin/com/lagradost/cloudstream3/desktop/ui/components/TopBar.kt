@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +32,7 @@ import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileEditDialog
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
 
 @Composable
@@ -44,17 +47,50 @@ fun TopBar(
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
         val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
-        val navPaddingStart = when (effectiveDockPosition) {
-            com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> 84.dp
-            else -> if (isCompact) 12.dp else 32.dp
-        }
-        val navPaddingEnd = when (effectiveDockPosition) {
-            com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> 84.dp
-            else -> if (isCompact) 12.dp else 32.dp
+        val navPaddingStart = if (isCompact) 12.dp else 16.dp
+        val navPaddingEnd = if (isCompact) 12.dp else 16.dp
+
+        val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
+        val isScrolled = com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled
+        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+
+        val targetBlurRadius by androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (isScrolled) 24.dp else 0.dp,
+            animationSpec = androidx.compose.animation.core.tween(250),
+        )
+        val targetTintAlpha by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (isScrolled) (if (amoledMode) 0.60f else 0.35f) else 0.0f,
+            animationSpec = androidx.compose.animation.core.tween(250),
+        )
+
+        val tintColor = when {
+            isLightMode -> Color(0xFFFAFAFC)
+            amoledMode -> Color.Black
+            else -> Color(0xFF0F0F14)
         }
 
-        val bg = Color.Transparent
-        Column(modifier = Modifier.fillMaxWidth().background(bg)) {
+        val hazeModifier = if (hazeState != null) {
+            Modifier.hazeEffect(
+                state = hazeState,
+                style = dev.chrisbanes.haze.HazeStyle(
+                    backgroundColor = tintColor.copy(alpha = targetTintAlpha),
+                    tint = dev.chrisbanes.haze.HazeTint(tintColor.copy(alpha = targetTintAlpha)),
+                    blurRadius = targetBlurRadius,
+                ),
+            )
+        } else {
+            Modifier
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(hazeModifier)
+                .pointerInput(Unit) {
+                    detectTapGestures { }
+                },
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -62,24 +98,27 @@ fun TopBar(
                     .padding(start = navPaddingStart, end = navPaddingEnd),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
-                ) {
-                    if (!isCompact) {
-                        ClockWidget()
-                    }
-                    TopBarProfilePill(onOpenProfileManager = onOpenProfileManager)
+                // Top-Left: Clock & Date Widget anchored to corner
+                if (!isCompact) {
+                    ClockWidget(alignment = Alignment.Start)
                 }
 
                 Spacer(Modifier.weight(1f))
 
-                WindowControlsPill(
-                    isHome = isHome,
-                    isCompact = isCompact,
-                    homeUiState = homeUiState,
-                    homeActionDispatcher = homeActionDispatcher,
-                )
+                // Top-Right: Home Actions & Profile Avatar Pill
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp),
+                ) {
+                    WindowControlsPill(
+                        isHome = isHome,
+                        isCompact = isCompact,
+                        homeUiState = homeUiState,
+                        homeActionDispatcher = homeActionDispatcher,
+                    )
+
+                    TopBarProfilePill(onOpenProfileManager = onOpenProfileManager)
+                }
             }
         }
     }
@@ -134,7 +173,7 @@ private fun TopBarProfilePill(
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val isExpanded = isHovered || showProfileFlyout
+    val isExpanded = showProfileName || isHovered || showProfileFlyout
 
     Box {
         Surface(
@@ -384,7 +423,7 @@ private fun TopBarProfilePill(
 }
 
 @Composable
-private fun ClockWidget() {
+private fun ClockWidget(alignment: Alignment.Horizontal = Alignment.Start) {
     val mode by AppearanceConfig.clockMode.collectAsState()
     if (mode == ClockDisplayMode.HIDDEN) return
 
@@ -398,8 +437,10 @@ private fun ClockWidget() {
         }
     }
 
+    val textAlign = if (alignment == Alignment.Start) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End
+
     Column(
-        horizontalAlignment = Alignment.Start,
+        horizontalAlignment = alignment,
         verticalArrangement = Arrangement.Center,
     ) {
         if (mode == ClockDisplayMode.TIME_ONLY || mode == ClockDisplayMode.BOTH) {
@@ -412,6 +453,7 @@ private fun ClockWidget() {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = textAlign,
             )
         }
         if (mode == ClockDisplayMode.DATE_ONLY || mode == ClockDisplayMode.BOTH) {
@@ -423,6 +465,7 @@ private fun ClockWidget() {
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = textAlign,
             )
         }
     }

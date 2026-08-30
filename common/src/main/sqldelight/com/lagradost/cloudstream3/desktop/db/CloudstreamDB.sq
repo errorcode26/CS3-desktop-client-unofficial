@@ -103,3 +103,55 @@ DELETE FROM PluginUpdateHistory WHERE pluginName = ?;
 
 deleteAllPluginUpdates:
 DELETE FROM PluginUpdateHistory;
+
+
+CREATE TABLE IF NOT EXISTS DownloadTasks (
+    id TEXT NOT NULL PRIMARY KEY,
+    canonicalKey TEXT NOT NULL,
+    showName TEXT NOT NULL,
+    showUrl TEXT NOT NULL,
+    episodeTitle TEXT,
+    posterUrl TEXT,
+    backdropUrl TEXT,
+    season INTEGER,
+    episode INTEGER,
+    filePath TEXT NOT NULL,
+    streamUrl TEXT NOT NULL,
+    totalBytes INTEGER NOT NULL,
+    downloadedBytes INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    quality INTEGER NOT NULL,
+    apiName TEXT NOT NULL,
+    headersJson TEXT,
+    dateAdded INTEGER NOT NULL,
+    dateCompleted INTEGER
+);
+
+insertDownloadTask:
+INSERT OR REPLACE INTO DownloadTasks(id, canonicalKey, showName, showUrl, episodeTitle, posterUrl, backdropUrl, season, episode, filePath, streamUrl, totalBytes, downloadedBytes, status, quality, apiName, headersJson, dateAdded, dateCompleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateDownloadProgress:
+UPDATE DownloadTasks SET downloadedBytes = ?, totalBytes = ?, status = ? WHERE id = ?;
+
+updateDownloadStatus:
+UPDATE DownloadTasks SET status = ?, dateCompleted = ? WHERE id = ?;
+
+deleteDownloadTask:
+DELETE FROM DownloadTasks WHERE id = ?;
+
+selectAllDownloads:
+SELECT * FROM DownloadTasks ORDER BY dateAdded DESC;
+
+selectActiveDownloads:
+SELECT * FROM DownloadTasks WHERE status IN ('QUEUED', 'DOWNLOADING', 'PAUSED') ORDER BY dateAdded ASC;
+
+selectCompletedDownloads:
+SELECT * FROM DownloadTasks WHERE status = 'COMPLETED' ORDER BY dateCompleted DESC;
+
+selectDownloadById:
+SELECT * FROM DownloadTasks WHERE id = ?;
+
+selectDownloadByCanonical:
+SELECT * FROM DownloadTasks WHERE canonicalKey = ? AND season = ? AND episode = ?;
+

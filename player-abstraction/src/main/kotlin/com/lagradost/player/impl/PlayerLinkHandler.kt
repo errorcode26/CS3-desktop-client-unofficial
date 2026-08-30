@@ -56,11 +56,21 @@ object PlayerLinkHandler {
                 )
             }
 
-            val url = link.url.trim().substringBefore("|")
+            var url = link.url.trim().substringBefore("|")
             if (url.isBlank()) {
                 return Result.failure(IllegalArgumentException("Stream URL is empty."))
             }
-            val isLocalPath = url.startsWith("file://", ignoreCase = true) || (url.length >= 2 && url[1] == ':') || url.startsWith("/")
+
+            if (url.startsWith("file:/", ignoreCase = true) || url.startsWith("file://", ignoreCase = true)) {
+                url = try {
+                    java.io.File(java.net.URI(url)).absolutePath
+                } catch (e: Exception) {
+                    val pathWithoutScheme = url.replaceFirst(Regex("^file:/{1,3}", RegexOption.IGNORE_CASE), "")
+                    java.net.URLDecoder.decode(pathWithoutScheme, "UTF-8")
+                }
+            }
+
+            val isLocalPath = (url.length >= 2 && url[1] == ':') || url.startsWith("/") || url.startsWith("\\")
             if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true) && !isLocalPath) {
                 return Result.failure(IllegalArgumentException("Unsupported stream URL scheme: ${url.take(12)}..."))
             }

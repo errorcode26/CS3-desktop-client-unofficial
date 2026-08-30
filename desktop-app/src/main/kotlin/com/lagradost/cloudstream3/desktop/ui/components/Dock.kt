@@ -58,14 +58,18 @@ fun DockItem(
         modifier = Modifier
             .then(
                 if (isHorizontal) {
-                    Modifier.size(56.dp)
+                    Modifier.size(42.dp)
                 } else {
-                    Modifier.fillMaxWidth().height(56.dp)
+                    Modifier.fillMaxWidth().height(42.dp)
                 },
             )
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .hoverable(itemInteraction)
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = itemInteraction,
+                indication = null,
+                onClick = onClick,
+            ),
     ) {
         // Hover Background layer (using graphicsLayer to avoid Compose Desktop alpha blending bugs)
         if (bgAlpha > 0f) {

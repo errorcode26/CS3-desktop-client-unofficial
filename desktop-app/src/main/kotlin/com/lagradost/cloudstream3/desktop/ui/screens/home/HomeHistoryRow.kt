@@ -41,8 +41,10 @@ fun HomeHistoryRow(
         lastNonEmptyList.value = historyList
     }
 
+    val showContinueWatching by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.showContinueWatching.collectAsState()
+
     androidx.compose.animation.AnimatedVisibility(
-        visible = historyList.isNotEmpty(),
+        visible = showContinueWatching && historyList.isNotEmpty(),
         enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
         exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
     ) {

@@ -82,7 +82,7 @@ dependencies {
     implementation(compose.materialIconsExtended)
     implementation(compose.ui)
     implementation(compose.foundation)
-    implementation("dev.chrisbanes.haze:haze:0.7.3")
+    implementation("dev.chrisbanes.haze:haze:1.3.1")
 
     // Decompose Navigation
     implementation(libs.decompose)

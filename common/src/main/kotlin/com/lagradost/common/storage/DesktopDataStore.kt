@@ -569,6 +569,11 @@ object DesktopDataStore {
     const val PREF_P2P_CACHE_SIZE_GB = "p2p_torrent_cache_gb"
     const val PREF_P2P_SHOW_HUD = "p2p_torrent_show_hud"
 
+    const val PREF_ENABLE_DOWNLOAD_BUTTONS = "ENABLE_DOWNLOAD_BUTTONS"
+    const val PREF_DOWNLOAD_THREADS = "DOWNLOAD_THREADS"
+    const val PREF_DOWNLOAD_MAX_CONCURRENT = "DOWNLOAD_MAX_CONCURRENT"
+    const val PREF_DOWNLOAD_PATH = "DOWNLOAD_PATH"
+
     private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
 
     fun getTrustedPlugins(): Set<String> {

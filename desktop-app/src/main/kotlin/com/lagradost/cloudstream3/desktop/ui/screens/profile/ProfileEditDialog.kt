@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -122,10 +123,10 @@ fun ProfileEditDialog(
 
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { if (it.length <= 18) name = it },
+                    onValueChange = { if (it.length <= 16) name = it },
                     label = { Text("Profile Name") },
                     supportingText = {
-                        Text("${name.length}/18", modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("${name.length}/16", modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
@@ -325,6 +326,31 @@ fun ProfileEditDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = "Important: Profile PINs cannot be recovered or reset if forgotten. Please write down or remember your PIN to avoid getting locked out.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
                 }
             }
 

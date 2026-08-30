@@ -40,7 +40,16 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiE
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.player.impl.PlayerLinkHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -190,9 +199,10 @@ fun ComposeDetailsScreen(
                     }
                 }
             }
+            val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
+                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = onBack,
@@ -201,7 +211,7 @@ fun ComposeDetailsScreen(
                     )
                 }
             } else if (response != null) {
-                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = !(uiState.autoPlayEnabled ?: true), onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
+                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -232,53 +242,35 @@ fun ComposeDetailsScreen(
             }
 
             if (activeLinkData != null) {
-                val panelWidth = minOf(450.dp, maxWidth * 0.92f)
+                val panelWidth = minOf(620.dp, maxWidth * 0.95f)
                 val offsetX by androidx.compose.animation.core.animateDpAsState(
-                    targetValue = if (isPanelOpen) 0.dp else panelWidth,
+                    targetValue = if (isPanelOpen) 0.dp else panelWidth + 20.dp,
                     animationSpec = tween(300),
                 )
-                Row(
+                Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .offset(x = offsetX),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                            .clickable { if (isPanelOpen) viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) else viewModel.onEvent(DetailsUiEvent.OnOpenLinksPanel(activeLinkData)) }
-                            .padding(horizontal = 12.dp, vertical = 32.dp), // Taller hit area for easier clicking in the middle
-                    ) {
-                        Icon(
-                            if (isPanelOpen) Icons.Default.Close else Icons.Default.Menu,
-                            contentDescription = "Toggle links",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .width(panelWidth)
-                            .shadow(24.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF0C0C14).copy(alpha = 0.75f),
-                                        Color(0xFF1A1A24).copy(alpha = 0.85f),
-                                    ),
+                        .offset(x = offsetX)
+                        .fillMaxHeight()
+                        .width(panelWidth)
+                        .shadow(24.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF0C0C14).copy(alpha = 0.95f),
+                                    Color(0xFF161622).copy(alpha = 0.98f),
                                 ),
                             ),
-                    ) {
-                        activeLinkData?.let { (linkProvider, linkUrl, linkHistory) ->
-                            LinksSidePanel(
-                                provider = linkProvider,
-                                dataUrl = linkUrl,
-                                history = linkHistory,
-                                loadResponse = response, // Passed from ComposeDetailsScreen
-                                onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
-                            )
-                        }
+                        ),
+                ) {
+                    activeLinkData?.let { (linkProvider, linkUrl, linkHistory) ->
+                        LinksSidePanel(
+                            provider = linkProvider,
+                            dataUrl = linkUrl,
+                            history = linkHistory,
+                            loadResponse = response, // Passed from ComposeDetailsScreen
+                            onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
+                        )
                     }
                 }
             }
@@ -376,7 +368,10 @@ fun DetailsContent(
 
         LazyColumn(
             state = scrollState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { }
+                .hazeSource(state = hazeState),
             contentPadding = PaddingValues(
                 bottom = 32.dp,
             ),
@@ -753,16 +748,147 @@ fun DetailsContent(
             }
         }
 
-        // Back button
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
-        ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+        val isScrolled by remember {
+            derivedStateOf {
+                scrollState.firstVisibleItemIndex > 0 || scrollState.firstVisibleItemScrollOffset > 180
+            }
         }
 
-        Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
-            com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(isHome = false, isCompact = isWindowCompact)
+        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+
+        val targetBlurRadius by androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (isScrolled) 24.dp else 0.dp,
+            animationSpec = androidx.compose.animation.core.tween(250),
+        )
+        val targetTintAlpha by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (isScrolled) (if (amoledMode) 0.65f else 0.40f) else 0.0f,
+            animationSpec = androidx.compose.animation.core.tween(250),
+        )
+
+        val barTintColor = when {
+            isLightMode -> Color(0xFFFAFAFC)
+            amoledMode -> Color.Black
+            else -> Color(0xFF0F0F14)
+        }
+
+        val activeLogoUrl = remember(data, enrichmentPhase, uiState) {
+            uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
+                ?: data.logoUrl?.takeIf { it.isNotBlank() }
+                ?: provider.fixUrlNull(data.logoUrl)
+        }
+
+        // Floating Haze Details Top Bar
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(if (isWindowCompact) 52.dp else 58.dp)
+                .then(
+                    if (targetBlurRadius > 0.dp) {
+                        Modifier.hazeEffect(
+                            state = hazeState,
+                            style = dev.chrisbanes.haze.HazeStyle(
+                                backgroundColor = barTintColor.copy(alpha = targetTintAlpha),
+                                tint = dev.chrisbanes.haze.HazeTint(barTintColor.copy(alpha = targetTintAlpha)),
+                                blurRadius = targetBlurRadius,
+                            ),
+                        ).drawWithCache {
+                            onDrawWithContent {
+                                drawContent()
+                                if (isScrolled) {
+                                    drawLine(
+                                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
+                                        start = Offset(0f, size.height),
+                                        end = Offset(size.width, size.height),
+                                        strokeWidth = 1.dp.toPx(),
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .pointerInput(Unit) {
+                    detectTapGestures { }
+                },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Back Button
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (!isScrolled) Color.Black.copy(alpha = 0.35f) else Color.Transparent
+                        ),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = if (!isScrolled) Color.White else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                // Center: Title Logo or Stylized Name
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isScrolled,
+                        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(250)) { -it / 2 },
+                        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(200)) { -it / 2 },
+                    ) {
+                        var logoLoadFailed by remember(activeLogoUrl) { mutableStateOf(false) }
+
+                        if (!activeLogoUrl.isNullOrBlank() && !logoLoadFailed) {
+                            coil3.compose.AsyncImage(
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(activeLogoUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = data.name,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .height(36.dp)
+                                    .widthIn(max = 240.dp),
+                                onError = { logoLoadFailed = true },
+                            )
+                        } else {
+                            Text(
+                                text = data.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                // Right: Window Controls
+                com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(
+                    isHome = false,
+                    isCompact = isWindowCompact,
+                )
+            }
         }
 
         androidx.compose.animation.AnimatedVisibility(

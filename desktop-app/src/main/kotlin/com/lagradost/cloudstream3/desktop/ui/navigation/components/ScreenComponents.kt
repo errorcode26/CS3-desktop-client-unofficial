@@ -47,6 +47,12 @@ class LibraryComponent(
     val viewModel = instanceKeeper.getOrCreate { LibraryViewModel() }
 }
 
+class DownloadsComponent(
+    componentContext: ComponentContext,
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate { com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsViewModel() }
+}
+
 class SettingsComponent(
     componentContext: ComponentContext,
 ) : ComponentContext by componentContext {

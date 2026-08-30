@@ -42,6 +42,13 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     DesktopDataStore.setKey("preferred_player", event.player)
                 }
             }
+            is LinksUiEvent.OnAddLinks -> {
+                updateState {
+                    val combined = (links + event.links).distinctBy { it.url }
+                    val sorted = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(combined)
+                    copy(links = sorted, statusText = "Ready — ${sorted.size} stream${if (sorted.size == 1) "" else "s"} available.")
+                }
+            }
             is LinksUiEvent.OnPlayLink -> handlePlayLink(event)
         }
     }

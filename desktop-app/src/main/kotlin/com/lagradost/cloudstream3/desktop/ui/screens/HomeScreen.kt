@@ -13,8 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import coil3.request.crossfade
+import dev.chrisbanes.haze.hazeSource
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
@@ -39,6 +41,7 @@ fun ComposeHomeScreen(
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
+    val showContinueWatching by AppearanceConfig.showContinueWatching.collectAsState()
 
     DisposableEffect(viewModel) {
         val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.register {
@@ -103,6 +106,21 @@ fun ComposeHomeScreen(
         if (allPages.isNotEmpty()) {
             val listState = rememberLazyListState()
             val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
+            val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
+
+            val isScrolled by remember {
+                derivedStateOf {
+                    listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20
+                }
+            }
+            LaunchedEffect(isScrolled) {
+                com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled = isScrolled
+            }
+            DisposableEffect(Unit) {
+                onDispose {
+                    com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled = false
+                }
+            }
 
             // Extract individual safe padding components
             val safeLeft = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
@@ -113,7 +131,15 @@ fun ComposeHomeScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (hazeState != null) {
+                                Modifier.graphicsLayer { }.hazeSource(state = hazeState)
+                            } else {
+                                Modifier
+                            },
+                        ),
                     verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp),
                     contentPadding = PaddingValues(
                         top = if (!heroEnabled) safeTop else 0.dp,
@@ -135,7 +161,7 @@ fun ComposeHomeScreen(
                                 onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
                                 onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
                                 outerPadding = horizontalPad,
-                                afterHeroContent = if (isFirstPage) {
+                                afterHeroContent = if (isFirstPage && showContinueWatching) {
                                     {
                                         HomeHistoryRow(
                                             historyList = historyList,
@@ -156,7 +182,7 @@ fun ComposeHomeScreen(
                                 } else {
                                     {}
                                 },
-                                isHistoryVisible = isFirstPage && historyList.isNotEmpty(),
+                                isHistoryVisible = isFirstPage && showContinueWatching && historyList.isNotEmpty(),
                                 onViewAll = { provider, title, items ->
                                     CategoryGridCache.put(provider.name, title, items)
                                     onNavigate(Config.CategoryGrid(provider.name, title))

@@ -284,4 +284,41 @@ object PremiumIcons {
             }
             .build()
     }
+
+    val Downloads: ImageVector by lazy {
+        featherBuilder("FeatherDownload")
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(21f, 15f)
+                verticalLineToRelative(4f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -2f, dy1 = 2f)
+                horizontalLineTo(5f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -2f, dy1 = -2f)
+                verticalLineToRelative(-4f)
+            }
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(7f, 10f)
+                lineToRelative(5f, 5f)
+                lineToRelative(5f, -5f)
+            }
+            .path(
+                stroke = strokeColor,
+                strokeLineWidth = strokeWidth,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 15f)
+                verticalLineTo(3f)
+            }
+            .build()
+    }
 }

@@ -50,6 +50,9 @@ class DefaultRootComponent(
             is Config.Library -> RootComponent.Child.Library(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent(componentContext),
             )
+            is Config.Downloads -> RootComponent.Child.Downloads(
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.DownloadsComponent(componentContext),
+            )
             is Config.Settings -> RootComponent.Child.Settings(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent(componentContext),
             )
@@ -101,6 +104,7 @@ class DefaultRootComponent(
             is Config.Explore,
             is Config.Search,
             is Config.Library,
+            is Config.Downloads,
             is Config.History,
             is Config.Extensions,
             is Config.Settings,

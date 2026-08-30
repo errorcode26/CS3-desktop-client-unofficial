@@ -123,7 +123,7 @@ object ProfileManager {
         val nextId = (_profiles.value.maxOfOrNull { it.id } ?: 0) + 1
         val newProfile = Profile(
             id = nextId,
-            name = name.trim().ifEmpty { "Profile $nextId" },
+            name = name.trim().take(16).ifEmpty { "Profile $nextId" },
             avatarColorIndex = avatarColorIndex,
             customAvatarPath = customAvatarPath?.trim()?.takeIf { it.isNotEmpty() },
             pinCode = pinCode?.trim()?.takeIf { it.isNotEmpty() },

@@ -8,6 +8,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
@@ -80,8 +81,18 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
                 if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
                     com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
                     true
+                } else if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
+                    true
                 } else if (controller.isFullscreen) {
                     toggleFunc()
+                    true
+                } else {
+                    false
+                }
+            } else if (keyEvent.isAltPressed && keyEvent.key == Key.DirectionLeft && keyEvent.type == KeyEventType.KeyDown) {
+                if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
                     true
                 } else {
                     false

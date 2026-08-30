@@ -341,12 +341,24 @@ class DetailsViewModel(
     }
 
     private fun handleDownloadEpisode(ep: Episode) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: return@launch
-            val history = buildWatchHistory(ep, data)
-            val patchedData = patchEpisodeData(ep, data)
-            handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = false)
-        }
+        val data = uiState.value.response ?: return
+        val patchedData = patchEpisodeData(ep, data)
+        val history = WatchHistory(
+            parentId = data.url,
+            showName = data.name,
+            showUrl = data.url,
+            apiName = provider.name,
+            posterUrl = ep.posterUrl ?: data.posterUrl,
+            episodeThumbnailUrl = null,
+            screenshotUrl = null,
+            episode = ep.episode,
+            season = ep.season,
+            episodeId = ep.name,
+            position = 0L,
+            duration = 0L,
+            updateTime = System.currentTimeMillis(),
+        )
+        openLinksPanel(Triple(provider, patchedData, history))
     }
 
     private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {

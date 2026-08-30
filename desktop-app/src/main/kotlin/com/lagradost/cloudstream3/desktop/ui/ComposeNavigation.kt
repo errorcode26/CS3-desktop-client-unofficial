@@ -166,6 +166,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     PointerButton.Back -> {
                                                         if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
                                                             com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
+                                                        } else if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
+                                                            com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
                                                         } else {
                                                             rootComponent.pop()
                                                         }
@@ -209,6 +211,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Search -> "Search"
                             is RootComponent.Child.Extensions -> "Extensions"
                             is RootComponent.Child.Library -> "Library"
+                            is RootComponent.Child.Downloads -> "Downloads"
                             is RootComponent.Child.Settings -> "Settings"
                             is RootComponent.Child.CategoryGrid -> activeInstance.component.title
                             is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
@@ -329,6 +332,50 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                         ComposeLibraryScreen(
                                             onNavigate = { rootComponent.bringToFront(it) },
                                             viewModel = child.component.viewModel,
+                                        )
+                                    }
+                                    is RootComponent.Child.Downloads -> {
+                                        val launchPlayer = LocalVideoPlayer.current
+                                        com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsScreen(
+                                            viewModel = child.component.viewModel,
+                                            onPlayOffline = { task ->
+                                                val file = java.io.File(task.filePath)
+                                                if (file.exists()) {
+                                                    val offlineLink = com.lagradost.cloudstream3.utils.ExtractorLink(
+                                                        source = "Downloaded (Offline)",
+                                                        name = task.displayTitle,
+                                                        url = file.absolutePath,
+                                                        referer = "",
+                                                        quality = task.quality,
+                                                        type = com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
+                                                    )
+                                                    launchPlayer(
+                                                        VideoLaunchData(
+                                                            links = listOf(offlineLink),
+                                                            initialIndex = 0,
+                                                            title = task.displayTitle,
+                                                            subtitles = emptyList(),
+                                                            startPositionMs = 0L,
+                                                            history = WatchHistory(
+                                                                parentId = task.showUrl,
+                                                                showName = task.showName,
+                                                                showUrl = task.showUrl,
+                                                                apiName = task.apiName,
+                                                                posterUrl = task.posterUrl,
+                                                                episodeThumbnailUrl = null,
+                                                                screenshotUrl = null,
+                                                                episode = task.episode,
+                                                                season = task.season,
+                                                                episodeId = task.filePath,
+                                                                position = 0L,
+                                                                duration = 0L,
+                                                                updateTime = System.currentTimeMillis(),
+                                                            ),
+                                                            enrichedBackdropUrl = task.backdropUrl,
+                                                        )
+                                                    )
+                                                }
+                                            }
                                         )
                                     }
                                     is RootComponent.Child.Settings -> {

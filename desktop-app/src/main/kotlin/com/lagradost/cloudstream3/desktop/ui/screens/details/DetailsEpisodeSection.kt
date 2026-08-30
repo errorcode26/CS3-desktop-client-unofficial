@@ -51,7 +51,7 @@ fun DetailsEpisodeSection(
     isMovieLike: Boolean,
     isLoading: Boolean,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
-    enableDownloadButtons: Boolean = false,
+    enableDownloadButtons: Boolean = true,
     onPlay: (com.lagradost.cloudstream3.Episode) -> Unit,
     onDownload: ((com.lagradost.cloudstream3.Episode) -> Unit)? = null,
     onToggleWatched: (com.lagradost.cloudstream3.Episode, Boolean) -> Unit,

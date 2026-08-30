@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,12 +38,13 @@ sealed class SettingsNav {
 }
 
 enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    APPEARANCE("Appearance & Theme", Icons.Default.Palette),
     THEME("Themes & Colors"),
     LAYOUT("Layout & Dock"),
     DETAILS("Details Page"),
     EFFECTS("Backdrop & Effects"),
+    PLAYER("Playback Engine", Icons.Default.PlayCircle),
     ACCOUNTS("Profiles & Sync", Icons.Default.AccountCircle),
-    PLAYER("Video & Audio Engine"),
     SUBTITLES_LEAF("Subtitles & Styling"),
     EXTENSIONS("Plugins & Repos"),
     ADDONS("External Addons"),
@@ -63,13 +66,21 @@ enum class GroupTab(val title: String, val icon: androidx.compose.ui.graphics.ve
 typealias SettingsTab = LeafTab
 
 enum class SettingsSubScreen(val title: String) {
-    DETAILS_LAYOUT("Details Page Layout"),
-    POSTER_EDITOR("Poster Editor"),
-    SUBTITLES("Subtitle Styling"),
+    APPEARANCE_NAV_DOCK("Navigation & Dock"),
+    APPEARANCE_THEME_WALLPAPER("Theme, Colors & Wallpaper"),
+    APPEARANCE_POSTERS_BADGES("Posters & Provider Branding"),
+    APPEARANCE_HOME_FEED("Home Feed & Cinema"),
+    DETAILS_LAYOUT("Details Page Layout & Sections"),
+    POSTER_EDITOR("Poster Workshop Studio"),
+    PLAYER_RENDERING_ENGINE("Video & Hardware Engine"),
+    PLAYER_AUDIO_EQ("Audio Processing & Equalizer"),
+    PLAYER_AUTOPLAY_SKIP("Auto-Play & Skip Automation"),
+    PLAYER_DOWNLOADS("Downloads & Storage Engine"),
+    SUBTITLES("Subtitle Styling Studio"),
 }
 
 object SettingsSession {
-    var selectedLeaf by mutableStateOf(LeafTab.THEME)
+    var selectedLeaf by mutableStateOf(LeafTab.APPEARANCE)
     var expandedGroups by mutableStateOf<Set<GroupTab>>(emptySet())
     var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
     var highlightedSetting by mutableStateOf<String?>(null)
@@ -77,9 +88,9 @@ object SettingsSession {
 }
 
 private val NAV_STRUCTURE: List<SettingsNav> = listOf(
-    SettingsNav.Group(GroupTab.APPEARANCE, listOf(LeafTab.THEME, LeafTab.LAYOUT, LeafTab.DETAILS, LeafTab.EFFECTS)),
+    SettingsNav.Leaf(LeafTab.APPEARANCE),
+    SettingsNav.Leaf(LeafTab.PLAYER),
     SettingsNav.Leaf(LeafTab.ACCOUNTS),
-    SettingsNav.Group(GroupTab.PLAYBACK, listOf(LeafTab.PLAYER, LeafTab.SUBTITLES_LEAF)),
     SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ADDONS, LeafTab.INTEGRATIONS)),
     SettingsNav.Leaf(LeafTab.NETWORK),
     SettingsNav.Group(GroupTab.SYSTEM_GROUP, listOf(LeafTab.ADVANCED, LeafTab.DEVELOPER, LeafTab.ABOUT)),
@@ -265,20 +276,68 @@ fun ComposeSettingsScreen(
                     if (currentSubScreen != null) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable { activeSubScreen = null }.padding(bottom = 16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface)
-                                Text(currentSubScreen.title, style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { activeSubScreen = null },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = "Back",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+
+                                Column {
+                                    Text(
+                                        text = "${SettingsSession.selectedLeaf.title}  ›  ${currentSubScreen.title}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                    Text(
+                                        text = currentSubScreen.title,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                 when (currentSubScreen) {
-                                    SettingsSubScreen.DETAILS_LAYOUT -> SettingsDetailsSectionsScreen()
-                                    SettingsSubScreen.POSTER_EDITOR -> SettingsPosterEditorScreen()
-                                    SettingsSubScreen.SUBTITLES -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.APPEARANCE_NAV_DOCK        -> SettingsNavDockScreen()
+                                    SettingsSubScreen.APPEARANCE_THEME_WALLPAPER -> SettingsThemeWallpaperScreen()
+                                    SettingsSubScreen.APPEARANCE_POSTERS_BADGES  -> SettingsPostersBadgesScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                    SettingsSubScreen.APPEARANCE_HOME_FEED       -> SettingsHomeFeedScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                    SettingsSubScreen.DETAILS_LAYOUT             -> SettingsDetailsSectionsScreen()
+                                    SettingsSubScreen.POSTER_EDITOR              -> SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
+                                    SettingsSubScreen.PLAYER_RENDERING_ENGINE    -> SettingsPlayerRenderingScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.PLAYER_AUDIO_EQ            -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.PLAYER_AUTOPLAY_SKIP       -> SettingsPlayerAutoPlayScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.PLAYER_DOWNLOADS           -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.SUBTITLES                  -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
                                 }
                             }
                         }
@@ -293,6 +352,7 @@ fun ComposeSettingsScreen(
                             modifier = Modifier.fillMaxSize(),
                         ) { currentLeaf ->
                             when (currentLeaf) {
+                                LeafTab.APPEARANCE     -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.THEME          -> SettingsAppearanceThemeScreen()
                                 LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
