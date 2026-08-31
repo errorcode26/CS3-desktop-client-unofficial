@@ -767,9 +767,21 @@ fun DetailsMetadata(
 
                     val libraryButton: @Composable (Modifier) -> Unit = { mod ->
                         val isInLibrary = currentBookmark != null
+                        val libraryIcon = if (isInLibrary) {
+                            when (activeWatchType) {
+                                com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                                com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
+                                com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                                com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
+                                com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                                com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
+                            }
+                        } else {
+                            Icons.Default.Add
+                        }
                         Surface(
                             onClick = { isEditingStatus = true },
-                            modifier = mod.height(if (isButtonsNarrow) 42.dp else 56.dp),
+                            modifier = mod.size(if (isButtonsNarrow) 44.dp else 52.dp),
                             shape = RoundedCornerShape(if (isButtonsNarrow) 10.dp else 12.dp),
                             color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
                             border = androidx.compose.foundation.BorderStroke(
@@ -777,23 +789,15 @@ fun DetailsMetadata(
                                 if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f),
                             ),
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = if (isButtonsNarrow) 12.dp else 18.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(if (isButtonsNarrow) 6.dp else 8.dp),
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize(),
                             ) {
                                 Icon(
-                                    imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
-                                    contentDescription = null,
+                                    imageVector = libraryIcon,
+                                    contentDescription = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
                                     tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                                    modifier = Modifier.size(if (isButtonsNarrow) 18.dp else 20.dp),
-                                )
-                                Text(
-                                    text = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
-                                    color = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                                    fontSize = if (isButtonsNarrow) 13.sp else 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
+                                    modifier = Modifier.size(if (isButtonsNarrow) 20.dp else 24.dp),
                                 )
                             }
                         }
@@ -905,16 +909,14 @@ fun DetailsMetadata(
 
                     if (isButtonsNarrow) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
+                            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                         ) {
-                            Box(modifier = Modifier.weight(1.15f)) {
+                            Box(modifier = Modifier.weight(1f)) {
                                 heroAction(Modifier.fillMaxWidth())
                             }
-                            Box(modifier = Modifier.weight(1f)) {
-                                libraryButton(Modifier.fillMaxWidth())
-                            }
+                            libraryButton(Modifier)
                             downloadAction?.invoke(Modifier)
                         }
                     } else {
@@ -927,8 +929,8 @@ fun DetailsMetadata(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 heroAction(Modifier.wrapContentWidth())
-                                libraryButton(Modifier.wrapContentWidth())
-                                downloadAction?.invoke(Modifier.wrapContentWidth())
+                                libraryButton(Modifier)
+                                downloadAction?.invoke(Modifier)
                             }
                         }
                     }
@@ -1349,39 +1351,40 @@ private fun DetailsMetadataCompact(
             com.lagradost.common.storage.DesktopWatchType.entries.find { it.id == b.watchType }
         } ?: com.lagradost.common.storage.DesktopWatchType.WATCHING
 
+        val compactLibraryIcon = if (isInLibrary) {
+            when (activeWatchType) {
+                com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
+                com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
+                com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
+                com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
+                com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
+            }
+        } else {
+            Icons.Default.Add
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(modifier = Modifier.weight(1.15f)) {
+            Box(modifier = Modifier.weight(1f)) {
                 heroAction(Modifier.fillMaxWidth())
             }
             Surface(
                 onClick = { isEditingStatus = true },
                 shape = RoundedCornerShape(10.dp),
-                color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f)),
-                modifier = Modifier.weight(1f).height(42.dp),
+                color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f)),
+                modifier = Modifier.size(44.dp),
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Icon(
-                        imageVector = if (isInLibrary) Icons.Default.Check else Icons.Default.Add,
-                        contentDescription = null,
+                        imageVector = compactLibraryIcon,
+                        contentDescription = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
                         tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
-                        color = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -1390,16 +1393,16 @@ private fun DetailsMetadataCompact(
                 Surface(
                     onClick = { onTrailerClick(trailerUrl) },
                     shape = RoundedCornerShape(10.dp),
-                    color = Color.White.copy(alpha = 0.1f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                    modifier = Modifier.size(42.dp),
+                    color = Color.White.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.28f)),
+                    modifier = Modifier.size(44.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = "Trailer",
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }

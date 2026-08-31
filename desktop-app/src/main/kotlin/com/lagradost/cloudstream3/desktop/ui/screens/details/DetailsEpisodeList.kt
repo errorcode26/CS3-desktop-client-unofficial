@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,8 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
+import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -67,6 +72,109 @@ private val releaseStatusCache = object : java.util.LinkedHashMap<String, Episod
     }
 }
 private val releaseStatusLock = Any()
+
+private const val MAX_BAKED_EPISODE_CACHE_SIZE = 150
+
+private object EpisodeCardBaker {
+    private val memoryCache = object : java.util.LinkedHashMap<String, androidx.compose.ui.graphics.ImageBitmap>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, androidx.compose.ui.graphics.ImageBitmap>?): Boolean {
+            return size > MAX_BAKED_EPISODE_CACHE_SIZE
+        }
+    }
+    private val lock = Any()
+
+    fun getOrBake(
+        key: String,
+        srcBitmap: org.jetbrains.skia.Bitmap,
+        shouldHideSpoilers: Boolean,
+        width: Int = 480,
+        height: Int = 405, // 16:13.5
+    ): androidx.compose.ui.graphics.ImageBitmap? {
+        if (srcBitmap.width <= 0 || srcBitmap.height <= 0) return null
+        val cacheKey = "$key-$shouldHideSpoilers"
+        synchronized(lock) {
+            val cached = memoryCache[cacheKey]
+            if (cached != null) return cached
+        }
+
+        val surface = org.jetbrains.skia.Surface.makeRasterN32Premul(width, height)
+        val canvas = surface.canvas
+
+        // 1. Base dark background
+        val basePaint = org.jetbrains.skia.Paint().apply { color = 0xFF141518.toInt() }
+        canvas.drawRect(org.jetbrains.skia.Rect.makeWH(width.toFloat(), height.toFloat()), basePaint)
+
+        val srcImage = org.jetbrains.skia.Image.makeFromBitmap(srcBitmap)
+        val srcW = srcBitmap.width.toFloat()
+        val srcH = srcBitmap.height.toFloat()
+
+        // 2. Bottom 15% Ribbon Ambient Blur (The lush, creamy ambient bed)
+        if (!shouldHideSpoilers) {
+            val ribbonSrc = org.jetbrains.skia.Rect.makeLTRB(
+                0f,
+                srcH * 0.85f,
+                srcW,
+                srcH
+            )
+            val blurDst = org.jetbrains.skia.Rect.makeLTRB(
+                0f,
+                height * 0.40f,
+                width.toFloat(),
+                height.toFloat()
+            )
+            val blurPaint = org.jetbrains.skia.Paint().apply {
+                imageFilter = org.jetbrains.skia.ImageFilter.makeBlur(36f, 36f, org.jetbrains.skia.FilterTileMode.CLAMP)
+            }
+            canvas.drawImageRect(srcImage, ribbonSrc, blurDst, blurPaint)
+        }
+
+        // 3. Sharp 16:9 Thumbnail Frame with Soft Alpha Dissolve into the Ambient Blur
+        val thumbHeight = width * (9f / 16f) // 270px for 480px width
+        val thumbDst = org.jetbrains.skia.Rect.makeLTRB(
+            0f,
+            0f,
+            width.toFloat(),
+            thumbHeight
+        )
+        canvas.saveLayer(thumbDst, null)
+        val sharpPaint = org.jetbrains.skia.Paint().apply {
+            if (shouldHideSpoilers) {
+                imageFilter = org.jetbrains.skia.ImageFilter.makeBlur(16f, 16f, org.jetbrains.skia.FilterTileMode.CLAMP)
+            }
+        }
+        canvas.drawImageRect(srcImage, org.jetbrains.skia.Rect.makeWH(srcW, srcH), thumbDst, sharpPaint)
+
+        // Dissolve bottom 40% of the thumbnail into transparent alpha (No black bar!)
+        val alphaShader = org.jetbrains.skia.Shader.makeLinearGradient(
+            0f, thumbHeight * 0.60f,
+            0f, thumbHeight,
+            intArrayOf(0xFF000000.toInt(), 0x00000000),
+            floatArrayOf(0.0f, 1.0f)
+        )
+        val maskPaint = org.jetbrains.skia.Paint().apply {
+            shader = alphaShader
+            blendMode = org.jetbrains.skia.BlendMode.DST_IN
+        }
+        canvas.drawRect(thumbDst, maskPaint)
+        canvas.restore()
+
+        // 4. Subtle Text Readability Scrim (Soft translucent shadow strictly behind the bottom text deck)
+        val textScrimShader = org.jetbrains.skia.Shader.makeLinearGradient(
+            0f, height * 0.50f,
+            0f, height.toFloat(),
+            intArrayOf(0x00000000, 0x330A0B0E, 0x8C0A0B0E.toInt(), 0xD90A0B0E.toInt()),
+            floatArrayOf(0.0f, 0.35f, 0.70f, 1.0f)
+        )
+        val textScrimPaint = org.jetbrains.skia.Paint().apply { shader = textScrimShader }
+        canvas.drawRect(org.jetbrains.skia.Rect.makeLTRB(0f, height * 0.50f, width.toFloat(), height.toFloat()), textScrimPaint)
+
+        val result = surface.makeImageSnapshot().toComposeImageBitmap()
+        synchronized(lock) {
+            memoryCache[cacheKey] = result
+        }
+        return result
+    }
+}
 
 fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): EpisodeReleaseStatus {
     val isSynthetic = ep.data.startsWith("unreleased_") || ep.data.startsWith("synthetic_") || ep.data.isBlank()
@@ -277,10 +385,13 @@ fun EpisodeCard(
                 scaleY = scale
             },
     ) {
-        if (isHovered && posterHoverGlowEnabled && isContextMenuEnabled && !isEpisodeLocked) {
+        val showGlow = isHovered && posterHoverGlowEnabled && isContextMenuEnabled && !isEpisodeLocked
+        val glowAlpha by animateFloatAsState(if (showGlow) 1f else 0f, animationSpec = tween(180))
+        if (posterHoverGlowEnabled) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
+                    .graphicsLayer { alpha = glowAlpha }
                     .blur(26.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                     .background(heroColor.copy(alpha = 0.55f), RoundedCornerShape(16.dp)),
             )
@@ -336,10 +447,10 @@ fun EpisodeCard(
                     )
                 }
                 .shadow(
-                    elevation = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 12.dp else 4.dp,
+                    elevation = 4.dp,
                     shape = RoundedCornerShape(16.dp),
                     spotColor = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) heroColor else Color.Black,
-                    ambientColor = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) heroColor else Color.Black,
+                    ambientColor = Color.Transparent,
                 )
                 .border(
                     width = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 1.5.dp else if (isEpisodeLocked) 1.dp else 0.5.dp,
@@ -357,117 +468,63 @@ fun EpisodeCard(
                     .background(Color(0xFF141518)),
             )
 
-            // Background image & true downward ambient extension
+            // Background image & true downward ambient extension (Bake once into static ImageBitmap)
             if (targetUrl != null) {
                 val context = coil3.compose.LocalPlatformContext.current
-                val imageRequest = remember(targetUrl) {
-                    coil3.request.ImageRequest.Builder(context)
-                        .data(targetUrl)
-                        .crossfade(true)
-                        .build()
-                }
-                val blurImageRequest = remember(targetUrl) {
-                    coil3.request.ImageRequest.Builder(context)
-                        .data(targetUrl)
-                        .crossfade(false)
-                        .build()
-                }
+                var bakedBitmap by remember(targetUrl, shouldHideSpoilers) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
 
-                // Layer 1: Bottom 15% Ribbon Crop + 1D Vertical Stretch + Dynamic Blur (Zero sky, zero heads)
-                if (!shouldHideSpoilers) {
-                    val blurPainter = coil3.compose.rememberAsyncImagePainter(model = blurImageRequest)
-                    androidx.compose.foundation.Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.60f)
-                            .align(Alignment.BottomCenter)
-                            .blur(36.dp),
-                    ) {
-                        val srcWidth = blurPainter.intrinsicSize.width
-                        val srcHeight = blurPainter.intrinsicSize.height
-                        if (srcWidth > 0f && srcHeight > 0f) {
-                            val vScale = size.height / (srcHeight * 0.15f)
-                            val hScale = size.width / srcWidth
-                            drawContext.canvas.save()
-                            drawContext.canvas.scale(hScale, vScale)
-                            drawContext.canvas.translate(0f, -srcHeight * 0.85f)
-                            with(blurPainter) {
-                                draw(size = blurPainter.intrinsicSize)
+                LaunchedEffect(targetUrl, shouldHideSpoilers) {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val request = coil3.request.ImageRequest.Builder(context)
+                                .data(targetUrl)
+                                .crossfade(false)
+                                .build()
+                            val result = coil3.SingletonImageLoader.get(context).execute(request)
+                            if (result is coil3.request.SuccessResult) {
+                                val skiaBitmap = (result.image as? coil3.BitmapImage)?.bitmap
+                                if (skiaBitmap != null) {
+                                    bakedBitmap = EpisodeCardBaker.getOrBake(targetUrl, skiaBitmap, shouldHideSpoilers)
+                                }
                             }
-                            drawContext.canvas.restore()
-                        }
+                        } catch (_: Throwable) {}
                     }
                 }
 
-                // Layer 2: 100% Uncropped 16:9 Thumbnail Frame (Sharp top, seamlessly melts into the blur overlap zone)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .align(Alignment.TopCenter)
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    0.00f to Color.Black,
-                                    0.75f to Color.Black,
-                                    0.98f to Color.Transparent,
-                                    1.00f to Color.Transparent,
-                                ),
-                                blendMode = BlendMode.DstIn,
-                            )
-                        },
-                ) {
-                    coil3.compose.SubcomposeAsyncImage(
-                        model = imageRequest,
+                if (bakedBitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = bakedBitmap!!,
+                        contentDescription = ep.name,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    // Smooth temporary placeholder while baking (0ms)
+                    coil3.compose.AsyncImage(
+                        model = targetUrl,
                         contentDescription = ep.name,
                         contentScale = ContentScale.Crop,
-                        alignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .run { if (shouldHideSpoilers) this.blur(16.dp) else this },
-                        error = {
-                            val secondaryFallback = fallbackBackdrop ?: fallbackPoster
-                            if (secondaryFallback != null) {
-                                coil3.compose.AsyncImage(
-                                    model = secondaryFallback,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    alignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        },
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .then(
+                            if (uiState?.isEnriching == true) Modifier.shimmerBackground()
+                            else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp))
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
+                        modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp),
+                    )
                 }
             }
-
-            // Layer 3: Light Translucent Scrim (Keeps the card bright and colorful while preserving text clarity)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.00f to Color.Transparent,
-                            0.50f to Color.Transparent,
-                            0.72f to Color(0xFF090A0E).copy(alpha = 0.28f),
-                            0.90f to Color(0xFF07080B).copy(alpha = 0.50f),
-                            1.00f to Color(0xFF050608).copy(alpha = 0.65f),
-                        ),
-                    ),
-            )
 
         // Anti-spoiler overlay
         if (shouldHideSpoilers && !isHovered && !isEpisodeLocked) {

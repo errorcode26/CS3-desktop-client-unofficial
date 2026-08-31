@@ -159,8 +159,8 @@ fun DetailsPlayButton(
         Box(
             modifier = Modifier
                 .wrapContentWidth()
-                .height(if (isNarrow) 42.dp else 56.dp)
-                .widthIn(min = if (isNarrow) 130.dp else 180.dp)
+                .widthIn(min = if (isNarrow) 180.dp else 300.dp, max = 450.dp)
+                .height(if (isNarrow) 44.dp else 52.dp)
                 .clip(shape)
                 .background(if (isUnavailable) Color(0xFFE50914).copy(alpha = 0.15f) else Color.White)
                 .border(
@@ -179,7 +179,7 @@ fun DetailsPlayButton(
                         onPlay(targetActionEp)
                     }
                 }
-                .padding(horizontal = if (isNarrow) 16.dp else 28.dp),
+                .padding(horizontal = if (isNarrow) 20.dp else 36.dp),
             contentAlignment = Alignment.Center,
         ) {
             Row(
@@ -197,7 +197,7 @@ fun DetailsPlayButton(
                     text = if (isUnavailable && isNarrow) "Unavailable" else finalButtonText,
                     color = if (isUnavailable) Color(0xFFFF6B6B) else Color(0xFF0F0F0F),
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = if (isNarrow) 13.sp else 16.sp,
+                    fontSize = if (isNarrow) 14.sp else 16.sp,
                     maxLines = 1,
                 )
             }
