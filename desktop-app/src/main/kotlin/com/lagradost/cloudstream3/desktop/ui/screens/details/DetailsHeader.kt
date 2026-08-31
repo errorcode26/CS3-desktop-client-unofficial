@@ -524,6 +524,7 @@ fun DetailsMetadata(
                                     "ended", "completed" -> "Ended"
                                     "canceled", "cancelled" -> "Canceled"
                                     "in production" -> "In Production"
+                                    "planned", "upcoming" -> "Upcoming"
                                     else -> rawStatus
                                 }
                                 Surface(
@@ -537,6 +538,40 @@ fun DetailsMetadata(
                                         fontSize = 12.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         letterSpacing = 0.3.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+
+                            val showFinancialsHero by com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.showFinancials.collectAsState()
+                            val heroBudget = uiState?.enrichedBudget
+                            val heroRevenue = uiState?.enrichedRevenue
+                            if (showFinancialsHero && heroBudget != null && heroBudget > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF10B981).copy(alpha = 0.15f),
+                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF10B981).copy(alpha = 0.45f)),
+                                ) {
+                                    Text(
+                                        text = "Budget: ${formatCurrency(heroBudget)}",
+                                        color = Color(0xFF34D399),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+                            if (showFinancialsHero && heroRevenue != null && heroRevenue > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF3B82F6).copy(alpha = 0.45f)),
+                                ) {
+                                    Text(
+                                        text = "Box Office: ${formatCurrency(heroRevenue)}",
+                                        color = Color(0xFF60A5FA),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     )
                                 }
@@ -1017,12 +1052,17 @@ fun DetailsMetadata(
                         }
 
                         // Stats & Info Sidebar
+                        val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+                        val hideDetailsSource by AppearanceConfig.hideDetailsSource.collectAsState()
+
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.End,
                         ) {
                             val stats = buildList {
-                                add("Source" to provider.name)
+                                if (!isCleanMode && !hideDetailsSource) {
+                                    add("Source" to provider.name)
+                                }
 
                                 val relDate = uiState?.enrichedReleaseDate ?: data.year?.toString()
                                 if (!relDate.isNullOrBlank()) add("Release Date" to relDate)
@@ -1524,8 +1564,13 @@ fun DetailsCastSection(
     onActorClick: (ActorData) -> Unit = {},
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
+    selectedSeason: Int? = null,
+    seasonCredits: Map<Int, List<ActorData>>? = null,
 ) {
-    val actors = uiState?.enrichedActors ?: data.actors ?: emptyList()
+    val activeSeasonActors = if (selectedSeason != null && seasonCredits?.containsKey(selectedSeason) == true) {
+        seasonCredits[selectedSeason]
+    } else null
+    val actors = activeSeasonActors ?: uiState?.enrichedActors ?: data.actors ?: emptyList()
 
     val directors = actors.filter {
         it.roleString?.equals("Director", ignoreCase = true) == true ||
@@ -1566,7 +1611,7 @@ fun DetailsCastSection(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Cast",
+                            text = if (activeSeasonActors != null && selectedSeason != null) "Season $selectedSeason Cast & Characters" else "Cast & Crew",
                             style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -2038,17 +2083,32 @@ fun DetailsStatsSection(
         }
     } else null
 
-    val allCompanies = remember(uiState) {
+    val separateNetworksPref by com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.separateNetworks.collectAsState()
+
+    val netCompanies = remember(uiState) {
         val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
         if (uiState != null) {
-            list.addAll(uiState.enrichedProductionCompanies)
             list.addAll(uiState.enrichedNetworksList)
             if (list.isEmpty()) {
-                list.addAll(uiState.enrichedStudios.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
                 list.addAll(uiState.enrichedNetworks.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
             }
         }
         list.distinctBy { it.name.trim().lowercase() }
+    }
+
+    val prodCompanies = remember(uiState) {
+        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
+        if (uiState != null) {
+            list.addAll(uiState.enrichedProductionCompanies)
+            if (list.isEmpty()) {
+                list.addAll(uiState.enrichedStudios.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
+            }
+        }
+        list.distinctBy { it.name.trim().lowercase() }
+    }
+
+    val allCompanies = remember(netCompanies, prodCompanies) {
+        (prodCompanies + netCompanies).distinctBy { it.name.trim().lowercase() }
     }
 
     val detailRows = remember(data, uiState, budget, revenue, country, lang, relDate, status, cert, runtimeStr, seasons, episodes) {
@@ -2124,10 +2184,61 @@ fun DetailsStatsSection(
             }
 
             // Production Studios & Networks Section (with Logos)
-            if (allCompanies.isNotEmpty()) {
+            if (separateNetworksPref && netCompanies.isNotEmpty() && prodCompanies.isNotEmpty()) {
+                // Subsection 1: Broadcast Networks
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                     Text(
-                        text = "STUDIOS & NETWORKS",
+                        text = "BROADCAST NETWORKS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        netCompanies.forEach { company ->
+                            ProductionCompanyCard(
+                                company = company,
+                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
+                            )
+                        }
+                    }
+                }
+
+                // Subsection 2: Production Studios
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+                    Text(
+                        text = "PRODUCTION STUDIOS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        prodCompanies.forEach { company ->
+                            ProductionCompanyCard(
+                                company = company,
+                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
+                            )
+                        }
+                    }
+                }
+            } else if (allCompanies.isNotEmpty()) {
+                val sectionTitle = if (netCompanies.isNotEmpty() && prodCompanies.isEmpty()) "BROADCAST NETWORKS" else if (prodCompanies.isNotEmpty() && netCompanies.isEmpty()) "PRODUCTION STUDIOS" else "STUDIOS & NETWORKS"
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
+                    Text(
+                        text = sectionTitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Bold,

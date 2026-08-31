@@ -94,6 +94,7 @@ fun InstalledTab(
                         val sourceFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
                             title = "Load Local Plugin (.cs3 / .jar)",
                             allowedExtensions = listOf(".cs3", ".jar"),
+                            category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.EXTENSIONS,
                         )
                         if (sourceFile != null && sourceFile.exists()) {
                             viewModel.onEvent(ExtensionsUiEvent.OnLoadLocalPlugin(sourceFile))

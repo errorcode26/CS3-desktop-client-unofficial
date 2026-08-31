@@ -151,37 +151,6 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     .padding(top = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                SettingsGroupCard(title = "Subtitle Sources & Providers") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "External Stremio Subtitles",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "Manage community subtitle manifests (OpenSubtitles v3, etc.) under the central External Addons hub.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Button(
-                            onClick = { SettingsSession.selectedLeaf = LeafTab.ADDONS },
-                            shape = RoundedCornerShape(10.dp),
-                        ) {
-                            Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Manage Addons")
-                        }
-                    }
-                }
-
                 SettingsGroupCard(title = "Global Override") {
                     MviSettingsToggle(
                         key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
@@ -204,8 +173,9 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    val fontOptions = remember {
-                        com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts().map { it to it }
+                    val availableFonts by com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.availableFonts.collectAsState()
+                    val fontOptions = remember(availableFonts) {
+                        availableFonts.map { it to it }
                     }
                     MviSettingsDropdown(
                         key = PlayerConfig.PREF_SUB_FONT,
@@ -215,6 +185,44 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                         onEvent = viewModel::onEvent,
                         defaultValue = "Inter",
                     )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val chosenFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                        title = "Select Subtitle Font (.ttf, .otf, .woff)",
+                                        allowedExtensions = listOf("ttf", "otf", "woff"),
+                                        category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.FONT,
+                                    )
+                                    if (chosenFile != null) {
+                                        val result = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.installFont(chosenFile)
+                                        result.onSuccess { familyName ->
+                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_FONT, familyName))
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    com.lagradost.common.logging.AppLogger.e("SettingsSubtitle: Font import error", e)
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
+                            Text("Install Font (.ttf / .otf)", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        OutlinedButton(
+                            onClick = { com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.openFontsDirectory() },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
+                            Text("Open Fonts Folder", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 

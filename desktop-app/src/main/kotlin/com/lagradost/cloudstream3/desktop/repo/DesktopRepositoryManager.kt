@@ -493,8 +493,10 @@ object DesktopRepositoryManager {
                     if (!repoDir.exists()) repoDir.mkdirs()
 
                     remotePlugins.forEach { remotePlugin ->
-                        val localJar = File(repoDir, "${remotePlugin.internalName}.jar")
-                        if (localJar.exists()) {
+                        val localJar = File(repoDir, "${remotePlugin.internalName}.jar").takeIf { it.exists() }
+                            ?: File(repoDir, "${remotePlugin.internalName}.cs3").takeIf { it.exists() }
+                            ?: File(repoDir, "${remotePlugin.internalName}-jvm.jar").takeIf { it.exists() }
+                        if (localJar != null && localJar.exists()) {
                             val localManifest = readPluginManifest(localJar)
                             val localVersion = localManifest?.get("version")?.toString()?.toIntOrNull() ?: 0
                             if (remotePlugin.version > localVersion) {
@@ -581,7 +583,7 @@ object DesktopRepositoryManager {
             val catalogPlugins = rebuildRemotePluginCatalog { _, done, total ->
                 onProgress?.invoke(done, total)
             }
-            val pluginsUpdated = autoUpdatePlugins()
+            val pluginsUpdated = autoUpdatePlugins(force = true)
             val newPluginsLoaded = com.lagradost.runtime.loader.ExtensionLoader.rescanAndLoadNewPlugins(getExtensionsDir())
             val iconsCached = _remotePluginIcons.value.size
 

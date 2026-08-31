@@ -22,6 +22,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Palette
@@ -40,8 +42,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey
@@ -592,6 +596,9 @@ fun SettingsThemeWallpaperScreen() {
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+    val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
+    val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
+    val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
     val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
     val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
     val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
@@ -600,6 +607,10 @@ fun SettingsThemeWallpaperScreen() {
     val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
     val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
     val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+
+    val availableFonts by CustomFontManager.availableFonts.collectAsState()
+    val userInstalledFonts by CustomFontManager.userInstalledFonts.collectAsState()
+    var fontInstallFeedback by remember { mutableStateOf<String?>(null) }
 
     val accentColors = remember(customThemeAccent) {
         listOf(
@@ -701,23 +712,159 @@ fun SettingsThemeWallpaperScreen() {
             }
         }
 
-        SettingsGroupCard(title = "Typography & Atmospheric Lighting") {
+        SettingsGroupCard(title = "App Typography & Custom Font Studio") {
             SettingsDropdownItem(
                 label = "App Typography & Font",
-                subtitle = "Font family used across titles, metadata, and buttons",
-                options = listOf(
-                    "Inter" to "Inter (Modern UI)",
-                    "Roboto" to "Roboto (Classic)",
-                    "Poppins" to "Poppins (Geometric)",
-                    "Outfit" to "Outfit (Futuristic)",
-                    "System Default" to "System Default",
-                ),
+                subtitle = "Font family applied globally across all titles, cards, and UI components",
+                options = availableFonts.map { it to it },
                 currentValue = selectedFont,
                 onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        try {
+                            val chosenFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                title = "Select Font File (.ttf, .otf, .woff)",
+                                allowedExtensions = listOf("ttf", "otf", "woff"),
+                                category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.FONT,
+                            )
+                            if (chosenFile != null) {
+                                val result = CustomFontManager.installFont(chosenFile)
+                                result.onSuccess { familyName ->
+                                    AppearanceConfig.setSelectedFont(familyName)
+                                    fontInstallFeedback = "Successfully installed & applied font: $familyName"
+                                }.onFailure { err ->
+                                    fontInstallFeedback = "Font installation failed: ${err.message}"
+                                }
+                            }
+                        } catch (e: Exception) {
+                            fontInstallFeedback = "Error opening file picker: ${e.message}"
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Install Custom Font (.ttf / .otf)")
+                }
+
+                OutlinedButton(
+                    onClick = { CustomFontManager.openFontsDirectory() },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open Fonts Folder")
+                }
+            }
+
+            if (fontInstallFeedback != null) {
+                Text(
+                    text = fontInstallFeedback!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (fontInstallFeedback!!.startsWith("Success")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            if (userInstalledFonts.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "User-Installed Fonts (${userInstalledFonts.size})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    userInstalledFonts.forEach { fontName ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = fontName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        text = "The quick brown fox jumps over the lazy dog 1234567890",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        CustomFontManager.deleteFont(fontName)
+                                        if (selectedFont == fontName) {
+                                            AppearanceConfig.setSelectedFont("Inter")
+                                        }
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete Font",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsGroupCard(title = "Atmospheric Canvas & Background Gradient") {
+            SettingsToggleItem(
+                label = "Canvas Background Gradient",
+                subtitle = "Renders dynamic depth gradient across application backgrounds",
+                checked = backgroundGradientEnabled,
+                onCheckedChange = { AppearanceConfig.setBackgroundGradientEnabled(it) },
+            )
+
+            if (backgroundGradientEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                SettingsDropdownItem(
+                    label = "Gradient Geometry",
+                    subtitle = "Style and projection of the background depth gradient",
+                    options = listOf(
+                        "Radial" to "Radial Ambient Glow (Cinematic Center)",
+                        "Linear" to "Linear Horizon Flow (Top to Bottom)",
+                    ),
+                    currentValue = backgroundGradientType,
+                    onSelectionChanged = { AppearanceConfig.setBackgroundGradientType(it) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                SettingsSliderItem(
+                    label = "Gradient Depth Intensity",
+                    subtitle = "${(backgroundGradientIntensity * 100).toInt()}% depth intensity",
+                    value = backgroundGradientIntensity,
+                    onValueChange = { AppearanceConfig.setBackgroundGradientIntensity(it) },
+                    valueRange = 0.10f..1.00f,
+                    steps = 17,
+                )
+            }
+        }
+
+        SettingsGroupCard(title = "Atmospheric Ambient Glow Lighting") {
             SettingsToggleItem(
                 label = "Ambient Glow (Cinematic Backlight)",
                 subtitle = "Renders soft adaptive atmospheric lighting behind active hero content",
@@ -739,7 +886,7 @@ fun SettingsThemeWallpaperScreen() {
         }
 
         SettingsGroupCard(title = "Custom Background Wallpaper") {
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -762,25 +909,126 @@ fun SettingsThemeWallpaperScreen() {
                     }
                 }
 
-                var tempPath by remember(bgImagePath) { mutableStateOf(bgImagePath) }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedTextField(
-                        value = tempPath,
-                        onValueChange = { tempPath = it },
-                        placeholder = { Text("Enter absolute file path to image (e.g. C:/Wallpapers/space.jpg)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp),
-                    )
-                    Button(
-                        onClick = { AppearanceConfig.setBackgroundImagePath(tempPath) },
-                        shape = RoundedCornerShape(8.dp),
+                if (bgImagePath.isNotBlank() && java.io.File(bgImagePath).exists()) {
+                    val wallpaperFile = remember(bgImagePath) { java.io.File(bgImagePath) }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
                     ) {
-                        Text("Apply")
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            coil3.compose.AsyncImage(
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(wallpaperFile)
+                                    .size(coil3.size.Size(1280, 720))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Active Wallpaper",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)),
+                                            startY = 50f,
+                                        )
+                                    ),
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = wallpaperFile.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = wallpaperFile.parent ?: "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        val chosen = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                            title = "Choose Wallpaper Image",
+                                            allowedExtensions = listOf("jpg", "jpeg", "png", "webp", "bmp"),
+                                            category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.WALLPAPER,
+                                        )
+                                        if (chosen != null) {
+                                            AppearanceConfig.setBackgroundImagePath(chosen.absolutePath)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Text("Change Image")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Wallpaper,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Text(
+                                text = "No Custom Wallpaper Active",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "Select a high-resolution image to use as your desktop app canvas backdrop",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Button(
+                                onClick = {
+                                    val chosen = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                        title = "Choose Wallpaper Image",
+                                        allowedExtensions = listOf("jpg", "jpeg", "png", "webp", "bmp"),
+                                        category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.WALLPAPER,
+                                    )
+                                    if (chosen != null) {
+                                        AppearanceConfig.setBackgroundImagePath(chosen.absolutePath)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Choose Wallpaper Image (.png, .jpg, .webp)")
+                            }
+                        }
                     }
                 }
 
@@ -859,6 +1107,10 @@ fun SettingsThemeWallpaperScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {}) {
+    val cleanModeEnabled by AppearanceConfig.cleanModeEnabled.collectAsState()
+    val hideProviderNames by AppearanceConfig.hideProviderNames.collectAsState()
+    val hideDetailsSource by AppearanceConfig.hideDetailsSource.collectAsState()
+    val hideStreamProviders by AppearanceConfig.hideStreamProviders.collectAsState()
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
@@ -879,7 +1131,107 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             .padding(top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        SettingsGroupCard(title = "Provider Branding & Card Metadata") {
+        // Master Clean Mode Hero Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (cleanModeEnabled) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                },
+            ),
+            border = if (cleanModeEnabled) {
+                androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+            } else null,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (cleanModeEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = if (cleanModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "Cinematic Clean Mode (Master)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (cleanModeEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                        ) {
+                            Text(
+                                text = if (cleanModeEnabled) "Active" else "Custom",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (cleanModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "One-click master switch to strip all plugin/provider names, hide scraper tags, and auto-clean messy release strings across the entire app. Shortcut: Ctrl+Shift+C.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(16.dp))
+                Switch(
+                    checked = cleanModeEnabled,
+                    onCheckedChange = { AppearanceConfig.setCleanModeEnabled(it) },
+                )
+            }
+        }
+
+        SettingsGroupCard(title = "Customizable Clean Mode & Provider Branding") {
+            SettingsToggleItem(
+                label = "Hide Provider & Scraper Names Everywhere",
+                subtitle = "Suppresses provider names in context menus, cards, and list subtitles",
+                checked = hideProviderNames,
+                onCheckedChange = { AppearanceConfig.setHideProviderNames(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Auto-Clean Messy Release Titles",
+                subtitle = "Strips raw release tags (WEB-DL, Dual Audio, codecs) to show pure titles",
+                checked = autoCleanTitles,
+                onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Hide Source Spec on Details Page",
+                subtitle = "Omits the 'Source' row from the movie and show technical specs sidebar",
+                checked = hideDetailsSource,
+                onCheckedChange = { AppearanceConfig.setHideDetailsSource(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
             SettingsDropdownItem(
                 label = "Provider Badges on Cards",
                 subtitle = "Choose how plugin and scraper branding appears across Continue Watching and media cards",
@@ -890,15 +1242,6 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                 ),
                 currentValue = providerBadgeDisplayMode,
                 onSelectionChanged = { AppearanceConfig.setProviderBadgeDisplayMode(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsToggleItem(
-                label = "Auto-Clean Messy Release Titles",
-                subtitle = "Strips raw release tags, year brackets, and encoding strings from item titles",
-                checked = autoCleanTitles,
-                onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

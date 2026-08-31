@@ -55,6 +55,7 @@ fun ComposeNativeWebPlayer(
     plot: String? = null,
     year: Int? = null,
     tags: List<String>? = null,
+    isLive: Boolean = false,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val scope = rememberCoroutineScope()
@@ -206,6 +207,7 @@ fun ComposeNativeWebPlayer(
                 activeLazyAudioTrackUrl = activeLazyAudioTrackUrl,
                 resolution = resolution,
                 activeSubtitleOverrideEnabled = activeSubtitleOverrideEnabled,
+                isLive = isLive,
                 chapters = chapters.map { ChapterPayload(it.index, it.title, it.timeMs) },
                 currentChapterIndex = currentChapterIndex,
                 activeSkipInterval = activeSkipInterval?.let {
@@ -225,7 +227,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, activeSubtitleOverrideEnabled) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, activeSubtitleOverrideEnabled, isLive) {
         if (isUiReady) {
             pushSyncStateToWebView()
         }
@@ -332,6 +334,7 @@ fun ComposeNativeWebPlayer(
         },
         onCloseRequest = currentOnCloseRequest,
         isExiting = isExiting,
+        isLive = isLive,
         onFullscreenToggle = currentOnFullscreenToggle,
         playerState = playerState,
         onEventLoopReady = { h ->
@@ -539,6 +542,14 @@ fun ComposeNativeWebPlayer(
                                 playerState?.seekBy(offset.toLong())
                             }
                         }
+                        "seekLive", "seek_live" -> {
+                            try {
+                                MpvLibrary.INSTANCE.mpv_command_string(h, "seek 100 absolute-percent")
+                                playerState?.play()
+                            } catch (e: Throwable) {
+                                com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer: Failed to seek to live edge", e)
+                            }
+                        }
                         "togglePlay" -> {
                             val isMpvPaused = MpvLibrary.getPropertyString(h, "pause") == "yes"
                             com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. MPV state: pause=$isMpvPaused, Kotlin state: isPaused=${playerState?._isPaused?.value}")
@@ -590,6 +601,8 @@ fun ComposeNativeWebPlayer(
                         }
                         "screenshot" -> {
                             MpvLibrary.INSTANCE.mpv_command_string(h, "screenshot video")
+                            val dirName = com.lagradost.common.platform.PlatformPaths.screenshotsDir.name
+                            playerState?.showToast("Screenshot saved to $dirName")
                         }
                         "togglePip" -> {
                             val nextPip = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value

@@ -209,63 +209,6 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                             modifier = Modifier.padding(horizontal = 32.dp),
                         )
                     }
-
-                    // TMDB Custom API Key
-                    var showTmdbDialog by remember { mutableStateOf(false) }
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("The Movie Database (TMDB)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                            Text("This app comes with a default TMDB API key. If it stops working, please add your own API key here.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Button(onClick = { showTmdbDialog = true }) {
-                            Text("Configure Key")
-                        }
-                    }
-
-                    if (showTmdbDialog) {
-                        var tmdbApiKey by remember(uiState.stringSettings["tmdb_api_key"]) {
-                            mutableStateOf(uiState.stringSettings["tmdb_api_key"] ?: DesktopDataStore.getKey<String>("tmdb_api_key") ?: "")
-                        }
-
-                        CloudstreamAlertDialog(
-                            show = showTmdbDialog,
-                            onDismissRequest = { showTmdbDialog = false },
-                            title = { Text("TMDB API Key") },
-                            text = {
-                                Column {
-                                    Text("Enter your custom V3 API Key below:", style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    TextField(
-                                        value = tmdbApiKey,
-                                        onValueChange = { tmdbApiKey = it },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        placeholder = { Text("Leave blank to use default key") },
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                            focusedIndicatorColor = Color.Transparent,
-                                            unfocusedIndicatorColor = Color.Transparent,
-                                        ),
-                                        shape = MaterialTheme.shapes.medium,
-                                    )
-                                }
-                            },
-                            confirmButton = {
-                                Button(onClick = {
-                                    viewModel.onEvent(SettingsUiEvent.OnUpdateString("tmdb_api_key", tmdbApiKey))
-                                    showTmdbDialog = false
-                                }) {
-                                    Text("Save Key")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showTmdbDialog = false }) {
-                                    Text("Cancel")
-                                }
-                            },
-                        )
-                    }
                 }
             }
 

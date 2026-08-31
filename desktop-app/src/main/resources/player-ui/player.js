@@ -329,7 +329,10 @@
         el.addEventListener('mouseleave', () => { isHoveringControls = false; showControls(); });
     });
     
-    const showControls = (e) => {
+    const showControls = (e, forceHide = false) => {
+        if (forceHide) {
+            isHoveringControls = false;
+        }
         if (e && e.type === 'mousemove') {
             if (e.clientX === lastMouseX && e.clientY === lastMouseY) {
                 return; // Ignore synthesized mousemove where mouse didn't actually move
@@ -355,7 +358,7 @@
             window._skipBtnActiveSince = Date.now();
         }
         clearTimeout(hideTimer);
-        if (!isMenuOpen && globalIsPlaying && !isHoveringControls && !isSeeking) {
+        if (!isMenuOpen && !isSeeking && (forceHide || !isHoveringControls)) {
             hideTimer = setTimeout(() => {
                 if (!isHoveringControls && !isSeeking && !isMenuOpen) {
                     overlay.classList.add('hidden-controls');
@@ -364,6 +367,38 @@
             }, 3500);
         }
     };
+    window.showControls = showControls;
+    window.onNativeKeyActivity = (isSeeking = false) => {
+        isHoveringControls = false;
+        if (isSeeking && document.body.classList.contains('hidden-controls')) {
+            return;
+        }
+        showControls(null, true);
+    };
+    window.triggerSeekFeedback = (dir) => {
+        if (dir === 'left') {
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else {
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
+    };
+
+    window.addEventListener('pointerdown', (e) => {
+        if (e.button === 3) {
+            // Mouse 4 (Back) -> Seek -10s
+            e.preventDefault();
+            e.stopPropagation();
+            doRelativeSeek(-10000);
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else if (e.button === 4) {
+            // Mouse 5 (Forward) -> Seek +10s
+            e.preventDefault();
+            e.stopPropagation();
+            doRelativeSeek(10000);
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
+    });
+
     document.addEventListener('mousemove', showControls);
     document.addEventListener('click', e => {
         // Blur active element so buttons don't retain focus when UI hides
@@ -375,7 +410,15 @@
         showControls(e);
     });
     
-    document.addEventListener('keydown', showControls);
+    document.addEventListener('keydown', (e) => {
+        isHoveringControls = false;
+        const isSeekKey = e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyJ' || e.code === 'KeyL';
+        if (isSeekKey && document.body.classList.contains('hidden-controls')) {
+            // Keep full UI hidden when seeking
+            return;
+        }
+        showControls(e, true);
+    });
 
     // Panel Management
     const closeAllPanels = () => {
@@ -660,26 +703,12 @@
                     }
                     if (skipBtn.style.display !== 'inline-flex') {
                         skipBtn.style.display = 'inline-flex';
-                        skipBtn.classList.remove('idle-faded');
-                        window._skipBtnActiveSince = Date.now();
-                    }
-                    if (document.body.classList.contains('hidden-controls')) {
-                        if (Date.now() - (window._skipBtnActiveSince || 0) > 4000) {
-                            skipBtn.classList.add('idle-faded');
-                        }
-                    } else {
-                        skipBtn.classList.remove('idle-faded');
-                        window._skipBtnActiveSince = Date.now();
                     }
                 } else {
                     skipBtn.style.display = 'none';
-                    skipBtn.classList.remove('idle-faded');
-                    window._skipBtnActiveSince = 0;
                 }
             } else {
                 skipBtn.style.display = 'none';
-                skipBtn.classList.remove('idle-faded');
-                window._skipBtnActiveSince = 0;
             }
         }
         
@@ -775,17 +804,16 @@
         if (s.isLoading !== undefined) {
             globalIsLoading = s.isLoading;
         }
-        
-        if ((currentPosMs > 50 || (globalIsPlaying && !globalIsLoading)) && !userDismissedProbing) {
-            const pOverlay = document.getElementById('linkProbingOverlay');
-            if (pOverlay && (pOverlay.classList.contains('active') || !pOverlay.classList.contains('dismissing'))) {
+
+        if (globalIsBuffering) {
+            if (Date.now() - globalBufferingStartTime > 2000) {
                 dismissProbingOverlay();
             }
         }
         
         evaluateUIStates();
 
-        // Watch Next Popup Logic (Shows within last 25s of episode)
+        // Watch Next Popup Logic (Shows interactive recommendation during last 25s of episode without cutting off stream)
         if (durationMs > 35000 && (durationMs - currentPosMs) <= 25000 && currentPosMs > 5000 && !userDismissedWatchNext) {
             const activeIdx = (episodesData || []).findIndex(e => e.isActive);
             const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
@@ -823,11 +851,6 @@
                     if (watchNextProgressFill) {
                         const progressPct = Math.max(0, Math.min(100, (remainingSec / 25) * 100));
                         watchNextProgressFill.style.width = `${progressPct}%`;
-                    }
-                    if (remainingSec <= 1 || (globalIsLoading && remainingSec <= 3)) {
-                        userDismissedWatchNext = true;
-                        watchNextPopup.classList.remove('visible');
-                        triggerNextEpisode();
                     }
                 } else {
                     if (watchNextCountdown) watchNextCountdown.innerText = '';
@@ -2661,15 +2684,7 @@
         } else if (clickCount === 2) {
             clearTimeout(clickTimer);
             clickCount = 0;
-            if (zoneName === 'left') {
-                doRelativeSeek(-10000);
-                triggerActionFeedback(SVGS.rewind10, 'left');
-            } else if (zoneName === 'right') {
-                doRelativeSeek(10000);
-                triggerActionFeedback(SVGS.forward10, 'right');
-            } else if (zoneName === 'center') {
-                send('toggleFullscreen');
-            }
+            send('toggleFullscreen');
         }
     };
 
@@ -3328,10 +3343,15 @@
                 triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
                 break;
             case 'KeyS':
-                const sBtn = document.getElementById('skipBtn');
-                if (sBtn && sBtn.style.display !== 'none') {
+                if (e.shiftKey || e.ctrlKey) {
                     e.preventDefault();
-                    performSkipInterval(e);
+                    send('screenshot');
+                } else {
+                    const sBtn = document.getElementById('skipBtn');
+                    if (sBtn && sBtn.style.display !== 'none') {
+                        e.preventDefault();
+                        performSkipInterval(e);
+                    }
                 }
                 break;
             case 'KeyF':

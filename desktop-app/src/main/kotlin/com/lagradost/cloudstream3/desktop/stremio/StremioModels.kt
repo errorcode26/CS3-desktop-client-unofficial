@@ -9,15 +9,24 @@ import com.fasterxml.jackson.annotation.JsonProperty
  */
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+data class StremioCatalogDescriptor(
+    @JsonProperty("id") val id: String = "",
+    @JsonProperty("name") val name: String = "",
+    @JsonProperty("type") val type: String = "",
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class StremioManifest(
     @JsonProperty("id") val id: String = "",
     @JsonProperty("name") val name: String = "",
     @JsonProperty("description") val description: String = "",
     @JsonProperty("version") val version: String = "1.0.0",
     @JsonProperty("logo") val logoUrl: String? = null,
+    @JsonProperty("background") val backgroundUrl: String? = null,
     @JsonProperty("resources") val resources: List<StremioResource> = emptyList(),
     @JsonProperty("types") val types: List<String> = emptyList(),
     @JsonProperty("idPrefixes") val idPrefixes: List<String> = emptyList(),
+    @JsonProperty("catalogs") val catalogs: List<StremioCatalogDescriptor> = emptyList(),
     @JsonProperty("behaviorHints") val behaviorHints: StremioBehaviorHints = StremioBehaviorHints(),
     val transportUrl: String = "",
 ) {
@@ -29,6 +38,9 @@ data class StremioManifest(
 
     val providesStreams: Boolean
         get() = resources.any { it.name.equals("stream", ignoreCase = true) }
+
+    val providesCatalogs: Boolean
+        get() = catalogs.isNotEmpty() || resources.any { it.name.equals("catalog", ignoreCase = true) }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -53,12 +65,17 @@ data class ManagedStremioAddon(
     @JsonProperty("description") val description: String = "",
     @JsonProperty("version") val version: String = "1.0.0",
     @JsonProperty("logoUrl") val logoUrl: String? = null,
+    @JsonProperty("backgroundUrl") val backgroundUrl: String? = null,
     @JsonProperty("enabled") val enabled: Boolean = true,
     @JsonProperty("providesSubtitles") val providesSubtitles: Boolean = false,
     @JsonProperty("providesMetadata") val providesMetadata: Boolean = false,
     @JsonProperty("providesStreams") val providesStreams: Boolean = false,
+    @JsonProperty("providesCatalogs") val providesCatalogs: Boolean = false,
     @JsonProperty("types") val types: List<String> = emptyList(),
     @JsonProperty("idPrefixes") val idPrefixes: List<String> = emptyList(),
+    @JsonProperty("catalogsSummary") val catalogsSummary: List<String> = emptyList(),
+    @JsonProperty("isP2P") val isP2P: Boolean = false,
+    @JsonProperty("isConfigurable") val isConfigurable: Boolean = false,
     @JsonProperty("errorMessage") val errorMessage: String? = null,
 )
 
@@ -98,6 +115,6 @@ data class StremioStreamItem(
 data class StremioStreamBehaviorHints(
     @JsonProperty("notWebReady") val notWebReady: Boolean = false,
     @JsonProperty("bingeGroup") val bingeGroup: String? = null,
+    @JsonProperty("countryWhitelist") val countryWhitelist: List<String>? = null,
     @JsonProperty("headers") val headers: Map<String, String>? = null,
 )
-

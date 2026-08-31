@@ -125,6 +125,8 @@ class PlayerState {
     internal val _activeLazyAudioTrackUrl = MutableStateFlow<String?>(null)
     val activeLazyAudioTrackUrl: StateFlow<String?> = _activeLazyAudioTrackUrl.asStateFlow()
 
+    private val processedAutoSkipIntervals = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     fun reset() {
         _positionMs.value = 0L
         _durationMs.value = 0L
@@ -135,6 +137,7 @@ class PlayerState {
         _isMuted.value = false
         lastSeekTime = 0L
         targetSeekMs = -1L
+        processedAutoSkipIntervals.clear()
         _activeLazyVideoTrackUrl.value = null
         _activeLazyAudioTrackUrl.value = null
         _audioTracks.value = emptyList()
@@ -182,6 +185,13 @@ class PlayerState {
             lastSeekTime = System.currentTimeMillis()
             targetSeekMs = positionMs
             val posSec = positionMs / 1000.0
+            // If user manually seeks into an active interval, prevent auto-skip from overriding the user's choice
+            val currentIntervals = _skipIntervals.value
+            currentIntervals.forEach { inv ->
+                if (positionMs >= inv.startMs && positionMs < inv.endMs) {
+                    processedAutoSkipIntervals.add("${inv.startMs}_${inv.endMs}_${inv.type}")
+                }
+            }
             // Use seek absolute+exact first, falling back to seek absolute for HLS/DASH streams
             val res = MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute+exact")
             if (res != 0) {
@@ -249,7 +259,9 @@ class PlayerState {
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_ED -> autoSkipOutro
                 }
 
-                if (shouldAutoSkip) {
+                val intervalKey = "${matching.startMs}_${matching.endMs}_${matching.type}"
+                if (shouldAutoSkip && !processedAutoSkipIntervals.contains(intervalKey)) {
+                    processedAutoSkipIntervals.add(intervalKey)
                     com.lagradost.common.logging.AppLogger.i("PlayerState", "Auto-skipping ${matching.label} to ${matching.endMs}ms")
                     skipCurrentInterval()
                 }

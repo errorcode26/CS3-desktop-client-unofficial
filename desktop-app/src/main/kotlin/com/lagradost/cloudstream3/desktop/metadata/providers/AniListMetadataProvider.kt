@@ -1,5 +1,9 @@
 package com.lagradost.cloudstream3.desktop.metadata.providers
 
+import com.lagradost.cloudstream3.AnimeLoadResponse
+import com.lagradost.cloudstream3.DubStatus
+import com.lagradost.cloudstream3.Episode
+import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.ActorRole
 import com.lagradost.cloudstream3.LoadResponse
@@ -27,6 +31,11 @@ import kotlinx.coroutines.withContext
 object AniListMetadataProvider : MetadataProvider {
     private const val TAG = "AniListProvider"
     private const val ANILIST_GRAPHQL_URL = "https://graphql.anilist.co"
+
+    private val dummyApi = object : com.lagradost.cloudstream3.MainAPI() {
+        override var name = "AniList"
+        override var mainUrl = "https://anilist.co"
+    }
 
     override val id: String = "anilist"
     override val displayName: String = "AniList"
@@ -78,6 +87,13 @@ object AniListMetadataProvider : MetadataProvider {
         @JsonProperty("studios") val studios: AniListStudios?,
         @JsonProperty("trailer") val trailer: AniListTrailer?,
         @JsonProperty("characters") val characters: AniListCharacters?,
+        @JsonProperty("nextAiringEpisode") val nextAiringEpisode: AniListNextAiringEpisode?,
+    )
+
+    private data class AniListNextAiringEpisode(
+        @JsonProperty("airingAt") val airingAt: Long?,
+        @JsonProperty("timeUntilAiring") val timeUntilAiring: Long?,
+        @JsonProperty("episode") val episode: Int?,
     )
 
     private data class AniListTitle(
@@ -297,6 +313,11 @@ object AniListMetadataProvider : MetadataProvider {
                             isAnimationStudio
                         }
                     }
+                    nextAiringEpisode {
+                        airingAt
+                        timeUntilAiring
+                        episode
+                    }
                     trailer {
                         id
                         site
@@ -355,6 +376,16 @@ object AniListMetadataProvider : MetadataProvider {
             val media = parsed?.data?.media ?: return false
 
             withContext(Dispatchers.Main.immediate) {
+                // Apply preferred anime title
+                val preferredTitle = when (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeTitleLanguage.value) {
+                    "english" -> media.title?.english ?: media.title?.userPreferred ?: media.title?.romaji
+                    "native" -> media.title?.native ?: media.title?.romaji ?: media.title?.english
+                    else -> media.title?.romaji ?: media.title?.userPreferred ?: media.title?.english
+                }
+                if (!preferredTitle.isNullOrBlank()) {
+                    loaded.name = preferredTitle
+                }
+
                 // Apply high-res banner if available
                 if (media.bannerImage != null && (loaded.backgroundPosterUrl.isNullOrBlank() || context.overwrite)) {
                     loaded.backgroundPosterUrl = media.bannerImage
@@ -372,45 +403,47 @@ object AniListMetadataProvider : MetadataProvider {
                     callbacks.onRatingsLoaded(null, null, media.averageScore / 10.0)
                 }
 
-                // Map Voice Actors with character roles
+                // Map Voice Actors with character roles (if enabled)
                 val actorsList = mutableListOf<ActorData>()
-                media.characters?.edges?.forEach { edge ->
-                    val charName = edge.node?.name?.userPreferred ?: edge.node?.name?.full ?: ""
-                    val charImage = edge.node?.image?.large
+                if (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeVoiceCast.value) {
+                    media.characters?.edges?.forEach { edge ->
+                        val charName = edge.node?.name?.userPreferred ?: edge.node?.name?.full ?: ""
+                        val charImage = edge.node?.image?.large
 
-                    val vaNode = edge.voiceActors?.firstOrNull()
-                    val vaName = vaNode?.name?.userPreferred ?: vaNode?.name?.full
-                    val vaImage = vaNode?.image?.large
+                        val vaNode = edge.voiceActors?.firstOrNull()
+                        val vaName = vaNode?.name?.userPreferred ?: vaNode?.name?.full
+                        val vaImage = vaNode?.image?.large
 
-                    val parsedRole = when (edge.role?.uppercase()) {
-                        "MAIN" -> ActorRole.Main
-                        "SUPPORTING" -> ActorRole.Supporting
-                        "BACKGROUND" -> ActorRole.Background
-                        else -> null
-                    }
+                        val parsedRole = when (edge.role?.uppercase()) {
+                            "MAIN" -> ActorRole.Main
+                            "SUPPORTING" -> ActorRole.Supporting
+                            "BACKGROUND" -> ActorRole.Background
+                            else -> null
+                        }
 
-                    if (charName.isNotBlank()) {
-                        actorsList.add(
-                            ActorData(
-                                actor = com.lagradost.cloudstream3.Actor(
-                                    name = charName,
-                                    image = charImage,
-                                ),
-                                role = parsedRole,
-                                voiceActor = if (vaName != null) {
-                                    com.lagradost.cloudstream3.Actor(
-                                        name = vaName,
-                                        image = vaImage,
-                                    )
-                                } else null,
+                        if (charName.isNotBlank()) {
+                            actorsList.add(
+                                ActorData(
+                                    actor = com.lagradost.cloudstream3.Actor(
+                                        name = charName,
+                                        image = charImage,
+                                    ),
+                                    role = parsedRole,
+                                    voiceActor = if (vaName != null) {
+                                        com.lagradost.cloudstream3.Actor(
+                                            name = vaName,
+                                            image = vaImage,
+                                        )
+                                    } else null,
+                                )
                             )
-                        )
+                        }
                     }
-                }
 
-                if (actorsList.isNotEmpty()) {
-                    loaded.actors = actorsList
-                    callbacks.onActorsLoaded(actorsList)
+                    if (actorsList.isNotEmpty()) {
+                        loaded.actors = actorsList
+                        callbacks.onActorsLoaded(actorsList)
+                    }
                 }
 
                 // Map YouTube trailers
@@ -430,8 +463,42 @@ object AniListMetadataProvider : MetadataProvider {
                     callbacks.onTrailersLoaded(trailersList)
                 }
 
-                // Studios
-                val studiosList = media.studios?.nodes?.mapNotNull { it.name } ?: emptyList()
+                // Synthesize upcoming simulcast episode if nextAiringEpisode is available (if enabled)
+                val nextEp = media.nextAiringEpisode
+                if (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeSimulcast.value && nextEp != null && nextEp.episode != null && nextEp.airingAt != null) {
+                    val airEpochMs = nextEp.airingAt * 1000L
+                    val dateIso = java.time.Instant.ofEpochMilli(airEpochMs).toString().substringBefore("T")
+                    if (loaded is AnimeLoadResponse) {
+                        val allEps = loaded.episodes.values.flatten()
+                        val exists = allEps.any { it.episode == nextEp.episode }
+                        if (!exists) {
+                            val synthetic = dummyApi.newEpisode("unreleased_anime_ep${nextEp.episode}") {
+                                this.name = "Episode ${nextEp.episode}"
+                                this.episode = nextEp.episode
+                                this.season = 1
+                                this.posterUrl = media.bannerImage ?: media.coverImage?.extraLarge
+                                this.description = "||DATE:$dateIso||Upcoming anime simulcast episode."
+                            }
+                            val mutableMap = loaded.episodes.toMutableMap()
+                            if (mutableMap.isEmpty()) {
+                                mutableMap[DubStatus.Subbed] = listOf(synthetic)
+                            } else {
+                                mutableMap.keys.forEach { k ->
+                                    val cleanList = mutableMap[k].orEmpty().filter { it.episode != nextEp.episode }
+                                    mutableMap[k] = (cleanList + synthetic)
+                                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
+                                        .sortedBy { it.episode ?: 0 }
+                                }
+                            }
+                            loaded.episodes = mutableMap
+                        }
+                    }
+                }
+
+                // Studios (if enabled)
+                val studiosList = if (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeStudios.value) {
+                    media.studios?.nodes?.mapNotNull { it.name } ?: emptyList()
+                } else emptyList()
                 val aniListCompanies = studiosList.map { sName ->
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(
                         name = sName,

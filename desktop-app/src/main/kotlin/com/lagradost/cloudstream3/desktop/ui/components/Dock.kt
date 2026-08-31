@@ -23,6 +23,109 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
+
+@Composable
+fun DockItemsList(
+    currentTitle: String,
+    isHorizontal: Boolean = false,
+    indicatorAtTop: Boolean = false,
+    onNavigate: (com.lagradost.cloudstream3.desktop.ui.navigation.Config) -> Unit,
+    onSearchClick: () -> Unit,
+) {
+    val dockOrder by AppearanceConfig.dockItemOrder.collectAsState()
+    val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
+
+    dockOrder.filter { it !in dockDisabled }.forEach { itemKey ->
+        when (itemKey) {
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HOME -> {
+                DockItem(
+                    icon = PremiumIcons.Home,
+                    label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
+                    selected = currentTitle == "Home",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Home) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXPLORE -> {
+                DockItem(
+                    icon = PremiumIcons.Explore,
+                    label = "Explore",
+                    selected = currentTitle == "Explore & Catalogs",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Explore) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> {
+                DockItem(
+                    icon = PremiumIcons.Search,
+                    label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
+                    selected = currentTitle == "Search",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = onSearchClick,
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.LIBRARY -> {
+                DockItem(
+                    icon = PremiumIcons.Library,
+                    label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY,
+                    selected = currentTitle == "Library",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Library) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.DOWNLOADS -> {
+                val activeTasks by com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.tasks.collectAsState()
+                val downloadingCount = activeTasks.count { it.status == com.lagradost.cloudstream3.desktop.downloader.DownloadStatus.DOWNLOADING }
+
+                DockItem(
+                    icon = PremiumIcons.Downloads,
+                    label = "Downloads",
+                    selected = currentTitle == "Downloads",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    badge = if (downloadingCount > 0) downloadingCount.toString() else null,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Downloads) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> {
+                DockItem(
+                    icon = PremiumIcons.History,
+                    label = "Watch History",
+                    selected = currentTitle == "Watch History",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.History) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXTENSIONS -> {
+                DockItem(
+                    icon = PremiumIcons.Extensions,
+                    label = "Extensions",
+                    selected = currentTitle == "Extensions",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Extensions()) },
+                )
+            }
+            com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SETTINGS -> {
+                DockItem(
+                    icon = PremiumIcons.Settings,
+                    label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS,
+                    selected = currentTitle == "Settings",
+                    isHorizontal = isHorizontal,
+                    indicatorAtTop = indicatorAtTop,
+                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Settings) },
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun DockItem(

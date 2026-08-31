@@ -34,4 +34,33 @@ object StringUtils {
         if (longerLength == 0) return 1.0
         return (longerLength - levenshtein(longer, shorter)) / longerLength.toDouble()
     }
+
+    private val STOP_WORDS = setOf(
+        "the", "a", "an", "and", "or", "of", "in", "to", "for", "with",
+        "on", "at", "by", "from", "is", "it", "this", "that", "my", "your",
+    )
+
+    fun hasContentWordMatch(query: String, target: String, minOverlapRatio: Double = 0.75): Boolean {
+        val qClean = query.lowercase().replace(Regex("""[^a-z0-9\s]"""), " ")
+        val tClean = target.lowercase().replace(Regex("""[^a-z0-9\s]"""), " ")
+
+        val qWords = qClean.split(Regex("""\s+""")).filter { it.isNotBlank() && it !in STOP_WORDS }
+        val tWords = tClean.split(Regex("""\s+""")).filter { it.isNotBlank() && it !in STOP_WORDS }
+
+        if (qWords.isEmpty() || tWords.isEmpty()) return true
+
+        // 1. First content word MUST match or prefix-match (prevents Law != Sex, Iron != Spider)
+        val qFirst = qWords.first()
+        val tFirst = tWords.first()
+        val firstMatches = qFirst == tFirst || qFirst.startsWith(tFirst) || tFirst.startsWith(qFirst) ||
+            similarity(qFirst, tFirst) >= 0.80
+        if (!firstMatches) return false
+
+        // 2. Token overlap ratio
+        val qSet = qWords.toSet()
+        val tSet = tWords.toSet()
+        val overlap = qSet.intersect(tSet).size.toDouble()
+        val minSize = kotlin.math.min(qSet.size, tSet.size).toDouble()
+        return (overlap / minSize) >= minOverlapRatio
+    }
 }

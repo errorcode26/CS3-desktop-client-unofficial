@@ -44,11 +44,12 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
     DETAILS("Details Page"),
     EFFECTS("Backdrop & Effects"),
     PLAYER("Playback Engine", Icons.Default.PlayCircle),
+    SHORTCUTS("Keyboard Shortcuts", Icons.Default.Keyboard),
     ACCOUNTS("Profiles & Sync", Icons.Default.AccountCircle),
+    INTEGRATIONS("Metadata & Integrations", Icons.Default.AutoAwesome),
     SUBTITLES_LEAF("Subtitles & Styling"),
     EXTENSIONS("Plugins & Repos"),
     ADDONS("External Addons"),
-    INTEGRATIONS("Metadata & Scrapers"),
     NETWORK("Network & DNS", Icons.Default.Router),
     ADVANCED("Storage & Cache"),
     DEVELOPER("Diagnostics & Logs"),
@@ -58,7 +59,7 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
 enum class GroupTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     APPEARANCE("Appearance & UI", Icons.Default.Palette),
     PLAYBACK("Playback & Media", Icons.Default.PlayCircle),
-    EXTENSIONS_GROUP("Plugins & Scrapers", Icons.Default.Extension),
+    EXTENSIONS_GROUP("Plugins & Stremio Addons", Icons.Default.Extension),
     SYSTEM_GROUP("System & Tools", Icons.Default.Build),
 }
 
@@ -77,6 +78,9 @@ enum class SettingsSubScreen(val title: String) {
     PLAYER_AUTOPLAY_SKIP("Auto-Play & Skip Automation"),
     PLAYER_DOWNLOADS("Downloads & Storage Engine"),
     SUBTITLES("Subtitle Styling Studio"),
+    KEYBOARD_SHORTCUTS("Keyboard Shortcuts & Hotkeys"),
+    INTEGRATIONS_TMDB("TMDB Engine Studio"),
+    INTEGRATIONS_ANIME("Anime Engines Studio"),
 }
 
 object SettingsSession {
@@ -90,8 +94,10 @@ object SettingsSession {
 private val NAV_STRUCTURE: List<SettingsNav> = listOf(
     SettingsNav.Leaf(LeafTab.APPEARANCE),
     SettingsNav.Leaf(LeafTab.PLAYER),
+    SettingsNav.Leaf(LeafTab.SHORTCUTS),
     SettingsNav.Leaf(LeafTab.ACCOUNTS),
-    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ADDONS, LeafTab.INTEGRATIONS)),
+    SettingsNav.Leaf(LeafTab.INTEGRATIONS),
+    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ADDONS)),
     SettingsNav.Leaf(LeafTab.NETWORK),
     SettingsNav.Group(GroupTab.SYSTEM_GROUP, listOf(LeafTab.ADVANCED, LeafTab.DEVELOPER, LeafTab.ABOUT)),
 )
@@ -338,6 +344,9 @@ fun ComposeSettingsScreen(
                                     SettingsSubScreen.PLAYER_AUTOPLAY_SKIP       -> SettingsPlayerAutoPlayScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.PLAYER_DOWNLOADS           -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.SUBTITLES                  -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.KEYBOARD_SHORTCUTS         -> SettingsShortcutsScreen()
+                                    SettingsSubScreen.INTEGRATIONS_TMDB          -> SettingsTmdbScreen()
+                                    SettingsSubScreen.INTEGRATIONS_ANIME         -> SettingsAnimeScreen()
                                 }
                             }
                         }
@@ -357,12 +366,13 @@ fun ComposeSettingsScreen(
                                 LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
                                 LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
-                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
                                 LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.SHORTCUTS      -> SettingsShortcutsScreen()
+                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
                                 LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
                                 LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
                                 LeafTab.ADDONS         -> SettingsAddons()
-                                LeafTab.INTEGRATIONS   -> SettingsIntegrations()
+                                LeafTab.INTEGRATIONS   -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
                                 LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
                                 LeafTab.DEVELOPER      -> SettingsDeveloper()

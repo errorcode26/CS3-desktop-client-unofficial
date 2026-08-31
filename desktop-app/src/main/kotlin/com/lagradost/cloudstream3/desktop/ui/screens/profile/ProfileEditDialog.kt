@@ -231,6 +231,7 @@ fun ProfileEditDialog(
                         val pickedFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
                             title = "Choose Avatar Image / GIF",
                             allowedExtensions = listOf(".png", ".jpg", ".jpeg", ".webp", ".gif"),
+                            category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.WALLPAPER,
                         )
                         if (pickedFile != null && pickedFile.exists()) {
                             val fullPath = pickedFile.absolutePath

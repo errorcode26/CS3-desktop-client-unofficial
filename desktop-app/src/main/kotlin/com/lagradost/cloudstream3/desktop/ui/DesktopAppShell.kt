@@ -81,6 +81,7 @@ fun DesktopAppShell(
                 val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
 
             val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+            val amoledMode by AppearanceConfig.amoledMode.collectAsState()
             val primaryColor = MaterialTheme.colorScheme.primary
 
             val surfaceColor = MaterialTheme.colorScheme.surface
@@ -137,16 +138,16 @@ fun DesktopAppShell(
                             }
 
                             // 2. Premium Background Gradient
-                            val bgGradientBrush = if (backgroundGradientEnabled) {
+                            val bgGradientBrush = if (backgroundGradientEnabled && !amoledMode) {
                                 val gradientAlpha = backgroundGradientIntensity
                                 val endColor = if (isLightMode) Color.White.copy(alpha = gradientAlpha) else Color.Black.copy(alpha = gradientAlpha)
                                 val startColor = surfaceColor
 
                                 when (backgroundGradientType) {
-                                    "Radial" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                    "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
                                         colors = listOf(startColor, endColor),
-                                        start = Offset(0f, 0f),
-                                        end = Offset(size.width, size.height * 1.2f),
+                                        center = Offset(size.width * 0.5f, size.height * 0.25f),
+                                        radius = size.width.coerceAtLeast(size.height) * 0.95f,
                                     )
                                     "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
                                         colors = listOf(startColor, endColor),
@@ -296,7 +297,7 @@ fun DesktopAppShell(
                 }
 
                 if (showTopBar) {
-                    // Global TopBar (Back button + Window Controls)
+                    // Global TopBar (Back button + Window Controls + Top Dock)
                     // Positioned outside the width-constrained box so it always anchors to the absolute edges of the window
                     TopBar(
                         isHome = title == "Home",
@@ -304,6 +305,10 @@ fun DesktopAppShell(
                         homeActionDispatcher = homeActionDispatcher,
                         onBack = onBack,
                         onOpenProfileManager = onOpenProfileManager,
+                        showDock = showDock,
+                        currentTitle = title ?: "",
+                        onNavigate = onNavigate,
+                        onSearchClick = { onNavigate(Config.Search) },
                     )
                 }
 
@@ -320,43 +325,57 @@ fun DesktopAppShell(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF2D1800).copy(alpha = 0.95f),
+                        color = Color(0xFF1E140A).copy(alpha = 0.95f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.55f)),
                         shadowElevation = 8.dp,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
                             Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.WifiOff,
-                                contentDescription = "Offline",
+                                contentDescription = "Offline Mode",
                                 tint = Color(0xFFFFB74D),
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                             Column {
                                 Text(
-                                    text = "No Internet Connection",
+                                    text = "Offline Mode Active",
                                     color = Color.White,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
                                 )
                                 Text(
-                                    text = "You are currently offline. Extension sync and search may be unavailable.",
-                                    color = Color.White.copy(alpha = 0.75f),
-                                    fontSize = 10.sp,
+                                    text = "No internet connection detected. Local playback, saved bookmarks, and downloaded content are available.",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
                                 )
                             }
                             Spacer(modifier = Modifier.width(6.dp))
+                            FilledTonalButton(
+                                onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.openLocalFileDialog() },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = Color(0xFF3B2810),
+                                    contentColor = Color(0xFFFFCC80),
+                                ),
+                            ) {
+                                Icon(androidx.compose.material.icons.Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Play Local File", fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                            }
                             FilledTonalButton(
                                 onClick = {
                                     coroutineScope.launch { com.lagradost.cloudstream3.desktop.network.NetworkMonitor.checkConnectivity() }
                                 },
                                 shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(30.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp),
                                 colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = Color(0xFFFF9800).copy(alpha = 0.25f),
                                     contentColor = Color(0xFFFFE0B2),
@@ -392,12 +411,11 @@ fun DesktopAppShell(
                             onNavigate(Config.Search)
                         },
                     )
-                } else {
-                    // Navigation Dock (Desktop)
+                } else if (effectiveDockPosition != com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP) {
+                    // Navigation Dock (Desktop: LEFT, RIGHT, BOTTOM)
                     val dockAlignment = when (effectiveDockPosition) {
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
                         com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> Alignment.TopCenter
                         else -> Alignment.CenterStart
                     }
                     NavigationDock(
@@ -429,99 +447,14 @@ private fun NavigationDock(
     val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
     val isHorizontal = isBottom || isTop
 
-    val dockOrder by AppearanceConfig.dockItemOrder.collectAsState()
-    val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
-
     val dockItems = @Composable {
-        dockOrder.filter { it !in dockDisabled }.forEach { itemKey ->
-            when (itemKey) {
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HOME -> {
-                    DockItem(
-                        icon = PremiumIcons.Home,
-                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.HOME,
-                        selected = currentTitle == "Home",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.Home) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXPLORE -> {
-                    DockItem(
-                        icon = PremiumIcons.Explore,
-                        label = "Explore",
-                        selected = currentTitle == "Explore & Catalogs",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.Explore) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> {
-                    DockItem(
-                        icon = PremiumIcons.Search,
-                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SEARCH,
-                        selected = currentTitle == "Search",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = onSearchClick,
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.LIBRARY -> {
-                    DockItem(
-                        icon = PremiumIcons.Library,
-                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.LIBRARY,
-                        selected = currentTitle == "Library",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.Library) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.DOWNLOADS -> {
-                    val activeSpeed by com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.activeSpeed.collectAsState()
-                    val activeTasks by com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.tasks.collectAsState()
-                    val downloadingCount = activeTasks.count { it.status == com.lagradost.cloudstream3.desktop.downloader.DownloadStatus.DOWNLOADING }
-
-                    DockItem(
-                        icon = PremiumIcons.Downloads,
-                        label = "Downloads",
-                        selected = currentTitle == "Downloads",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        badge = if (downloadingCount > 0) downloadingCount.toString() else null,
-                        onClick = { onNavigate(Config.Downloads) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.HISTORY -> {
-                    DockItem(
-                        icon = PremiumIcons.History,
-                        label = "Watch History",
-                        selected = currentTitle == "Watch History",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.History) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXTENSIONS -> {
-                    DockItem(
-                        icon = PremiumIcons.Extensions,
-                        label = "Extensions",
-                        selected = currentTitle == "Extensions",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.Extensions()) },
-                    )
-                }
-                com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SETTINGS -> {
-                    DockItem(
-                        icon = PremiumIcons.Settings,
-                        label = com.lagradost.cloudstream3.desktop.utils.DesktopStrings.SETTINGS,
-                        selected = currentTitle == "Settings",
-                        isHorizontal = isHorizontal,
-                        indicatorAtTop = isTop,
-                        onClick = { onNavigate(Config.Settings) },
-                    )
-                }
-            }
-        }
+        com.lagradost.cloudstream3.desktop.ui.components.DockItemsList(
+            currentTitle = currentTitle,
+            isHorizontal = isHorizontal,
+            indicatorAtTop = isTop,
+            onNavigate = onNavigate,
+            onSearchClick = onSearchClick,
+        )
     }
 
     val navStyle by AppearanceConfig.navigationStyle.collectAsState()

@@ -36,6 +36,7 @@ data class PlayerUiSyncState(
     val activeLazyAudioTrackUrl: String? = null,
     val resolution: String?,
     val activeSubtitleOverrideEnabled: Boolean,
+    val isLive: Boolean = false,
     val chapters: List<ChapterPayload> = emptyList(),
     val currentChapterIndex: Int = -1,
     val activeSkipInterval: SkipIntervalPayload? = null,

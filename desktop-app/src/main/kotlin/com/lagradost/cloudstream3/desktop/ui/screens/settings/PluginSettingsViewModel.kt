@@ -18,6 +18,7 @@ data class PluginSettingsUiState(
     val settings: List<PluginSettingSchema> = emptyList(),
     val currentValues: Map<String, Any?> = emptyMap(),
     val hasChanged: Boolean = false,
+    val isLoading: Boolean = true,
 ) : UiState
 
 sealed interface PluginSettingsUiEvent : UiEvent {
@@ -35,7 +36,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
     override fun handleEvent(event: PluginSettingsUiEvent) {
         when (event) {
             is PluginSettingsUiEvent.OnInit -> {
-                updateState { copy(pluginName = event.pluginName, prefName = event.prefName) }
+                updateState { copy(pluginName = event.pluginName, prefName = event.prefName, isLoading = true) }
                 reloadSettings()
             }
             is PluginSettingsUiEvent.OnSchemaUpdated -> reloadSettings()
@@ -70,6 +71,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
                     activePrefName = activePrefName,
                     settings = settings,
                     currentValues = map,
+                    isLoading = false,
                 )
             }
         }

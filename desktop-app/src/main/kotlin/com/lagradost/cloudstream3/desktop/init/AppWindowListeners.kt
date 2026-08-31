@@ -9,6 +9,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
@@ -69,7 +70,11 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
 
     val onKeyEvent = remember(controller, toggleFunc) {
         { keyEvent: KeyEvent ->
-            if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
+            if (keyEvent.key == Key.F1 && keyEvent.type == KeyEventType.KeyDown) {
+                com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.selectedLeaf = com.lagradost.cloudstream3.desktop.ui.screens.settings.LeafTab.SHORTCUTS
+                com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
+                true
+            } else if (keyEvent.key == Key.F11 && keyEvent.type == KeyEventType.KeyDown) {
                 toggleFunc()
                 true
             } else if (keyEvent.key == Key.F12 && keyEvent.type == KeyEventType.KeyDown) {
@@ -117,6 +122,20 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
                     Key.R -> {
                         com.lagradost.cloudstream3.desktop.ui.GlobalRefreshHandler.triggerRefresh()
                         true
+                    }
+                    Key.O -> {
+                        com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.openLocalFileDialog()
+                        true
+                    }
+                    Key.U -> {
+                        com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.showNetworkStreamDialog = true
+                        true
+                    }
+                    Key.C -> {
+                        if (keyEvent.isShiftPressed) {
+                            com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.toggleCleanMode()
+                            true
+                        } else false
                     }
                     else -> false
                 }

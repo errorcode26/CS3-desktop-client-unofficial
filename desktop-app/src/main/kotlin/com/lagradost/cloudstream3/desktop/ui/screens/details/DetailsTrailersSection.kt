@@ -96,7 +96,9 @@ fun DetailsTrailersSection(
         map
     }
 
-    var selectedCategory by remember(cleanTrailers) { mutableStateOf("All") }
+    var selectedCategory by remember(cleanTrailers) {
+        mutableStateOf(if (categoriesMap.containsKey("Trailers")) "Trailers" else "All")
+    }
 
     val displayTrailers = remember(selectedCategory, cleanTrailers, categoriesMap) {
         if (selectedCategory == "All") {
@@ -197,12 +199,6 @@ fun DetailsTrailersSection(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // "All" chip
-                        CategoryFilterChip(
-                            label = "All (${cleanTrailers.size})",
-                            isSelected = selectedCategory == "All",
-                            onClick = { selectedCategory = "All" },
-                        )
                         // Individual category chips
                         categoriesMap.forEach { (catName, list) ->
                             CategoryFilterChip(
@@ -211,6 +207,12 @@ fun DetailsTrailersSection(
                                 onClick = { selectedCategory = catName },
                             )
                         }
+                        // "All" chip at end
+                        CategoryFilterChip(
+                            label = "All (${cleanTrailers.size})",
+                            isSelected = selectedCategory == "All",
+                            onClick = { selectedCategory = "All" },
+                        )
                     }
                 }
 

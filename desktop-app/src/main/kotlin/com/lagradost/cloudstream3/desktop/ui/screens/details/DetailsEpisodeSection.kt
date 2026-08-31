@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -68,7 +69,58 @@ fun DetailsEpisodeSection(
         is AnimeLoadResponse -> data.episodes.isNotEmpty()
         else -> false
     }
-    if (!isLoading && !hasEpisodes) return
+    if (!isLoading && !hasEpisodes) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp, vertical = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF1E1414).copy(alpha = 0.7f),
+            border = BorderStroke(1.2.dp, Color(0xFFE50914).copy(alpha = 0.35f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFE50914).copy(alpha = 0.15f),
+                    modifier = Modifier.size(56.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = Color(0xFFFF6B6B),
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "No Episodes Found on ${provider.name}",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "The provider did not return any streaming links or episodes for this title. You may want to check another provider.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 13.5.sp,
+                        lineHeight = 18.sp,
+                    )
+                }
+            }
+        }
+        return
+    }
 
     val dubStatuses = remember(data) { if (data is AnimeLoadResponse) data.episodes.keys.toList() else emptyList() }
     var selectedDub by remember(latestHistory?.episodeId, data) {
@@ -170,6 +222,7 @@ fun DetailsEpisodeSection(
                     if (isMovieLike) return@BoxWithConstraints
                     val preChunkedEpisodes = data.episodes
                         .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
                         .let { list ->
                             if (isSortAscending) {
                                 list.sortedBy { it.episode ?: Int.MAX_VALUE }
@@ -190,6 +243,7 @@ fun DetailsEpisodeSection(
 
                     val currentSeasonEpisodes = data.episodes
                         .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
                     val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
                         val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                         hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
@@ -532,6 +586,7 @@ fun DetailsEpisodeSection(
                     if (isMovieLike) return@BoxWithConstraints
                     val preChunkedEpisodes: List<Episode> = (selectedDub?.let { data.episodes[it] } ?: emptyList())
                         .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
                         .let { list ->
                             if (isSortAscending) {
                                 list.sortedBy { it.episode ?: Int.MAX_VALUE }
@@ -551,6 +606,7 @@ fun DetailsEpisodeSection(
 
                     val currentSeasonEpisodes = (selectedDub?.let { data.episodes[it] } ?: emptyList())
                         .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
                     val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
                         val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                         hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)

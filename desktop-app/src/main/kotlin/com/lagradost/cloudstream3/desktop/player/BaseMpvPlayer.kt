@@ -108,6 +108,7 @@ fun BaseMpvPlayer(
     onPositionChange: (Long, Long) -> Unit,
     onCloseRequest: () -> Unit,
     isExiting: Boolean = false,
+    isLive: Boolean = false,
     onFullscreenToggle: (() -> Unit)? = null,
     playerState: com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState? = null,
     modifier: Modifier = Modifier.fillMaxSize(),
@@ -285,7 +286,14 @@ fun BaseMpvPlayer(
                                             com.lagradost.common.logging.AppLogger.e("Player:MPV", "MPV stream error (MPV_END_FILE_REASON_ERROR, code=${endFile.error}): $errDesc")
                                             currentOnPlaybackError(errDesc)
                                         } else if (endFile.reason == 0) { // MPV_END_FILE_REASON_EOF
-                                            if (!hasEverPlayed) {
+                                            if (isLive) {
+                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Live stream EOF encountered. Auto-recovering to live edge...")
+                                                try {
+                                                    MpvLibrary.INSTANCE.mpv_command_string(h, "seek 100 absolute-percent")
+                                                } catch (e: Exception) {
+                                                    com.lagradost.common.logging.AppLogger.e("Player:MPV", "Live stream auto-recovery failed", e)
+                                                }
+                                            } else if (!hasEverPlayed) {
                                                 val errDesc = lastStreamErrorReason ?: "Stream instantly closed (Empty / EOF)"
                                                 com.lagradost.common.logging.AppLogger.e("Player:MPV", "Stream instantly ended (EOF) before ever playing: $errDesc")
                                                 currentOnPlaybackError(errDesc)
@@ -625,15 +633,17 @@ fun BaseMpvPlayer(
                 // 100MB forward is plenty for most 1080p HLS streams (segments are typically 2-6MB each).
                 // 400MB was causing CDN rate-limiting: MPV/FFmpeg would burst-request many segments
                 // at once to fill the cache, hitting 429 errors from Cloudflare/Akamai/Fastly after 20-30s.
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "100000000") // 100MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "30000000") // 30MB back
+                val forwardBuf = if (isLive) "150000000" else "100000000"
+                val backBuf = if (isLive) "80000000" else "30000000"
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", forwardBuf)
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", backBuf)
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 // 30s lookahead is aggressive but won't overwhelm CDNs the way 60s did.
-                lib.mpv_set_property_string(handle, "cache-secs", "30")
-                lib.mpv_set_property_string(handle, "demuxer-readahead-secs", "30")
+                lib.mpv_set_property_string(handle, "cache-secs", if (isLive) "15" else "30")
+                lib.mpv_set_property_string(handle, "demuxer-readahead-secs", if (isLive) "15" else "30")
                 // Start playback instantly like hls.js instead of waiting for the cache to fill
                 lib.mpv_set_property_string(handle, "cache-pause-initial", "no")
-                lib.mpv_set_property_string(handle, "cache-pause-wait", "1")
+                lib.mpv_set_property_string(handle, "cache-pause-wait", if (isLive) "0.5" else "1")
 
                 // CRITICAL: Must use mpv_set_property_string here, NOT mpv_set_option_string!
                 // Options can only be set before mpv_initialize(). This runs after init,
@@ -936,6 +946,17 @@ fun BaseMpvPlayer(
                 canvas.addMouseListener(object : MouseAdapter() {
                     override fun mousePressed(e: MouseEvent) {
                         mpvHandle?.let { h ->
+                            if (e.button == 4) {
+                                // Mouse 4 (Back button) -> Seek -10s
+                                MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
+                                com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('left');")
+                                return
+                            } else if (e.button == 5) {
+                                // Mouse 5 (Forward button) -> Seek +10s
+                                MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
+                                com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('right');")
+                                return
+                            }
                             canvas.requestFocusInWindow()
                             val btn = when (e.button) {
                                 MouseEvent.BUTTON1 -> "MBTN_LEFT"
@@ -948,6 +969,7 @@ fun BaseMpvPlayer(
                     }
                     override fun mouseReleased(e: MouseEvent) {
                         mpvHandle?.let { h ->
+                            if (e.button == 4 || e.button == 5) return
                             val btn = when (e.button) {
                                 MouseEvent.BUTTON1 -> "MBTN_LEFT"
                                 MouseEvent.BUTTON2 -> "MBTN_MID"
@@ -956,6 +978,12 @@ fun BaseMpvPlayer(
                             }
                             MpvLibrary.INSTANCE.mpv_command_string(h, "keyup $btn")
                         }
+                    }
+                })
+
+                canvas.addFocusListener(object : java.awt.event.FocusAdapter() {
+                    override fun focusGained(e: java.awt.event.FocusEvent?) {
+                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.focusWebView()
                     }
                 })
 
@@ -968,16 +996,25 @@ fun BaseMpvPlayer(
 
                 this.keyDispatcher = java.awt.KeyEventDispatcher { e ->
                     if (e.id == KeyEvent.KEY_PRESSED) {
+                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.focusWebView()
+                        val mpvKey = awtKeyToMpv(e)
+                        val lower = mpvKey?.lowercase() ?: ""
+                        val isSeek = lower == "left" || lower == "right" || lower == "shift+left" || lower == "shift+right" || lower == "ctrl+right" || (lower.length == 1 && lower[0].isDigit())
+                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.onNativeKeyActivity) window.onNativeKeyActivity($isSeek);")
                         mpvHandle?.let { h ->
-                            val mpvKey = awtKeyToMpv(e)
                             if (mpvKey?.contains("QUIT_OVERRIDE") == true || e.keyCode == KeyEvent.VK_ESCAPE) {
                                 currentOnCloseRequest()
                             } else if (mpvKey != null) {
-                                val lower = mpvKey.lowercase()
                                 when {
                                     lower == "space" || lower == "k" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
-                                    lower == "left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
-                                    lower == "right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
+                                    lower == "left" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('left');")
+                                    }
+                                    lower == "right" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('right');")
+                                    }
                                     lower == "shift+left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -2")
                                     lower == "shift+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 2")
                                     lower == "ctrl+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 85")
@@ -990,6 +1027,11 @@ fun BaseMpvPlayer(
                                     lower == "z" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay -0.1")
                                     lower == "x" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay 0.1")
                                     lower == "c" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
+                                    lower == "shift+s" || lower == "ctrl+s" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "screenshot video")
+                                        val dirName = com.lagradost.common.platform.PlatformPaths.screenshotsDir.name
+                                        playerState?.showToast("Screenshot saved to $dirName")
+                                    }
                                     lower == "v" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
                                     lower == "f" || lower == "f11" -> currentOnFullscreenToggle?.invoke()
                                     lower == "?" || lower == "f1" || lower == "h" -> currentOnShowShortcuts()
@@ -1007,7 +1049,6 @@ fun BaseMpvPlayer(
             }
 
             override fun removeNotify() {
-
                 // Find and remove the dispatcher to prevent memory leaks
                 val focusManager = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 this.keyDispatcher?.let {

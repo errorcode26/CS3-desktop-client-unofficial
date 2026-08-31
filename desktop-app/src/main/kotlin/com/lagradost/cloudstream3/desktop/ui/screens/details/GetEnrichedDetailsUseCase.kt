@@ -64,14 +64,17 @@ object GetEnrichedDetailsUseCase {
     ): Flow<EnrichmentUpdate> = callbackFlow {
         val rawData = try {
             DetailsRepository.fetchRaw(provider, url, fallbackName = preloadedName)
-        } catch (e: Exception) {
-            trySend(EnrichmentUpdate.Error(e.message ?: "Failed to fetch raw details"))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            val errorMsg = e.message?.takeIf { it.isNotBlank() } ?: "Failed to fetch details from ${provider.name}"
+            trySend(EnrichmentUpdate.Error(errorMsg))
             close()
             return@callbackFlow
         }
 
         if (rawData == null) {
-            trySend(EnrichmentUpdate.Error("Failed to fetch raw details"))
+            trySend(EnrichmentUpdate.Error("Failed to fetch details from ${provider.name}"))
             close()
             return@callbackFlow
         }

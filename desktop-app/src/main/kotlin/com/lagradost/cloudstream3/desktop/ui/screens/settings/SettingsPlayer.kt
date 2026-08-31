@@ -57,6 +57,21 @@ fun SettingsPlayer(
             .padding(top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Quick Launchers (Local Media & Streams)
+        SettingsGroupCard(title = "Quick Launchers & Local Media") {
+            SettingsNavigationItem(
+                label = "Open Local Video File",
+                subtitle = "Play an MP4, MKV, WebM, or AVI from your computer (Shortcut: Ctrl+O)",
+                onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.openLocalFileDialog() },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            SettingsNavigationItem(
+                label = "Open Network Stream URL",
+                subtitle = "Stream a direct HTTP or HLS .m3u8 link (Shortcut: Ctrl+U)",
+                onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.showNetworkStreamDialog = true },
+            )
+        }
+
         // Hub Card 1: Video & Hardware Acceleration Engine
         PlayerHubCard(
             icon = Icons.Default.Speed,
@@ -689,14 +704,13 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                 ) {
                     Button(
                         onClick = {
-                            val chooser = javax.swing.JFileChooser().apply {
-                                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
-                                dialogTitle = "Select Download Directory"
-                                currentDirectory = File(currentPath)
-                            }
-                            val result = chooser.showOpenDialog(null)
-                            if (result == javax.swing.JFileChooser.APPROVE_OPTION && chooser.selectedFile != null) {
-                                val newPath = chooser.selectedFile.absolutePath
+                            val selected = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.chooseDirectory(
+                                title = "Select Download Directory",
+                                category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.DOWNLOADS,
+                                initialDirectory = currentPath,
+                            )
+                            if (selected != null) {
+                                val newPath = selected.absolutePath
                                 currentPath = newPath
                                 scope.launch(Dispatchers.IO) {
                                     DesktopDataStore.setKey(DesktopDataStore.PREF_DOWNLOAD_PATH, newPath)
@@ -747,6 +761,88 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                 uiState = uiState,
                 onEvent = viewModel::onEvent,
                 defaultValue = 2f,
+            )
+        }
+
+        SettingsGroupCard(title = "Screenshots & Media Capture") {
+            var currentScreenshotPath by remember {
+                mutableStateOf(com.lagradost.common.platform.PlatformPaths.screenshotsDir.absolutePath)
+            }
+            val captureScope = rememberCoroutineScope()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Screenshot Output Directory",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = currentScreenshotPath,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Button(
+                        onClick = {
+                            val chooser = javax.swing.JFileChooser().apply {
+                                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                                dialogTitle = "Select Screenshot Directory"
+                                currentDirectory = File(currentScreenshotPath)
+                            }
+                            val result = chooser.showOpenDialog(null)
+                            if (result == javax.swing.JFileChooser.APPROVE_OPTION && chooser.selectedFile != null) {
+                                val newPath = chooser.selectedFile.absolutePath
+                                currentScreenshotPath = newPath
+                                captureScope.launch(Dispatchers.IO) {
+                                    DesktopDataStore.setKey(PlayerConfig.PREF_SCREENSHOT_DIR, newPath)
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Change Folder...")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                java.awt.Desktop.getDesktop().open(File(currentScreenshotPath))
+                            } catch (_: Exception) {}
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text("Open in Explorer")
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_SCREENSHOT_FORMAT,
+                label = "Screenshot Format",
+                subtitle = "Format used when saving video captures (Shortcuts: Shift+S or Ctrl+S)",
+                options = listOf(
+                    "png" to "PNG (Lossless Quality)",
+                    "jpg" to "JPEG (High Quality, Compact)",
+                    "webp" to "WebP (Modern Compact)",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "png",
             )
         }
     }

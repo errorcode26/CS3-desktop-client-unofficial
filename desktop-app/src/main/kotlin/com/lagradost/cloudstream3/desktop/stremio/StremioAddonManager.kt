@@ -117,12 +117,17 @@ object StremioAddonManager {
                 description = manifest.description,
                 version = manifest.version,
                 logoUrl = manifest.logoUrl,
+                backgroundUrl = manifest.backgroundUrl,
                 enabled = true,
                 providesSubtitles = manifest.providesSubtitles,
                 providesMetadata = manifest.providesMetadata,
                 providesStreams = manifest.providesStreams,
+                providesCatalogs = manifest.providesCatalogs,
                 types = manifest.types,
                 idPrefixes = manifest.idPrefixes,
+                catalogsSummary = manifest.catalogs.map { it.name.ifBlank { it.id } },
+                isP2P = manifest.behaviorHints.p2p,
+                isConfigurable = manifest.behaviorHints.configurable,
             )
 
             val updated = _addons.value + newAddon
@@ -178,11 +183,16 @@ object StremioAddonManager {
                             description = manifest.description,
                             version = manifest.version,
                             logoUrl = manifest.logoUrl,
+                            backgroundUrl = manifest.backgroundUrl,
                             providesSubtitles = manifest.providesSubtitles,
                             providesMetadata = manifest.providesMetadata,
                             providesStreams = manifest.providesStreams,
+                            providesCatalogs = manifest.providesCatalogs,
                             types = manifest.types,
                             idPrefixes = manifest.idPrefixes,
+                            catalogsSummary = manifest.catalogs.map { it.name.ifBlank { it.id } },
+                            isP2P = manifest.behaviorHints.p2p,
+                            isConfigurable = manifest.behaviorHints.configurable,
                             errorMessage = null,
                         )
                     } else {

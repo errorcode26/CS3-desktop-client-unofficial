@@ -1,7 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +52,9 @@ fun PinCodeDialog(
     val expectedPinLength = remember(profile) { profile.pinCode?.length?.coerceIn(4, 6) ?: 4 }
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
+    var isVerifying by remember { mutableStateOf(false) }
+    var isSuccess by remember { mutableStateOf(false) }
+
     val focusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -57,6 +69,7 @@ fun PinCodeDialog(
     fun triggerShakeAndClear() {
         coroutineScope.launch {
             isError = true
+            isVerifying = false
             shakeAnim.snapTo(0f)
             shakeAnim.animateTo(
                 targetValue = 0f,
@@ -72,23 +85,35 @@ fun PinCodeDialog(
                     0f at 400
                 },
             )
-            delay(200)
+            delay(250)
             enteredPin = ""
             isError = false
+            focusRequester.requestFocus()
         }
     }
 
     fun verify(pin: String) {
-        if (ProfileManager.verifyPin(profile.id, pin)) {
-            onVerified()
-        } else {
-            triggerShakeAndClear()
+        isVerifying = true
+        coroutineScope.launch {
+            // Smooth micro-delay so the 4th dot spring animation renders completely
+            delay(180)
+            if (ProfileManager.verifyPin(profile.id, pin)) {
+                isSuccess = true
+                isVerifying = false
+                // Brief success feedback with unlocked badge
+                delay(220)
+                onVerified()
+            } else {
+                triggerShakeAndClear()
+            }
         }
     }
 
     CloudstreamCustomDialog(
         show = true,
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isVerifying && !isSuccess) onDismiss()
+        },
         modifier = Modifier.widthIn(max = 420.dp),
     ) {
         Column(
@@ -106,32 +131,71 @@ fun PinCodeDialog(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            when {
+                                isError -> MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                                isSuccess -> Color(0xFF4CAF50).copy(alpha = 0.20f)
+                                isVerifying -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(26.dp),
-                    )
+                    AnimatedContent(
+                        targetState = Triple(isError, isSuccess, isVerifying),
+                        transitionSpec = { fadeIn(spring(stiffness = Spring.StiffnessHigh)) togetherWith fadeOut() },
+                        label = "LockStateIcon",
+                    ) { (err, succ, ver) ->
+                        when {
+                            succ -> Icon(
+                                Icons.Default.LockOpen,
+                                contentDescription = "Unlocked",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(28.dp),
+                            )
+                            ver -> CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.5.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            err -> Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Locked",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(26.dp),
+                            )
+                            else -> Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Locked",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(26.dp),
+                            )
+                        }
+                    }
                 }
 
                 Text(
-                    text = "Enter Profile PIN",
+                    text = if (isSuccess) "PIN Accepted" else "Enter Profile PIN",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
+                    color = if (isSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface,
                 )
 
                 Text(
-                    text = if (isError) "Incorrect PIN. Try again." else "Profile '${profile.name}' is PIN protected.",
+                    text = when {
+                        isError -> "Incorrect PIN. Try again."
+                        isSuccess -> "Switching to '${profile.name}'…"
+                        isVerifying -> "Verifying security PIN…"
+                        else -> "Profile '${profile.name}' is PIN protected."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = when {
+                        isError -> MaterialTheme.colorScheme.error
+                        isSuccess -> Color(0xFF81C784)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
 
@@ -143,13 +207,14 @@ fun PinCodeDialog(
                 BasicTextField(
                     value = enteredPin,
                     onValueChange = { input ->
-                        if (input.all { it.isDigit() } && input.length <= expectedPinLength) {
+                        if (!isVerifying && !isSuccess && input.all { it.isDigit() } && input.length <= expectedPinLength) {
                             enteredPin = input
                             if (input.length == expectedPinLength) {
                                 verify(input)
                             }
                         }
                     },
+                    enabled = !isVerifying && !isSuccess,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     modifier = Modifier
                         .size(1.dp)
@@ -163,40 +228,67 @@ fun PinCodeDialog(
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { focusRequester.requestFocus() },
+                        onClick = {
+                            if (!isVerifying && !isSuccess) focusRequester.requestFocus()
+                        },
                     ),
                 ) {
                     for (i in 0 until expectedPinLength) {
                         val isFilled = i < enteredPin.length
-                        val isFocused = i == enteredPin.length
+                        val isFocused = i == enteredPin.length && !isVerifying && !isSuccess
 
                         val cellBorder = when {
                             isError -> MaterialTheme.colorScheme.error
+                            isSuccess -> Color(0xFF4CAF50)
                             isFocused -> MaterialTheme.colorScheme.primary
-                            isFilled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            isFilled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                             else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                         }
 
                         val cellBg = when {
                             isError -> MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+                            isSuccess -> Color(0xFF4CAF50).copy(alpha = 0.12f)
                             isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                         }
+
+                        val dotScale by animateFloatAsState(
+                            targetValue = if (isFilled) 1f else 0f,
+                            animationSpec = spring(
+                                dampingRatio = 0.58f,
+                                stiffness = Spring.StiffnessMedium,
+                            ),
+                            label = "DotScale_$i",
+                        )
 
                         Box(
                             modifier = Modifier
                                 .size(46.dp, 54.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(cellBg)
-                                .border(if (isFocused || isError) 2.dp else 1.dp, cellBorder, RoundedCornerShape(12.dp)),
+                                .border(
+                                    if (isFocused || isError || isSuccess) 2.dp else 1.dp,
+                                    cellBorder,
+                                    RoundedCornerShape(12.dp),
+                                ),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (isFilled) {
+                            if (dotScale > 0.01f) {
                                 Box(
                                     modifier = Modifier
-                                        .size(12.dp)
+                                        .size(13.dp)
+                                        .graphicsLayer {
+                                            scaleX = dotScale
+                                            scaleY = dotScale
+                                        }
                                         .clip(CircleShape)
-                                        .background(if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                                        .background(
+                                            when {
+                                                isError -> MaterialTheme.colorScheme.error
+                                                isSuccess -> Color(0xFF4CAF50)
+                                                else -> MaterialTheme.colorScheme.primary
+                                            },
+                                        ),
                                 )
                             }
                         }
@@ -209,7 +301,10 @@ fun PinCodeDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                TextButton(onClick = onDismiss) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !isVerifying && !isSuccess,
+                ) {
                     Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

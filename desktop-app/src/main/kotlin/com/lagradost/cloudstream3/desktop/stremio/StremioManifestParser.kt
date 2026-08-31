@@ -12,7 +12,13 @@ object StremioManifestParser {
         val name = root["name"]?.asText() ?: id
         val description = root["description"]?.asText() ?: ""
         val version = root["version"]?.asText() ?: "1.0.0"
-        val logoUrl = root["logo"]?.asText()
+        
+        // Artwork fallback: logo -> icon -> background
+        val logoUrl = root["logo"]?.asText()?.takeIf { it.isNotBlank() }
+            ?: root["icon"]?.asText()?.takeIf { it.isNotBlank() }
+            ?: root["background"]?.asText()?.takeIf { it.isNotBlank() }
+
+        val backgroundUrl = root["background"]?.asText()?.takeIf { it.isNotBlank() }
 
         val defaultTypes = root["types"]?.mapNotNull { it.asText() } ?: emptyList()
         val defaultPrefixes = root["idPrefixes"]?.mapNotNull { it.asText() } ?: emptyList()
@@ -43,6 +49,18 @@ object StremioManifestParser {
             }
         }
 
+        val catalogs = mutableListOf<StremioCatalogDescriptor>()
+        root["catalogs"]?.forEach { node ->
+            if (node.isObject) {
+                val catId = node["id"]?.asText() ?: ""
+                val catName = node["name"]?.asText() ?: catId
+                val catType = node["type"]?.asText() ?: ""
+                if (catName.isNotBlank()) {
+                    catalogs.add(StremioCatalogDescriptor(id = catId, name = catName, type = catType))
+                }
+            }
+        }
+
         val behaviorHintsNode = root["behaviorHints"]
         val behaviorHints = if (behaviorHintsNode != null && behaviorHintsNode.isObject) {
             StremioBehaviorHints(
@@ -61,9 +79,11 @@ object StremioManifestParser {
             description = description,
             version = version,
             logoUrl = logoUrl,
+            backgroundUrl = backgroundUrl,
             resources = resources,
             types = defaultTypes,
             idPrefixes = defaultPrefixes,
+            catalogs = catalogs,
             behaviorHints = behaviorHints,
             transportUrl = manifestUrl,
         )

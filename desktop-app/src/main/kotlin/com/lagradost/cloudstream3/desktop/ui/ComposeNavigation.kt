@@ -129,11 +129,21 @@ fun CloudstreamApp(rootComponent: RootComponent) {
         }
     }
 
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        val launcher: (VideoLaunchData) -> Unit = { currentVideo = it }
+        com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(launcher)
+        onDispose {
+            com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(null)
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalVideoPlayer provides { currentVideo = it },
         LocalVideoPlayerActive provides (currentVideo != null),
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
+        com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.GlobalNetworkStreamDialog()
+
         val appColorScheme = com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme(primaryColor, desktopColors, isLightMode)
 
         androidx.compose.material3.MaterialTheme(colorScheme = appColorScheme, typography = typography) {

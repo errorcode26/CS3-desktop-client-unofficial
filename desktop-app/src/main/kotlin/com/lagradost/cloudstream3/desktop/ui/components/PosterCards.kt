@@ -133,8 +133,9 @@ fun PosterCard(
     val posterHoverGlowEnabled = style.hoverGlowEnabled
 
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val displayTitle = remember(item.name, autoCleanTitles) {
-        if (autoCleanTitles) {
+    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+    val displayTitle = remember(item.name, autoCleanTitles, isCleanMode) {
+        if (autoCleanTitles || isCleanMode) {
             CardTitleSanitizer.sanitize(item.name, autoClean = true).displayTitle
         } else {
             item.name
@@ -402,8 +403,9 @@ fun WatchHistoryCard(
 
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val displayTitle = remember(history.showName, autoCleanTitles) {
-        if (autoCleanTitles) {
+    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+    val displayTitle = remember(history.showName, autoCleanTitles, isCleanMode) {
+        if (autoCleanTitles || isCleanMode) {
             CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
         } else {
             history.showName
@@ -544,7 +546,7 @@ fun WatchHistoryCard(
                     .align(Alignment.TopStart)
                     .padding(12.dp),
             ) {
-                if (provider != null) {
+                if (provider != null && !isCleanMode) {
                     when (providerBadgeDisplayMode) {
                         ProviderBadgeDisplayMode.HIDDEN -> {
                             // Clean Mode: Scraper name hidden

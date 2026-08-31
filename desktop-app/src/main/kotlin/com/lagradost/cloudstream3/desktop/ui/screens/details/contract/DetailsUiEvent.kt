@@ -18,4 +18,5 @@ sealed interface DetailsUiEvent : UiEvent {
     data class OnToggleSeasonWatched(val episodes: List<com.lagradost.cloudstream3.Episode>, val isWatched: Boolean) : DetailsUiEvent
     data class OnToggleEpisodesStackedView(val isStacked: Boolean) : DetailsUiEvent
     data class OnSetEpisodeViewMode(val viewMode: Int) : DetailsUiEvent
+    data object OnRefresh : DetailsUiEvent
 }

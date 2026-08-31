@@ -438,17 +438,6 @@ object LocalStreamProxy {
                 mergedHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
 
-            if (mergedHeaders.keys.none { it.equals("Referer", ignoreCase = true) }) {
-                try {
-                    val uri = java.net.URI(url)
-                    val origin = "${uri.scheme}://${uri.host}"
-                    mergedHeaders["Referer"] = "$origin/"
-                    if (mergedHeaders.keys.none { it.equals("Origin", ignoreCase = true) }) {
-                        mergedHeaders["Origin"] = origin
-                    }
-                } catch (ignored: Exception) {}
-            }
-
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
             mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
 

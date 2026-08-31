@@ -506,6 +506,16 @@ fun BrowseTab(
 
             // Normal populated grid
             else -> {
+                val installedPluginKeys = remember(uiState.installedPlugins) {
+                    val set = mutableSetOf<String>()
+                    uiState.installedPlugins.forEach { installed ->
+                        val parent = installed.file.parentFile?.name ?: ""
+                        set.add("$parent:${installed.internalName}")
+                        set.add(installed.internalName)
+                    }
+                    set
+                }
+
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = extMinSize),
                     modifier = Modifier.fillMaxSize(),
@@ -519,11 +529,11 @@ fun BrowseTab(
                             ?: uiState.remotePluginIcons[plugin.name]
 
                         var isInstalling by remember { mutableStateOf(false) }
-                        val isPluginInstalled = remember(plugin, repoName, uiState.installedPlugins) {
-                            val cleanRepo = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                            uiState.installedPlugins.any {
-                                it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repoName)
-                            }
+                        val cleanRepo = remember(repoName) { repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_") }
+                        val isPluginInstalled = remember(plugin.internalName, cleanRepo, installedPluginKeys) {
+                            installedPluginKeys.contains("$cleanRepo:${plugin.internalName}") ||
+                                installedPluginKeys.contains("$repoName:${plugin.internalName}") ||
+                                installedPluginKeys.contains(plugin.internalName)
                         }
                         var installStatus by remember(plugin, isPluginInstalled, syncGeneration) {
                             mutableStateOf(if (isPluginInstalled) "Installed" else "")

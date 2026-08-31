@@ -2964,14 +2964,12 @@ body.is-pip #volumeOsd.show {
 }
 
 .hidden-controls .skip-pill-btn {
-    bottom: 36px;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(16px) scale(0.95) !important;
 }
 
-.hidden-controls .skip-pill-btn.idle-faded {
-    opacity: 0.65;
-}
-
-.skip-pill-btn:hover, .hidden-controls .skip-pill-btn.idle-faded:hover {
+.skip-pill-btn:hover {
     background: rgba(28, 34, 52, 0.95);
     border-color: rgba(255, 255, 255, 0.4);
     transform: translateY(-2px) scale(1.02);

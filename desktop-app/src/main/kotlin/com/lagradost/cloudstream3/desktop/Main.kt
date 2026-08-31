@@ -151,18 +151,15 @@ fun main(args: Array<String> = emptyArray()) {
                 com.lagradost.cloudstream3.desktop.ui.LocalComposeWindow provides window,
             ) {
                 var isAppReady by remember { mutableStateOf(false) }
-                var startupStatus by remember { mutableStateOf("Initializing security & database...") }
 
                 LaunchedEffect(Unit) {
                     launch(Dispatchers.IO) {
                         val proxyJob = async { initProxy() }
 
                         // Strict dependency: Security (DataStore, Conscrypt) must init first
-                        startupStatus = "Initializing security & database..."
                         initSecurity()
 
                         // Network and Providers can initialize simultaneously
-                        startupStatus = "Connecting network & streaming proxy..."
                         val networkJob = async { initNetwork() }
                         val providersJob = async { initProviders() }
 
@@ -170,11 +167,9 @@ fun main(args: Array<String> = emptyArray()) {
                         providersJob.await()
 
                         // Plugins require network and providers to be ready
-                        startupStatus = "Loading plugins & scrapers..."
                         initPlugins()
 
                         // API and Repository init can run simultaneously
-                        startupStatus = "Syncing repositories & catalogs..."
                         val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
                         val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
 
@@ -182,7 +177,6 @@ fun main(args: Array<String> = emptyArray()) {
                         apiJob.await()
                         proxyJob.await()
 
-                        startupStatus = "Preparing interface..."
                         // Pre-warm settings and appearance classes in background
                         try {
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession")
@@ -228,7 +222,7 @@ fun main(args: Array<String> = emptyArray()) {
                             }
                             AppUpdateDialog()
                         } else {
-                            com.lagradost.cloudstream3.desktop.ui.components.AppStartupSplashScreen(statusText = startupStatus)
+                            com.lagradost.cloudstream3.desktop.ui.components.AppStartupSplashScreen()
                         }
                     }
                 }

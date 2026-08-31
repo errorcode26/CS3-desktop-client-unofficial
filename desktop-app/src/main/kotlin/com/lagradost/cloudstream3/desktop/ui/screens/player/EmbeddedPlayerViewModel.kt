@@ -190,6 +190,10 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
         super.dispose()
         loadLinksJob?.cancel()
         saveJob?.cancel()
+        countdownJob?.cancel()
+        timeoutJob?.cancel()
+        preScrapeJob?.cancel()
+        updateState { copy(launchData = null, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
     }
 
     override fun handleEvent(event: PlayerUiEvent) {
@@ -493,92 +497,95 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
     private fun init(initialData: VideoLaunchData) {
         linkRetries.clear()
-        if (uiState.value.launchData == null) {
-            val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
-            val adjustedData = if (isFinished) {
-                initialData.copy(
-                    startPositionMs = 0L,
-                    history = initialData.history.copy(position = 0L),
-                )
-            } else {
-                initialData
-            }
-            updateState { copy(launchData = adjustedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
+        loadLinksJob?.cancel()
+        countdownJob?.cancel()
+        timeoutJob?.cancel()
+        preScrapeJob?.cancel()
 
-            // If launched from history without full metadata, fetch it in the background
-            // This is required to populate the episode list so "Auto Next" and the Episodes panel work!
-            if (adjustedData.loadResponse == null) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    try {
-                        val apiName = adjustedData.history.apiName
-                        val showUrl = adjustedData.history.showUrl
-                        val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
-                            it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
-                        } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
-                        if (provider != null) {
-                            val res = SafePluginInvoker.invokeOrNull(
-                                tag = "HistoryLaunch:${provider.name}",
-                                timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
-                            ) {
-                                provider.load(adjustedData.history.showUrl)
-                            }
-                            if (res is com.lagradost.cloudstream3.LoadResponse) {
-                                updateState {
-                                    val currentLaunch = launchData
-                                    if (currentLaunch != null) {
-                                        copy(launchData = currentLaunch.copy(loadResponse = res))
-                                    } else {
-                                        this
-                                    }
+        val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
+        val adjustedData = if (isFinished) {
+            initialData.copy(
+                startPositionMs = 0L,
+                history = initialData.history.copy(position = 0L),
+            )
+        } else {
+            initialData
+        }
+        updateState { copy(launchData = adjustedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
+
+        // If launched from history without full metadata, fetch it in the background
+        // This is required to populate the episode list so "Auto Next" and the Episodes panel work!
+        if (adjustedData.loadResponse == null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val apiName = adjustedData.history.apiName
+                    val showUrl = adjustedData.history.showUrl
+                    val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                        it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                    } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+                    if (provider != null) {
+                        val res = SafePluginInvoker.invokeOrNull(
+                            tag = "HistoryLaunch:${provider.name}",
+                            timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                        ) {
+                            provider.load(adjustedData.history.showUrl)
+                        }
+                        if (res is com.lagradost.cloudstream3.LoadResponse) {
+                            updateState {
+                                val currentLaunch = launchData
+                                if (currentLaunch != null) {
+                                    copy(launchData = currentLaunch.copy(loadResponse = res))
+                                } else {
+                                    this
                                 }
                             }
                         }
-                    } catch (e: Throwable) {
-                        com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                     }
+                } catch (e: Throwable) {
+                    com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                 }
             }
+        }
 
-            // Auto-scrape initial episode if links are empty
-            if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
-                val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
-                val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
-                val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
-                    it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
-                } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
-                if (provider != null) {
-                    val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
-                        this.name = adjustedData.history.showName
-                        this.season = adjustedData.history.season
-                        this.episode = adjustedData.history.episode
-                    }
-                    updateState {
-                        copy(
-                            phase = PlayerPhase.Scraping,
-                            targetEpisodeData = targetEp,
-                            nextEpisodeLinks = emptyList(),
-                            nextEpisodeSubtitles = adjustedData.subtitles,
-                        )
-                    }
+        // Auto-scrape initial episode if links are empty
+        if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
+            val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
+            val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
+            val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+            } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+            if (provider != null) {
+                val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
+                    this.name = adjustedData.history.showName
+                    this.season = adjustedData.history.season
+                    this.episode = adjustedData.history.episode
+                }
+                updateState {
+                    copy(
+                        phase = PlayerPhase.Scraping,
+                        targetEpisodeData = targetEp,
+                        nextEpisodeLinks = emptyList(),
+                        nextEpisodeSubtitles = adjustedData.subtitles,
+                    )
+                }
 
-                    loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                        scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
-                    }
-                } else {
-                    // Plugin not installed or apiName unknown — can't scrape, can't play.
-                    // Surface an error immediately rather than leaving the player on a blank screen.
-                    AppLogger.e("EmbeddedPlayerViewModel", "Provider not found for apiName='$apiName'. Cannot scrape links.")
-                    sendEffect(PlayerUiEffect.ShowError("Plugin not found — cannot load video."))
-                    sendEffect(PlayerUiEffect.ClosePlayer)
+                loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
+                    scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
                 }
-            } else if (adjustedData.links.isNotEmpty()) {
-                // Links already provided at launch (e.g. direct open) — pick immediately
-                val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
-                if (best != null) {
-                    updatePhase(PlayerPhase.Probing(best, false))
-                } else {
-                    updatePhase(PlayerPhase.Idle)
-                }
+            } else {
+                // Plugin not installed or apiName unknown — can't scrape, can't play.
+                // Surface an error immediately rather than leaving the player on a blank screen.
+                AppLogger.e("EmbeddedPlayerViewModel", "Provider not found for apiName='$apiName'. Cannot scrape links.")
+                sendEffect(PlayerUiEffect.ShowError("Plugin not found — cannot load video."))
+                sendEffect(PlayerUiEffect.ClosePlayer)
+            }
+        } else if (adjustedData.links.isNotEmpty()) {
+            // Links already provided at launch (e.g. direct open) — pick immediately
+            val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
+            if (best != null) {
+                updatePhase(PlayerPhase.Probing(best, false))
+            } else {
+                updatePhase(PlayerPhase.Idle)
             }
         }
     }
@@ -907,19 +914,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
 
         val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
 
-        if (!autoPlay) {
-            val sortedLinks = sortLinks(current.links, startPos)
-            val bestLink = pickBestActiveLink(sortedLinks, uiState.value.failedLinks.keys, startPos)
-            if (bestLink != null) {
-                updatePhase(PlayerPhase.Probing(bestLink, false))
-            } else {
-                updatePhase(PlayerPhase.Idle)
-            }
-            return
-        }
-
         val cached = LinkCache.get(targetEpisodeId)
-        if (cached != null) {
+        if (cached != null && cached.links.isNotEmpty()) {
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
             val sortedLinks = sortLinks(cached.links, startPos)
 

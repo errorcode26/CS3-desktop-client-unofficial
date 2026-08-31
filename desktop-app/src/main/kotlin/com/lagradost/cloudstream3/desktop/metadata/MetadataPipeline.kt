@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.desktop.metadata.providers.AniListMetadataProv
 import com.lagradost.cloudstream3.desktop.metadata.providers.CinemetaMetadataProvider
 import com.lagradost.cloudstream3.desktop.metadata.providers.KitsuMetadataProvider
 import com.lagradost.cloudstream3.desktop.metadata.providers.TmdbMetadataProvider
+import com.lagradost.cloudstream3.desktop.metadata.providers.TvMazeMetadataProvider
 import com.lagradost.cloudstream3.desktop.repo.HeroCache
 import com.lagradost.cloudstream3.desktop.repo.HeroMeta
 import com.lagradost.cloudstream3.desktop.utils.TitleUtils
@@ -31,6 +32,7 @@ object MetadataPipeline {
 
     private val providers = mutableListOf<MetadataProvider>(
         TmdbMetadataProvider,
+        TvMazeMetadataProvider,
         AniListMetadataProvider,
         KitsuMetadataProvider,
         CinemetaMetadataProvider,
@@ -113,15 +115,21 @@ object MetadataPipeline {
             val isAnime = loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
                 loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
                 loaded.type == com.lagradost.cloudstream3.TvType.OVA
-
             val sortedResolvers = supportedProviders.sortedWith(
                 compareBy(
-                    { if (isAnime) (if (it.id == "kitsu") 0 else if (it.id == "anilist") 1 else 2) else (if (it.id == "cinemeta") 0 else 1) },
+                    {
+                        if (isAnime) {
+                            val primary = MetadataConfig.animePrimaryProvider.value
+                            if (it.id == primary) 0 else if (it.id == "anilist" || it.id == "kitsu") 1 else 2
+                        } else {
+                            if (it.id == "cinemeta") 0 else 1
+                        }
+                    },
                     { it.priority },
                 )
             )
 
-            // 3. Resolve Media Identity (Stage 1 Resolvers with In-Flight Deduplication)
+            // 3. Resolve Media Identity (Stage 1 Resolvers with Concurrent Search & Deduplication)
             val identityKey = "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
             var activeMatch: MetadataMatch? = identityCache[identityKey]
 
@@ -134,38 +142,55 @@ object MetadataPipeline {
 
                 if (isInitiator) {
                     try {
-                        var resolved: MetadataMatch? = null
-                        for (resolver in sortedResolvers) {
-                            try {
-                                val match = resolver.resolve(loaded.name, loaded.year, loaded.type, urlClean)
-                                if (match != null) {
-                                    AppLogger.i(TAG, "✓ Resolved match via ${resolver.id}: '${match.matchedTitle}' (IMDb: ${match.imdbId}, TMDB: ${match.tmdbId}, AniList: ${match.anilistId})")
-                                    resolved = match
-                                    break
+                        val resolved = coroutineScope {
+                            // Execute resolvers in parallel for maximum speed
+                            val asyncList = sortedResolvers.map { resolver ->
+                                resolver to async(Dispatchers.IO) {
+                                    try {
+                                        resolver.resolve(loaded.name, loaded.year, loaded.type, urlClean)
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        AppLogger.w(TAG, "Resolver ${resolver.id} failed for '$cleanName'", e)
+                                        null
+                                    }
                                 }
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                AppLogger.w(TAG, "Resolver ${resolver.id} threw an exception", e)
                             }
+
+                            // Choose the highest priority resolved match in order
+                            var bestMatch: MetadataMatch? = null
+                            for ((resolver, asyncJob) in asyncList) {
+                                val match = asyncJob.await()
+                                if (match != null && bestMatch == null) {
+                                    bestMatch = match
+                                    AppLogger.i(TAG, "✓ Stage 1 Identity Resolved by ${resolver.id} -> '${match.matchedTitle}' (${match.matchedYear})")
+                                }
+                            }
+                            bestMatch
+                        }
+
+                        if (resolved != null) {
+                            identityCache[identityKey] = resolved
                         }
                         deferred.complete(resolved)
-                    } catch (t: Throwable) {
-                        deferred.completeExceptionally(t)
+                    } catch (e: Throwable) {
+                        deferred.completeExceptionally(e)
+                        throw e
                     } finally {
                         inFlightResolutions.remove(identityKey)
                     }
                 }
 
-                activeMatch = deferred.await()
-                if (activeMatch != null) {
-                    identityCache[identityKey] = activeMatch
+                activeMatch = try {
+                    deferred.await()
+                } catch (_: Exception) {
+                    null
                 }
             } else {
                 AppLogger.i(TAG, "✓ Reusing cached match for '$cleanName' (IMDb: ${activeMatch.imdbId}, TMDB: ${activeMatch.tmdbId})")
             }
 
-            // 4. Progressive Enrichment (Stage 1 -> Stage 2+)
+            // 4. Progressive Enrichment (Stage 1 -> Stage 2+ Concurrent Execution)
             val context = MetadataEnrichmentContext(
                 rawUrl = if (isDummy) "dummy_$urlClean" else urlClean,
                 isDummy = isDummy,
@@ -176,19 +201,32 @@ object MetadataPipeline {
 
             val sortedEnrichers = supportedProviders.sortedWith(
                 compareBy(
-                    { if (isAnime) (if (it.id == "kitsu") 0 else if (it.id == "anilist") 1 else 2) else (if (it.id == "tmdb") 0 else 1) },
+                    {
+                        if (isAnime) {
+                            val primary = MetadataConfig.animePrimaryProvider.value
+                            if (it.id == primary) 0 else if (it.id == "anilist" || it.id == "kitsu") 1 else 2
+                        } else {
+                            if (it.id == "tmdb") 0 else 1
+                        }
+                    },
                     { it.priority },
                 )
             )
 
-            for (enricher in sortedEnrichers) {
-                try {
-                    enricher.enrich(loaded, activeMatch, context, callbacks)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "Enricher ${enricher.id} failed", e)
+            // Run enrichers in parallel so total time = max(provider time) instead of sum(provider time)
+            coroutineScope {
+                val enrichJobs = sortedEnrichers.map { enricher ->
+                    async(Dispatchers.IO) {
+                        try {
+                            enricher.enrich(loaded, activeMatch, context, callbacks)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e(TAG, "Enricher ${enricher.id} failed", e)
+                        }
+                    }
                 }
+                enrichJobs.forEach { it.await() }
             }
 
             // 5. Store high-res metadata into Hero cache

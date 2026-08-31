@@ -690,6 +690,50 @@
         .sub-lang-pill.por, .sub-lang-pill.pob { background: rgba(233,30,99,0.15) !important; border: 1px solid rgba(233,30,99,0.35) !important; color: #f48fb1 !important; }
         .sub-lang-pill.other { background: rgba(255,255,255,0.08) !important; border: 1px solid rgba(255,255,255,0.15) !important; color: #ddd !important; }
 
+        .live-badge-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
+            padding: 3px 9px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #aaa;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .live-badge-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+            color: #fff;
+        }
+        .live-badge-btn.is-live {
+            background: rgba(229, 57, 53, 0.18);
+            border-color: rgba(229, 57, 53, 0.45);
+            color: #ff5252;
+        }
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #888;
+            transition: background 0.3s ease;
+        }
+        .live-badge-btn.is-live .live-dot {
+            background: #e53935;
+            box-shadow: 0 0 8px #e53935;
+            animation: livePulse 1.5s infinite ease-in-out;
+        }
+        @keyframes livePulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
         .sub-download-btn {
             background: rgba(255,255,255,0.08) !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
@@ -2033,6 +2077,11 @@
                 </div>
                 <!-- Time Display -->
                 <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>
+                <!-- Live Badge -->
+                <button id="liveBadgeBtn" class="live-badge-btn hidden" onclick="window.seekToLiveEdge && window.seekToLiveEdge()" title="Jump to Live Broadcast">
+                    <span class="live-dot"></span>
+                    <span class="live-text">LIVE</span>
+                </button>
             </div>
 
             <!-- Right: utility buttons -->
@@ -2415,16 +2464,55 @@
         overlay.classList.remove('hidden-controls');
         document.body.classList.remove('hidden-controls');
         clearTimeout(hideTimer);
-        if (!isMenuOpen && globalIsPlaying) {
+        if (!isMenuOpen) {
             hideTimer = setTimeout(() => {
-                overlay.classList.add('hidden-controls');
-                document.body.classList.add('hidden-controls');
+                if (!isMenuOpen) {
+                    overlay.classList.add('hidden-controls');
+                    document.body.classList.add('hidden-controls');
+                }
             }, 3500);
         }
     };
+    window.showControls = showControls;
+    window.onNativeKeyActivity = (isSeeking = false) => {
+        if (isSeeking && document.body.classList.contains('hidden-controls')) {
+            return;
+        }
+        showControls();
+    };
+    window.triggerSeekFeedback = (dir) => {
+        if (dir === 'left') {
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else {
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
+    };
+
+    window.addEventListener('pointerdown', (e) => {
+        if (e.button === 3) {
+            // Mouse 4 (Back) -> Seek -10s
+            e.preventDefault();
+            e.stopPropagation();
+            doRelativeSeek(-10000);
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else if (e.button === 4) {
+            // Mouse 5 (Forward) -> Seek +10s
+            e.preventDefault();
+            e.stopPropagation();
+            doRelativeSeek(10000);
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
+    });
+
     document.addEventListener('mousemove', showControls);
     document.addEventListener('click', showControls);
-    document.addEventListener('keydown', showControls);
+    document.addEventListener('keydown', (e) => {
+        const isSeekKey = e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyJ' || e.code === 'KeyL';
+        if (isSeekKey && document.body.classList.contains('hidden-controls')) {
+            return;
+        }
+        showControls();
+    });
 
     // Panel Management
     const closeAllPanels = () => {
@@ -2605,16 +2693,79 @@
         }
     };
 
+    let isLiveStream = false;
+    let maxObservedLivePosMs = 0;
+
+    window.seekToLiveEdge = () => {
+        send('seekLive');
+        send('play');
+        const liveBadge = document.getElementById('liveBadgeBtn');
+        if (liveBadge) liveBadge.classList.add('is-live');
+        if (timeDisplay) timeDisplay.innerText = 'LIVE';
+    };
+
     const handleStateUpdate = (s) => {
         if (typeof s.durationMs === 'number') durationMs = s.durationMs;
         const incomingPos = (typeof s.positionMs === 'number') ? s.positionMs : currentPosMs;
 
-        if (isSeeking) {
-            // While seeking, ignore MPV position updates (they lag behind)
-            // But if MPV sends a position close to what we requested, release the lock
-            if (Math.abs(incomingPos - currentPosMs) < 2000 && incomingPos >= 0) {
-                clearTimeout(seekLockTimer);
-                isSeeking = false;
+        const liveBadge = document.getElementById('liveBadgeBtn');
+        const isCurrentLive = isLiveStream || (durationMs <= 0 && incomingPos > 0);
+
+        if (isCurrentLive) {
+            if (liveBadge) liveBadge.classList.remove('hidden');
+            if (nextEpBtn) nextEpBtn.classList.add('hidden');
+            if (episodesBtn) episodesBtn.classList.add('hidden');
+
+            if (incomingPos > maxObservedLivePosMs) {
+                maxObservedLivePosMs = incomingPos;
+            }
+            if (s.bufferMs && s.bufferMs > maxObservedLivePosMs) {
+                maxObservedLivePosMs = s.bufferMs;
+            }
+
+            currentPosMs = incomingPos;
+            const delayBehindLiveMs = Math.max(0, maxObservedLivePosMs - currentPosMs);
+
+            if (delayBehindLiveMs <= 6000) {
+                if (liveBadge) liveBadge.classList.add('is-live');
+                timeDisplay.innerText = 'LIVE';
+            } else {
+                if (liveBadge) liveBadge.classList.remove('is-live');
+                timeDisplay.innerText = '-' + fmt(delayBehindLiveMs);
+            }
+
+            // DVR Seekbar calculation: sliding buffer window
+            const dvrWindowMs = Math.max(30000, Math.min(300000, maxObservedLivePosMs));
+            const windowStartMs = Math.max(0, maxObservedLivePosMs - dvrWindowMs);
+            const progressInWindow = Math.max(0, currentPosMs - windowStartMs);
+            const pct = Math.min(100, Math.max(0, (progressInWindow / dvrWindowMs) * 100));
+            seekFill.style.width = `${pct}%`;
+            seekBar.value = pct * 10;
+        } else {
+            if (liveBadge && !isLiveStream) liveBadge.classList.add('hidden');
+
+            if (isSeeking) {
+                // While seeking, ignore MPV position updates (they lag behind)
+                // But if MPV sends a position close to what we requested, release the lock
+                if (Math.abs(incomingPos - currentPosMs) < 2000 && incomingPos >= 0) {
+                    clearTimeout(seekLockTimer);
+                    isSeeking = false;
+                    currentPosMs = incomingPos;
+                    if (durationMs > 0) {
+                        let pct = (currentPosMs / durationMs) * 100;
+                        pct = Math.max(0, Math.min(100, pct));
+                        seekFill.style.width = `${pct}%`;
+                        seekBar.value = pct * 10;
+                        
+                        if (typeof s.bufferMs === 'number') {
+                            let bufPct = (s.bufferMs / durationMs) * 100;
+                            bufPct = Math.max(0, Math.min(100, bufPct));
+                            seekBuffer.style.width = `${bufPct}%`;
+                        }
+                    }
+                }
+                // Otherwise keep ignoring (MPV is still catching up)
+            } else {
                 currentPosMs = incomingPos;
                 if (durationMs > 0) {
                     let pct = (currentPosMs / durationMs) * 100;
@@ -2629,23 +2780,8 @@
                     }
                 }
             }
-            // Otherwise keep ignoring (MPV is still catching up)
-        } else {
-            currentPosMs = incomingPos;
-            if (durationMs > 0) {
-                let pct = (currentPosMs / durationMs) * 100;
-                pct = Math.max(0, Math.min(100, pct));
-                seekFill.style.width = `${pct}%`;
-                seekBar.value = pct * 10;
-                
-                if (typeof s.bufferMs === 'number') {
-                    let bufPct = (s.bufferMs / durationMs) * 100;
-                    bufPct = Math.max(0, Math.min(100, bufPct));
-                    seekBuffer.style.width = `${bufPct}%`;
-                }
-            }
+            timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
         }
-        timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
         
         const wasPlaying = globalIsPlaying;
         if (s.isPlaying !== undefined) {
@@ -3168,8 +3304,23 @@
 
         evaluateResumeOverlay();
         evaluateUIStates();
+
+        if (meta.isLive !== undefined) {
+            isLiveStream = !!meta.isLive;
+        }
+        const liveBadge = document.getElementById('liveBadgeBtn');
+        if (liveBadge) {
+            if (isLiveStream) {
+                liveBadge.classList.remove('hidden');
+                if (nextEpBtn) nextEpBtn.classList.add('hidden');
+                if (episodesBtn) episodesBtn.classList.add('hidden');
+            } else {
+                liveBadge.classList.add('hidden');
+            }
+        }
+
         // Episodes
-        if (meta.episodes && meta.episodes.length > 0) {
+        if (!isLiveStream && meta.episodes && meta.episodes.length > 0) {
             episodesBtn.classList.remove('hidden');
             episodesData = meta.episodes;
             document.getElementById('epPanelSub').innerText = `${meta.episodes.length} episodes`;
@@ -3932,16 +4083,7 @@
         } else if (clickCount === 2) {
             clearTimeout(clickTimer);
             clickCount = 0;
-            if (zoneName === 'left') {
-                doRelativeSeek(-10000);
-                triggerActionFeedback(SVGS.rewind10, 'left');
-            } else if (zoneName === 'right') {
-                doRelativeSeek(10000);
-                triggerActionFeedback(SVGS.forward10, 'right');
-            } else if (zoneName === 'center') {
-                send('togglePlay');
-                triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
-            }
+            send('toggleFullscreen');
         }
     };
 

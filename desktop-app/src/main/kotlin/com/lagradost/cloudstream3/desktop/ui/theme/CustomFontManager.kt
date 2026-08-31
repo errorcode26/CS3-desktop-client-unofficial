@@ -2,6 +2,10 @@ package com.lagradost.cloudstream3.desktop.ui.theme
 
 import com.lagradost.common.platform.PlatformPaths
 import java.io.File
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 object CustomFontManager {
     val BUILT_IN_FONTS = listOf(
         "Inter",
@@ -17,6 +21,12 @@ object CustomFontManager {
         "Pacifico",
         "Lobster",
     )
+
+    private val _availableFonts = MutableStateFlow<List<String>>(BUILT_IN_FONTS)
+    val availableFonts: StateFlow<List<String>> = _availableFonts.asStateFlow()
+
+    private val _userInstalledFonts = MutableStateFlow<List<String>>(emptyList())
+    val userInstalledFonts: StateFlow<List<String>> = _userInstalledFonts.asStateFlow()
 
     private var cachedFontFamilies: List<String>? = null
     private var cachedUserFonts: List<String>? = null
@@ -35,7 +45,7 @@ object CustomFontManager {
      * Retrieves a list of all available fonts (curated built-in + user-installed).
      */
     fun getAvailableFonts(): List<String> {
-        return (BUILT_IN_FONTS + getUserInstalledFonts()).distinct()
+        return _availableFonts.value
     }
 
     private val BUNDLED_FONT_MAP = mapOf(
@@ -79,6 +89,10 @@ object CustomFontManager {
         "ubuntu-regular.ttf" to "Ubuntu",
     )
 
+    init {
+        refreshCache()
+    }
+
     /**
      * Refreshes the in-memory font cache from disk.
      */
@@ -87,13 +101,19 @@ object CustomFontManager {
         if (!dir.exists() || !dir.isDirectory) {
             cachedUserFonts = emptyList()
             cachedFontFamilies = BUILT_IN_FONTS
+            _userInstalledFonts.value = emptyList()
+            _availableFonts.value = BUILT_IN_FONTS
             return BUILT_IN_FONTS
         }
 
         fontFileCache.clear()
         val files = dir.listFiles()
             ?.filter { it.isFile && (it.extension.equals("ttf", ignoreCase = true) || it.extension.equals("otf", ignoreCase = true) || it.extension.equals("woff", ignoreCase = true)) }
-            ?: return BUILT_IN_FONTS
+            ?: run {
+                _userInstalledFonts.value = emptyList()
+                _availableFonts.value = BUILT_IN_FONTS
+                return BUILT_IN_FONTS
+            }
 
         val userResults = mutableListOf<String>()
         for (file in files) {
@@ -119,6 +139,8 @@ object CustomFontManager {
         cachedUserFonts = distinctUser
         val allFonts = (BUILT_IN_FONTS + distinctUser).distinct()
         cachedFontFamilies = allFonts
+        _userInstalledFonts.value = distinctUser
+        _availableFonts.value = allFonts
         return allFonts
     }
 
@@ -186,5 +208,63 @@ object CustomFontManager {
             }
         }
         refreshCache()
+    }
+
+    /**
+     * Installs a custom font file (.ttf, .otf, .woff) to the fonts directory.
+     * Returns the detected or extracted font family name on success.
+     */
+    fun installFont(sourceFile: File): Result<String> {
+        return runCatching {
+            if (!sourceFile.exists() || !sourceFile.isFile) {
+                error("Selected file does not exist")
+            }
+            val ext = sourceFile.extension.lowercase()
+            if (ext !in listOf("ttf", "otf", "woff")) {
+                error("Unsupported font format: .$ext (only .ttf, .otf, and .woff are supported)")
+            }
+
+            val fontsDir = PlatformPaths.fontsDir
+            if (!fontsDir.exists()) fontsDir.mkdirs()
+
+            val targetFile = File(fontsDir, sourceFile.name)
+            sourceFile.copyTo(targetFile, overwrite = true)
+
+            // Extract family name
+            val familyName = try {
+                java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, targetFile).family
+            } catch (e: Exception) {
+                targetFile.nameWithoutExtension
+            }
+
+            refreshCache()
+            familyName
+        }
+    }
+
+    /**
+     * Deletes a user-installed font by name.
+     */
+    fun deleteFont(fontName: String): Boolean {
+        if (fontName in BUILT_IN_FONTS) return false
+        val file = getFontFile(fontName) ?: return false
+        val deleted = file.delete()
+        refreshCache()
+        return deleted
+    }
+
+    /**
+     * Opens the fonts directory in the system file manager.
+     */
+    fun openFontsDirectory() {
+        try {
+            val dir = PlatformPaths.fontsDir
+            if (!dir.exists()) dir.mkdirs()
+            if (java.awt.Desktop.isDesktopSupported()) {
+                java.awt.Desktop.getDesktop().open(dir)
+            }
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("CustomFontManager: Failed to open fonts directory", e)
+        }
     }
 }

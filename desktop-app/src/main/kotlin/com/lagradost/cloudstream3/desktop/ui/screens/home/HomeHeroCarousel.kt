@@ -156,7 +156,10 @@ fun HomeHeroCarousel(
             modifier = Modifier.fillMaxSize(),
             label = "hero_fade",
         ) { page ->
-            val item = displayItems[page]
+            val item = displayItems.getOrNull(page)
+                ?: displayItems.getOrNull(currentIndex)
+                ?: displayItems.firstOrNull()
+                ?: return@AnimatedContent
             val posterUrl = provider?.fixUrlNull(item.posterUrl)
             val meta = heroMetaMap[item.url]
             val ambientBg = meta?.backdropUrl ?: posterUrl
@@ -586,7 +589,7 @@ private fun BoxScope.HeroFilmstrip(
             if (displayItems.isNotEmpty()) {
                 items(Int.MAX_VALUE) { globalThumbIndex ->
                     val itemIndex = globalThumbIndex % displayItems.size
-                    val item = displayItems[itemIndex]
+                    val item = displayItems.getOrNull(itemIndex) ?: return@items
                     val posterUrl = provider?.fixUrlNull(item.posterUrl)
                     val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
                     val isSelected = globalThumbIndex == globalIndex

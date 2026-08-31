@@ -100,8 +100,9 @@ fun WatchHistoryCardWide(
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
 
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val displayTitle = remember(history.showName, autoCleanTitles) {
-        if (autoCleanTitles) {
+    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+    val displayTitle = remember(history.showName, autoCleanTitles, isCleanMode) {
+        if (autoCleanTitles || isCleanMode) {
             CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
         } else {
             history.showName
@@ -330,7 +331,7 @@ fun WatchHistoryCardWide(
                             }
 
                             // 🔌 Provider Branding (Controlled by Appearance Settings)
-                            if (provider != null) {
+                            if (provider != null && !isCleanMode) {
                                 when (providerBadgeDisplayMode) {
                                     ProviderBadgeDisplayMode.HIDDEN -> {
                                         // Clean mode: Zero scraper clutter

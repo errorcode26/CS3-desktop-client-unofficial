@@ -5,6 +5,7 @@ import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 enum class PosterTitlePosition {
     INSIDE,
@@ -142,6 +143,10 @@ enum class ProviderBadgeDisplayMode(val label: String) {
 
 object AppearanceConfig {
     private const val PREF_GLOBAL_UI_SCALE = "pref_global_ui_scale"
+    private const val PREF_CLEAN_MODE_ENABLED = "pref_clean_mode_master_enabled"
+    private const val PREF_HIDE_PROVIDER_NAMES = "pref_clean_mode_hide_provider_names"
+    private const val PREF_HIDE_DETAILS_SOURCE = "pref_clean_mode_hide_details_source"
+    private const val PREF_HIDE_STREAM_PROVIDERS = "pref_clean_mode_hide_stream_providers"
     private const val PREF_NAVIGATION_STYLE = "pref_navigation_style"
     private const val PREF_HERO_BANNER_STYLE = "pref_hero_banner_style"
     private const val PREF_TOP_BAR_PROVIDER_STYLE = "pref_top_bar_provider_style"
@@ -292,6 +297,14 @@ object AppearanceConfig {
     val continueWatchingStyle: StateFlow<ContinueWatchingStyle> = _continueWatchingStyle.asStateFlow()
     private val _topBarProviderStyle = MutableStateFlow(TopBarProviderStyle.fromString(DesktopDataStore.getKey<String>(PREF_TOP_BAR_PROVIDER_STYLE)))
     val topBarProviderStyle: StateFlow<TopBarProviderStyle> = _topBarProviderStyle.asStateFlow()
+    private val _cleanModeEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_CLEAN_MODE_ENABLED) ?: false)
+    val cleanModeEnabled: StateFlow<Boolean> = _cleanModeEnabled.asStateFlow()
+    private val _hideProviderNames = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_PROVIDER_NAMES) ?: true)
+    val hideProviderNames: StateFlow<Boolean> = _hideProviderNames.asStateFlow()
+    private val _hideDetailsSource = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_DETAILS_SOURCE) ?: true)
+    val hideDetailsSource: StateFlow<Boolean> = _hideDetailsSource.asStateFlow()
+    private val _hideStreamProviders = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_STREAM_PROVIDERS) ?: false)
+    val hideStreamProviders: StateFlow<Boolean> = _hideStreamProviders.asStateFlow()
     private val _providerBadgeDisplayMode = MutableStateFlow(ProviderBadgeDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_PROVIDER_BADGE_DISPLAY_MODE)))
     val providerBadgeDisplayMode: StateFlow<ProviderBadgeDisplayMode> = _providerBadgeDisplayMode.asStateFlow()
     private val _posterHoverGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true)
@@ -553,9 +566,58 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_TOP_BAR_PROVIDER_STYLE, style.name)
     }
 
+    fun setCleanModeEnabled(enabled: Boolean) {
+        _cleanModeEnabled.value = enabled
+        _hideProviderNames.value = enabled
+        _hideDetailsSource.value = enabled
+        _hideStreamProviders.value = enabled
+        if (enabled) {
+            _providerBadgeDisplayMode.value = ProviderBadgeDisplayMode.HIDDEN
+            com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig.setAutoCleanTitles(true)
+        }
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_CLEAN_MODE_ENABLED, enabled)
+            DesktopDataStore.setKey(PREF_HIDE_PROVIDER_NAMES, enabled)
+            DesktopDataStore.setKey(PREF_HIDE_DETAILS_SOURCE, enabled)
+            DesktopDataStore.setKey(PREF_HIDE_STREAM_PROVIDERS, enabled)
+            if (enabled) {
+                DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, ProviderBadgeDisplayMode.HIDDEN.name)
+            }
+        }
+    }
+
+    fun toggleCleanMode(): Boolean {
+        val next = !_cleanModeEnabled.value
+        setCleanModeEnabled(next)
+        return next
+    }
+
+    fun setHideProviderNames(enabled: Boolean) {
+        _hideProviderNames.value = enabled
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_HIDE_PROVIDER_NAMES, enabled)
+        }
+    }
+
+    fun setHideDetailsSource(enabled: Boolean) {
+        _hideDetailsSource.value = enabled
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_HIDE_DETAILS_SOURCE, enabled)
+        }
+    }
+
+    fun setHideStreamProviders(enabled: Boolean) {
+        _hideStreamProviders.value = enabled
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_HIDE_STREAM_PROVIDERS, enabled)
+        }
+    }
+
     fun setProviderBadgeDisplayMode(mode: ProviderBadgeDisplayMode) {
         _providerBadgeDisplayMode.value = mode
-        DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, mode.name)
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, mode.name)
+        }
     }
 
     fun setPosterHoverGlowEnabled(enabled: Boolean) {

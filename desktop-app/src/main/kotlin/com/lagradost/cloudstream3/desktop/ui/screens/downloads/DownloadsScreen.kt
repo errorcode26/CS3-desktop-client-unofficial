@@ -122,6 +122,28 @@ fun DownloadsScreen(
                     modifier = Modifier.width(240.dp).height(48.dp),
                 )
 
+                FilledTonalButton(
+                    onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.openLocalFileDialog() },
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier.height(48.dp),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Play Local File", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+
+                FilledTonalButton(
+                    onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.showNetworkStreamDialog = true },
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier.height(48.dp),
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Stream URL", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+
                 FilledTonalIconButton(
                     onClick = { viewModel.cleanOrphanedJunk() },
                     modifier = Modifier.size(44.dp),

@@ -88,12 +88,25 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Trakt Tracker", LeafTab.ACCOUNTS, listOf("trakt", "tracker", "movies", "shows", "sync", "scrobble"), uiLabel = "Trakt"),
         SettingsSearchEntry("Discord Rich Presence", LeafTab.ACCOUNTS, listOf("discord", "rpc", "rich presence", "status", "activity"), uiLabel = "Discord Rich Presence"),
 
-        // Extensions > External Addons & Integrations
-        SettingsSearchEntry("External Stremio Addons", LeafTab.ADDONS, listOf("stremio", "addon", "manifest", "subtitles", "opensubtitles", "cinemeta", "external"), uiLabel = "External Addons (Subtitles & Metadata)"),
-        SettingsSearchEntry("TMDB API Key & Metadata", LeafTab.INTEGRATIONS, listOf("tmdb", "metadata", "api key", "backdrops", "logos", "cast", "posters"), uiLabel = "TMDB"),
-        SettingsSearchEntry("AniList Metadata", LeafTab.INTEGRATIONS, listOf("anilist", "anime", "metadata", "voice", "cast", "characters"), uiLabel = "AniList Metadata"),
-        SettingsSearchEntry("Kitsu Anime Metadata", LeafTab.INTEGRATIONS, listOf("kitsu", "anime", "metadata"), uiLabel = "Kitsu"),
-        SettingsSearchEntry("Intro Skip Service API", LeafTab.INTEGRATIONS, listOf("skip", "intro", "outro", "aniskip", "introdb", "api"), uiLabel = "Intro & Outro Skipping"),
+        // Metadata & Integrations tab & Sub-screens
+        SettingsSearchEntry("Metadata & Integrations Hub", LeafTab.INTEGRATIONS, listOf("metadata", "integrations", "tmdb", "anilist", "kitsu", "stremio"), uiLabel = "Metadata & Integrations Hub"),
+        SettingsSearchEntry("The Movie Database (TMDB)", LeafTab.INTEGRATIONS, listOf("tmdb", "metadata", "api key", "backdrops", "logos", "cast", "posters", "language", "financials", "budget", "box office", "trailers", "networks", "studios"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "The Movie Database (TMDB)"),
+        SettingsSearchEntry("TMDB API Key", LeafTab.INTEGRATIONS, listOf("tmdb", "api key", "v3", "token", "custom key"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "TMDB API Key"),
+        SettingsSearchEntry("TMDB Metadata Language", LeafTab.INTEGRATIONS, listOf("tmdb", "language", "locale", "translation", "synopsis", "overviews", "titles"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Overview & Title Language"),
+        SettingsSearchEntry("Poster & Backdrop Language Priority", LeafTab.INTEGRATIONS, listOf("tmdb", "artwork", "poster", "backdrop", "image language", "textless"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Poster & Backdrop Language Priority"),
+        SettingsSearchEntry("Show Movie Financials", LeafTab.INTEGRATIONS, listOf("budget", "revenue", "box office", "financials", "gross", "earnings", "tmdb"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Show Movie Financials (Budget & Box Office)"),
+        SettingsSearchEntry("Separate TV Networks & Studios", LeafTab.INTEGRATIONS, listOf("networks", "studios", "hbo", "netflix", "warner bros", "broadcaster", "production", "tmdb"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Separate TV Networks & Production Studios"),
+        SettingsSearchEntry("Include Adult Content in TMDB", LeafTab.INTEGRATIONS, listOf("adult", "18+", "nsfw", "tmdb", "search", "filter"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Include Adult (18+) Content in TMDB Search"),
+        SettingsSearchEntry("TVmaze TV Metadata", LeafTab.INTEGRATIONS, listOf("tvmaze", "tv", "series", "schedules", "air dates", "prime video", "apple tv", "webchannel", "metadata"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "TVmaze TV Series Metadata"),
+        SettingsSearchEntry("Max Trailers to Load", LeafTab.INTEGRATIONS, listOf("trailers", "clips", "videos", "limit", "tmdb", "youtube"), subScreen = SettingsSubScreen.INTEGRATIONS_TMDB, uiLabel = "Maximum Trailers to Fetch"),
+        SettingsSearchEntry("Anime Engines Studio", LeafTab.INTEGRATIONS, listOf("anime", "anilist", "kitsu", "romaji", "voice actors", "characters", "simulcast", "countdown"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Anime Engines Studio"),
+        SettingsSearchEntry("Preferred Anime Title Language", LeafTab.INTEGRATIONS, listOf("romaji", "english", "native", "japanese", "title", "naming", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Preferred Title Language"),
+        SettingsSearchEntry("AniList Anime Metadata", LeafTab.INTEGRATIONS, listOf("anilist", "anime", "metadata", "voice", "cast", "characters", "simulcast", "air date", "graphql"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "AniList (Official GraphQL Engine)"),
+        SettingsSearchEntry("Kitsu Anime Metadata", LeafTab.INTEGRATIONS, listOf("kitsu", "anime", "metadata", "backup", "fallback", "rest"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Kitsu (REST API Fallback Engine)"),
+        SettingsSearchEntry("Japanese Voice Cast & Photos", LeafTab.INTEGRATIONS, listOf("voice", "cast", "seiyuu", "characters", "portraits", "photos", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Japanese Voice Cast & Character Photos"),
+        SettingsSearchEntry("Simulcast Schedules & Countdowns", LeafTab.INTEGRATIONS, listOf("simulcast", "air date", "countdown", "schedule", "locked", "episodes", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Simulcast Schedules & Airing Countdowns"),
+        SettingsSearchEntry("Anime Animation Studios", LeafTab.INTEGRATIONS, listOf("studio", "mappa", "ufotable", "madhouse", "bones", "badges", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Animation Studio Badges"),
+        SettingsSearchEntry("Stremio Metadata & Catalogs", LeafTab.INTEGRATIONS, listOf("stremio", "addon", "manifest", "cinemeta", "cyberflix", "metadata", "catalogs"), uiLabel = "Stremio Community Addons"),
 
         // Network tab
         SettingsSearchEntry("DNS over HTTPS (DoH)", LeafTab.NETWORK, listOf("dns", "https", "doh", "cloudflare", "quad9", "adguard", "google", "network", "isp", "bypass"), uiLabel = "DNS over HTTPS (DoH)"),

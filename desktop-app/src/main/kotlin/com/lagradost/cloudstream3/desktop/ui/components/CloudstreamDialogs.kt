@@ -82,8 +82,8 @@ fun CloudstreamAlertDialog(
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
-                enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
-                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
+                enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.96f),
+                exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.96f),
             ) {
                 AlertDialog(
                     onDismissRequest = onDismissRequest,
@@ -140,8 +140,8 @@ fun CloudstreamCustomDialog(
         ) {
             AnimatedVisibility(
                 visibleState = transitionState,
-                enter = fadeIn(tween(250)) + scaleIn(tween(250), initialScale = 0.8f),
-                exit = fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.8f),
+                enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.96f),
+                exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.96f),
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),

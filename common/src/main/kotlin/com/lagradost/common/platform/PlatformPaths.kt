@@ -85,4 +85,22 @@ object PlatformPaths {
     val fontsDir: File by lazy {
         File(appDataDir, "fonts").also { it.mkdirs() }
     }
+
+    /** Directory for video player screenshots. */
+    val screenshotsDir: File
+        get() {
+            val customPath = com.lagradost.common.storage.DesktopDataStore.getKey<String>("player_screenshot_dir")
+            if (!customPath.isNullOrBlank()) {
+                val f = File(customPath)
+                if (f.exists() || f.mkdirs()) return f
+            }
+            val userHome = System.getProperty("user.home") ?: ""
+            val picturesDir = File(userHome, "Pictures")
+            val targetDir = if (picturesDir.exists() && picturesDir.isDirectory) {
+                File(picturesDir, "CloudStream")
+            } else {
+                File(appDataDir, "screenshots")
+            }
+            return targetDir.also { it.mkdirs() }
+        }
 }

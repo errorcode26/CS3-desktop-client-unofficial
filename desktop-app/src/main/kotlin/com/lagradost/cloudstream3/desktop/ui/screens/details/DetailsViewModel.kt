@@ -99,6 +99,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnToggleSeasonWatched -> handleToggleSeasonWatched(event.episodes, event.isWatched)
             is DetailsUiEvent.OnToggleEpisodesStackedView -> handleToggleEpisodesStackedView(event.isStacked)
             is DetailsUiEvent.OnSetEpisodeViewMode -> handleSetEpisodeViewMode(event.viewMode)
+            is DetailsUiEvent.OnRefresh -> refresh()
         }
     }
 
@@ -175,28 +176,60 @@ class DetailsViewModel(
                     }
                     is EnrichmentUpdate.MetadataLoaded -> {
                         updateState {
+                            val mergedProdCompanies = if (update.productionCompanies != null) {
+                                val current = enrichedProductionCompanies.toMutableList()
+                                update.productionCompanies.forEach { newComp ->
+                                    val existingIdx = current.indexOfFirst { it.name.trim().equals(newComp.name.trim(), ignoreCase = true) }
+                                    if (existingIdx >= 0) {
+                                        val existing = current[existingIdx]
+                                        if (existing.logoUrl.isNullOrBlank() && !newComp.logoUrl.isNullOrBlank()) {
+                                            current[existingIdx] = newComp
+                                        }
+                                    } else {
+                                        current.add(newComp)
+                                    }
+                                }
+                                current
+                            } else enrichedProductionCompanies
+
+                            val mergedNetCompanies = if (update.networkCompanies != null) {
+                                val current = enrichedNetworksList.toMutableList()
+                                update.networkCompanies.forEach { newComp ->
+                                    val existingIdx = current.indexOfFirst { it.name.trim().equals(newComp.name.trim(), ignoreCase = true) }
+                                    if (existingIdx >= 0) {
+                                        val existing = current[existingIdx]
+                                        if (existing.logoUrl.isNullOrBlank() && !newComp.logoUrl.isNullOrBlank()) {
+                                            current[existingIdx] = newComp
+                                        }
+                                    } else {
+                                        current.add(newComp)
+                                    }
+                                }
+                                current
+                            } else enrichedNetworksList
+
                             copy(
-                                enrichedTagline = update.tagline,
-                                enrichedStatus = update.status,
-                                enrichedStudios = update.studios,
-                                enrichedProductionCompanies = update.productionCompanies ?: enrichedProductionCompanies,
-                                enrichedNetworksList = update.networkCompanies ?: enrichedNetworksList,
-                                enrichedCollectionName = update.collName,
-                                enrichedCollectionBackdrop = update.collBg,
-                                enrichedSeasonsCount = update.seasons,
-                                enrichedEpisodesCount = update.episodes,
-                                enrichedSeasonsMetadata = update.seasonsMetadata ?: emptyList(),
-                                enrichedOriginalLanguage = update.lang,
-                                enrichedReleaseDate = update.relDate,
-                                enrichedCountry = update.country,
-                                enrichedCollectionItems = update.collItems,
-                                enrichedBudget = update.budget,
-                                enrichedRevenue = update.revenue,
-                                enrichedNetworks = update.networks ?: emptyList(),
-                                enrichedYear = update.year,
-                                enrichedDuration = update.duration,
-                                enrichedTags = update.tags,
-                                enrichedActors = update.actors,
+                                enrichedTagline = update.tagline ?: enrichedTagline,
+                                enrichedStatus = update.status ?: enrichedStatus,
+                                enrichedStudios = if (update.studios.isNotEmpty()) update.studios else enrichedStudios,
+                                enrichedProductionCompanies = mergedProdCompanies,
+                                enrichedNetworksList = mergedNetCompanies,
+                                enrichedCollectionName = update.collName ?: enrichedCollectionName,
+                                enrichedCollectionBackdrop = update.collBg ?: enrichedCollectionBackdrop,
+                                enrichedSeasonsCount = update.seasons ?: enrichedSeasonsCount,
+                                enrichedEpisodesCount = update.episodes ?: enrichedEpisodesCount,
+                                enrichedSeasonsMetadata = if (!update.seasonsMetadata.isNullOrEmpty()) update.seasonsMetadata else enrichedSeasonsMetadata,
+                                enrichedOriginalLanguage = update.lang ?: enrichedOriginalLanguage,
+                                enrichedReleaseDate = update.relDate ?: enrichedReleaseDate,
+                                enrichedCountry = update.country ?: enrichedCountry,
+                                enrichedCollectionItems = if (update.collItems.isNotEmpty()) update.collItems else enrichedCollectionItems,
+                                enrichedBudget = update.budget ?: enrichedBudget,
+                                enrichedRevenue = update.revenue ?: enrichedRevenue,
+                                enrichedNetworks = if (!update.networks.isNullOrEmpty()) update.networks else enrichedNetworks,
+                                enrichedYear = update.year ?: enrichedYear,
+                                enrichedDuration = update.duration ?: enrichedDuration,
+                                enrichedTags = update.tags ?: enrichedTags,
+                                enrichedActors = update.actors ?: enrichedActors,
                             )
                         }
                     }
@@ -268,8 +301,8 @@ class DetailsViewModel(
             }
 
             if (targetEp != null) {
-                val history = buildWatchHistory(targetEp, resp)
                 val patchedData = patchEpisodeData(targetEp, resp)
+                val history = buildWatchHistory(targetEp, resp).copy(episodeId = patchedData)
                 handlePlayRequest(Triple(provider, patchedData, history))
             }
         }
@@ -334,9 +367,9 @@ class DetailsViewModel(
     private fun handlePlayEpisode(ep: Episode) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val history = buildWatchHistory(ep, data)
             val patchedData = patchEpisodeData(ep, data)
-            handlePlayRequest(Triple(provider, patchedData, history), forceAutoPlay = true)
+            val history = buildWatchHistory(ep, data).copy(episodeId = patchedData)
+            handlePlayRequest(Triple(provider, patchedData, history))
         }
     }
 
@@ -622,7 +655,7 @@ class DetailsViewModel(
                         title = epTitle,
                         subtitles = emptyList(),
                         startPositionMs = resumeMs,
-                        history = linkHistory,
+                        history = linkHistory.copy(episodeId = data.second),
                         loadResponse = response,
                         enrichedLogoUrl = uiState.value.enrichedLogoUrl,
                         enrichedBackdropUrl = uiState.value.enrichedBackdropUrl,
@@ -637,6 +670,27 @@ class DetailsViewModel(
     fun retry() {
         updateState { copy(fetchFailed = false, isLoading = true) }
         DetailsCache.remove(url)
+        loadDetails()
+    }
+
+    fun refresh() {
+        DetailsCache.remove(url)
+        uiState.value.response?.url?.let { DetailsCache.remove(it) }
+        EnrichedDetailsCache.remove(url)
+        uiState.value.response?.url?.let { EnrichedDetailsCache.remove(it) }
+        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Refreshing details...")
+        updateState {
+            copy(
+                isInitialized = true,
+                isLoading = true,
+                fetchFailed = false,
+                error = null,
+                response = null,
+                fakeData = null,
+                isEnriching = false,
+                enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Idle,
+            )
+        }
         loadDetails()
     }
 

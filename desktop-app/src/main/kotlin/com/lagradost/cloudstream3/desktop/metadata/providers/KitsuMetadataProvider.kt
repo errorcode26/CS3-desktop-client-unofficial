@@ -155,6 +155,18 @@ object KitsuMetadataProvider : MetadataProvider {
         if (resolvedMatch == null) return false
 
         withContext(Dispatchers.Main.immediate) {
+            val rawKitsu = resolvedMatch.rawData as? KitsuMedia
+            val kitsuTitles = rawKitsu?.attributes?.titles
+            val kitsuCanonical = rawKitsu?.attributes?.canonicalTitle
+            val preferredTitle = when (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeTitleLanguage.value) {
+                "english" -> kitsuTitles?.get("en") ?: kitsuTitles?.get("en_us") ?: kitsuCanonical ?: kitsuTitles?.get("en_jp")
+                "native" -> kitsuTitles?.get("ja_jp") ?: kitsuCanonical ?: kitsuTitles?.get("en_jp")
+                else -> kitsuTitles?.get("en_jp") ?: kitsuCanonical ?: kitsuTitles?.get("en")
+            }
+            if (!preferredTitle.isNullOrBlank()) {
+                loaded.name = preferredTitle
+            }
+
             if (resolvedMatch.backdropUrl != null) {
                 loaded.backgroundPosterUrl = resolvedMatch.backdropUrl
             }

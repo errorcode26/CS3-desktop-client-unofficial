@@ -1,8 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsAddons
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,8 +29,14 @@ fun ComposeExtensionScreen(
     viewModel: ExtensionsViewModel,
     isInsideSettings: Boolean = false,
 ) {
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 3)) }
-    val tabs = listOf("Browse Catalog", "Installed Plugins", "Repositories & Sources", "Update History")
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 4)) }
+    val tabs = listOf(
+        "Browse Plugins",
+        "Installed Plugins",
+        "Repositories",
+        "Stremio Addons",
+        "Update History",
+    )
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val syncGen = uiState.syncGeneration
@@ -39,8 +48,6 @@ fun ComposeExtensionScreen(
             selectedTab = 2
         }
     }
-
-
 
     LaunchedEffect(viewModel.effectFlow) {
         viewModel.effectFlow.collect { effect ->
@@ -75,58 +82,102 @@ fun ComposeExtensionScreen(
             ) {
                 tabs.forEachIndexed { index, title ->
                     val isSelected = selectedTab == index
+                    val isStremioTab = index == 3
+
                     Surface(
                         onClick = { selectedTab = index },
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = if (isSelected) {
-                            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                        } else null,
+                        color = when {
+                            isSelected && isStremioTab -> Color(0xFF00B4D8).copy(alpha = 0.20f)
+                            isSelected -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        },
+                        border = when {
+                            isSelected && isStremioTab -> androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00B4D8).copy(alpha = 0.6f))
+                            isSelected -> androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                            else -> null
+                        },
                     ) {
-                        Text(
-                            text = title,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        ) {
+                            if (isStremioTab) {
+                                Icon(
+                                    imageVector = Icons.Default.Public,
+                                    contentDescription = null,
+                                    tint = if (isSelected) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+
+                            Text(
+                                text = title,
+                                color = when {
+                                    isSelected && isStremioTab -> Color(0xFF00B4D8)
+                                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+
+                            if (isStremioTab) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFF00B4D8).copy(alpha = 0.15f),
+                                ) {
+                                    Text(
+                                        text = "External",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF00B4D8),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // Sync All Action Button
-            FilledTonalButton(
-                onClick = {
-                    if (isSyncing) return@FilledTonalButton
-                    coroutineScope.launch(Dispatchers.IO) {
-                        isSyncing = true
-                        try {
-                            viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
-                        } catch (e: Exception) {
-                            // ignore
-                        } finally {
-                            isSyncing = false
+            // Sync All Action Button (Visible on CS3 tabs)
+            if (selectedTab != 3) {
+                FilledTonalButton(
+                    onClick = {
+                        if (isSyncing) return@FilledTonalButton
+                        coroutineScope.launch(Dispatchers.IO) {
+                            isSyncing = true
+                            try {
+                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
+                            } catch (e: Exception) {
+                                // ignore
+                            } finally {
+                                isSyncing = false
+                            }
                         }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                ) {
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Syncing...")
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Sync All")
                     }
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-            ) {
-                if (isSyncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Syncing...")
-                } else {
-                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Sync All")
                 }
             }
         }
@@ -136,23 +187,25 @@ fun ComposeExtensionScreen(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
         )
 
-        // Full Width Content Area
+        // Full Width Content Area with Fluid Crossfade
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
-            key(selectedTab) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = true,
-                    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(160)),
-                    exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(80)),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    when (selectedTab) {
-                        0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                        1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
-                        2 -> RepositoriesTab(viewModel = viewModel)
-                        3 -> UpdateHistoryTab()
-                    }
+            androidx.compose.animation.AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(130)) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80))
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "ExtensionsTabContent",
+            ) { targetTab ->
+                when (targetTab) {
+                    0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
+                    1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
+                    2 -> RepositoriesTab(viewModel = viewModel)
+                    3 -> SettingsAddons()
+                    4 -> UpdateHistoryTab()
                 }
             }
         }
@@ -188,34 +241,23 @@ fun ComposeExtensionScreen(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
 
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                            if (cleanReason.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                                 ) {
-                                    Text(
-                                        text = "⚠️ Flagged API Access",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontWeight = FontWeight.Bold,
-                                    )
                                     Text(
                                         text = cleanReason,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(10.dp),
                                     )
                                 }
                             }
 
                             Text(
-                                text = "If you trust this developer and repository, click 'Trust & Install' to proceed.",
+                                text = "Only install extensions from sources you trust. Untrusted plugins may read app data.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

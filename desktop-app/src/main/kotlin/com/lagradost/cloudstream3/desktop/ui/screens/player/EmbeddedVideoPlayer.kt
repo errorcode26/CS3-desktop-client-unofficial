@@ -205,6 +205,7 @@ fun EmbeddedVideoPlayer(
                         plot = plot,
                         year = year,
                         tags = tags,
+                        isLive = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live || safeLink?.name?.contains("Live", ignoreCase = true) == true || safeLink?.url?.contains("live", ignoreCase = true) == true,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
                         startPositionMs = computedStartPos,

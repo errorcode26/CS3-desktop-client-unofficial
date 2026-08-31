@@ -36,8 +36,10 @@ object CinemetaMetadataProvider : MetadataProvider {
         type: TvType,
         rawUrl: String?,
     ): MetadataMatch? {
-        val stringType = if (type == TvType.Movie) "movie" else "series"
-        val altType = if (stringType == "movie") "series" else "movie"
+        val isMovie = type == TvType.Movie || type == TvType.AnimeMovie
+        val stringType = if (isMovie) "movie" else "series"
+        // Strict Media Type Isolation: Never cross-query movies for series or series for movies
+        val searchTypes = listOf(stringType)
 
         val titleCandidates = TitleUtils.extractRootTitleCandidates(title)
         var searchResult: StremioAddonClient.StremioMetaItem? = null
@@ -48,7 +50,7 @@ object CinemetaMetadataProvider : MetadataProvider {
             val cleanName = candidate.first
             val targetYear = year ?: candidate.second
 
-            for (searchType in listOf(stringType, altType)) {
+            for (searchType in searchTypes) {
                 val searchResults = StremioAddonClient.search(cleanName, searchType)
                 AppLogger.i(TAG, "Search '$cleanName' ($searchType) → ${searchResults?.size ?: 0} results")
 
@@ -61,7 +63,7 @@ object CinemetaMetadataProvider : MetadataProvider {
                         val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
                         val strippedCleanName = cleanCompare.replace(Regex("[^a-zA-Z0-9]"), "")
 
-                        // Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
+                        // 1. Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
                         val numbers1 = Regex("""\b\d+\b""").findAll(cleanCompare).map { it.value }.toSet()
                         val numbers2 = Regex("""\b\d+\b""").findAll(resultCompare).map { it.value }.toSet()
                         val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
@@ -70,11 +72,17 @@ object CinemetaMetadataProvider : MetadataProvider {
                         val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
                         if (hasNumberMismatch) continue
 
+                        // 2. Strict Content Word Match: Rejects 'Law and the City' vs 'Sex and the City'
+                        if (!StringUtils.hasContentWordMatch(cleanName, searchResultName, minOverlapRatio = 0.75)) {
+                            continue
+                        }
+
                         val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
                         val isTv = type == TvType.TvSeries || type == TvType.Anime || type == TvType.AsianDrama || type == TvType.Cartoon
                         val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
 
-                        // Year validation: for TV series, start year can precede season year
+                        // 3. Year validation: for TV series, start year can precede season year
+                        val hasCountryInQuery = cleanName.contains(Regex("""(?i)\b(IN|India|US|UK|AU|JP|KR)\b"""))
                         if (resultYear != null && targetYear != null) {
                             if (isTv) {
                                 if (resultYear > targetYear + 1) continue
@@ -86,14 +94,18 @@ object CinemetaMetadataProvider : MetadataProvider {
                         var nameSimilarity = StringUtils.similarity(strippedCleanName, strippedResultName)
                         if (isStrictMatch) nameSimilarity = 1.0
 
-                        if (nameSimilarity < 0.65) continue
+                        if (nameSimilarity < 0.80) continue
 
                         // Calculate weighted composite score:
-                        val compositeScore = nameSimilarity * 10.0 + when {
-                            resultYear == targetYear -> 5.0
-                            isTv && resultYear != null && targetYear != null && resultYear <= targetYear -> 2.0
+                        val yearBonus = when {
+                            resultYear == targetYear -> 6.0
+                            resultYear != null && targetYear != null && Math.abs(resultYear - targetYear) <= 1 -> 4.0
+                            isTv && resultYear != null && targetYear != null && resultYear <= targetYear -> {
+                                if (!hasCountryInQuery && (targetYear - resultYear) > 3) -5.0 else 1.0
+                            }
                             else -> 0.0
                         }
+                        val compositeScore = nameSimilarity * 10.0 + yearBonus
 
                         if (compositeScore > bestScore) {
                             bestScore = compositeScore
@@ -107,10 +119,16 @@ object CinemetaMetadataProvider : MetadataProvider {
                 if (bestScore >= 15.0) break
             }
             if (bestScore >= 15.0) break
-            if (searchResult != null && bestScore >= 8.0) break
+            if (searchResult != null && bestScore >= 10.0) break
         }
 
-        val matchId = searchResult?.id ?: return null
+        // Strict Score Floor: reject any weak/low confidence matches
+        if (bestScore < 10.0 || searchResult == null) {
+            AppLogger.i(TAG, "No high-confidence match found for '$title' (bestScore=$bestScore)")
+            return null
+        }
+
+        val matchId = searchResult.id ?: return null
         val fullMeta = try {
             StremioAddonClient.getMeta(matchId, resolvedType)
         } catch (e: Exception) {

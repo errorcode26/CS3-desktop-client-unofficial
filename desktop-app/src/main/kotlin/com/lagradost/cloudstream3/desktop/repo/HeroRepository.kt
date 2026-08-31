@@ -58,7 +58,9 @@ object HeroRepository {
         withContext(Dispatchers.IO) {
             for (history in topHistory) {
                 val provider = providers.find { it.name == history.apiName }
-                if (provider != null && !DetailsCache.containsKey(history.showUrl)) {
+                val cacheKey = "${history.apiName}_${history.showUrl}"
+                if (provider != null && !DetailsCache.containsKey(history.showUrl) && HeroCache.get(cacheKey) == null) {
+                    if (!prefetchingUrls.add(cacheKey)) continue
                     try {
                         val raw = DetailsRepository.fetchRaw(provider, history.showUrl)
                         if (raw != null) {
@@ -66,6 +68,8 @@ object HeroRepository {
                         }
                     } catch (e: Exception) {
                         AppLogger.e("HeroRepository", "Failed to prefetch history item", e)
+                    } finally {
+                        prefetchingUrls.remove(cacheKey)
                     }
                 }
             }

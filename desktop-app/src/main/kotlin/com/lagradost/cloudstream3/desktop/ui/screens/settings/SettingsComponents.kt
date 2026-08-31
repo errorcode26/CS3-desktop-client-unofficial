@@ -119,6 +119,7 @@ fun SettingsToggleItem(
     label: String,
     subtitle: String? = null,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -130,19 +131,20 @@ fun SettingsToggleItem(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Medium,
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 )
             }
         }
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -158,6 +160,7 @@ fun <T> SettingsDropdownItem(
     subtitle: String? = null,
     options: List<Pair<T, String>>,
     currentValue: T,
+    enabled: Boolean = true,
     onSelectionChanged: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -171,20 +174,23 @@ fun <T> SettingsDropdownItem(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Medium,
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 )
             }
         }
 
         Box {
-            FilledTonalButton(onClick = { expanded = true }) {
+            FilledTonalButton(
+                onClick = { expanded = true },
+                enabled = enabled,
+            ) {
                 Text(options.find { it.first == currentValue }?.second ?: currentValue.toString())
             }
             AppDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

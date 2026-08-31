@@ -34,6 +34,9 @@ object PlayerConfig {
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
     const val PREF_SHOW_END_TIME = "player_show_end_time"
     const val PREF_SHOW_CLOCK = "player_show_clock"
+    const val PREF_SCREENSHOT_DIR = "player_screenshot_dir"
+    const val PREF_SCREENSHOT_FORMAT = "player_screenshot_format"
+    const val PREF_SCREENSHOT_TEMPLATE = "player_screenshot_template"
     const val PREF_ENABLE_SKIP_INTERVALS = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_ENABLE_SKIP_INTERVALS
     const val PREF_AUTO_SKIP_INTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_INTRO
     const val PREF_AUTO_SKIP_OUTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_OUTRO
@@ -142,5 +145,17 @@ object PlayerConfig {
                 com.lagradost.common.logging.AppLogger.i("PlayerConfig: Applied shader ${shaderFile.absolutePath}")
             }
         }
+
+        // Screenshots Pipeline
+        val screenshotDir = com.lagradost.common.platform.PlatformPaths.screenshotsDir.absolutePath
+        lib.mpv_set_option_string(handle, "screenshot-directory", screenshotDir)
+
+        val screenshotFormat = DesktopDataStore.getKey<String>(PREF_SCREENSHOT_FORMAT) ?: "png"
+        lib.mpv_set_option_string(handle, "screenshot-format", screenshotFormat)
+
+        val screenshotTemplate = DesktopDataStore.getKey<String>(PREF_SCREENSHOT_TEMPLATE) ?: "%F_%P_%n"
+        lib.mpv_set_option_string(handle, "screenshot-template", screenshotTemplate)
+        lib.mpv_set_option_string(handle, "screenshot-png-compression", "7")
+        lib.mpv_set_option_string(handle, "screenshot-jpeg-quality", "95")
     }
 }

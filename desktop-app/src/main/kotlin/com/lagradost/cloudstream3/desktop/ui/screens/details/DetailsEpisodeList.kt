@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -48,6 +49,7 @@ import com.lagradost.player.impl.PlayerLinkHandler
 
 data class EpisodeReleaseStatus(
     val isUnreleased: Boolean,
+    val isMissingFromProvider: Boolean = false,
     val formattedDate: String?,
     val rawDate: String?,
     val statusBadgeText: String?,
@@ -66,26 +68,40 @@ private val releaseStatusCache = object : java.util.LinkedHashMap<String, Episod
 }
 private val releaseStatusLock = Any()
 
-fun parseEpisodeReleaseStatus(ep: Episode): EpisodeReleaseStatus {
+fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): EpisodeReleaseStatus {
+    val isSynthetic = ep.data.startsWith("unreleased_") || ep.data.startsWith("synthetic_") || ep.data.isBlank()
     val rawDesc = ep.description ?: ""
     val dateMatch = EPISODE_DATE_REGEX.find(rawDesc)
     val rawDate = dateMatch?.groupValues?.get(1)?.trim()
 
-    if (rawDate.isNullOrBlank()) {
-        return EpisodeReleaseStatus(
+    val baseStatus = if (rawDate.isNullOrBlank()) {
+        EpisodeReleaseStatus(
             isUnreleased = false,
+            isMissingFromProvider = isSynthetic,
             formattedDate = null,
             rawDate = null,
-            statusBadgeText = null,
+            statusBadgeText = if (isSynthetic) "Unavailable" else null,
             daysUntilRelease = null,
         )
-    }
-
-    synchronized(releaseStatusLock) {
-        return releaseStatusCache.getOrPut(rawDate) {
-            computeEpisodeReleaseStatus(rawDate)
+    } else {
+        synchronized(releaseStatusLock) {
+            releaseStatusCache.getOrPut(rawDate) {
+                computeEpisodeReleaseStatus(rawDate)
+            }
         }
     }
+
+    val isMissing = isSynthetic && !baseStatus.isUnreleased
+    val effectiveBadge = when {
+        baseStatus.isUnreleased -> baseStatus.statusBadgeText
+        isMissing -> if (!providerName.isNullOrBlank()) "Missing from $providerName" else "Unavailable"
+        else -> null
+    }
+
+    return baseStatus.copy(
+        isMissingFromProvider = isMissing,
+        statusBadgeText = effectiveBadge,
+    )
 }
 
 private val OUTPUT_DATE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US)
@@ -255,7 +271,7 @@ fun EpisodeCard(
 
     Box(
         modifier = modifier
-            .aspectRatio(16f / 12f)
+            .aspectRatio(16f / 13.5f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -305,10 +321,15 @@ fun EpisodeCard(
                         }
                     }
                 }
-                .pointerInput(ep, isEpisodeLocked) {
+                .pointerInput(ep, isEpisodeLocked, releaseStatus.isMissingFromProvider) {
                     detectTapGestures(
                         onTap = {
-                            if (!isEpisodeLocked) {
+                            if (isEpisodeLocked) {
+                                val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
+                                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
+                            } else if (releaseStatus.isMissingFromProvider) {
+                                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${provider.name}.")
+                            } else {
                                 onPlay(ep)
                             }
                         }
@@ -352,41 +373,33 @@ fun EpisodeCard(
                         .build()
                 }
 
-                // Layer 1: Downward Ambient Color Extension (Fills the bottom text canvas with blurred scene colors)
+                // Layer 1: Bottom 15% Ribbon Crop + 1D Vertical Stretch + Dynamic Blur (Zero sky, zero heads)
                 if (!shouldHideSpoilers) {
-                    Box(
+                    val blurPainter = coil3.compose.rememberAsyncImagePainter(model = blurImageRequest)
+                    androidx.compose.foundation.Canvas(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        0.00f to Color.Transparent,
-                                        0.40f to Color.Transparent,
-                                        0.58f to Color.Black.copy(alpha = 0.50f),
-                                        0.75f to Color.Black.copy(alpha = 0.90f),
-                                        1.00f to Color.Black,
-                                    ),
-                                    blendMode = BlendMode.DstIn,
-                                )
-                            },
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.60f)
+                            .align(Alignment.BottomCenter)
+                            .blur(36.dp),
                     ) {
-                        coil3.compose.AsyncImage(
-                            model = blurImageRequest,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.BottomCenter,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .blur(36.dp),
-                        )
+                        val srcWidth = blurPainter.intrinsicSize.width
+                        val srcHeight = blurPainter.intrinsicSize.height
+                        if (srcWidth > 0f && srcHeight > 0f) {
+                            val vScale = size.height / (srcHeight * 0.15f)
+                            val hScale = size.width / srcWidth
+                            drawContext.canvas.save()
+                            drawContext.canvas.scale(hScale, vScale)
+                            drawContext.canvas.translate(0f, -srcHeight * 0.85f)
+                            with(blurPainter) {
+                                draw(size = blurPainter.intrinsicSize)
+                            }
+                            drawContext.canvas.restore()
+                        }
                     }
                 }
 
-                // Layer 2: Complete Uncropped 16:9 Thumbnail (Top frame, 100% sharp with soft bottom edge dissolve)
+                // Layer 2: 100% Uncropped 16:9 Thumbnail Frame (Sharp top, seamlessly melts into the blur overlap zone)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -400,8 +413,8 @@ fun EpisodeCard(
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     0.00f to Color.Black,
-                                    0.70f to Color.Black,
-                                    0.88f to Color.Black.copy(alpha = 0.50f),
+                                    0.75f to Color.Black,
+                                    0.98f to Color.Transparent,
                                     1.00f to Color.Transparent,
                                 ),
                                 blendMode = BlendMode.DstIn,
@@ -412,7 +425,7 @@ fun EpisodeCard(
                         model = imageRequest,
                         contentDescription = ep.name,
                         contentScale = ContentScale.Crop,
-                        alignment = if (epImg == null && fallbackPoster != null) Alignment.TopCenter else Alignment.Center,
+                        alignment = Alignment.Center,
                         modifier = Modifier
                             .fillMaxSize()
                             .run { if (shouldHideSpoilers) this.blur(16.dp) else this },
@@ -441,17 +454,17 @@ fun EpisodeCard(
                 }
             }
 
-            // Layer 3: Subtle Frosted Glass Text Shield (Ensures crisp white text readability while letting ambient scene colors pop)
+            // Layer 3: Light Translucent Scrim (Keeps the card bright and colorful while preserving text clarity)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             0.00f to Color.Transparent,
-                            0.45f to Color.Transparent,
-                            0.65f to Color(0xFF0A0B0E).copy(alpha = 0.35f),
-                            0.82f to Color(0xFF07080B).copy(alpha = 0.65f),
-                            1.00f to Color(0xFF050608).copy(alpha = 0.85f),
+                            0.50f to Color.Transparent,
+                            0.72f to Color(0xFF090A0E).copy(alpha = 0.28f),
+                            0.90f to Color(0xFF07080B).copy(alpha = 0.50f),
+                            1.00f to Color(0xFF050608).copy(alpha = 0.65f),
                         ),
                     ),
             )
@@ -619,7 +632,7 @@ fun EpisodeCard(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.8.sp,
                 ),
-                color = Color(0xFFE2E8F0).copy(alpha = 0.62f),
+                color = Color(0xFFE2E8F0).copy(alpha = 0.80f),
             )
 
             // Row 1: Full-Width Episode Title
@@ -650,7 +663,7 @@ fun EpisodeCard(
                     fontSize = if (isNarrow) 12.5.sp else 14.5.sp,
                     lineHeight = if (isNarrow) 16.sp else 20.sp,
                 ),
-                color = Color(0xFFE2E8F0).copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.72f else 0.45f),
+                color = Color(0xFFD1D5DB).copy(alpha = if (hasDesc && !shouldHideSpoilers) 0.88f else 0.45f),
                 minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -672,7 +685,7 @@ fun EpisodeCard(
                             fontSize = if (isNarrow) 11.sp else 12.5.sp,
                             fontWeight = FontWeight.Medium,
                         ),
-                        color = Color.White.copy(alpha = 0.55f),
+                        color = Color.White.copy(alpha = 0.65f),
                     )
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
@@ -685,7 +698,7 @@ fun EpisodeCard(
                             fontSize = if (isNarrow) 11.sp else 12.5.sp,
                             fontWeight = FontWeight.Medium,
                         ),
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = Color.White.copy(alpha = 0.55f),
                     )
                 }
             }
@@ -972,6 +985,9 @@ fun EpisodeListItem(
                     onTap = {
                         if (!isEpisodeLocked) {
                             onPlay(ep)
+                        } else {
+                            val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
+                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
                         }
                     }
                 )

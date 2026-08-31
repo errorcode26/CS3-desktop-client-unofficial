@@ -32,6 +32,8 @@ import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileEditDialog
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
 
@@ -42,11 +44,16 @@ fun TopBar(
     homeActionDispatcher: ((com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent) -> Unit)? = null,
     onBack: () -> Unit = {},
     onOpenProfileManager: (() -> Unit)? = null,
+    showDock: Boolean = false,
+    currentTitle: String = "",
+    onNavigate: (com.lagradost.cloudstream3.desktop.ui.navigation.Config) -> Unit = {},
+    onSearchClick: () -> Unit = {},
 ) {
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
         val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
+        val isTopDock = effectiveDockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP && !isCompact && showDock
         val navPaddingStart = if (isCompact) 12.dp else 16.dp
         val navPaddingEnd = if (isCompact) 12.dp else 16.dp
 
@@ -55,12 +62,20 @@ fun TopBar(
         val isLightMode by AppearanceConfig.isLightMode.collectAsState()
         val amoledMode by AppearanceConfig.amoledMode.collectAsState()
 
+        val shouldHaveBackground = isScrolled || isTopDock || !isHome
+
         val targetBlurRadius by androidx.compose.animation.core.animateDpAsState(
-            targetValue = if (isScrolled) 24.dp else 0.dp,
+            targetValue = if (shouldHaveBackground) 24.dp else 0.dp,
             animationSpec = androidx.compose.animation.core.tween(250),
         )
         val targetTintAlpha by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (isScrolled) (if (amoledMode) 0.60f else 0.35f) else 0.0f,
+            targetValue = if (isTopDock) {
+                if (amoledMode) 0.94f else 0.85f
+            } else if (isScrolled || !isHome) {
+                if (amoledMode) 0.88f else 0.76f
+            } else {
+                0.0f
+            },
             animationSpec = androidx.compose.animation.core.tween(250),
         )
 
@@ -70,7 +85,7 @@ fun TopBar(
             else -> Color(0xFF0F0F14)
         }
 
-        val hazeModifier = if (hazeState != null) {
+        val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp) {
             Modifier.hazeEffect(
                 state = hazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
@@ -83,10 +98,34 @@ fun TopBar(
             Modifier
         }
 
+        val borderModifier = if (targetTintAlpha > 0.05f) {
+            Modifier.drawWithCache {
+                onDrawWithContent {
+                    drawContent()
+                    drawLine(
+                        color = if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f),
+                        start = Offset(0f, size.height),
+                        end = Offset(size.width, size.height),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
+            }
+        } else {
+            Modifier
+        }
+
+        val backgroundModifier = if (targetTintAlpha > 0.01f) {
+            Modifier.background(tintColor.copy(alpha = targetTintAlpha))
+        } else {
+            Modifier
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(backgroundModifier)
                 .then(hazeModifier)
+                .then(borderModifier)
                 .pointerInput(Unit) {
                     detectTapGestures { }
                 },
@@ -103,7 +142,28 @@ fun TopBar(
                     ClockWidget(alignment = Alignment.Start)
                 }
 
-                Spacer(Modifier.weight(1f))
+                if (isTopDock) {
+                    // Center: Navigation Dock Tabs directly embedded without overlapping
+                    Box(
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            DockItemsList(
+                                currentTitle = currentTitle,
+                                isHorizontal = true,
+                                indicatorAtTop = true,
+                                onNavigate = onNavigate,
+                                onSearchClick = onSearchClick,
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
 
                 // Top-Right: Home Actions & Profile Avatar Pill
                 Row(

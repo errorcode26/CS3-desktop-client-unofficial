@@ -149,43 +149,58 @@ object DetailsRepository {
             }
         }
 
-        repeat(3) { attempt ->
+        var lastError: Throwable? = null
+        for (attempt in 0 until 3) {
             try {
                 com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Fetching media details for: $targetUrl (attempt ${attempt + 1}/3)")
-                val loaded = SafePluginInvoker.invokeOrNull(
+                val result = SafePluginInvoker.invoke(
                     tag = "DetailsRepo:Load:${targetProvider.name}",
                     timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
                 ) { targetProvider.load(targetUrl) }
 
-                if (loaded != null) {
-                    com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Loaded details: title='${loaded.name}', type=${loaded.type}")
-                    loaded.posterUrl = targetProvider.fixUrlNull(loaded.posterUrl)
-                    loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)
-                    loaded.logoUrl = targetProvider.fixUrlNull(loaded.logoUrl)
-                    if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                        loaded.episodes.forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }
-                    } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                        loaded.episodes.values.flatten().forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }
+                if (result.isSuccess) {
+                    val loaded = result.getOrNull()
+                    if (loaded != null) {
+                        com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Loaded details: title='${loaded.name}', type=${loaded.type}")
+                        loaded.posterUrl = targetProvider.fixUrlNull(loaded.posterUrl)
+                        loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)
+                        loaded.logoUrl = targetProvider.fixUrlNull(loaded.logoUrl)
+                        if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                            loaded.episodes.forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }
+                        } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                            loaded.episodes.values.flatten().forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }
+                        }
+                        if (loaded.url.isBlank()) loaded.url = targetUrl
+                        DetailsCache.put(url, loaded)
+                        if (targetUrl != url) DetailsCache.put(targetUrl, loaded)
+                        return loaded
                     }
-                    if (loaded.url.isBlank()) loaded.url = targetUrl
-                    DetailsCache.put(url, loaded)
-                    if (targetUrl != url) DetailsCache.put(targetUrl, loaded)
-                    return loaded
+                } else {
+                    lastError = result.exceptionOrNull()
+                    val errMessage = lastError?.message ?: ""
+                    if (lastError is com.lagradost.cloudstream3.ErrorLoadingException ||
+                        errMessage.contains("GEO-LOCKED", ignoreCase = true) ||
+                        errMessage.contains("not available in your region", ignoreCase = true) ||
+                        errMessage.contains("VPN", ignoreCase = true)) {
+                        break
+                    }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e // Always re-throw cancellation immediately
             } catch (e: Throwable) {
+                lastError = e
                 com.lagradost.common.logging.AppLogger.e("Plugin:${targetProvider.name}", "fetchRaw attempt ${attempt + 1}/3 failed for $targetUrl", e)
                 if (attempt < 2) kotlinx.coroutines.delay(500L * (attempt + 1)) // 0.5s then 1s backoff
             }
         }
 
+        val finalErrorMsg = lastError?.message?.takeIf { it.isNotBlank() } ?: "Server unreachable or returned empty response"
         com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showPluginError(
             pluginName = targetProvider.name,
             action = "Details fetch",
-            error = "Server unreachable or returned empty response",
+            error = finalErrorMsg,
         )
-        return null
+        throw (lastError ?: RuntimeException(finalErrorMsg))
     }
 }
 

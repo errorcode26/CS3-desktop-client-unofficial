@@ -46,6 +46,50 @@ object TitleUtils {
     // Includes '(' to catch patterns like "(Season 1 – 3)", "(2026)", "[Hindi]".
     private val DELIMITER_REGEX = Regex("""[\[\]{}|(]""")
 
+    // Country / Regional disambiguation tags that must NOT be stripped as junk delimiters:
+    // Automatically matches any 2-letter ISO country code or full country name
+    private val COUNTRY_TAG_PREFIX_REGEX = Regex("""(?i)^\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
+    private val COUNTRY_TAG_REGEX = Regex("""(?i)\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
+
+    // Dynamic ISO 3166-1 country lookup covering all 249 international countries and territories
+    private val ISO_COUNTRY_MAP: Map<String, String> by lazy {
+        val map = mutableMapOf<String, String>()
+        java.util.Locale.getISOCountries().forEach { code ->
+            try {
+                val locale = java.util.Locale.of("", code)
+                val display = locale.getDisplayCountry(java.util.Locale.ENGLISH)
+                if (display.isNotBlank()) {
+                    map[code.uppercase()] = display
+                }
+            } catch (_: Exception) {}
+        }
+        // Streaming & broadcast industry aliases
+        map["UK"] = "UK"
+        map["USA"] = "US"
+        map["IN"] = "India"
+        map["KR"] = "South Korea"
+        map["JP"] = "Japan"
+        map["FR"] = "France"
+        map["DE"] = "Germany"
+        map["ES"] = "Spain"
+        map["IT"] = "Italy"
+        map["SE"] = "Sweden"
+        map["NO"] = "Norway"
+        map["DK"] = "Denmark"
+        map["TR"] = "Turkey"
+        map["AU"] = "Australia"
+        map["CA"] = "Canada"
+        map["BR"] = "Brazil"
+        map["MX"] = "Mexico"
+        map["RU"] = "Russia"
+        map["TH"] = "Thailand"
+        map["ID"] = "Indonesia"
+        map["VN"] = "Vietnam"
+        map["PH"] = "Philippines"
+        map["MY"] = "Malaysia"
+        map
+    }
+
     // Season / episode / part / cour / arc markers — must come BEFORE digits to avoid matching sequel numbers.
     // Catches: "(Season 1", " Season 2", "- Season 3", "(S01", "Part 2", "Cour 2", "The Final Season"
     private val SEASON_REGEX = Regex("""(?i)\s*[\(-]?\s*\b(season|series|episode|ep\.?|part|cour|arc)\s*\d+""")
@@ -67,9 +111,15 @@ object TitleUtils {
         val candidates =
             buildList {
                 JUNK_START_REGEX.find(raw)?.range?.first?.let { add(it) }
-                DELIMITER_REGEX.find(raw)?.range?.first?.let { pos ->
-                    // Guard: ignore a '(' at position 0 (e.g. "(500) Days of Summer").
-                    if (pos > 0) add(pos)
+                DELIMITER_REGEX.findAll(raw).forEach { match ->
+                    val pos = match.range.first
+                    if (pos > 0) {
+                        val remainder = raw.substring(pos)
+                        val isCountryTag = COUNTRY_TAG_PREFIX_REGEX.containsMatchIn(remainder) && remainder.startsWith("(")
+                        if (!isCountryTag) {
+                            add(pos)
+                        }
+                    }
                 }
                 SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
                     if (pos > 0) add(pos)
@@ -101,10 +151,12 @@ object TitleUtils {
 
     /**
      * Returns an ordered list of title candidates for progressive fallback matching.
-     * 1. Primary cleaned title
-     * 2. Punctuation normalized title
-     * 3. Pre-colon root title (e.g. "Re:ZERO - Starting..." -> "Re:ZERO")
-     * 4. Pre-hyphen root title (e.g. "Solo Leveling - Arise" -> "Solo Leveling")
+     * 1. Primary cleaned title (e.g. "24 (IN)")
+     * 2. Country expanded title (e.g. "24 India" / "24: India")
+     * 3. Plain base title without country tag (e.g. "24")
+     * 4. Punctuation normalized title
+     * 5. Pre-colon root title
+     * 6. Pre-hyphen root title
      */
     fun extractRootTitleCandidates(raw: String): List<Pair<String, Int?>> {
         val primary = cleanProviderTitle(raw)
@@ -112,13 +164,31 @@ object TitleUtils {
         val cleanName = primary.first
         val year = primary.second
 
-        // Candidate 2: Normalized punctuation
+        // Candidate: Universal ISO Country Tag expansion & strip
+        val countryMatch = COUNTRY_TAG_REGEX.find(cleanName)
+        if (countryMatch != null) {
+            val rawTag = countryMatch.groupValues[1].trim()
+            val baseName = cleanName.replace(countryMatch.value, "").trim()
+            val countryFullName = ISO_COUNTRY_MAP[rawTag.uppercase()] ?: rawTag
+
+            val expanded1 = "$baseName $countryFullName"
+            val expanded2 = "$baseName: $countryFullName"
+            val expanded3 = "$baseName ($countryFullName)"
+            if (!list.any { it.first.equals(expanded1, ignoreCase = true) }) list.add(Pair(expanded1, year))
+            if (!list.any { it.first.equals(expanded2, ignoreCase = true) }) list.add(Pair(expanded2, year))
+            if (!list.any { it.first.equals(expanded3, ignoreCase = true) }) list.add(Pair(expanded3, year))
+            if (baseName.isNotBlank() && !list.any { it.first.equals(baseName, ignoreCase = true) }) {
+                list.add(Pair(baseName, year))
+            }
+        }
+
+        // Candidate: Normalized punctuation
         val normalized = normalizePunctuation(cleanName)
         if (!normalized.equals(cleanName, ignoreCase = true) && !list.any { it.first.equals(normalized, ignoreCase = true) }) {
             list.add(Pair(normalized, year))
         }
 
-        // Candidate 3: Pre-colon root
+        // Candidate: Pre-colon root
         if (cleanName.contains(":")) {
             val preColon = cleanName.substringBefore(":").trim()
             val cleanedPre = TRAILING_JUNK_REGEX.replace(preColon, "").trim()
@@ -127,7 +197,7 @@ object TitleUtils {
             }
         }
 
-        // Candidate 4: Pre-hyphen root
+        // Candidate: Pre-hyphen root
         if (cleanName.contains(" - ") || cleanName.contains("-")) {
             val preHyphen = cleanName.substringBefore(" - ").substringBefore("-").trim()
             val cleanedPre = TRAILING_JUNK_REGEX.replace(preHyphen, "").trim()

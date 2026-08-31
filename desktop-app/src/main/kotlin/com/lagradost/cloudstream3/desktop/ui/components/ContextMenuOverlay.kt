@@ -223,7 +223,11 @@ fun ContextMenuOverlay() {
             state.episode?.posterUrl ?: state.loadResponse?.posterUrl
         }
 
-        val titleText = if (state.menuType == ContextMenuType.POSTER) {
+        val isCleanMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.cleanModeEnabled.collectAsState()
+        val hideProviderNames by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.hideProviderNames.collectAsState()
+        val autoCleanTitles by com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig.autoCleanTitles.collectAsState()
+
+        val rawTitleText = if (state.menuType == ContextMenuType.POSTER) {
             state.searchResponse?.name
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY) {
             state.watchHistory?.showName
@@ -240,22 +244,31 @@ fun ContextMenuOverlay() {
             }
         }
 
+        val titleText = remember(rawTitleText, autoCleanTitles, isCleanMode) {
+            if (rawTitleText == null) null
+            else if (autoCleanTitles || isCleanMode) {
+                com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer.sanitize(rawTitleText, autoClean = true).displayTitle
+            } else {
+                rawTitleText
+            }
+        }
+
         val subtitleText = if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
             val ep = state.episode!!
             if (ep.season != null && ep.episode != null) "S${ep.season} E${ep.episode}" else ep.episode?.let { "Episode $it" } ?: ""
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
             val ep = state.watchHistory!!.episode
             val s = state.watchHistory!!.season
-            if (s != null && ep != null) "S${s} E${ep}" else ep?.let { "Episode $it" } ?: state.watchHistory!!.apiName
+            if (s != null && ep != null) "S${s} E${ep}" else ep?.let { "Episode $it" } ?: if (hideProviderNames || isCleanMode) "" else state.watchHistory!!.apiName
         } else if (state.menuType == ContextMenuType.BOOKMARK && state.bookmark != null) {
-            val bm = state.bookmark!!
-            if (state.provider != null) state.provider!!.name else "${bm.apiName} (Missing Provider)"
+            if (hideProviderNames || isCleanMode) "" else if (state.provider != null) state.provider!!.name else "${state.bookmark!!.apiName} (Missing Provider)"
         } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
             val item = state.searchResponse!!
             val year = (item as? com.lagradost.cloudstream3.MovieSearchResponse)?.year
                 ?: (item as? com.lagradost.cloudstream3.TvSeriesSearchResponse)?.year
                 ?: (item as? com.lagradost.cloudstream3.AnimeSearchResponse)?.year
-            year?.toString() ?: state.provider?.name ?: ""
+                ?: (rawTitleText?.let { com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer.sanitize(it).year })
+            year?.toString() ?: if (hideProviderNames || isCleanMode) "" else state.provider?.name ?: ""
         } else {
             ""
         }
@@ -281,6 +294,19 @@ fun ContextMenuOverlay() {
             0f
         }
         val isWatched = progress > 0.9f
+        val ep = state.episode
+
+        val epDate = remember(ep?.description) {
+            ep?.description?.let { desc ->
+                Regex("\\|\\|DATE:(.*?)\\|\\|").find(desc)?.groupValues?.getOrNull(1)
+            }
+        }
+        val epCleanPlot = remember(ep?.description) {
+            ep?.description?.replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")?.trim()?.takeIf { it.isNotBlank() }
+        }
+        val epRuntimeText = remember(ep?.runTime) {
+            ep?.runTime?.let { "${it}m" }
+        }
 
         BoxWithConstraints(
             modifier = Modifier
@@ -292,14 +318,15 @@ fun ContextMenuOverlay() {
 
             // Sizable dimensions adapt dynamically to available window height
             val posterWidth = when {
-                screenMaxHeight < 720.dp -> if (isEpisode) 280.dp else 130.dp
-                screenMaxHeight < 860.dp -> if (isEpisode) 360.dp else 170.dp
-                else -> if (isEpisode) 440.dp else 210.dp
+                screenMaxHeight < 720.dp -> if (isEpisode) 380.dp else 130.dp
+                screenMaxHeight < 860.dp -> if (isEpisode) 440.dp else 170.dp
+                else -> if (isEpisode) 480.dp else 210.dp
             }
             val posterHeight = if (isEpisode) (posterWidth * 9f / 16f) else (posterWidth * 3f / 2f)
-            val actionCardWidth = when {
-                screenMaxHeight < 720.dp -> if (isEpisode) 300.dp else 260.dp
-                else -> if (isEpisode) 340.dp else 280.dp
+            val actionCardWidth = if (isEpisode) posterWidth else when {
+                screenMaxHeight < 720.dp -> 260.dp
+                screenMaxHeight < 860.dp -> 280.dp
+                else -> 300.dp
             }
 
             Box(
@@ -355,6 +382,46 @@ fun ContextMenuOverlay() {
                                 )
                             }
 
+                            // Release badge or date (Top-Left)
+                            if (epDate != null) {
+                                Surface(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(10.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                ) {
+                                    Text(
+                                        text = epDate,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+
+                            // Runtime / Score Badge (Bottom-Right)
+                            if (epRuntimeText != null) {
+                                Surface(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(bottom = if (progress > 0f) 12.dp else 10.dp, end = 10.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                ) {
+                                    Text(
+                                        text = epRuntimeText,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+
                             // Watched Check Badge (Top-Right)
                             if (isWatched) {
                                 Box(
@@ -395,34 +462,72 @@ fun ContextMenuOverlay() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    // 2. Standalone Centered Title & Subtitle (outside action card)
+                    // 2. Standalone Centered Title, Subtitle & Plot Summary
                     if (!titleText.isNullOrBlank()) {
                         Text(
                             text = titleText,
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = if (isEpisode) 17.sp else 16.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
-                            lineHeight = 20.sp,
+                            lineHeight = 22.sp,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.widthIn(max = posterWidth.coerceAtLeast(actionCardWidth)).padding(horizontal = 8.dp),
                         )
                         if (subtitleText.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = subtitleText,
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center,
                             )
                         }
+
+                        // Full Episode Plot Summary
+                        if (isEpisode && !epCleanPlot.isNullOrBlank()) {
+                            var isSpoilerRevealed by remember { mutableStateOf(!state.isAntiSpoiler || isWatched) }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .width(posterWidth)
+                                    .clickable(enabled = state.isAntiSpoiler && !isSpoilerRevealed) {
+                                        isSpoilerRevealed = true
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.White.copy(alpha = 0.04f),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                    if (!isSpoilerRevealed) {
+                                        Text(
+                                            text = "⚠️ Spoiler Hidden (Click to reveal synopsis)",
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 12.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = epCleanPlot,
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 12.5.sp,
+                                            lineHeight = 18.sp,
+                                            maxLines = 5,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Start,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // 3. Floating Rounded Action List Pill
                     Surface(
@@ -713,6 +818,16 @@ fun ContextMenuOverlay() {
                                         color = Color(0xFFFFB74D),
                                         onClick = {
                                             // Locked — cannot play
+                                        },
+                                    )
+                                } else if (epReleaseStatus.isMissingFromProvider) {
+                                    ActionMenuItem(
+                                        text = "Unavailable on ${state.provider?.name ?: "this provider"}",
+                                        icon = Icons.Default.CloudOff,
+                                        color = Color(0xFFFFB74D),
+                                        onClick = {
+                                            state.dismiss()
+                                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${state.provider?.name ?: "this provider"}.")
                                         },
                                     )
                                 } else {
