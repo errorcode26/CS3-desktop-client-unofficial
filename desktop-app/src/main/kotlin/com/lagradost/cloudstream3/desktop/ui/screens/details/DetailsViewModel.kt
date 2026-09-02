@@ -7,6 +7,10 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.UpsertWatchHistory
+import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
@@ -48,6 +52,11 @@ class DetailsViewModel(
         },
     ),
 ) {
+    private val watchHistoryRepo = WatchHistoryRepositoryImpl()
+    private val getWatchHistory = GetWatchHistory(watchHistoryRepo)
+    private val upsertWatchHistory = UpsertWatchHistory(watchHistoryRepo)
+    private val removeWatchHistory = RemoveWatchHistory(watchHistoryRepo)
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
@@ -62,14 +71,14 @@ class DetailsViewModel(
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.historyUpdates.collect {
+            getWatchHistory.subscribeAll().collect {
                 val currentDataUrl = uiState.value.response?.url ?: url
                 val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
                 val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
 
                 val historyMap = (
-                    DesktopDataStore.getWatchHistoryByParent(currentParentId) +
-                        DesktopDataStore.getWatchHistoryByParent(fallbackParentId)
+                    getWatchHistory.awaitByParent(currentParentId) +
+                        getWatchHistory.awaitByParent(fallbackParentId)
                     )
                     .distinctBy { it.episodeId }
                     .filter { it.showUrl == url || it.showUrl == currentDataUrl }
@@ -409,9 +418,9 @@ class DetailsViewModel(
             val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
             val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
 
-            DesktopDataStore.removeEpisodeWatched(currentParentId, ep.data)
+            removeWatchHistory.awaitByEpisode(currentParentId, ep.data)
             if (fallbackParentId != currentParentId) {
-                DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
+                removeWatchHistory.awaitByEpisode(fallbackParentId, ep.data)
             }
         }
     }

@@ -15,6 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
+import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
 import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
 
 const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
@@ -29,6 +32,9 @@ fun MainAPI.isRealProvider(): Boolean = ActiveProviderRepository.isRealContentPr
 class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
+    private val watchHistoryRepo = WatchHistoryRepositoryImpl()
+    private val getContinueWatching = GetContinueWatching(watchHistoryRepo)
+    private val removeWatchHistory = RemoveWatchHistory(watchHistoryRepo)
 
     // Redundant StateFlow mappings have been permanently deleted in accordance with MVI best practices.
     // UI should collect `uiState` and read properties directly from the immutable snapshot.
@@ -77,12 +83,12 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
 
         viewModelScope.launch {
-            combine(uiState.map { it.activeProviders }, DesktopDataStore.historyUpdates) { _, _ -> }.collect {
-                updateHistory()
+            getContinueWatching.subscribe().collect { newHistory ->
+                updateState { copy(historyList = newHistory) }
+                prefetchTopHistory(newHistory.take(3))
             }
         }
 
-        updateHistory()
         reloadIcons()
     }
 
@@ -132,41 +138,6 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
         }
     }
 
-
-
-    private fun updateHistory() {
-        val all = DesktopDataStore.getAllWatchHistory().filter {
-            it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local"
-        }
-        val grouped = all.groupBy { it.parentId }
-        val newHistory = grouped.mapNotNull { (_, histories) ->
-            val inProgressOrQueued = histories.filter {
-                val isCompleted = it.duration > 0L && com.lagradost.player.impl.PlayerLinkHandler.isCompleted(it.position, it.duration)
-                !isCompleted
-            }.maxByOrNull { it.updateTime }
-
-            if (inProgressOrQueued != null) {
-                inProgressOrQueued
-            } else {
-                val latestCompleted = histories.maxByOrNull { it.updateTime }
-                if (latestCompleted != null && (latestCompleted.episode != null || latestCompleted.season != null)) {
-                    latestCompleted.copy(
-                        episode = (latestCompleted.episode ?: 0) + 1,
-                        position = 0L,
-                        duration = 0L,
-                        screenshotUrl = null,
-                        episodeThumbnailUrl = null,
-                    )
-                } else {
-                    null
-                }
-            }
-        }.sortedByDescending { it.updateTime }
-
-        updateState { copy(historyList = newHistory) }
-        prefetchTopHistory(newHistory.take(3))
-    }
-
     private fun prefetchTopHistory(topHistory: List<com.lagradost.common.storage.WatchHistory>) {
         if (topHistory.isEmpty()) return
         viewModelScope.launch {
@@ -196,16 +167,14 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
     private fun clearHistory() {
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.clearAllWatchHistory()
+            removeWatchHistory.clearAll()
         }
-        updateState { copy(historyList = emptyList()) }
     }
 
     private fun removeHistoryItem(parentId: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.removeWatchHistory(parentId)
+            removeWatchHistory.awaitByParent(parentId)
         }
-        updateHistory()
     }
 
     private fun reloadProvider() {

@@ -27,9 +27,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.lagradost.cloudstream3.desktop.domain.player.interactor.SavePlaybackProgress
 import java.util.concurrent.atomic.AtomicBoolean
 
-class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
+class EmbeddedPlayerViewModel(
+    private val savePlaybackProgress: SavePlaybackProgress = SavePlaybackProgress(),
+) : BaseMviViewModel<PlayerUiState, PlayerUiEvent, PlayerUiEffect>(
     initialState = PlayerUiState(),
 ) {
     val playerState = PlayerState()

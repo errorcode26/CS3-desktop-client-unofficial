@@ -3,7 +3,15 @@ package com.lagradost.cloudstream3.desktop.ui.screens.library
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
+import com.lagradost.cloudstream3.desktop.data.bookmarks.BookmarksRepositoryImpl
+import com.lagradost.cloudstream3.desktop.data.category.CategoryRepositoryImpl
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.RemoveBookmark
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.ToggleBookmark
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository
+import com.lagradost.cloudstream3.desktop.domain.category.interactor.GetCategories
+import com.lagradost.cloudstream3.desktop.domain.category.interactor.SetItemCategory
+import com.lagradost.cloudstream3.desktop.domain.category.repository.CategoryRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
@@ -19,14 +27,22 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 
-class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, LibraryUiEffect>(
+class LibraryViewModel(
+    private val bookmarksRepo: BookmarksRepository = BookmarksRepositoryImpl(),
+    private val getBookmarks: GetBookmarks = GetBookmarks(bookmarksRepo),
+    private val toggleBookmark: ToggleBookmark = ToggleBookmark(bookmarksRepo),
+    private val removeBookmark: RemoveBookmark = RemoveBookmark(bookmarksRepo),
+    private val categoryRepo: CategoryRepository = CategoryRepositoryImpl(bookmarksRepo),
+    private val getCategories: GetCategories = GetCategories(categoryRepo),
+    private val setItemCategory: SetItemCategory = SetItemCategory(categoryRepo),
+) : BaseMviViewModel<LibraryUiState, LibraryUiEvent, LibraryUiEffect>(
     initialState = LibraryUiState(),
 ) {
     private var reLinkSearchJob: Job? = null
 
     init {
         viewModelScope.launch {
-            BookmarksRepository.bookmarksFlow.collect { bookmarksMap ->
+            getBookmarks.subscribeAll().collect { bookmarksMap ->
                 val allList = bookmarksMap.values.toList()
                 val installed = APIHolder.allProviders.map { it.name }.toSet()
                 updateState {
@@ -141,14 +157,15 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
         }
     }
 
-    private fun selectReLinkMatch(bookmark: DesktopBookmark, provider: MainAPI, match: SearchResponse) {
+    private fun selectReLinkMatch(bookmark: DesktopBookmark, newProvider: MainAPI, match: SearchResponse) {
         viewModelScope.launch(Dispatchers.IO) {
             val updated = bookmark.copy(
+                apiName = newProvider.name,
                 url = match.url,
-                apiName = provider.name,
+                name = match.name,
                 posterUrl = match.posterUrl ?: bookmark.posterUrl,
             )
-            BookmarksRepository.addBookmark(updated)
+            toggleBookmark.saveBookmark(updated)
             updateState {
                 copy(
                     orphanRecoveryBookmark = null,
@@ -160,10 +177,8 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
     }
 
     private fun changeWatchType(bookmarkId: String, newType: DesktopWatchType) {
-        val bookmark = uiState.value.bookmarks.find { it.id == bookmarkId } ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            val updated = bookmark.copy(watchType = newType.id)
-            BookmarksRepository.addBookmark(updated)
+            setItemCategory.await(bookmarkId, newType.id)
         }
     }
 
@@ -184,7 +199,9 @@ class LibraryViewModel : BaseMviViewModel<LibraryUiState, LibraryUiEvent, Librar
     }
 
     private fun deleteBookmark(bookmarkId: String) {
-        BookmarksRepository.removeBookmark(bookmarkId)
+        viewModelScope.launch(Dispatchers.IO) {
+            removeBookmark.await(bookmarkId)
+        }
     }
 
     private fun dismissError() {

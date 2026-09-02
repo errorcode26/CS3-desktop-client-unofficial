@@ -12,24 +12,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
+import com.lagradost.cloudstream3.desktop.domain.history.repository.WatchHistoryRepository
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
-import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
+fun ComposeHistoryScreen(
+    onNavigate: (Config) -> Unit,
+    watchHistoryRepo: WatchHistoryRepository = remember { WatchHistoryRepositoryImpl() },
+    getContinueWatching: GetContinueWatching = remember(watchHistoryRepo) { GetContinueWatching(watchHistoryRepo) },
+    removeWatchHistory: RemoveWatchHistory = remember(watchHistoryRepo) { RemoveWatchHistory(watchHistoryRepo) },
+) {
     val coroutineScope = rememberCoroutineScope()
-    val updates by DesktopDataStore.historyUpdates.collectAsState()
-
-    val historyList = remember(updates) {
-        DesktopDataStore.getAllWatchHistory()
-            .filter { it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local" }
-            .sortedByDescending { it.updateTime }
-            .distinctBy { it.parentId }
-    }
+    val historyList by getContinueWatching.subscribe().collectAsState(initial = emptyList())
 
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
@@ -42,8 +42,8 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
             TextButton(
                 onClick = {
                     showClearConfirmDialog = false
-                    coroutineScope.launch(Dispatchers.IO) {
-                        DesktopDataStore.clearAllWatchHistory()
+                    coroutineScope.launch {
+                        removeWatchHistory.clearAll()
                     }
                 },
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -115,8 +115,8 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 9f),
                             onRemove = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    DesktopDataStore.removeWatchHistory(history.parentId)
+                                coroutineScope.launch {
+                                    removeWatchHistory.awaitByParent(history.parentId)
                                 }
                             },
                             onClick = {

@@ -1,13 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
+import com.lagradost.cloudstream3.desktop.data.plugins.PluginRepositoryImpl
+import com.lagradost.cloudstream3.desktop.domain.plugins.interactor.*
+import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.SitePlugin
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
-import com.lagradost.cloudstream3.desktop.ui.screens.home.PREF_ACTIVE_PROVIDERS
-import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,22 +28,31 @@ data class LocalPlugin(
     val fileSize: Long = 0L,
 )
 
-class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEvent, ExtensionsUiEffect>(
+class ExtensionsViewModel(
+    private val pluginRepo: PluginRepository = PluginRepositoryImpl(),
+    private val getPluginRepositories: GetPluginRepositories = GetPluginRepositories(pluginRepo),
+    private val addPluginRepository: AddPluginRepository = AddPluginRepository(pluginRepo),
+    private val removePluginRepository: RemovePluginRepository = RemovePluginRepository(pluginRepo),
+    private val getAvailablePlugins: GetAvailablePlugins = GetAvailablePlugins(pluginRepo),
+    private val installPluginUseCase: InstallPlugin = InstallPlugin(pluginRepo),
+    private val syncPluginRepositories: SyncPluginRepositories = SyncPluginRepositories(pluginRepo),
+    private val getPluginIconUseCase: GetPluginIcon = GetPluginIcon(pluginRepo),
+) : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEvent, ExtensionsUiEffect>(
     initialState = ExtensionsUiState(),
 ) {
     init {
         viewModelScope.launch {
-            DesktopRepositoryManager.savedRepositories.collect { repos ->
+            getPluginRepositories.subscribe().collect { repos ->
                 updateState { copy(savedRepositories = repos) }
             }
         }
         viewModelScope.launch {
-            DesktopRepositoryManager.remotePluginIcons.collect { icons ->
+            getPluginIconUseCase.subscribeIcons().collect { icons ->
                 updateState { copy(remotePluginIcons = icons) }
             }
         }
         viewModelScope.launch {
-            DesktopRepositoryManager.syncGeneration.collect { gen ->
+            pluginRepo.syncGeneration.collect { gen ->
                 updateState { copy(syncGeneration = gen) }
             }
         }
@@ -77,13 +87,12 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
     private fun addRepositoryFromInput(input: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val addedRepos = DesktopRepositoryManager.addRepositoryFromInput(input)
-                if (addedRepos != null && addedRepos.isNotEmpty()) {
+                val addedRepos = addPluginRepository.await(input)
+                if (!addedRepos.isNullOrEmpty()) {
                     val repoNames = addedRepos.take(2).joinToString { it.name } + if (addedRepos.size > 2) " and ${addedRepos.size - 2} more" else ""
-                    val allPlugins = DesktopRepositoryManager.getAllPlugins()
+                    val allPlugins = getAvailablePlugins.get()
                     updateState { copy(plugins = allPlugins, statusText = "Added ${addedRepos.size} repository(s): $repoNames.") }
                     refreshInstalled()
-                    DesktopRepositoryManager.incrementSyncGeneration()
                 } else {
                     updateState { copy(statusText = "Failed to load repository. Check the URL and try again.") }
                 }
@@ -95,7 +104,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
 
     private fun removeRepository(url: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopRepositoryManager.removeRepository(url)
+            removePluginRepository.await(url)
         }
     }
 
@@ -104,8 +113,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
             updateState { copy(isFetching = true, statusText = "Syncing repositories...") }
             try {
                 withContext(Dispatchers.IO) {
-                    DesktopRepositoryManager.syncAll { done, total ->
-                        val currentPlugins = DesktopRepositoryManager.getAllPlugins()
+                    syncPluginRepositories.await { done, total ->
+                        val currentPlugins = getAvailablePlugins.get()
                         updateState {
                             copy(
                                 plugins = currentPlugins,
@@ -114,7 +123,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                         }
                     }
                 }
-                val allPlugins = DesktopRepositoryManager.getAllPlugins()
+                val allPlugins = getAvailablePlugins.get()
                 updateState { copy(plugins = allPlugins, statusText = "Sync completed successfully.") }
             } catch (e: Throwable) {
                 updateState { copy(statusText = "Error syncing: ${e.message}") }
@@ -133,8 +142,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    DesktopRepositoryManager.syncAll { done, total ->
-                        val currentPlugins = DesktopRepositoryManager.getAllPlugins()
+                    syncPluginRepositories.await { done, total ->
+                        val currentPlugins = getAvailablePlugins.get()
                         updateState {
                             copy(
                                 plugins = currentPlugins,
@@ -143,8 +152,8 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                         }
                     }
                 }
-                val allPlugins = DesktopRepositoryManager.getAllPlugins()
-                val text = "Fetched ${allPlugins.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+                val allPlugins = getAvailablePlugins.get()
+                val text = "Fetched ${allPlugins.size} plugins from ${getPluginRepositories.get().size} repositories."
                 updateState { copy(plugins = allPlugins, statusText = text) }
             } catch (e: Throwable) {
                 updateState { copy(statusText = "Error: ${e.message}") }
@@ -155,16 +164,16 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
     }
 
     private fun loadPluginsFromManager() {
-        val allPlugins = DesktopRepositoryManager.getAllPlugins()
-        val text = "Showing ${allPlugins.size} plugins from ${DesktopRepositoryManager.getSavedRepositories().size} repositories."
+        val allPlugins = getAvailablePlugins.get()
+        val text = "Showing ${allPlugins.size} plugins from ${getPluginRepositories.get().size} repositories."
         updateState { copy(plugins = allPlugins, statusText = text) }
     }
 
     private fun refreshInstalled() {
         val list = mutableListOf<LocalPlugin>()
-        val extensionsDir = DesktopRepositoryManager.getExtensionsDir()
-        val allRemote = DesktopRepositoryManager.getAllPlugins()
-        val savedRepos = DesktopRepositoryManager.getSavedRepositories()
+        val extensionsDir = pluginRepo.getExtensionsDir()
+        val allRemote = getAvailablePlugins.get()
+        val savedRepos = getPluginRepositories.get()
         if (extensionsDir.exists()) {
             extensionsDir.walkTopDown()
                 .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
@@ -176,7 +185,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 }
                 .distinctBy { it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure") }
                 .forEach { jar ->
-                    val manifest = DesktopRepositoryManager.readPluginManifest(jar)
+                    val manifest = pluginRepo.readPluginManifest(jar)
                     val name = manifest?.get("name") as? String ?: jar.nameWithoutExtension
                     val internalName = manifest?.get("internalName") as? String ?: name
                     val version = manifest?.get("version")?.toString()?.toIntOrNull() ?: 0
@@ -215,10 +224,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
     private fun installPlugin(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
         viewModelScope.launch {
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-            val targetDir = java.io.File(DesktopRepositoryManager.getExtensionsDir(), repoCleanName)
-            val jarFile = java.io.File(targetDir, "${plugin.internalName}.jar")
-            val jvmJarFile = java.io.File(targetDir, "${plugin.internalName}-jvm.jar")
-            val dexFile = java.io.File(targetDir, "${plugin.internalName}.dex")
+            val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
+            val jarFile = File(targetDir, "${plugin.internalName}.jar")
+            val jvmJarFile = File(targetDir, "${plugin.internalName}-jvm.jar")
+            val dexFile = File(targetDir, "${plugin.internalName}.dex")
 
             val cleanupFailedArtifacts = {
                 try {
@@ -231,7 +240,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
 
             try {
                 val downloadedFile = withContext(Dispatchers.IO) {
-                    DesktopRepositoryManager.downloadPlugin(repoName, plugin)
+                    installPluginUseCase.await(repoName, plugin)
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
@@ -240,7 +249,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     }
                     onResult("Installed")
                     refreshInstalled()
-                    DesktopRepositoryManager.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
                         "Installed '${plugin.name}' (v${plugin.version})"
                     )
@@ -275,10 +283,10 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
     private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
         viewModelScope.launch {
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-            val targetDir = java.io.File(DesktopRepositoryManager.getExtensionsDir(), repoCleanName)
-            val jarFile = java.io.File(targetDir, "${plugin.internalName}.jar")
-            val jvmJarFile = java.io.File(targetDir, "${plugin.internalName}-jvm.jar")
-            val dexFile = java.io.File(targetDir, "${plugin.internalName}.dex")
+            val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
+            val jarFile = File(targetDir, "${plugin.internalName}.jar")
+            val jvmJarFile = File(targetDir, "${plugin.internalName}-jvm.jar")
+            val dexFile = File(targetDir, "${plugin.internalName}.dex")
 
             val cleanupFailedArtifacts = {
                 try {
@@ -294,7 +302,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 ExtensionLoader.addTrusted(jarFile, plugin.internalName, manifestName = plugin.name)
 
                 val downloadedFile = withContext(Dispatchers.IO) {
-                    DesktopRepositoryManager.downloadPlugin(repoName, plugin)
+                    installPluginUseCase.await(repoName, plugin)
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
@@ -303,7 +311,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     }
                     onResult("Installed")
                     refreshInstalled()
-                    DesktopRepositoryManager.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
                         "Trusted and installed '${plugin.name}'"
                     )
@@ -352,9 +359,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
                     // Step 2: Force JVM to release native Windows file handles.
-                    // URLClassLoader holds sun.misc.URLClassPath file handles that are only
-                    // released after the GC sweeps unreferenced class loaders. We force this
-                    // explicitly before attempting file deletion to prevent Windows ACCESS_DENIED.
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
                     Thread.sleep(150)
@@ -362,9 +366,6 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     System.runFinalization()
 
                     // Step 3: Check if this plugin owned the active provider.
-                    // Instead of writing to DataStore directly (which would break MVI boundaries),
-                    // we fire a ClearActiveProvider effect. The UI layer (ExtensionsScreen) handles
-                    // the actual DataStore write, keeping this ViewModel pure.
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
                         .filter { it.sourcePlugin == plugin.file.absolutePath }
                         .map { it.name }
@@ -375,15 +376,13 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                     }
 
                     // Step 4: Delete ONLY this plugin's own files.
-                    // The extension pack folder (parent dir) belongs to the repo and is NEVER
-                    // deleted here — that is the responsibility of extension pack removal only.
                     val stem = plugin.file.nameWithoutExtension
                     val parentDir = plugin.file.parentFile
                     val filesToDelete = listOfNotNull(
                         plugin.file,
-                        parentDir?.let { java.io.File(it, "$stem-jvm.jar") },
-                        parentDir?.let { java.io.File(it, "$stem.dex") },
-                        parentDir?.let { java.io.File(it, "$stem-secure.jar") },
+                        parentDir?.let { File(it, "$stem-jvm.jar") },
+                        parentDir?.let { File(it, "$stem.dex") },
+                        parentDir?.let { File(it, "$stem-secure.jar") },
                     )
                     for (f in filesToDelete) {
                         if (f.exists()) {
@@ -402,7 +401,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 }
             }
             refreshInstalled()
-            DesktopRepositoryManager.incrementSyncGeneration()
+            pluginRepo.incrementSyncGeneration()
             updateState { copy(isUninstalling = false) }
         }
     }
@@ -433,7 +432,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
 
     private fun loadLocalPlugin(file: File) {
         viewModelScope.launch(Dispatchers.IO) {
-            val targetDir = File(DesktopRepositoryManager.getExtensionsDir(), "Local_Sandbox")
+            val targetDir = File(pluginRepo.getExtensionsDir(), "Local_Sandbox")
             targetDir.mkdirs()
             val targetFile = File(targetDir, file.name)
             file.copyTo(targetFile, overwrite = true)
@@ -443,7 +442,7 @@ class ExtensionsViewModel : BaseMviViewModel<ExtensionsUiState, ExtensionsUiEven
                 com.lagradost.common.logging.AppLogger.e("Error loading local plugin", e)
             }
             refreshInstalled()
-            DesktopRepositoryManager.incrementSyncGeneration()
+            pluginRepo.incrementSyncGeneration()
         }
     }
 }
