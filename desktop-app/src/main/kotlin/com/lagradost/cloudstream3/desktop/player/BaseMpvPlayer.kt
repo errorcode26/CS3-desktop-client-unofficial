@@ -796,9 +796,9 @@ fun BaseMpvPlayer(
                     "stream-lavf-o",
                     "reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,method=GET",
                 )
-                // By increasing the cache buffer and enabling seekable-cache, MPV can seek in memory when supported.
-                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "400000000") // 400MB forward
-                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "100000000") // 100MB back
+                // Smart balanced buffer: 100MB forward (~60-90s of 1080p) + 20MB back for instant rewinds, saving ~380MB RAM
+                lib.mpv_set_property_string(handle, "demuxer-max-bytes", "100000000") // 100MB forward
+                lib.mpv_set_property_string(handle, "demuxer-max-back-bytes", "20000000") // 20MB back
                 lib.mpv_set_property_string(handle, "cache", "yes")
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
             }
