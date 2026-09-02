@@ -45,6 +45,8 @@ data class WatchHistory(
     val position: Long,
     val duration: Long,
     val updateTime: Long = System.currentTimeMillis(),
+    val episodeName: String? = null,
+    val episodeDescription: String? = null,
 )
 
 data class PluginUpdateRecord(
@@ -108,6 +110,7 @@ object DesktopDataStore {
                                             h.parentId, h.episodeId ?: "", h.showName, h.showUrl, h.apiName, h.posterUrl,
                                             h.episodeThumbnailUrl, h.screenshotUrl,
                                             h.episode?.toLong(), h.season?.toLong(), h.position, h.duration, h.updateTime,
+                                            h.episodeName, h.episodeDescription,
                                         )
                                     }
                                 } catch (e: Exception) {
@@ -300,6 +303,8 @@ object DesktopDataStore {
                     position = it.position,
                     duration = it.duration,
                     updateTime = it.updateTime,
+                    episodeName = it.episodeName,
+                    episodeDescription = it.episodeDescription,
                 )
             }
     }
@@ -382,6 +387,8 @@ object DesktopDataStore {
             position = normalizedPosition,
             duration = normalizedDuration,
             updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
+            episodeName = history.episodeName,
+            episodeDescription = history.episodeDescription,
         )
         notifyHistoryChanged(force = forceNotify)
     }
@@ -411,6 +418,8 @@ object DesktopDataStore {
                     position = normalizedPosition,
                     duration = normalizedDuration,
                     updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
+                    episodeName = history.episodeName,
+                    episodeDescription = history.episodeDescription,
                 )
             }
         }
@@ -437,6 +446,8 @@ object DesktopDataStore {
                     position = it.position,
                     duration = it.duration,
                     updateTime = it.updateTime,
+                    episodeName = it.episodeName,
+                    episodeDescription = it.episodeDescription,
                 )
             }
     }
@@ -460,6 +471,8 @@ object DesktopDataStore {
                     position = it.position,
                     duration = it.duration,
                     updateTime = it.updateTime,
+                    episodeName = it.episodeName,
+                    episodeDescription = it.episodeDescription,
                 )
             }
     }
@@ -483,6 +496,8 @@ object DesktopDataStore {
                     position = it.position,
                     duration = it.duration,
                     updateTime = it.updateTime,
+                    episodeName = it.episodeName,
+                    episodeDescription = it.episodeDescription,
                 )
             }
     }
@@ -510,6 +525,8 @@ object DesktopDataStore {
                     position = it.position,
                     duration = it.duration,
                     updateTime = it.updateTime,
+                    episodeName = it.episodeName,
+                    episodeDescription = it.episodeDescription,
                 )
             }
     }

@@ -38,6 +38,8 @@
     let isAppLoading = false;
     let linksData = [];
     let userDismissedWatchNext = false;
+    let maturityAdvisoryTimer = null;
+    let lastShownAdvisoryMedia = '';
     let currentLinkIndex = -1;
     let seekLockTimer = null;
     let episodesData = [];
@@ -49,6 +51,8 @@
     let _cachedChapters = [];
     let _cachedSkipIntervals = [];
     let _activeChapterIndex = -1;
+    let pauseInfoMode = 'delay_5s'; // 'delay_5s', 'delay_10s', 'delay_20s', 'immediate', 'off'
+    let pauseInfoTimer = null;
 
     // Element References
     const overlay       = document.getElementById('overlay');
@@ -134,10 +138,19 @@
         if (resumeOverlay) resumeOverlay.style.display = 'none';
         if (loadingContainer) loadingContainer.classList.remove('show');
 
+        clearPauseInfoTimer();
         const pauseOverlay = document.getElementById('pauseInfoOverlay');
         const pauseBackdrop = document.getElementById('pauseBackdrop');
         if (pauseOverlay) { pauseOverlay.classList.remove('visible'); }
         if (pauseBackdrop) { pauseBackdrop.classList.remove('visible'); }
+
+        const banner = document.getElementById('maturityAdvisoryBanner');
+        if (banner) banner.classList.remove('active');
+        if (maturityAdvisoryTimer) {
+            clearTimeout(maturityAdvisoryTimer);
+            maturityAdvisoryTimer = null;
+        }
+        hasShownMaturityAdvisoryThisSession = false;
 
         // Ensure the main player UI base state is restored internally (visibility handled by evaluateUIStates)
         const mainOverlay = document.getElementById('overlay');
@@ -148,6 +161,71 @@
         if (seekBuffer) seekBuffer.style.width = '0%';
         if (timeDisplay) timeDisplay.innerText = '0:00 / 0:00';
         chaptersBtn?.classList.add('hidden');
+    }
+
+    function updatePauseInfoBadge() {
+        const badge = document.getElementById('ctxPauseInfoBadge');
+        if (!badge) return;
+        switch (pauseInfoMode) {
+            case 'delay_5s': badge.innerText = '5s'; break;
+            case 'delay_10s': badge.innerText = '10s'; break;
+            case 'delay_20s': badge.innerText = '20s'; break;
+            case 'immediate': badge.innerText = '0s'; break;
+            case 'off': badge.innerText = 'Off'; break;
+            default: badge.innerText = '5s'; break;
+        }
+        badge.style.color = (pauseInfoMode === 'off') ? 'rgba(255, 255, 255, 0.45)' : '#9D4EDD';
+    }
+
+    function clearPauseInfoTimer() {
+        if (pauseInfoTimer) {
+            clearTimeout(pauseInfoTimer);
+            pauseInfoTimer = null;
+        }
+    }
+
+    function hidePauseInfoOverlay() {
+        clearPauseInfoTimer();
+        const pauseOverlay = document.getElementById('pauseInfoOverlay');
+        const pauseBackdrop = document.getElementById('pauseBackdrop');
+        if (pauseOverlay) pauseOverlay.classList.remove('visible');
+        if (pauseBackdrop) pauseBackdrop.classList.remove('visible');
+    }
+
+    function schedulePauseInfoOverlay() {
+        clearPauseInfoTimer();
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const isProbing = pOverlay && pOverlay.classList.contains('active');
+        const videoEndedOvl = document.getElementById('videoEndedOverlay');
+        const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
+
+        if (globalIsPlaying || isProbing || isAppLoading || isVideoEnded || pauseInfoMode === 'off') {
+            hidePauseInfoOverlay();
+            return;
+        }
+
+        const pauseOverlay = document.getElementById('pauseInfoOverlay');
+        const pauseBackdrop = document.getElementById('pauseBackdrop');
+        if (!pauseOverlay) return;
+
+        if (pauseInfoMode === 'immediate') {
+            pauseOverlay.classList.add('visible');
+            if (pauseBackdrop) pauseBackdrop.classList.add('visible');
+            return;
+        }
+
+        let delayMs = 5000;
+        if (pauseInfoMode === 'delay_10s') delayMs = 10000;
+        else if (pauseInfoMode === 'delay_20s') delayMs = 20000;
+
+        pauseInfoTimer = setTimeout(() => {
+            const currentProbing = document.getElementById('linkProbingOverlay')?.classList.contains('active');
+            const currentEnded = document.getElementById('videoEndedOverlay')?.style.display === 'flex';
+            if (!globalIsPlaying && !currentProbing && !isAppLoading && !currentEnded && pauseInfoMode !== 'off') {
+                pauseOverlay.classList.add('visible');
+                if (pauseBackdrop) pauseBackdrop.classList.add('visible');
+            }
+        }, delayMs);
     }
 
     function dismissResumeOverlay() {
@@ -214,16 +292,13 @@
             }
         }
         
-        // 1. Pause Info Overlay
-        const pauseOverlay = document.getElementById('pauseInfoOverlay');
-        const pauseBackdrop = document.getElementById('pauseBackdrop');
-        if (pauseOverlay) {
-            if (globalIsPlaying || isProbing || isAppLoading || isVideoEnded) {
-                pauseOverlay.classList.remove('visible');
-                pauseBackdrop.classList.remove('visible');
-            } else {
-                pauseOverlay.classList.add('visible');
-                pauseBackdrop.classList.add('visible');
+        // 1. Pause Info Overlay (Configurable Delay / Immediate / Off)
+        if (globalIsPlaying || isProbing || isAppLoading || isVideoEnded || pauseInfoMode === 'off') {
+            hidePauseInfoOverlay();
+        } else {
+            const pauseOverlay = document.getElementById('pauseInfoOverlay');
+            if (!pauseInfoTimer && pauseOverlay && !pauseOverlay.classList.contains('visible')) {
+                schedulePauseInfoOverlay();
             }
         }
         
@@ -358,6 +433,10 @@
             window._skipBtnActiveSince = Date.now();
         }
         clearTimeout(hideTimer);
+        if (!globalIsPlaying && pauseInfoMode !== 'immediate' && pauseInfoMode !== 'off') {
+            hidePauseInfoOverlay();
+            schedulePauseInfoOverlay();
+        }
         if (!isMenuOpen && !isSeeking && (forceHide || !isHoveringControls)) {
             hideTimer = setTimeout(() => {
                 if (!isHoveringControls && !isSeeking && !isMenuOpen) {
@@ -1030,6 +1109,7 @@
             listEl.innerHTML = episodesToRender.map((ep, i) => {
                 const num = ep.episode || (i + 1 + (currentSelectedChunk * EPISODE_CHUNK_SIZE));
                 const thumbImg = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onload="this.classList.add('loaded')" onerror="this.remove()">` : '';
+                const ratingBadge = (ep.score && ep.score > 0) ? `<div class="ep-thumb-rating"><svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>${ep.score.toFixed(1)}</div>` : '';
                 const epIdEncoded = encodeURIComponent(ep.id || '');
                 const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
@@ -1037,6 +1117,7 @@
                     <div class="ep-thumb-wrapper">
                         <svg class="ep-thumb-fallback" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         ${thumbImg}
+                        ${ratingBadge}
                     </div>
                     <div class="ep-info">
                         <div class="ep-title">${epTitleEscaped}</div>
@@ -1060,6 +1141,58 @@
         renderFilteredEpisodes(s, -1);
     };
     window.onSeasonChipClick = onSeasonChipClick;
+
+    let hasShownMaturityAdvisoryThisSession = false;
+
+    const triggerMaturityAdvisory = () => {
+        if (hasShownMaturityAdvisoryThisSession) return;
+        const meta = window.lastMeta;
+        if (!meta) return;
+        const banner = document.getElementById('maturityAdvisoryBanner');
+        const badge = document.getElementById('advisoryRatingBadge');
+        const reasons = document.getElementById('advisoryReasonsText');
+        const subtext = document.getElementById('advisorySubtext');
+        if (!banner || !badge || !reasons || !subtext) return;
+
+        const rating = (meta.contentRating && meta.contentRating.trim().length > 0) ? meta.contentRating.trim().toUpperCase() : '';
+        const tags = Array.isArray(meta.tags) ? meta.tags : [];
+
+        // Relevant content advisory keywords
+        const advisoryKeywords = ['GORE', 'VIOLENCE', 'HORROR', 'PSYCHOLOGICAL', 'THRILLER', 'CRIME', 'LANGUAGE', 'NUDITY', 'SUBSTANCE', 'MATURE', 'DARK', 'ACTION', 'DRAMA', 'SCI-FI', 'FANTASY', 'ADVENTURE', 'ROMANCE'];
+        const matchedAdvisories = tags.map(t => String(t).toUpperCase()).filter(t => advisoryKeywords.some(k => t.includes(k)));
+
+        let reasonsList = matchedAdvisories.length > 0 ? matchedAdvisories.slice(0, 3) : tags.slice(0, 3).map(t => String(t).toUpperCase());
+
+        // Only show if we have either a rating or genres/tags
+        if (!rating && reasonsList.length === 0) return;
+
+        const displayRating = rating || '16+';
+        badge.innerText = displayRating;
+
+        const isMature = ['18+', 'TV-MA', 'R', 'RATED R', 'NC-17', 'MA', '18', 'GORE', 'HORROR'].includes(displayRating);
+        if (reasonsList.length > 0) {
+            reasons.innerText = reasonsList.join(' • ');
+        } else {
+            reasons.innerText = isMature ? 'VIOLENCE • LANGUAGE • MATURE THEMES' : 'GENERAL THEMES';
+        }
+
+        subtext.innerText = isMature ? 'Viewer discretion is advised' : 'Suitable for broad audiences';
+
+        hasShownMaturityAdvisoryThisSession = true;
+
+        if (maturityAdvisoryTimer) {
+            clearTimeout(maturityAdvisoryTimer);
+            maturityAdvisoryTimer = null;
+        }
+
+        banner.classList.add('active');
+
+        maturityAdvisoryTimer = setTimeout(() => {
+            banner.classList.remove('active');
+            maturityAdvisoryTimer = null;
+        }, 5500);
+    };
+    window.triggerMaturityAdvisory = triggerMaturityAdvisory;
 
     const handleMetadataUpdate = (meta) => {
         window.lastMeta = meta;
@@ -1165,6 +1298,10 @@
 
         if (meta.startPositionMs !== undefined) {
             pendingResumeMs = meta.startPositionMs;
+            if (pendingResumeMs > 0) {
+                resumeHandled = false;
+            }
+            evaluateResumeOverlay();
         }
 
         // Populate Pause Info Overlay
@@ -1211,6 +1348,32 @@
         }
 
         let hasMeta = false;
+
+        const pauseRating = document.getElementById('pauseInfoRating');
+        if (pauseRating) {
+            if (meta.contentRating && meta.contentRating.trim().length > 0) {
+                pauseRating.innerText = meta.contentRating.trim().toUpperCase();
+                pauseRating.style.display = 'inline-block';
+                hasMeta = true;
+            } else {
+                pauseRating.style.display = 'none';
+            }
+        }
+
+        const pauseScore = document.getElementById('pauseInfoScore');
+        const pauseScoreText = document.getElementById('pauseInfoScoreText');
+        const activeEpForScore = (meta.episodes || []).find(e => e.isActive);
+        const epScoreForPause = activeEpForScore ? activeEpForScore.score : null;
+        const effectiveScoreForPause = (epScoreForPause && epScoreForPause > 0) ? epScoreForPause : (meta.rating && meta.rating > 0 ? meta.rating : null);
+
+        if (effectiveScoreForPause && pauseScore && pauseScoreText) {
+            pauseScoreText.innerText = effectiveScoreForPause.toFixed(1);
+            pauseScore.style.display = 'inline-flex';
+            hasMeta = true;
+        } else if (pauseScore) {
+            pauseScore.style.display = 'none';
+        }
+
         if (meta.year) {
             pauseYear.innerText = meta.year;
             pauseYear.style.display = 'inline-block';
@@ -1231,6 +1394,10 @@
 
         // Link Probing Overlay Logic
         const pOverlay = document.getElementById('linkProbingOverlay');
+        const isProbingActive = pOverlay && pOverlay.classList.contains('active') && !pOverlay.classList.contains('dismissing');
+        if (!isProbingActive) {
+            triggerMaturityAdvisory();
+        }
         const pBackdrop = document.getElementById('linkProbingBackdrop');
         const pLogo = document.getElementById('linkProbingLogo');
         const pTitle = document.getElementById('linkProbingTitle');
@@ -1510,17 +1677,10 @@
         let audioHtml = '';
         const renderedAudioNames = new Set();
 
-        const sanitizeTrackTitle = (rawName, fallback) => {
-            if (!rawName) return fallback;
-            let n = rawName.replace(/(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|site|vip|link|xyz|top|app|in|tv|co)\b)/gi, '').trim();
-            n = n.replace(/^\[.*?\]\s*|\s*\[.*?\]$/g, '').replace(/^[-_:|\s]+|[-_:|\s]+$/g, '').trim();
-            return (n.length >= 2 && !/^\d+$/.test(n)) ? n : fallback;
-        };
-
         // 1. Native MPV Audio Tracks (already attached to MPV engine)
         if (meta.audioTracks && meta.audioTracks.length > 0) {
             for (const t of meta.audioTracks) {
-                const displayName = sanitizeTrackTitle(t.name, 'Track ' + t.id);
+                const displayName = t.name || ('Track ' + t.id);
                 renderedAudioNames.add(displayName.toLowerCase().trim());
                 audioHtml += `
                     <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
@@ -1606,33 +1766,14 @@
                     <span class="check-icon">${SVGS.check}</span>
                 </div>`;
         if (meta.subTracks && meta.subTracks.length > 0) {
-            const sanitizeTrackTitle = (rawName, fallback) => {
-                if (!rawName) return fallback;
-                let n = rawName.replace(/(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|site|vip|link|xyz|top|app|in|tv|co)\b)/gi, '').trim();
-                n = n.replace(/^\[.*?\]\s*|\s*\[.*?\]$/g, '').replace(/^[-_:|\s]+|[-_:|\s]+$/g, '').trim();
-                return (n.length >= 2 && !/^\d+$/.test(n)) ? n : fallback;
-            };
-
-            // Deduplicate tracks with the exact same name (MPV native vs CloudStream proxy overlap)
-            const uniqueSubTracks = [];
-            const seenNames = new Set();
-            for (const t of meta.subTracks) {
-                const displayName = sanitizeTrackTitle(t.name, 'Track ' + t.id);
-                if (!seenNames.has(displayName)) {
-                    seenNames.add(displayName);
-                    uniqueSubTracks.push({ ...t, cleanName: displayName });
-                } else if (t.isSelected) {
-                    // If this duplicate is the currently selected one, swap it in so the checkmark shows correctly!
-                    const existingIndex = uniqueSubTracks.findIndex(existing => existing.cleanName === displayName);
-                    if (existingIndex !== -1) uniqueSubTracks[existingIndex] = { ...t, cleanName: displayName };
-                }
-            }
-
-            subHtml += uniqueSubTracks.map(t => `
-                <div class="sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setSubtitleTrack','${t.id}');closeAllPanels();">
-                    <span class="sub-name">${t.cleanName}</span>
-                    <span class="check-icon">${SVGS.check}</span>
-                </div>`).join('');
+            subHtml += meta.subTracks.map(t => {
+                const displayName = t.name || ('Track ' + t.id);
+                return `
+                    <div class="sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setSubtitleTrack','${t.id}');closeAllPanels();">
+                        <span class="sub-name">${displayName}</span>
+                        <span class="check-icon">${t.isSelected ? SVGS.check : ''}</span>
+                    </div>`;
+            }).join('');
         }
         if (meta.lazySubTracks && meta.lazySubTracks.length > 0) {
             // Deduplicate against the already rendered native tracks to prevent lazy duplicates
@@ -1932,12 +2073,13 @@
                 pOverlay.classList.add('dismissing');
                 pOverlay.classList.remove('active');
                 
-                const resumeOvl = document.getElementById('resumeOverlay');
-                if (resumeOvl) resumeOvl.style.display = '';
-
-                // Only show the player UI when the overlay is dismissed
-                showControls();
+                // Keep controls cleanly hidden on playback start (Nuvio / Netflix / Apple TV standard)
+                if (overlay) overlay.classList.add('hidden-controls');
+                document.body.classList.add('hidden-controls');
                 evaluateUIStates();
+
+                // Trigger maturity advisory on clean playback start
+                triggerMaturityAdvisory();
             }, 250);
         }, minBufferWait);
     };
@@ -2024,6 +2166,11 @@
                     btn.innerText = 'Off';
                 }
             }
+        }
+
+        if (s.pauseInfoMode !== undefined && s.pauseInfoMode !== null) {
+            pauseInfoMode = s.pauseInfoMode;
+            updatePauseInfoBadge();
         }
 
         evaluateUIStates();
@@ -3225,6 +3372,8 @@
             loopBadge.style.color = isLooping ? '#9D4EDD' : 'rgba(255, 255, 255, 0.6)';
         }
 
+        updatePauseInfoBadge();
+
         ctxMenu.style.display = 'block';
         
         const zoom = parseFloat(getComputedStyle(document.body).zoom) || 1;
@@ -3252,6 +3401,47 @@
         isLooping = !isLooping;
         send('toggleLoop', isLooping);
         showHudToast(isLooping ? 'Loop: Enabled' : 'Loop: Disabled');
+    };
+
+    window.openPauseInfoModal = () => {
+        closeContextMenu();
+        const modal = document.getElementById('pauseInfoModalOverlay');
+        if (!modal) return;
+        // Update selected class on options
+        document.querySelectorAll('.pause-modal-option').forEach(el => {
+            if (el.getAttribute('data-mode') === pauseInfoMode) {
+                el.classList.add('selected');
+            } else {
+                el.classList.remove('selected');
+            }
+        });
+        modal.style.display = 'flex';
+    };
+
+    window.closePauseInfoModal = (e) => {
+        if (e && e.target !== e.currentTarget && !e.target.classList.contains('shortcuts-close-btn')) return;
+        const modal = document.getElementById('pauseInfoModalOverlay');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.selectPauseInfoMode = (mode) => {
+        pauseInfoMode = mode;
+        updatePauseInfoBadge();
+        send('set_pause_info_mode', mode);
+        const modal = document.getElementById('pauseInfoModalOverlay');
+        if (modal) modal.style.display = 'none';
+        const labelMap = {
+            'delay_5s': 'Pause Info: 5s Delay',
+            'delay_10s': 'Pause Info: 10s Delay',
+            'delay_20s': 'Pause Info: 20s Delay',
+            'immediate': 'Pause Info: Immediate',
+            'off': 'Pause Info: Disabled'
+        };
+        showHudToast(labelMap[mode] || 'Pause Info Updated');
+        hidePauseInfoOverlay();
+        if (!globalIsPlaying) {
+            schedulePauseInfoOverlay();
+        }
     };
 
     window.togglePipFromContext = () => {
@@ -3325,6 +3515,12 @@
             return;
         }
 
+        const pauseModal = document.getElementById('pauseInfoModalOverlay');
+        if (pauseModal && pauseModal.style.display === 'flex') {
+            if (e.key === 'Escape') { closePauseInfoModal(); }
+            return;
+        }
+
         // Percentage seek (0-9)
         if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key >= '0' && e.key <= '9') {
             const pct = parseInt(e.key) * 0.1;
@@ -3359,6 +3555,10 @@
                 break;
             case 'KeyM':
                 send('toggleMute');
+                break;
+            case 'KeyN':
+                e.preventDefault();
+                triggerNextEpisode();
                 break;
             case 'KeyD':
             case 'KeyI':

@@ -184,12 +184,13 @@ object DesktopDownloadManager {
             File(downloadsDir, "Shows/$cleanShow/$seasonFolder")
         }.apply { mkdirs() }
 
+        val sanitizedEp = com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer.sanitizeEpisodeTitle(episodeTitle)
         val baseName = if (isMovie) {
             "$cleanShow (${link.quality}p)"
         } else {
             val sNum = season ?: 1
             val eNum = episode ?: 1
-            val cleanEpTitle = episodeTitle?.let { sanitizeFileName(it) }?.takeIf { it.isNotBlank() }
+            val cleanEpTitle = sanitizedEp?.let { sanitizeFileName(it) }?.takeIf { it.isNotBlank() }
             if (cleanEpTitle != null) {
                 "$cleanShow - S%02dE%02d - $cleanEpTitle (${link.quality}p)".format(sNum, eNum)
             } else {
@@ -205,7 +206,7 @@ object DesktopDownloadManager {
             canonicalKey = canonicalKey,
             showName = showName,
             showUrl = showUrl,
-            episodeTitle = episodeTitle,
+            episodeTitle = sanitizedEp,
             posterUrl = posterUrl,
             backdropUrl = backdropUrl,
             season = season,

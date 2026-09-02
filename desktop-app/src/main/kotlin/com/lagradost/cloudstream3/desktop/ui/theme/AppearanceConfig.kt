@@ -7,6 +7,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+enum class ThemeMode(val label: String) {
+    LIGHT("Light"),
+    DARK("Dark"),
+    AMOLED("Pure AMOLED"),
+}
+
 enum class PosterTitlePosition {
     INSIDE,
     BELOW,
@@ -23,6 +29,7 @@ enum class PosterTitlePosition {
 enum class ContinueWatchingStyle {
     THUMBNAIL,
     PREMIUM,
+    DETAILED,
     ;
 
     companion object {
@@ -399,23 +406,45 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_ANTI_SPOILER_ENABLED, enabled)
     }
 
+    fun setThemeMode(mode: ThemeMode) {
+        when (mode) {
+            ThemeMode.LIGHT -> {
+                _isLightMode.value = true
+                _amoledMode.value = false
+                DesktopDataStore.setKey(PREF_LIGHT_MODE, true)
+                DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
+            }
+            ThemeMode.DARK -> {
+                _isLightMode.value = false
+                _amoledMode.value = false
+                DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
+                DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
+            }
+            ThemeMode.AMOLED -> {
+                _isLightMode.value = false
+                _amoledMode.value = true
+                DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
+                DesktopDataStore.setKey(PREF_AMOLED_MODE, true)
+            }
+        }
+    }
+
     fun setAmoledMode(enabled: Boolean) {
         _amoledMode.value = enabled
+        if (enabled) {
+            _isLightMode.value = false
+            DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
+        }
         DesktopDataStore.setKey(PREF_AMOLED_MODE, enabled)
     }
 
     fun setLightMode(enabled: Boolean) {
-        if (_isLightMode.value == enabled) return
         _isLightMode.value = enabled
-        DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
-
-        val currentPreset = (com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets + _customPresets.value).find { it.id == _appPresetTheme.value }
-        if (currentPreset != null && currentPreset.isLightMode != enabled) {
-            val defaultPreset = com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets.presets.firstOrNull { it.isLightMode == enabled }
-            if (defaultPreset != null) {
-                applyPreset(defaultPreset)
-            }
+        if (enabled) {
+            _amoledMode.value = false
+            DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
         }
+        DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
     }
 
     fun setGridScale(scale: String) {

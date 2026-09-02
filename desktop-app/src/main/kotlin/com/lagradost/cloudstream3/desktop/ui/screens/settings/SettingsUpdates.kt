@@ -1,14 +1,18 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.AppConfig
 import com.lagradost.cloudstream3.desktop.AppUpdater
 import kotlinx.coroutines.launch
@@ -23,85 +27,122 @@ fun SettingsUpdates() {
     var showCheckedFeedback by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Updates & Version",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+        SettingsGroupCard(title = "Updates & Version") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp, horizontal = 4.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Installed Version",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = "v${AppConfig.APP_VERSION}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-                Text(
-                    text = "Current Version: v${AppConfig.APP_VERSION}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
+                    FilledTonalButton(
+                        onClick = {
+                            isChecking = true
+                            showCheckedFeedback = false
+                            coroutineScope.launch {
+                                AppUpdater.checkForUpdates(force = true)
+                                isChecking = false
+                                if (AppUpdater.latestRelease.value == null) {
+                                    showCheckedFeedback = true
+                                }
+                            }
+                        },
+                        enabled = !isChecking,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Check for updates",
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isChecking) "Checking..." else "Check for Updates",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
 
                 if (latestRelease != null) {
                     val release = latestRelease!!
-                    Text(
-                        text = "New Update Available: ${release.name}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Published at: ${release.published_at}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            try {
-                                Desktop.getDesktop().browse(URI(release.html_url))
-                            } catch (e: Exception) {
-                                com.lagradost.common.logging.AppLogger.e("Error opening link ${release.html_url}", e)
-                            }
-                        },
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Download Update")
-                    }
-                } else {
-                    Text(
-                        text = if (showCheckedFeedback) "Checked! You are on the latest version." else "You are on the latest version.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = "Update Available: ${release.name}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Published: ${release.published_at}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
 
-                Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        isChecking = true
-                        showCheckedFeedback = false
-                        coroutineScope.launch {
-                            AppUpdater.checkForUpdates(force = true)
-                            isChecking = false
-                            if (AppUpdater.latestRelease.value == null) {
-                                showCheckedFeedback = true
+                            Button(
+                                onClick = {
+                                    try {
+                                        Desktop.getDesktop().browse(URI(release.html_url))
+                                    } catch (e: Exception) {
+                                        com.lagradost.common.logging.AppLogger.e("Error opening link ${release.html_url}", e)
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Download", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    },
-                    enabled = !isChecking,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Check for updates",
-                        modifier = Modifier.padding(end = 8.dp).size(18.dp),
+                    }
+                } else if (showCheckedFeedback) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "You are on the latest version.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
                     )
-                    Text(if (isChecking) "Checking..." else "Check for Updates")
                 }
             }
         }

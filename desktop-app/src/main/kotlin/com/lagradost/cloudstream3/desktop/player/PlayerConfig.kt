@@ -40,6 +40,7 @@ object PlayerConfig {
     const val PREF_ENABLE_SKIP_INTERVALS = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_ENABLE_SKIP_INTERVALS
     const val PREF_AUTO_SKIP_INTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_INTRO
     const val PREF_AUTO_SKIP_OUTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_OUTRO
+    const val PREF_PAUSE_INFO_MODE = "player_pause_info_mode" // "delay_5s" (default), "delay_10s", "delay_20s", "immediate", "off"
 
     fun toMpvBackgroundColor(hexOrRgba: String?): Pair<String, String> {
         return when (hexOrRgba?.trim()?.lowercase()) {

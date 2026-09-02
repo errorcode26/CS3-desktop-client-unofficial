@@ -55,6 +55,8 @@ fun ComposeNativeWebPlayer(
     plot: String? = null,
     year: Int? = null,
     tags: List<String>? = null,
+    contentRating: String? = null,
+    rating: Double? = null,
     isLive: Boolean = false,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
@@ -134,6 +136,8 @@ fun ComposeNativeWebPlayer(
                 plot = plot,
                 year = year,
                 tags = tags,
+                contentRating = contentRating,
+                rating = rating,
                 isProbing = isProbing,
                 isScraping = isScraping,
                 backdropUrl = safeBackdrop,
@@ -169,6 +173,7 @@ fun ComposeNativeWebPlayer(
                         posterUrl = resolvedEpPoster?.let { url -> if (url.startsWith("//")) "https:$url" else url },
                         description = it.description,
                         runTime = it.runTime,
+                        score = it.score?.toFloat(10)?.toDouble(),
                     )
                 },
                 audioTracks = audioTracks.map {
@@ -227,7 +232,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, activeSubtitleOverrideEnabled, isLive) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive) {
         if (isUiReady) {
             pushSyncStateToWebView()
         }
@@ -289,6 +294,7 @@ fun ComposeNativeWebPlayer(
             val autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
             val showEndTime = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_END_TIME) ?: false
             val showClock = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK) ?: false
+            val pauseInfoMode = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE) ?: "delay_5s"
 
             val payload = AppStateUpdatePayload(
                 volume = vol,
@@ -302,6 +308,7 @@ fun ComposeNativeWebPlayer(
                 autoPlayEnabled = autoPlayEnabled,
                 showEndTime = showEndTime,
                 showClock = showClock,
+                pauseInfoMode = pauseInfoMode,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -598,6 +605,12 @@ fun ComposeNativeWebPlayer(
                         "toggleLoop" -> {
                             val loopVal = if (eventValue == "true") "inf" else "no"
                             MpvLibrary.INSTANCE.mpv_set_property_string(h, "loop-file", loopVal)
+                        }
+                        "setPauseInfoMode", "set_pause_info_mode" -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE, eventValue)
+                                pushMetadataToWebView()
+                            }
                         }
                         "screenshot" -> {
                             MpvLibrary.INSTANCE.mpv_command_string(h, "screenshot video")

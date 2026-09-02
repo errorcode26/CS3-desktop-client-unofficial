@@ -57,10 +57,19 @@ fun HomeHeroCarousel(
     if (items.isEmpty()) return
 
     val displayItems = remember(items, heroMetaMap) {
-        items.filter { item ->
+        val validItems = items.filter { item ->
             val meta = heroMetaMap[item.url]
             meta == null || meta.backdropUrl != null
-        }.take(10)
+        }
+        // Prioritize items with verified logos, then verified backdrops
+        validItems.sortedByDescending { item ->
+            val meta = heroMetaMap[item.url]
+            when {
+                meta?.logoUrl != null -> 2
+                meta?.backdropUrl != null -> 1
+                else -> 0
+            }
+        }.take(6)
     }
 
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
@@ -79,8 +88,8 @@ fun HomeHeroCarousel(
     }
 
     LaunchedEffect(items) {
-        items.forEachIndexed { index, item ->
-            if (index > 0) delay(800L)
+        items.take(8).forEachIndexed { index, item ->
+            if (index > 0) delay(300L)
             onPrefetchHeroItem(provider, item)
         }
     }
@@ -376,18 +385,10 @@ private fun HeroMetadataLayer(
                     error = {
                         if (displayTitle.isNotBlank()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
-                                Text(
+                                com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
                                     text = displayTitle,
-                                    style = (if (isCompact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.displayLarge).copy(
-                                        shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
-                                        letterSpacing = (-0.5).sp,
-                                        fontSize = if (isCompact) 24.sp else 44.sp,
-                                        lineHeight = if (isCompact) 28.sp else 48.sp,
-                                    ),
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
+                                    isCompact = isCompact,
+                                    fontSize = if (isCompact) 26.sp else 46.sp,
                                 )
                             }
                         }
@@ -397,18 +398,10 @@ private fun HeroMetadataLayer(
         } else {
             val displayTitle = meta?.title ?: com.lagradost.cloudstream3.desktop.repo.HeroRepository.cleanHeroTitle(item.name)
             if (displayTitle.isNotBlank()) {
-                Text(
+                com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
                     text = displayTitle,
-                    style = (if (isCompact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.displayLarge).copy(
-                        shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
-                        letterSpacing = (-0.5).sp,
-                        fontSize = if (isCompact) 24.sp else 44.sp,
-                        lineHeight = if (isCompact) 28.sp else 48.sp,
-                    ),
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    isCompact = isCompact,
+                    fontSize = if (isCompact) 26.sp else 46.sp,
                 )
             }
         }

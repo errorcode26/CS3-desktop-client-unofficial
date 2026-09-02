@@ -22,6 +22,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
+import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardDetailed
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide
 import com.lagradost.common.storage.WatchHistory
 
@@ -110,52 +111,79 @@ fun HomeHistoryRow(
                     val history = currentList[index]
                     val provider = providers.find { it.name == history.apiName }
                     
-                    if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
-                        val cardWidth = if (isCompact) 230.dp else (posterWidthDp * 2.2f).dp
-                        val cardHeight = if (isCompact) 125.dp else (posterWidthDp * 1.5f).dp
-                        WatchHistoryCardWide(
-                            modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
-                            history = history,
-                            provider = provider,
-                            onRemove = { onRemoveHistoryItem(history.parentId) },
-                            onClick = {
-                                if (provider != null) {
-                                    onItemClick(provider, history)
-                                }
-                            },
-                            onPlayClick = {
-                                if (provider != null) {
-                                    if (onPlayClick != null) {
-                                        onPlayClick(provider, history)
-                                    } else {
+                    when (continueWatchingStyle) {
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.4f).coerceAtLeast(360f).dp
+                            val cardHeight = if (isCompact) 130.dp else (posterWidthDp * 1.5f).dp
+                            WatchHistoryCardWide(
+                                modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
+                                history = history,
+                                provider = provider,
+                                onRemove = { onRemoveHistoryItem(history.parentId) },
+                                onClick = {
+                                    if (provider != null) {
                                         onItemClick(provider, history)
                                     }
-                                }
-                            },
-                        )
-                    } else {
-                        val cardWidth = if (isCompact) 230.dp else 380.dp
-                        val cardHeight = cardWidth * 9f / 16f
-                        WatchHistoryCard(
-                            modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
-                            history = history,
-                            provider = provider,
-                            onRemove = { onRemoveHistoryItem(history.parentId) },
-                            onClick = {
-                                if (provider != null) {
-                                    onItemClick(provider, history)
-                                }
-                            },
-                            onPlayClick = {
-                                if (provider != null) {
-                                    if (onPlayClick != null) {
-                                        onPlayClick(provider, history)
-                                    } else {
+                                },
+                                onPlayClick = {
+                                    if (provider != null) {
+                                        if (onPlayClick != null) {
+                                            onPlayClick(provider, history)
+                                        } else {
+                                            onItemClick(provider, history)
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.5f).coerceAtLeast(420f).dp
+                            val cardHeight = if (isCompact) 130.dp else 145.dp
+                            WatchHistoryCardDetailed(
+                                modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
+                                history = history,
+                                provider = provider,
+                                onRemove = { onRemoveHistoryItem(history.parentId) },
+                                onClick = {
+                                    if (provider != null) {
                                         onItemClick(provider, history)
                                     }
-                                }
-                            },
-                        )
+                                },
+                                onPlayClick = {
+                                    if (provider != null) {
+                                        if (onPlayClick != null) {
+                                            onPlayClick(provider, history)
+                                        } else {
+                                            onItemClick(provider, history)
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL -> {
+                            val cardWidth = if (isCompact) 230.dp else 380.dp
+                            val cardHeight = cardWidth * 9f / 16f
+                            WatchHistoryCard(
+                                modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
+                                history = history,
+                                provider = provider,
+                                onRemove = { onRemoveHistoryItem(history.parentId) },
+                                onClick = {
+                                    if (provider != null) {
+                                        onItemClick(provider, history)
+                                    }
+                                },
+                                onPlayClick = {
+                                    if (provider != null) {
+                                        if (onPlayClick != null) {
+                                            onPlayClick(provider, history)
+                                        } else {
+                                            onItemClick(provider, history)
+                                        }
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }

@@ -4,18 +4,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.newEpisode
@@ -103,14 +104,20 @@ fun DetailsPlayButton(
         if (isUnavailable) {
             "Unavailable on ${provider.name}"
         } else if (latestHistory != null && !isLatestCompleted && latestHistory.position > 0) {
-            if (targetEp?.episode != null) {
+            if (targetEp?.season == 0 && targetEp.episode != null) {
+                "Resume Special E${targetEp.episode}"
+            } else if (targetEp?.episode != null) {
                 "Resume E${targetEp.episode}"
             } else {
                 "Resume"
             }
         } else {
             if (targetEp?.season != null && targetEp.episode != null) {
-                "Play S${targetEp.season} E${targetEp.episode}"
+                if (targetEp.season == 0) {
+                    "Play Special E${targetEp.episode}"
+                } else {
+                    "Play S${targetEp.season} E${targetEp.episode}"
+                }
             } else if (targetEp?.episode != null) {
                 "Play E${targetEp.episode}"
             } else {
@@ -159,7 +166,7 @@ fun DetailsPlayButton(
         Box(
             modifier = Modifier
                 .wrapContentWidth()
-                .widthIn(min = if (isNarrow) 180.dp else 300.dp, max = 450.dp)
+                .widthIn(min = if (isNarrow) 220.dp else 360.dp, max = 500.dp)
                 .height(if (isNarrow) 44.dp else 52.dp)
                 .clip(shape)
                 .background(if (isUnavailable) Color(0xFFE50914).copy(alpha = 0.15f) else Color.White)
@@ -179,7 +186,7 @@ fun DetailsPlayButton(
                         onPlay(targetActionEp)
                     }
                 }
-                .padding(horizontal = if (isNarrow) 20.dp else 36.dp),
+                .padding(horizontal = if (isNarrow) 24.dp else 40.dp),
             contentAlignment = Alignment.Center,
         ) {
             Row(
@@ -254,19 +261,23 @@ fun DetailsDownloadButton(
         }
     }
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     Surface(
         onClick = { targetActionEp?.let { onDownload(it) } },
-        modifier = modifier.size(56.dp),
+        modifier = modifier.size(52.dp),
         shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.12f),
-        border = BorderStroke(1.2.dp, Color.White.copy(alpha = 0.28f)),
+        color = if (isHovered) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
+        border = BorderStroke(1.2.dp, if (isHovered) Color.White.copy(alpha = 0.50f) else Color.White.copy(alpha = 0.28f)),
+        interactionSource = interactionSource,
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.Download,
+                PremiumIcons.Downloads,
                 contentDescription = "Download",
                 tint = Color.White,
                 modifier = Modifier.size(22.dp),

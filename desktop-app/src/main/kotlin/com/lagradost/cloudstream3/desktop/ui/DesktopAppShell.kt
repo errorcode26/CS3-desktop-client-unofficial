@@ -556,9 +556,9 @@ private fun NavigationDock(
         }
 
         val paddingInsideSurface = if (isHorizontal) {
-            Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
         } else {
-            Modifier.padding(vertical = 8.dp, horizontal = 5.dp)
+            Modifier.padding(vertical = 14.dp, horizontal = 5.dp)
         }
 
         val glassBase = when {

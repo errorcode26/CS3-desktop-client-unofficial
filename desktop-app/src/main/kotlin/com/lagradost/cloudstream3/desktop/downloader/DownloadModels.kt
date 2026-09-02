@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.downloader
 
+import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import java.io.File
 
 enum class DownloadStatus {
@@ -41,8 +42,16 @@ data class DownloadTask(
     val isMovie: Boolean
         get() = season == null && episode == null
 
+    val cleanEpisodeTitle: String?
+        get() = CardTitleSanitizer.sanitizeEpisodeTitle(episodeTitle)
+
     val displayTitle: String
-        get() = if (isMovie) showName else "$showName • S${season ?: 1} E${episode ?: 1}${if (!episodeTitle.isNullOrBlank()) " - $episodeTitle" else ""}"
+        get() = if (isMovie) {
+            showName
+        } else {
+            val ep = cleanEpisodeTitle
+            "$showName • S${season ?: 1} E${episode ?: 1}${if (!ep.isNullOrBlank()) " - $ep" else ""}"
+        }
 
     val file: File
         get() = File(filePath)

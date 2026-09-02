@@ -108,7 +108,17 @@ fun PausedDetailsOverlay(
                 episodeTitle = ""
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                loadResponse?.contentRating?.takeIf { it.isNotBlank() }?.let { rating ->
+                    com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.ContentRatingBadge(
+                        rating = rating,
+                        isLarge = false,
+                    )
+                }
+
                 if (combinedMeta.isNotBlank()) {
                     Text(
                         text = combinedMeta,

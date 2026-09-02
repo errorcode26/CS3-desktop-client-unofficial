@@ -77,6 +77,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
 
     private var loadJob: Job? = null
     private var providerSearchJob: Job? = null
+    private val catalogItemsCache = java.util.concurrent.ConcurrentHashMap<String, List<ExploreItem>>()
 
     init {
         viewModelScope.launch {
@@ -248,12 +249,30 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
 
     private fun loadCurrentCatalog(skip: Int = 0) {
         val cat = uiState.value.selectedCatalog ?: return
+        val genreArg = if (uiState.value.selectedGenre.equals("All", ignoreCase = true)) null else uiState.value.selectedGenre
+        val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_${genreArg ?: "all"}_$skip"
+
+        // 0ms instant display if already in memory
+        if (skip == 0) {
+            val cached = catalogItemsCache[cacheKey]
+            if (cached != null && cached.isNotEmpty()) {
+                val filtered = applyFilters(cached, uiState.value.searchQuery, uiState.value.selectedYear)
+                updateState {
+                    copy(
+                        isInitializing = false,
+                        rawItems = cached,
+                        displayItems = filtered,
+                        isLoading = false,
+                    )
+                }
+                return
+            }
+        }
 
         loadJob?.cancel()
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(isLoading = true) }
             try {
-                val genreArg = if (uiState.value.selectedGenre.equals("All", ignoreCase = true)) null else uiState.value.selectedGenre
                 val fetched = ExploreCatalogClient.fetchCatalogItems(
                     baseUrl = cat.addonBaseUrl,
                     type = cat.type,
@@ -261,6 +280,10 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                     genre = genreArg,
                     skip = skip,
                 )
+
+                if (fetched.isNotEmpty()) {
+                    catalogItemsCache[cacheKey] = fetched
+                }
 
                 val newRaw = if (skip == 0) fetched else uiState.value.rawItems + fetched
                 val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear)

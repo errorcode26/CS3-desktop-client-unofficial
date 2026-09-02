@@ -26,6 +26,7 @@ fun ComposeHistoryScreen(onNavigate: (Config) -> Unit) {
 
     val historyList = remember(updates) {
         DesktopDataStore.getAllWatchHistory()
+            .filter { it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local" }
             .sortedByDescending { it.updateTime }
             .distinctBy { it.parentId }
     }

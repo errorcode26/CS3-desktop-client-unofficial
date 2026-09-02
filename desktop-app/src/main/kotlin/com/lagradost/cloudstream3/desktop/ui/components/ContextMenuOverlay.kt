@@ -42,7 +42,9 @@ import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.downloader.DownloadTask
 import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.formatBytes
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
@@ -53,6 +55,7 @@ enum class ContextMenuType {
     WATCH_HISTORY,
     EPISODE,
     BOOKMARK,
+    DOWNLOAD,
 }
 
 object GlobalContextMenuState {
@@ -64,6 +67,9 @@ object GlobalContextMenuState {
     var watchHistory: WatchHistory? by mutableStateOf(null)
     var bookmark: DesktopBookmark? by mutableStateOf(null)
     var provider: MainAPI? by mutableStateOf(null)
+    var downloadTask: DownloadTask? by mutableStateOf(null)
+    var showTaskCount: Int by mutableStateOf(0)
+    var showTotalBytes: Long by mutableStateOf(0L)
 
     var episode: Episode? by mutableStateOf(null)
     var loadResponse: LoadResponse? by mutableStateOf(null)
@@ -76,6 +82,8 @@ object GlobalContextMenuState {
     var onChangeCategory: ((DesktopWatchType) -> Unit)? by mutableStateOf(null)
     var onReLink: (() -> Unit)? by mutableStateOf(null)
     var onSearchOtherProviders: (() -> Unit)? by mutableStateOf(null)
+    var onOpenInExplorer: (() -> Unit)? by mutableStateOf(null)
+    var onDeleteShow: (() -> Unit)? by mutableStateOf(null)
 
     var onPlayEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
     var onDownloadEpisode: ((Episode) -> Unit)? by mutableStateOf(null)
@@ -92,6 +100,9 @@ object GlobalContextMenuState {
         watchHistory = null
         bookmark = null
         provider = null
+        downloadTask = null
+        showTaskCount = 0
+        showTotalBytes = 0L
         episode = null
         loadResponse = null
         isAntiSpoiler = false
@@ -102,6 +113,8 @@ object GlobalContextMenuState {
         onChangeCategory = null
         onReLink = null
         onSearchOtherProviders = null
+        onOpenInExplorer = null
+        onDeleteShow = null
         onPlayEpisode = null
         onDownloadEpisode = null
         onToggleWatched = null
@@ -194,6 +207,27 @@ object GlobalContextMenuState {
         this.menuType = ContextMenuType.EPISODE
         this.isActive = true
     }
+
+    fun showForDownload(
+        bounds: Rect,
+        task: DownloadTask,
+        allShowTasks: List<DownloadTask>,
+        onPlay: () -> Unit,
+        onDelete: () -> Unit,
+        onDeleteShow: (() -> Unit)? = null,
+        onOpenInExplorer: (() -> Unit)? = null,
+    ) {
+        this.bounds = bounds
+        this.downloadTask = task
+        this.showTaskCount = allShowTasks.size
+        this.showTotalBytes = allShowTasks.sumOf { it.downloadedBytes }
+        this.onPlayClick = onPlay
+        this.onRemove = onDelete
+        this.onDeleteShow = onDeleteShow
+        this.onOpenInExplorer = onOpenInExplorer
+        this.menuType = ContextMenuType.DOWNLOAD
+        this.isActive = true
+    }
 }
 
 @Composable
@@ -211,7 +245,7 @@ fun ContextMenuOverlay() {
     }
 
     if (isVisible) {
-        val isEpisode = state.menuType == ContextMenuType.EPISODE
+        val isEpisode = state.menuType == ContextMenuType.EPISODE || (state.menuType == ContextMenuType.DOWNLOAD && state.downloadTask?.isMovie == false)
 
         val posterUrl = if (state.menuType == ContextMenuType.POSTER) {
             state.searchResponse?.posterUrl
@@ -219,6 +253,8 @@ fun ContextMenuOverlay() {
             state.watchHistory?.posterUrl
         } else if (state.menuType == ContextMenuType.BOOKMARK) {
             state.bookmark?.posterUrl
+        } else if (state.menuType == ContextMenuType.DOWNLOAD) {
+            state.downloadTask?.posterUrl ?: state.downloadTask?.backdropUrl
         } else {
             state.episode?.posterUrl ?: state.loadResponse?.posterUrl
         }
@@ -233,6 +269,8 @@ fun ContextMenuOverlay() {
             state.watchHistory?.showName
         } else if (state.menuType == ContextMenuType.BOOKMARK) {
             state.bookmark?.name
+        } else if (state.menuType == ContextMenuType.DOWNLOAD) {
+            state.downloadTask?.showName
         } else {
             state.episode?.let { ep ->
                 val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
@@ -253,7 +291,15 @@ fun ContextMenuOverlay() {
             }
         }
 
-        val subtitleText = if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
+        val subtitleText = if (state.menuType == ContextMenuType.DOWNLOAD && state.downloadTask != null) {
+            val task = state.downloadTask!!
+            if (!task.isMovie) {
+                val epClean = task.cleanEpisodeTitle
+                "S${task.season ?: 1} E${task.episode ?: 1}${if (!epClean.isNullOrBlank()) " • $epClean" else ""}"
+            } else {
+                "${task.quality}p • ${formatBytes(task.downloadedBytes)}"
+            }
+        } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
             val ep = state.episode!!
             if (ep.season != null && ep.episode != null) "S${ep.season} E${ep.episode}" else ep.episode?.let { "Episode $it" } ?: ""
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
@@ -769,6 +815,49 @@ fun ContextMenuOverlay() {
                                         state.onRemove?.invoke()
                                     },
                                 )
+                            } else if (state.menuType == ContextMenuType.DOWNLOAD && state.downloadTask != null) {
+                                val task = state.downloadTask!!
+                                ActionMenuItem(
+                                    text = "Play",
+                                    icon = Icons.Default.PlayArrow,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onPlayClick?.invoke()
+                                    },
+                                )
+
+                                if (state.onOpenInExplorer != null) {
+                                    ActionMenuItem(
+                                        text = "Show in File Explorer",
+                                        icon = Icons.Default.FolderOpen,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onOpenInExplorer?.invoke()
+                                        },
+                                    )
+                                }
+
+                                ActionMenuItem(
+                                    text = "Delete This File (${formatBytes(task.downloadedBytes)})",
+                                    icon = Icons.Default.Delete,
+                                    color = MaterialTheme.colorScheme.error,
+                                    onClick = {
+                                        state.dismiss()
+                                        state.onRemove?.invoke()
+                                    },
+                                )
+
+                                if (state.showTaskCount > 1 && state.onDeleteShow != null) {
+                                    ActionMenuItem(
+                                        text = "Delete Entire Show (${state.showTaskCount} episodes • ${formatBytes(state.showTotalBytes)})",
+                                        icon = Icons.Default.DeleteSweep,
+                                        color = MaterialTheme.colorScheme.error,
+                                        onClick = {
+                                            state.dismiss()
+                                            state.onDeleteShow?.invoke()
+                                        },
+                                    )
+                                }
                             } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
                                 val ep = state.episode!!
                                 val epReleaseStatus = remember(ep.description) {

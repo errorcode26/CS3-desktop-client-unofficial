@@ -4,6 +4,8 @@ data class PlayerUiSyncState(
     val plot: String?,
     val year: Int?,
     val tags: List<String>?,
+    val contentRating: String? = null,
+    val rating: Double? = null,
     val isProbing: Boolean,
     val isScraping: Boolean = false,
     val backdropUrl: String?,
@@ -84,6 +86,7 @@ data class EpisodePayload(
     val posterUrl: String?,
     val description: String?,
     val runTime: Int?,
+    val score: Double? = null,
 )
 
 data class SubtitleTrackPayload(
@@ -111,6 +114,7 @@ data class AppStateUpdatePayload(
     val autoPlayEnabled: Boolean = true,
     val showEndTime: Boolean = false,
     val showClock: Boolean = false,
+    val pauseInfoMode: String = "delay_5s",
 )
 
 data class P2pStatsUpdatePayload(

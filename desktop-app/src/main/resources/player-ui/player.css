@@ -50,18 +50,20 @@
         .hidden-controls .bottom-bar { transform: translateY(16px); opacity: 0; }
         body.hidden-controls, body.hidden-controls * { cursor: none !important; }
 
-        /* ── Top Bar Pill ────────────────────────────────────────────────── */
+        /* ── Top Bar Container (Frameless, Back Button + Clean Floating Title) ── */
         .top-bar {
             position: relative; z-index: var(--z-player-controls);
-            margin-top: 10px; margin-left: 24px;
-            padding: 10px 24px 10px 14px;
-            background: rgba(15, 15, 15, 0.45);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50px;
+            margin-top: 14px; margin-left: 24px;
+            padding: 0;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: none;
+            border-radius: 0;
             display: inline-flex; align-items: center; align-self: flex-start;
+            gap: 16px;
             pointer-events: auto; flex-shrink: 0;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: none;
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
@@ -159,61 +161,194 @@
         }
         #pauseInfoNowPlaying {
             font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            color: rgba(255,255,255,0.55);
+            font-weight: 800;
+            letter-spacing: 2.2px;
+            color: rgba(255, 255, 255, 0.70);
             text-transform: uppercase;
             margin-bottom: -4px;
         }
         #pauseInfoLogo {
-            max-height: 90px;
-            max-width: 100%;
+            max-height: 85px;
+            max-width: 380px;
             object-fit: contain;
             object-position: left bottom;
-            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+            filter: drop-shadow(0 4px 16px rgba(0,0,0,0.7));
             display: none;
         }
         #pauseInfoTitleFallback {
-            font-size: 34px;
-            font-weight: 700;
-            line-height: 1.1;
-            letter-spacing: -0.5px;
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.6px;
+            color: #FFFFFF;
             display: none;
+            margin: 0;
         }
         #pauseInfoEpisode {
-            font-size: 16px;
-            font-weight: 500;
-            color: rgba(255,255,255,0.85);
-            letter-spacing: 0.2px;
+            font-size: 17px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.92);
+            letter-spacing: -0.2px;
             display: none;
+            margin: 0;
         }
         #pauseInfoMeta {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
-            font-size: 14px;
-            color: rgba(255,255,255,0.7);
+            font-size: 13.5px;
+            color: rgba(255,255,255,0.75);
             font-weight: 600;
+        }
+        .pause-info-rating-badge {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.40);
+            color: #FFFFFF;
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 3px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            line-height: 1.2;
+        }
+        .pause-info-score-badge {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: #F4F4F5;
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 3px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
+        }
+        .pause-info-score-badge svg {
+            width: 11px;
+            height: 11px;
+            fill: #EAB308;
+        }
+        #pauseInfoYear {
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 600;
+        }
+        #pauseInfoTags {
+            color: rgba(255, 255, 255, 0.65);
+            font-weight: 500;
         }
         #pauseInfoPlot {
             font-size: 14px;
-            color: rgba(255,255,255,0.6);
-            line-height: 1.4;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.72);
+            line-height: 1.55;
+            letter-spacing: 0.1px;
             display: -webkit-box;
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
             margin-top: 4px;
+            margin-bottom: 0;
+            max-width: 660px;
+        }
+
+        /* ── Playback Start Content Advisory Banner (Clean Frameless) ── */
+        .maturity-advisory-banner {
+            position: absolute;
+            top: 80px;
+            left: 24px;
+            z-index: var(--z-tooltip);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            transform: translateX(-16px);
+            opacity: 0;
+            visibility: hidden;
+            transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, visibility 0.45s ease;
+            filter: none !important;
+        }
+        .maturity-advisory-banner.active {
+            transform: translateX(0);
+            opacity: 1;
+            visibility: visible;
+        }
+        .maturity-advisory-pill {
+            background: rgba(0, 0, 0, 0.60);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 2px 7.5px;
+            border-radius: 4px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .maturity-advisory-divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.30);
+            flex-shrink: 0;
+        }
+        .maturity-advisory-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .maturity-advisory-reasons {
+            font-size: 13px;
+            font-weight: 700;
+            color: #FFFFFF;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+        }
+        .maturity-advisory-subtext {
+            font-size: 11.5px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            letter-spacing: 0.2px;
+            line-height: 1.2;
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
         }
 
         .back-btn {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.05); color: white; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            width: 38px; height: 38px; border-radius: 50%;
-            transition: background 0.2s, transform 0.1s;
+            background: rgba(15, 15, 18, 0.55);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            transition: background 0.2s, transform 0.15s, border-color 0.2s;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
         }
-        .back-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
-        .back-btn:active { transform: scale(0.95); }
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.20);
+            border-color: rgba(255, 255, 255, 0.30);
+            transform: scale(1.06);
+        }
+        .back-btn:active {
+            transform: scale(0.94);
+        }
         .back-btn svg { width: 22px; height: 22px; }
 
 
@@ -278,11 +413,17 @@
         }
 
         .player-title {
-            color: rgba(255, 255, 255, 0.95);
-            font-size: 16px; font-weight: 600;
-            margin-left: 16px; text-shadow: none;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 400px; letter-spacing: 0.3px;
+            color: #FFFFFF;
+            font-size: 16.5px;
+            font-weight: 600;
+            margin-left: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 550px;
+            letter-spacing: 0.2px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+            user-select: none;
         }
 
         /* ── Bottom Dock (Premium Desktop Style) ─────────────────────────── */
@@ -1089,6 +1230,30 @@
         .ep-thumb.loaded {
             opacity: 1;
         }
+        .ep-thumb-rating {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            z-index: 2;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+        }
+        .ep-thumb-rating svg {
+            width: 10px;
+            height: 10px;
+            fill: #EAB308;
+        }
         .ep-info { flex: 1; min-width: 0; padding-right: 8px; }
         .ep-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
         .ep-meta { font-size: 13px; color: #888; }
@@ -1443,10 +1608,102 @@
             font-weight: 500;
             color: #E0E0E6;
         }
-        .settings-sublabel {
+        .shortcut-key-hint {
             font-size: 11px;
             color: rgba(255, 255, 255, 0.4);
-            margin-top: 2px;
+            margin-top: 1px;
+        }
+
+        /* ── Pause Info Selection Modal ────────────────────────────── */
+        #pauseInfoModalOverlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 6000;
+            pointer-events: auto;
+        }
+        .pause-info-modal-dialog {
+            width: 480px;
+            max-width: 90vw;
+            background: rgba(15, 16, 23, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+        }
+        .pause-modal-desc {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.65);
+            margin: 0 0 16px 0;
+        }
+        .pause-modal-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .pause-modal-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .pause-modal-option:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .pause-modal-option.selected {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--accent-color);
+        }
+        .pause-modal-option-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .pause-modal-option-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #FFFFFF;
+        }
+        .pause-modal-option.selected .pause-modal-option-title {
+            color: var(--accent-color);
+        }
+        .pause-modal-option-sub {
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, 0.55);
+        }
+        .pause-modal-radio {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .pause-modal-option.selected .pause-modal-radio {
+            border-color: var(--accent-color);
+            background: var(--accent-color);
+        }
+        .pause-modal-option.selected .pause-modal-radio::after {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #000;
         }
         .settings-val-badge {
             font-size: 12px;
@@ -2033,24 +2290,27 @@
             outline: none; user-select: none;
         }
         .probing-btn.play {
-            background: var(--accent-color);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(var(--accent-color-rgb), 0.45);
+            background: #FFFFFF;
+            color: #000000;
+            border: 1px solid #FFFFFF;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         }
         .probing-btn.play:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(var(--accent-color-rgb), 0.65);
+            background: #E5E5EA;
+            border-color: #E5E5EA;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
         }
         .probing-btn.close {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(12px);
-            color: rgba(255,255,255,0.85);
-            border: 1px solid rgba(255,255,255,0.16);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.30);
         }
         .probing-btn.close:hover {
-            background: rgba(255,255,255,0.18);
-            color: #fff;
-            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+            border-color: rgba(255, 255, 255, 0.50);
+            transform: translateY(-1px);
         }
         /* ── Right-Click Context Menu ───────────────────────────────────── */
         #contextMenuOverlay {

@@ -19,8 +19,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -65,6 +70,7 @@ fun ComposeSearchScreen(
     val pluginIcons = uiState.pluginIcons
     val searchHistory = uiState.searchHistory
     var showProviderDropdown by remember { mutableStateOf(false) }
+    var isSearchFocused by remember { mutableStateOf(false) }
     // Local filter for the provider picker — does not affect the search itself
     var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
 
@@ -91,11 +97,15 @@ fun ComposeSearchScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Unified container to perfectly center the search capsule and categories
-            Column(
-                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Box(
+                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth().zIndex(50f),
+                contentAlignment = Alignment.TopCenter,
             ) {
-                // Unified Search Bar & Plugin Selector Capsule
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // Unified Search Bar & Plugin Selector Capsule
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp),
@@ -136,7 +146,10 @@ fun ComposeSearchScreen(
                                 keyboardActions = KeyboardActions(onSearch = {
                                     viewModel.onEvent(SearchUiEvent.OnSearch)
                                 }),
-                                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester)
+                                    .onFocusChanged { isSearchFocused = it.isFocused },
                             )
                         }
 
@@ -205,7 +218,7 @@ fun ComposeSearchScreen(
                             }
                         }
                     }
-                } // closes Row
+                } // closes outer Surface
 
                 // ── Provider Selection Modal ─────────────────────────────────
                 var providerModalSearch by remember { mutableStateOf("") }
@@ -414,11 +427,111 @@ fun ComposeSearchScreen(
                         )
                     }
                 }
-            }
-        }
+            } // closes inner Column
 
-        // ── Content Area ─────────────────────────────────────────────
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+            // ── Floating Search Suggestions Dropdown Overlay ──────────────────────
+            androidx.compose.animation.AnimatedVisibility(
+                visible = uiState.showSuggestions && uiState.searchSuggestions.isNotEmpty() && uiState.searchQuery.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+                modifier = Modifier
+                    .padding(top = 54.dp)
+                    .fillMaxWidth()
+                    .zIndex(100f),
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 16.dp,
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        uiState.searchSuggestions.forEachIndexed { index, item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(item.title, submitSearch = true))
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(
+                                        if (item.isHistory) Icons.Default.History else Icons.Default.Search,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (item.isHistory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
+                                    Text(
+                                        text = item.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (item.isHistory) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (item.year != null) {
+                                        Text(
+                                            text = "(${item.year})",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                }
+
+                                // Fill Arrow (Sets search query without submitting immediately)
+                                IconButton(
+                                    onClick = {
+                                        viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(item.title, submitSearch = false))
+                                        try { focusRequester.requestFocus() } catch (_: Exception) {}
+                                    },
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Fill search text",
+                                        modifier = Modifier.size(16.dp).graphicsLayer(rotationZ = 135f),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    )
+                                }
+                            }
+
+                            if (index < uiState.searchSuggestions.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } // closes outer Box
+    } // closes Search Header Column
+
+    // ── Content Area ─────────────────────────────────────────────
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .weight(1f)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                if (uiState.showSuggestions) {
+                    viewModel.onEvent(SearchUiEvent.OnDismissSuggestions)
+                }
+            }
+    ) {
             val hasResults = !searchResultsGrouped.isNullOrEmpty()
             val showEmptyState = !hasResults && !isLoadingSearch
             val showHistory = showEmptyState && uiState.searchQuery.isEmpty() && searchHistory.isNotEmpty()

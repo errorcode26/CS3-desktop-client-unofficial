@@ -17,10 +17,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -372,22 +376,9 @@ fun DetailsMetadata(
                                     alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
                                     error = {
-                                        Text(
+                                        com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
                                             text = displayName,
-                                            style = MaterialTheme.typography.headlineLarge.copy(
-                                                fontSize = if (displayName.length > 28) 34.sp else 40.sp,
-                                                lineHeight = if (displayName.length > 28) 42.sp else 48.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                letterSpacing = (-0.3).sp,
-                                                shadow = androidx.compose.ui.graphics.Shadow(
-                                                    color = Color.Black.copy(alpha = 0.65f),
-                                                    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                                    blurRadius = 4f,
-                                                ),
-                                            ),
-                                            color = Color.White,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
+                                            fontSize = if (displayName.length > 28) 34.sp else 42.sp,
                                             textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                                             modifier = Modifier
                                                 .widthIn(max = responsivePlotMaxWidth)
@@ -397,22 +388,9 @@ fun DetailsMetadata(
                                 )
                             }
                         } else {
-                            Text(
+                            com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
                                 text = displayName,
-                                style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontSize = if (displayName.length > 28) 34.sp else 40.sp,
-                                    lineHeight = if (displayName.length > 28) 42.sp else 48.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = (-0.3).sp,
-                                    shadow = androidx.compose.ui.graphics.Shadow(
-                                        color = Color.Black.copy(alpha = 0.65f),
-                                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                        blurRadius = 4f,
-                                    ),
-                                ),
-                                color = Color.White,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
+                                fontSize = if (displayName.length > 28) 34.sp else 42.sp,
                                 textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
                                 modifier = Modifier
                                     .widthIn(max = responsivePlotMaxWidth)
@@ -457,17 +435,7 @@ fun DetailsMetadata(
                             }
                             yearSpan?.let { metaItems.add(it) }
 
-                            // 2. Total Seasons & Episodes for TV / Anime
-                            val seasonsCount = uiState?.enrichedSeasonsCount
-                            val episodesCount = uiState?.enrichedEpisodesCount
-                            if (seasonsCount != null && seasonsCount > 0) {
-                                val epStr = if (episodesCount != null && episodesCount > 0) " (${episodesCount} Eps)" else ""
-                                metaItems.add("$seasonsCount ${if (seasonsCount == 1) "Season" else "Seasons"}$epStr")
-                            } else if (episodesCount != null && episodesCount > 0) {
-                                metaItems.add("$episodesCount Episodes")
-                            }
-
-                            // 3. Runtime Duration
+                            // 2. Runtime Duration
                             val finalDuration = uiState?.enrichedDuration ?: data.duration
                             finalDuration?.takeIf { it > 0 }?.let { dur ->
                                 val mins = if (dur > 360) dur / 60 else dur
@@ -481,7 +449,7 @@ fun DetailsMetadata(
                                 metaItems.add(durationStr)
                             }
 
-                            // 4. Content Type
+                            // 3. Content Type
                             val typeStr = when (data.type) {
                                 TvType.TvSeries -> "TV Series"
                                 TvType.Anime -> "Anime"
@@ -500,228 +468,84 @@ fun DetailsMetadata(
 
                             if (metaItems.isNotEmpty()) {
                                 Text(
-                                    text = metaItems.joinToString("  •  "),
-                                    color = Color.White.copy(alpha = 0.90f),
-                                    fontSize = 15.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    text = metaItems.joinToString("   •   "),
+                                    color = Color.White.copy(alpha = 0.88f),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
                                 )
                             }
 
+                            // 4. Normalized Content Rating Badge (e.g. TV-14, Rated R, 18+)
                             data.contentRating?.takeIf { it.isNotBlank() }?.let { rating ->
                                 com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.ContentRatingBadge(
                                     rating = rating,
                                     isLarge = true,
+                                    isSeries = data.type == TvType.TvSeries || data.type == TvType.Anime || data.type == TvType.AsianDrama,
                                 )
-                            }
-
-                            val rawStatus = uiState?.enrichedStatus
-                                ?: (data as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.showStatus?.name
-                                ?: (data as? com.lagradost.cloudstream3.AnimeLoadResponse)?.showStatus?.name
-
-                            if (!rawStatus.isNullOrBlank()) {
-                                val cleanStatus = when (rawStatus.trim().lowercase()) {
-                                    "returning series", "ongoing" -> "Ongoing"
-                                    "ended", "completed" -> "Ended"
-                                    "canceled", "cancelled" -> "Canceled"
-                                    "in production" -> "In Production"
-                                    "planned", "upcoming" -> "Upcoming"
-                                    else -> rawStatus
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-                                ) {
-                                    Text(
-                                        text = cleanStatus,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.3.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-
-                            val showFinancialsHero by com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.showFinancials.collectAsState()
-                            val heroBudget = uiState?.enrichedBudget
-                            val heroRevenue = uiState?.enrichedRevenue
-                            if (showFinancialsHero && heroBudget != null && heroBudget > 0) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF10B981).copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF10B981).copy(alpha = 0.45f)),
-                                ) {
-                                    Text(
-                                        text = "Budget: ${formatCurrency(heroBudget)}",
-                                        color = Color(0xFF34D399),
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-                            if (showFinancialsHero && heroRevenue != null && heroRevenue > 0) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF3B82F6).copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF3B82F6).copy(alpha = 0.45f)),
-                                ) {
-                                    Text(
-                                        text = "Box Office: ${formatCurrency(heroRevenue)}",
-                                        color = Color(0xFF60A5FA),
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
                             }
                         }
 
-                        // Row 2: Branded Vector Rating Badges (IMDb, TMDB, AniList)
+                        // Row 2: Authentic Branded Rating Stickers + Flowing Genre Typography
                         val imdbScore = uiState?.enrichedImdbRating
                         val tmdbScore = uiState?.enrichedTmdbRating ?: if (imdbScore == null) data.score?.toFloat(10)?.toDouble() else null
                         val anilistScore = uiState?.enrichedAniListRating
-                        val isAnime = data.type == TvType.Anime || data.type == TvType.AnimeMovie || data.type == TvType.OVA
+                        val finalTags = uiState?.enrichedTags ?: data.tags
 
-                        if (imdbScore != null || tmdbScore != null || anilistScore != null) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                        if (imdbScore != null || tmdbScore != null || anilistScore != null || !finalTags.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
                                 modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                             ) {
-                                // 1. IMDb Vector Rating Pill
+                                // 1. Authentic IMDb Logo Sticker (Frameless)
                                 if (imdbScore != null && imdbScore > 0.0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFF5C518).copy(alpha = 0.12f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF5C518).copy(alpha = 0.45f)),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
-                                        ) {
-                                            Surface(
-                                                shape = RoundedCornerShape(3.dp),
-                                                color = Color(0xFFF5C518),
-                                            ) {
-                                                Text(
-                                                    text = "IMDb",
-                                                    color = Color.Black,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = String.format(java.util.Locale.US, "%.1f", imdbScore),
-                                                color = Color(0xFFF5C518),
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
+                                    com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
+                                        logoRes = "badges/rating_imdb.png",
+                                        scoreText = String.format(java.util.Locale.US, "%.1f", imdbScore),
+                                        textColor = Color(0xFFF5C518),
+                                        logoWidth = 40.dp,
+                                        logoHeight = 20.dp,
+                                    )
                                 }
 
-                                // 2. TMDB Vector Rating Pill
+                                // 2. Authentic TMDB Logo Sticker (Frameless)
                                 if (tmdbScore != null && tmdbScore > 0.0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF01B4E4).copy(alpha = 0.12f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF01B4E4).copy(alpha = 0.4f)),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
-                                        ) {
-                                            Surface(
-                                                shape = RoundedCornerShape(3.dp),
-                                                color = Color(0xFF01B4E4),
-                                            ) {
-                                                Text(
-                                                    text = "TMDB",
-                                                    color = Color.Black,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = String.format(java.util.Locale.US, "%.1f", tmdbScore),
-                                                color = Color(0xFF01B4E4),
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
+                                    com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
+                                        logoRes = "badges/rating_tmdb.png",
+                                        scoreText = String.format(java.util.Locale.US, "%.1f", tmdbScore),
+                                        textColor = Color(0xFF01B4E4),
+                                        logoWidth = 34.dp,
+                                        logoHeight = 21.dp,
+                                    )
                                 }
 
-                                // 3. AniList Vector Rating Pill (for Anime)
+                                // 3. Authentic MAL / AniList Sticker (Frameless)
                                 if (anilistScore != null && anilistScore > 0.0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF02A9FF).copy(alpha = 0.12f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF02A9FF).copy(alpha = 0.4f)),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
-                                        ) {
-                                            Surface(
-                                                shape = RoundedCornerShape(3.dp),
-                                                color = Color(0xFF02A9FF),
-                                            ) {
-                                                Text(
-                                                    text = "AniList",
-                                                    color = Color.White,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "${(anilistScore * 10).toInt()}%",
-                                                color = Color(0xFF02A9FF),
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                            )
-                                        }
-                                    }
+                                    com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
+                                        logoRes = "badges/rating_mal.png",
+                                        scoreText = "${(anilistScore * 10).toInt()}%",
+                                        textColor = Color(0xFF02A9FF),
+                                        logoWidth = 32.dp,
+                                        logoHeight = 20.dp,
+                                    )
                                 }
-                            }
-                        }
 
-                        // Row 3: Frosted Genre Chips
-                        val finalTags = uiState?.enrichedTags ?: data.tags
-                        if (!finalTags.isNullOrEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            FlowRow(
-                                horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
-                            ) {
-                                finalTags.take(6).forEach { tag ->
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color.White.copy(alpha = 0.08f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                    ) {
-                                        Text(
-                                            text = tag,
-                                            color = Color.White.copy(alpha = 0.92f),
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                                        )
-                                    }
+                                // 4. Flowing Genre Typography (Frameless, clean & elegant)
+                                if (!finalTags.isNullOrEmpty()) {
+                                    val hasRatings = (imdbScore != null && imdbScore > 0.0) || (tmdbScore != null && tmdbScore > 0.0) || (anilistScore != null && anilistScore > 0.0)
+                                    Text(
+                                        text = (if (hasRatings) "•   " else "") + finalTags.take(4).joinToString(", "),
+                                        color = Color.White.copy(alpha = 0.72f),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
                     if (!isLoading && !data.plot.isNullOrBlank()) {
                         Text(
@@ -814,95 +638,104 @@ fun DetailsMetadata(
                             )
                         },
                         text = {
+                            val statusItems = listOf(
+                                com.lagradost.common.storage.DesktopWatchType.WATCHING to Icons.Default.PlayArrow,
+                                com.lagradost.common.storage.DesktopWatchType.COMPLETED to Icons.Default.CheckCircle,
+                                com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH to Icons.Default.Bookmark,
+                                com.lagradost.common.storage.DesktopWatchType.ONHOLD to Icons.Default.PauseCircle,
+                                com.lagradost.common.storage.DesktopWatchType.REWATCHING to Icons.AutoMirrored.Filled.RotateRight,
+                                com.lagradost.common.storage.DesktopWatchType.DROPPED to Icons.Default.Cancel,
+                            )
+                            val primaryColor = MaterialTheme.colorScheme.primary
+
                             Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                             ) {
-                                com.lagradost.common.storage.DesktopWatchType.entries.forEach { type ->
-                                    val isSelected = currentBookmark?.watchType == type.id
-                                    val icon = when (type) {
-                                        com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
-                                        com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
-                                        com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
-                                        com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
-                                        com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
-                                        com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
-                                    }
-                                    Surface(
-                                        onClick = { setWatchType(type) },
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
-                                        ),
+                                statusItems.chunked(3).forEach { rowItems ->
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        ) {
-                                            Icon(
-                                                imageVector = icon,
-                                                contentDescription = null,
-                                                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                            Text(
-                                                text = type.stringRes,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                fontSize = 14.sp,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                        rowItems.forEach { (type, icon) ->
+                                            val isSelected = currentBookmark?.watchType == type.id
+                                            val itemInteraction = remember { MutableInteractionSource() }
+                                            val isHovered by itemInteraction.collectIsHoveredAsState()
 
-                                if (currentBookmark != null) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Surface(
-                                        onClick = removeBookmarkAction,
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                            Text(
-                                                text = "Remove from Library",
-                                                color = MaterialTheme.colorScheme.error,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
-                                            )
+                                            Surface(
+                                                onClick = { setWatchType(type) },
+                                                shape = RoundedCornerShape(14.dp),
+                                                color = if (isSelected) primaryColor.copy(alpha = 0.18f) else if (isHovered) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.04f),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    if (isSelected) 1.5.dp else 1.dp,
+                                                    if (isSelected) primaryColor else if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.10f),
+                                                ),
+                                                interactionSource = itemInteraction,
+                                                modifier = Modifier.weight(1f).height(84.dp),
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 8.dp),
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center,
+                                                    ) {
+                                                        Surface(
+                                                            shape = CircleShape,
+                                                            color = if (isSelected) primaryColor.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.08f),
+                                                            modifier = Modifier.size(32.dp),
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                                                Icon(
+                                                                    imageVector = icon,
+                                                                    contentDescription = null,
+                                                                    tint = if (isSelected) primaryColor else Color.White.copy(alpha = 0.85f),
+                                                                    modifier = Modifier.size(17.dp),
+                                                                )
+                                                            }
+                                                        }
+                                                        Spacer(Modifier.height(6.dp))
+                                                        Text(
+                                                            text = type.stringRes,
+                                                            color = if (isSelected) primaryColor else Color.White.copy(alpha = 0.85f),
+                                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                            fontSize = 12.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                    }
+
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = primaryColor,
+                                                            modifier = Modifier.size(14.dp).align(Alignment.TopEnd),
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         },
-                        confirmButton = {},
+                        confirmButton = {
+                            if (currentBookmark != null) {
+                                TextButton(
+                                    onClick = removeBookmarkAction,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Remove from Library", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                            }
+                        },
                         dismissButton = {
                             TextButton(onClick = { isEditingStatus = false }) {
-                                Text("Cancel")
+                                Text("Cancel", fontSize = 13.sp)
                             }
                         },
                     )
@@ -2051,10 +1884,19 @@ fun hasDetailsStats(
         uiState?.enrichedStudios?.isNotEmpty() == true ||
         uiState?.enrichedNetworks?.isNotEmpty() == true
 
-    return budget != null || revenue != null || hasCompanies ||
+    return budget != null || revenue != null ||
         !country.isNullOrBlank() || !lang.isNullOrBlank() || !status.isNullOrBlank() ||
         !relDate.isNullOrBlank() || !cert.isNullOrBlank() || (dur ?: 0) > 0 ||
         (seasons ?: 0) > 0 || (episodes ?: 0) > 0
+}
+
+fun hasStudiosOrNetworks(
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+): Boolean {
+    return uiState?.enrichedProductionCompanies?.isNotEmpty() == true ||
+        uiState?.enrichedNetworksList?.isNotEmpty() == true ||
+        uiState?.enrichedStudios?.isNotEmpty() == true ||
+        uiState?.enrichedNetworks?.isNotEmpty() == true
 }
 
 @Composable
@@ -2062,7 +1904,6 @@ fun DetailsStatsSection(
     data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     modifier: Modifier = Modifier,
-    onCompanyClick: ((com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany) -> Unit)? = null,
 ) {
     val budget = uiState?.enrichedBudget
     val revenue = uiState?.enrichedRevenue
@@ -2085,34 +1926,6 @@ fun DetailsStatsSection(
             "${mins}m"
         }
     } else null
-
-    val separateNetworksPref by com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.separateNetworks.collectAsState()
-
-    val netCompanies = remember(uiState) {
-        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
-        if (uiState != null) {
-            list.addAll(uiState.enrichedNetworksList)
-            if (list.isEmpty()) {
-                list.addAll(uiState.enrichedNetworks.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
-            }
-        }
-        list.distinctBy { it.name.trim().lowercase() }
-    }
-
-    val prodCompanies = remember(uiState) {
-        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
-        if (uiState != null) {
-            list.addAll(uiState.enrichedProductionCompanies)
-            if (list.isEmpty()) {
-                list.addAll(uiState.enrichedStudios.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
-            }
-        }
-        list.distinctBy { it.name.trim().lowercase() }
-    }
-
-    val allCompanies = remember(netCompanies, prodCompanies) {
-        (prodCompanies + netCompanies).distinctBy { it.name.trim().lowercase() }
-    }
 
     val detailRows = remember(data, uiState, budget, revenue, country, lang, relDate, status, cert, runtimeStr, seasons, episodes) {
         val list = mutableListOf<Pair<String, String>>()
@@ -2147,49 +1960,167 @@ fun DetailsStatsSection(
         list
     }
 
-    if (detailRows.isNotEmpty() || allCompanies.isNotEmpty()) {
+    if (detailRows.isNotEmpty()) {
         Column(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.widthIn(max = 920.dp).fillMaxWidth(),
         ) {
-            if (detailRows.isNotEmpty()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    detailRows.forEachIndexed { index, (label, value) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 14.sp,
-                            )
-                            Text(
-                                text = value,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 14.sp,
-                            )
+            val half = (detailRows.size + 1) / 2
+            val leftCol = detailRows.take(half)
+            val rightCol = detailRows.drop(half)
+
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isTwoColumns = maxWidth >= 600.dp
+                if (isTwoColumns) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(48.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            leftCol.forEachIndexed { index, (label, value) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.65f),
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.sp,
+                                    )
+                                    Text(
+                                        text = value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                    )
+                                }
+                                if (index < leftCol.lastIndex) {
+                                    HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.08f),
+                                        thickness = 0.5.dp,
+                                    )
+                                }
+                            }
                         }
-                        if (index < detailRows.lastIndex) {
-                            HorizontalDivider(
-                                color = Color.White.copy(alpha = 0.08f),
-                                thickness = 0.5.dp,
-                            )
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            rightCol.forEachIndexed { index, (label, value) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.65f),
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.sp,
+                                    )
+                                    Text(
+                                        text = value,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                    )
+                                }
+                                if (index < rightCol.lastIndex) {
+                                    HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.08f),
+                                        thickness = 0.5.dp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        detailRows.forEachIndexed { index, (label, value) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 14.sp,
+                                )
+                                Text(
+                                    text = value,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                            if (index < detailRows.lastIndex) {
+                                HorizontalDivider(
+                                    color = Color.White.copy(alpha = 0.08f),
+                                    thickness = 0.5.dp,
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
 
-            // Production Studios & Networks Section (with Logos)
+@Composable
+fun DetailsStudiosSection(
+    uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
+    modifier: Modifier = Modifier,
+    onCompanyClick: ((com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany) -> Unit)? = null,
+) {
+    val separateNetworksPref by com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.separateNetworks.collectAsState()
+
+    val netCompanies = remember(uiState) {
+        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
+        if (uiState != null) {
+            list.addAll(uiState.enrichedNetworksList)
+            if (list.isEmpty()) {
+                list.addAll(uiState.enrichedNetworks.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
+            }
+        }
+        list.distinctBy { it.name.trim().lowercase() }
+    }
+
+    val prodCompanies = remember(uiState) {
+        val list = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany>()
+        if (uiState != null) {
+            list.addAll(uiState.enrichedProductionCompanies)
+            if (list.isEmpty()) {
+                list.addAll(uiState.enrichedStudios.map { com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(name = it) })
+            }
+        }
+        list.distinctBy { it.name.trim().lowercase() }
+    }
+
+    val allCompanies = remember(netCompanies, prodCompanies) {
+        (prodCompanies + netCompanies).distinctBy { it.name.trim().lowercase() }
+    }
+
+    if (allCompanies.isNotEmpty()) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+        ) {
             if (separateNetworksPref && netCompanies.isNotEmpty() && prodCompanies.isNotEmpty()) {
                 // Subsection 1: Broadcast Networks
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "BROADCAST NETWORKS",
                         style = MaterialTheme.typography.labelSmall,
@@ -2237,9 +2168,9 @@ fun DetailsStatsSection(
                         }
                     }
                 }
-            } else if (allCompanies.isNotEmpty()) {
+            } else {
                 val sectionTitle = if (netCompanies.isNotEmpty() && prodCompanies.isEmpty()) "BROADCAST NETWORKS" else if (prodCompanies.isNotEmpty() && netCompanies.isEmpty()) "PRODUCTION STUDIOS" else "STUDIOS & NETWORKS"
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = sectionTitle,
                         style = MaterialTheme.typography.labelSmall,

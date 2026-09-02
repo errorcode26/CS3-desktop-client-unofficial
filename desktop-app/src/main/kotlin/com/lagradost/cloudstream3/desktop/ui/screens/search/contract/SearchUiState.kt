@@ -17,4 +17,6 @@ data class SearchUiState(
     val pluginIcons: Map<String, String> = emptyMap(),
     val providers: List<com.lagradost.cloudstream3.MainAPI> = emptyList(),
     val searchHistory: List<String> = emptyList(),
+    val searchSuggestions: List<com.lagradost.cloudstream3.desktop.ui.screens.search.SearchSuggestionItem> = emptyList(),
+    val showSuggestions: Boolean = false,
 ) : UiState

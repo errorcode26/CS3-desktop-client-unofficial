@@ -188,6 +188,9 @@ fun EmbeddedVideoPlayer(
                     val plot = targetEpisodeData?.description ?: actualLaunchData.loadResponse?.plot
                     val year = uiState.launchData?.loadResponse?.year
                     val tags = actualLaunchData.loadResponse?.tags
+                    val contentRating = actualLaunchData.loadResponse?.contentRating
+                    val rating = targetEpisodeData?.score?.toFloat(10)?.toDouble()
+                        ?: actualLaunchData.loadResponse?.score?.toFloat(10)?.toDouble()
                     // Always use the start position from launchData — it is the canonical
                     // source of truth set by the ViewModel. Falling back to playerState.positionMs
                     val computedStartPos = actualLaunchData.startPositionMs
@@ -205,6 +208,8 @@ fun EmbeddedVideoPlayer(
                         plot = plot,
                         year = year,
                         tags = tags,
+                        contentRating = contentRating,
+                        rating = rating,
                         isLive = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live || safeLink?.name?.contains("Live", ignoreCase = true) == true || safeLink?.url?.contains("live", ignoreCase = true) == true,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,

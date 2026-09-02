@@ -70,11 +70,17 @@ fun ensureContrast(accent: Color, background: Color, isLightMode: Boolean): Colo
     return currentAccent
 }
 
-fun buildDesktopColors(primaryColor: Color, isLightMode: Boolean, appThemeBackground: String, customBgHex: String = "#0C0C16"): DesktopThemeColors {
+fun buildDesktopColors(
+    primaryColor: Color,
+    isLightMode: Boolean,
+    isAmoled: Boolean = false,
+    appThemeBackground: String = "Navy",
+    customBgHex: String = "#0C0C16",
+): DesktopThemeColors {
     return if (isLightMode) {
         lightDesktopColors(primaryColor, appThemeBackground, customBgHex)
     } else {
-        darkDesktopColors(primaryColor, appThemeBackground, customBgHex)
+        darkDesktopColors(primaryColor, appThemeBackground, isAmoled, customBgHex)
     }
 }
 

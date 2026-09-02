@@ -2,12 +2,10 @@ package com.lagradost.cloudstream3.desktop.downloader
 
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.RandomAccessFile
-import java.nio.channels.FileChannel
+import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -51,7 +49,7 @@ class TurboChunkDownloader(
                 )
             }
         } catch (e: Exception) {
-            AppLogger.w("TurboChunkDownloader probe failed: ${e.message}")
+            AppLogger.w("Probe failed: ${e.message}")
             ProbeResult(0L, false, null)
         }
     }
@@ -73,8 +71,8 @@ class TurboChunkDownloader(
 
         val speedTracker = SpeedTracker()
 
-        if (probe.supportsRange && totalBytes > 5_000_000L) {
-            AppLogger.i("TurboChunkDownloader: Starting parallel $maxWorkers-chunk turbo download for ${totalBytes / 1024 / 1024} MB ($url)")
+        val downloadOk = if (probe.supportsRange && totalBytes > 5_000_000L) {
+            AppLogger.i("Starting parallel $maxWorkers-connection download for ${totalBytes / 1024 / 1024} MB ($url)")
             downloadParallel(
                 url = url,
                 headers = headers,
@@ -86,7 +84,7 @@ class TurboChunkDownloader(
                 isCancelled = isCancelled,
             )
         } else {
-            AppLogger.i("TurboChunkDownloader: Server does not support ranges. Downloading single progressive stream ($url)")
+            AppLogger.i("Server does not support range requests. Downloading progressive stream ($url)")
             downloadSingleStream(
                 url = url,
                 headers = headers,
@@ -98,12 +96,12 @@ class TurboChunkDownloader(
             )
         }
 
-        if (isCancelled()) {
+        if (isCancelled() || !downloadOk) {
             return@withContext false
         }
 
         if (tempPartFile.exists() && tempPartFile.length() > 0L) {
-            AppLogger.i("TurboChunkDownloader: Chunk writing completed -> ${tempPartFile.absolutePath} (${tempPartFile.length() / 1024 / 1024} MB)")
+            AppLogger.i("Download writing completed -> ${tempPartFile.absolutePath} (${tempPartFile.length() / 1024 / 1024} MB)")
             true
         } else {
             false
@@ -119,71 +117,85 @@ class TurboChunkDownloader(
         speedTracker: SpeedTracker,
         onProgress: (Long, Long, Long) -> Unit,
         isCancelled: () -> Boolean,
-    ) = coroutineScope {
-        // Pre-allocate destination sparse file
-        RandomAccessFile(tempFile, "rw").use { raf ->
-            if (raf.length() != totalBytes) {
-                raf.setLength(totalBytes)
-            }
+    ): Boolean = coroutineScope {
+        val chunkDir = File(tempFile.parentFile, "${tempFile.name}.chunks").apply { mkdirs() }
+        val chunkSize = (totalBytes + numWorkers - 1) / numWorkers
+
+        // Calculate already-downloaded bytes from previously saved chunk files
+        val initialBytes = (0 until numWorkers).sumOf { workerIdx ->
+            val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
+            if (chunkFile.exists()) chunkFile.length() else 0L
         }
 
-        val chunkSize = (totalBytes + numWorkers - 1) / numWorkers
-        val downloadedTotal = AtomicLong(0L)
+        val downloadedTotal = AtomicLong(initialBytes)
         val hasError = AtomicBoolean(false)
+
+        onProgress(initialBytes.coerceAtMost(totalBytes), totalBytes, 0L)
 
         val workers = (0 until numWorkers).map { workerIdx ->
             val startByte = workerIdx * chunkSize
             val endByte = ((workerIdx + 1) * chunkSize - 1).coerceAtMost(totalBytes - 1)
+            val expectedChunkLength = (endByte - startByte + 1).coerceAtLeast(0L)
 
             launch(Dispatchers.IO) {
                 if (startByte > endByte || isCancelled() || hasError.get()) return@launch
 
+                val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
+                val existingLength = if (chunkFile.exists()) chunkFile.length() else 0L
+
+                if (existingLength >= expectedChunkLength) {
+                    // Chunk already fully downloaded in previous attempt
+                    return@launch
+                }
+
                 var attempts = 0
-                while (attempts < 3 && !isCancelled() && !hasError.get()) {
+                val maxAttempts = 5
+                while (attempts < maxAttempts && !isCancelled() && !hasError.get()) {
+                    val currentOffsetOnDisk = if (chunkFile.exists()) chunkFile.length() else 0L
+                    val requestStartByte = startByte + currentOffsetOnDisk
+                    if (requestStartByte > endByte) {
+                        break // Done
+                    }
+
                     try {
                         val reqBuilder = Request.Builder().url(url)
                         headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
-                        reqBuilder.addHeader("Range", "bytes=$startByte-$endByte")
+                        reqBuilder.addHeader("Range", "bytes=$requestStartByte-$endByte")
 
                         client.newCall(reqBuilder.build()).execute().use { response ->
                             if (response.code !in 200..299) {
-                                throw IllegalStateException("Worker $workerIdx HTTP error ${response.code}")
+                                throw IllegalStateException("Thread $workerIdx HTTP ${response.code}")
                             }
 
+                            val isPartial = response.code == 206
+                            val append = isPartial && currentOffsetOnDisk > 0L
                             val body = response.body
                             val buffer = ByteArray(64 * 1024)
 
-                            RandomAccessFile(tempFile, "rw").use { raf ->
-                                val channel: FileChannel = raf.channel
-                                var currentOffset = startByte
+                            FileOutputStream(chunkFile, append).use { outStream ->
                                 body.byteStream().use { input ->
                                     while (!isCancelled() && !hasError.get()) {
                                         val read = input.read(buffer)
                                         if (read <= 0) break
-
-                                        val byteBuffer = java.nio.ByteBuffer.wrap(buffer, 0, read)
-                                        while (byteBuffer.hasRemaining()) {
-                                            channel.write(byteBuffer, currentOffset)
-                                        }
-
-                                        currentOffset += read
-                                        val totalDownloaded = downloadedTotal.addAndGet(read.toLong())
+                                        outStream.write(buffer, 0, read)
+                                        val total = downloadedTotal.addAndGet(read.toLong())
                                         speedTracker.record(read.toLong())
 
                                         onProgress(
-                                            totalDownloaded.coerceAtMost(totalBytes),
+                                            total.coerceAtMost(totalBytes),
                                             totalBytes,
                                             speedTracker.getCurrentSpeed(),
                                         )
                                     }
+                                    outStream.flush()
                                 }
                             }
                         }
-                        break // Worker finished chunk successfully
+                        break // Success on this worker
                     } catch (e: Exception) {
                         attempts++
-                        AppLogger.w("Turbo worker $workerIdx attempt $attempts failed: ${e.message}")
-                        if (attempts >= 3) {
+                        AppLogger.w("Thread $workerIdx attempt $attempts failed: ${e.message}")
+                        if (attempts >= maxAttempts) {
                             hasError.set(true)
                         }
                         delay(1000L * attempts)
@@ -193,6 +205,43 @@ class TurboChunkDownloader(
         }
 
         workers.joinAll()
+
+        if (isCancelled() || hasError.get()) {
+            return@coroutineScope false
+        }
+
+        // Verify all chunks completed
+        val allChunksValid = (0 until numWorkers).all { workerIdx ->
+            val startByte = workerIdx * chunkSize
+            val endByte = ((workerIdx + 1) * chunkSize - 1).coerceAtMost(totalBytes - 1)
+            val expectedChunkLength = (endByte - startByte + 1).coerceAtLeast(0L)
+            val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
+            chunkFile.exists() && chunkFile.length() == expectedChunkLength
+        }
+
+        if (!allChunksValid) {
+            AppLogger.w("Chunk validation failed, some chunks incomplete")
+            return@coroutineScope false
+        }
+
+        // Assemble chunks into final tempPartFile
+        AppLogger.i("Assembling $numWorkers chunks into ${tempFile.name}...")
+        try {
+            FileOutputStream(tempFile).use { outStream ->
+                for (workerIdx in 0 until numWorkers) {
+                    val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
+                    chunkFile.inputStream().use { inStream ->
+                        inStream.copyTo(outStream)
+                    }
+                }
+                outStream.flush()
+            }
+            chunkDir.deleteRecursively()
+            true
+        } catch (e: Exception) {
+            AppLogger.e("Failed to assemble chunks: ${e.message}", e)
+            false
+        }
     }
 
     private suspend fun downloadSingleStream(
@@ -203,43 +252,61 @@ class TurboChunkDownloader(
         speedTracker: SpeedTracker,
         onProgress: (Long, Long, Long) -> Unit,
         isCancelled: () -> Boolean,
-    ) = withContext(Dispatchers.IO) {
+    ): Boolean = withContext(Dispatchers.IO) {
         val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
-        val reqBuilder = Request.Builder().url(url)
-        headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
-        if (existingBytes > 0L) {
-            reqBuilder.addHeader("Range", "bytes=$existingBytes-")
+        if (totalBytes > 0 && existingBytes >= totalBytes) {
+            return@withContext true
         }
 
-        client.newCall(reqBuilder.build()).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IllegalStateException("Download HTTP ${response.code}")
+        var attempts = 0
+        val maxAttempts = 5
+
+        while (attempts < maxAttempts && !isCancelled()) {
+            val currentExisting = if (tempFile.exists()) tempFile.length() else 0L
+            val reqBuilder = Request.Builder().url(url)
+            headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
+            if (currentExisting > 0L) {
+                reqBuilder.addHeader("Range", "bytes=$currentExisting-")
             }
-            val isPartial = response.code == 206
-            val append = isPartial && existingBytes > 0L
-            val body = response.body
-            val buffer = ByteArray(64 * 1024)
-            var downloaded = if (append) existingBytes else 0L
 
-            java.io.FileOutputStream(tempFile, append).use { output ->
-                body.byteStream().use { input ->
-                    while (!isCancelled()) {
-                        val read = input.read(buffer)
-                        if (read <= 0) break
-                        output.write(buffer, 0, read)
-                        downloaded += read
-                        speedTracker.record(read.toLong())
-
-                        onProgress(
-                            downloaded,
-                            if (totalBytes > 0) totalBytes else downloaded,
-                            speedTracker.getCurrentSpeed(),
-                        )
+            try {
+                client.newCall(reqBuilder.build()).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw IllegalStateException("Download HTTP ${response.code}")
                     }
-                    output.flush()
+                    val isPartial = response.code == 206
+                    val append = isPartial && currentExisting > 0L
+                    val body = response.body
+                    val buffer = ByteArray(64 * 1024)
+                    var downloaded = if (append) currentExisting else 0L
+
+                    FileOutputStream(tempFile, append).use { output ->
+                        body.byteStream().use { input ->
+                            while (!isCancelled()) {
+                                val read = input.read(buffer)
+                                if (read <= 0) break
+                                output.write(buffer, 0, read)
+                                downloaded += read
+                                speedTracker.record(read.toLong())
+
+                                onProgress(
+                                    downloaded,
+                                    if (totalBytes > 0) totalBytes else downloaded,
+                                    speedTracker.getCurrentSpeed(),
+                                )
+                            }
+                            output.flush()
+                        }
+                    }
                 }
+                return@withContext tempFile.exists() && tempFile.length() > 0L
+            } catch (e: Exception) {
+                attempts++
+                AppLogger.w("Single stream download attempt $attempts failed: ${e.message}")
+                delay(1000L * attempts)
             }
         }
+        false
     }
 
     private class SpeedTracker {

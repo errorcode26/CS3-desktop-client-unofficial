@@ -472,10 +472,11 @@ object AniListMetadataProvider : MetadataProvider {
                         val allEps = loaded.episodes.values.flatten()
                         val exists = allEps.any { it.episode == nextEp.episode }
                         if (!exists) {
+                            val targetSeason = allEps.mapNotNull { it.season }.maxOrNull() ?: 1
                             val synthetic = dummyApi.newEpisode("unreleased_anime_ep${nextEp.episode}") {
                                 this.name = "Episode ${nextEp.episode}"
                                 this.episode = nextEp.episode
-                                this.season = 1
+                                this.season = targetSeason
                                 this.posterUrl = media.bannerImage ?: media.coverImage?.extraLarge
                                 this.description = "||DATE:$dateIso||Upcoming anime simulcast episode."
                             }
@@ -486,8 +487,8 @@ object AniListMetadataProvider : MetadataProvider {
                                 mutableMap.keys.forEach { k ->
                                     val cleanList = mutableMap[k].orEmpty().filter { it.episode != nextEp.episode }
                                     mutableMap[k] = (cleanList + synthetic)
-                                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                                        .sortedBy { it.episode ?: 0 }
+                                        .distinctBy { Pair(it.season ?: targetSeason, it.episode ?: 0) }
+                                        .sortedWith(compareBy({ it.season ?: targetSeason }, { it.episode ?: 0 }))
                                 }
                             }
                             loaded.episodes = mutableMap

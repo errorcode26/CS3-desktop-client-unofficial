@@ -26,27 +26,17 @@ import java.util.Locale
  */
 object DesktopBadgeComponents {
 
-    // Language Accents (Ice Cyan for SUB, Royal Orchid for DUB)
-    private val IceCyan = Color(0xFF38BDF8)
-    private val OrchidViolet = Color(0xFFC084FC)
+    // Rating & 4K Warm Gold Accent
+    private val GoldStar = Color(0xFFFBBF24)
+    private val GoldText = Color(0xFFFEF08A)
+    private val GoldBorder = Color(0x60FBBF24)
 
-    // Rating & 4K Gold Palette
-    private val GoldStar = Color(0xFFFFB800)
-    private val GoldText = Color(0xFFFFE082)
-    private val GoldBorder = Color(0xFFFFB800).copy(alpha = 0.50f)
-    private val GoldGlassBg = Brush.verticalGradient(
-        listOf(
-            Color(0xDD1C1504),
-            Color(0xF00F0B02),
-        )
-    )
+    // Ultra-Clean Frosted Acrylic Palette
+    private val GlassBg = Color.Black.copy(alpha = 0.55f)
+    private val GlassBorder = Color.White.copy(alpha = 0.16f)
+    private val TextSilver = Color(0xFFF1F5F9)
 
-    // Standard Neutral Slate Palette
-    private val SlateGlassBg = Color(0xCC0F172A)
-    private val SlateBorder = Color(0x4094A3B8)
-    private val TextSilver = Color(0xFFE2E8F0)
-
-    private val BadgeShape = RoundedCornerShape(5.5.dp)
+    private val BadgeShape = RoundedCornerShape(4.dp)
 
     @Composable
     fun RatingGoldBadge(
@@ -59,27 +49,26 @@ object DesktopBadgeComponents {
 
         Box(
             modifier = modifier
-                .shadow(elevation = 3.dp, shape = BadgeShape)
                 .clip(BadgeShape)
-                .background(GoldGlassBg)
-                .border(0.8.dp, GoldBorder, BadgeShape)
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .background(GlassBg)
+                .border(0.5.dp, GoldBorder, BadgeShape)
+                .padding(horizontal = 5.dp, vertical = 2.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.5.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
                     tint = GoldStar,
-                    modifier = Modifier.size(10.dp),
+                    modifier = Modifier.size(9.5.dp),
                 )
                 Text(
                     text = formatted,
                     color = GoldText,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 0.2.sp,
                 )
             }
@@ -94,65 +83,26 @@ object DesktopBadgeComponents {
     ) {
         if (!hasSub && !hasDub) return
 
-        if (hasSub && hasDub) {
-            // Dual-Tone Glass Split Capsule
-            Box(
-                modifier = modifier
-                    .shadow(elevation = 3.dp, shape = BadgeShape)
-                    .clip(BadgeShape)
-                    .background(SlateGlassBg)
-                    .border(
-                        0.8.dp,
-                        Brush.horizontalGradient(
-                            listOf(
-                                IceCyan.copy(alpha = 0.45f),
-                                Color.White.copy(alpha = 0.15f),
-                                OrchidViolet.copy(alpha = 0.45f),
-                            )
-                        ),
-                        BadgeShape,
-                    )
-                    .padding(horizontal = 5.5.dp, vertical = 2.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.5.dp),
-                ) {
-                    Text(
-                        text = "SUB",
-                        color = IceCyan,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.3.sp,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(8.dp)
-                            .background(Color.White.copy(alpha = 0.30f))
-                    )
-                    Text(
-                        text = "DUB",
-                        color = OrchidViolet,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.3.sp,
-                    )
-                }
-            }
-        } else if (hasSub) {
-            SingleGlassBadge(
-                text = "SUB",
-                textColor = IceCyan,
-                borderColor = IceCyan.copy(alpha = 0.45f),
-                modifier = modifier,
-            )
-        } else {
-            SingleGlassBadge(
-                text = "DUB",
-                textColor = OrchidViolet,
-                borderColor = OrchidViolet.copy(alpha = 0.45f),
-                modifier = modifier,
+        val text = when {
+            hasSub && hasDub -> "SUB • DUB"
+            hasSub -> "SUB"
+            else -> "DUB"
+        }
+
+        Box(
+            modifier = modifier
+                .clip(BadgeShape)
+                .background(GlassBg)
+                .border(0.5.dp, GlassBorder, BadgeShape)
+                .padding(horizontal = 5.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                color = TextSilver,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp,
             )
         }
     }
@@ -167,30 +117,59 @@ object DesktopBadgeComponents {
         val is4k = quality.equals("4K", ignoreCase = true) || quality.equals("2160p", ignoreCase = true) || quality.contains("UHD", ignoreCase = true)
         val text = if (is4k) "4K UHD" else if (quality.contains("1080", ignoreCase = true)) "1080p" else quality
 
-        if (is4k) {
-            Box(
-                modifier = modifier
-                    .shadow(elevation = 3.dp, shape = BadgeShape)
-                    .clip(BadgeShape)
-                    .background(GoldGlassBg)
-                    .border(0.8.dp, GoldBorder, BadgeShape)
-                    .padding(horizontal = 5.5.dp, vertical = 2.dp),
-            ) {
-                Text(
-                    text = text,
-                    color = GoldText,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.3.sp,
-                )
-            }
-        } else {
-            SingleGlassBadge(
+        val borderColor = if (is4k) GoldBorder else GlassBorder
+        val textColor = if (is4k) GoldText else TextSilver
+
+        Box(
+            modifier = modifier
+                .clip(BadgeShape)
+                .background(GlassBg)
+                .border(0.5.dp, borderColor, BadgeShape)
+                .padding(horizontal = 5.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
                 text = text,
-                textColor = TextSilver,
-                borderColor = SlateBorder,
-                modifier = modifier,
+                color = textColor,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
             )
+        }
+    }
+
+    fun normalizeContentRating(raw: String?, isSeries: Boolean = false): String? {
+        if (raw.isNullOrBlank()) return null
+        val clean = raw.trim().uppercase()
+            .replace("_", "-")
+            .replace(" ", "-")
+
+        return when {
+            // TV classification ratings
+            clean in listOf("TV-MA", "TVMA", "MA") -> "TV-MA"
+            clean in listOf("TV-14", "TV14", "14") -> if (isSeries) "TV-14" else "14+"
+            clean in listOf("TV-PG", "TVPG") -> "TV-PG"
+            clean in listOf("TV-G", "TVG") -> "TV-G"
+            clean in listOf("TV-Y7", "TVY7", "Y7") -> "TV-Y7"
+            clean in listOf("TV-Y", "TVY") -> "TV-Y"
+
+            // Movie / MPAA ratings
+            clean == "R" -> "Rated R"
+            clean in listOf("PG-13", "PG13") -> "PG-13"
+            clean == "PG" -> "PG"
+            clean == "G" -> "G"
+            clean in listOf("NC-17", "NC17") -> "NC-17"
+
+            // International age ratings (18+, 16+, 13+, 12+, 6+)
+            clean in listOf("18", "18+", "+18", "R18", "R18+", "R-18") -> "18+"
+            clean in listOf("16", "16+", "+16") -> "16+"
+            clean in listOf("13", "13+", "+13") -> "13+"
+            clean in listOf("12", "12+", "+12") -> "12+"
+            clean in listOf("6", "6+", "+6") -> "6+"
+
+            // Filter out redundant unrated flags to avoid visual noise
+            clean in listOf("NR", "NOT-RATED", "UNRATED", "NONE", "UNKNOWN") -> null
+            else -> clean
         }
     }
 
@@ -199,21 +178,19 @@ object DesktopBadgeComponents {
         rating: String?,
         modifier: Modifier = Modifier,
         isLarge: Boolean = false,
+        isSeries: Boolean = false,
     ) {
-        if (rating.isNullOrBlank()) return
-
-        val cleanRating = rating.trim().uppercase()
-        val shape = RoundedCornerShape(if (isLarge) 6.dp else 5.5.dp)
+        val cleanRating = normalizeContentRating(rating, isSeries) ?: return
+        val shape = RoundedCornerShape(if (isLarge) 5.dp else 4.dp)
 
         Box(
             modifier = modifier
-                .shadow(elevation = 2.dp, shape = shape)
                 .clip(shape)
-                .background(SlateGlassBg)
-                .border(0.8.dp, SlateBorder, shape)
+                .background(GlassBg)
+                .border(0.5.dp, GlassBorder, shape)
                 .padding(
-                    horizontal = if (isLarge) 7.dp else 5.5.dp,
-                    vertical = if (isLarge) 3.dp else 2.dp,
+                    horizontal = if (isLarge) 6.dp else 4.5.dp,
+                    vertical = if (isLarge) 2.dp else 1.5.dp,
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -221,8 +198,37 @@ object DesktopBadgeComponents {
                 text = cleanRating,
                 color = TextSilver,
                 fontSize = if (isLarge) 11.5.sp else 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.4.sp,
+            )
+        }
+    }
+
+    @Composable
+    fun BrandedRatingBadge(
+        logoRes: String,
+        scoreText: String,
+        textColor: Color,
+        modifier: Modifier = Modifier,
+        logoWidth: androidx.compose.ui.unit.Dp = 36.dp,
+        logoHeight: androidx.compose.ui.unit.Dp = 18.dp,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = modifier,
+        ) {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(logoRes),
+                contentDescription = null,
+                modifier = Modifier.size(width = logoWidth, height = logoHeight),
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = scoreText,
+                color = textColor,
+                fontSize = 15.5.sp,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.2.sp,
             )
         }
     }
@@ -236,17 +242,17 @@ object DesktopBadgeComponents {
     ) {
         Box(
             modifier = modifier
-                .shadow(elevation = 3.dp, shape = BadgeShape)
                 .clip(BadgeShape)
-                .background(SlateGlassBg)
-                .border(0.8.dp, borderColor, BadgeShape)
-                .padding(horizontal = 5.5.dp, vertical = 2.dp),
+                .background(GlassBg)
+                .border(0.5.dp, borderColor, BadgeShape)
+                .padding(horizontal = 5.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = text,
                 color = textColor,
                 fontSize = 8.5.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 0.3.sp,
             )
         }

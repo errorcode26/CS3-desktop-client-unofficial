@@ -210,12 +210,12 @@ fun DockItem(
                 modifier = Modifier
                     .run {
                         when {
-                            indicatorAtTop -> width(20.dp).height(3.dp)
-                                .clip(RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
-                            isHorizontal -> width(20.dp).height(3.dp)
-                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                            else -> width(3.dp).height(20.dp)
-                                .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
+                            indicatorAtTop -> padding(top = 2.dp).width(18.dp).height(3.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                            isHorizontal -> padding(bottom = 2.dp).width(18.dp).height(3.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                            else -> padding(start = 2.dp).width(3.dp).height(18.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
                         }
                     }
                     .background(MaterialTheme.colorScheme.primary),

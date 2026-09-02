@@ -19,6 +19,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,22 +59,24 @@ fun TopBar(
         val navPaddingStart = if (isCompact) 12.dp else 16.dp
         val navPaddingEnd = if (isCompact) 12.dp else 16.dp
 
+        val navStyle by AppearanceConfig.navigationStyle.collectAsState()
+        val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
+        val isSeamlessTop = isTopDock && isSeamless
+
         val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
         val isScrolled = com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled
         val isLightMode by AppearanceConfig.isLightMode.collectAsState()
         val amoledMode by AppearanceConfig.amoledMode.collectAsState()
 
-        val shouldHaveBackground = isScrolled || isTopDock || !isHome
+        val shouldHaveBackground = isSeamlessTop
 
         val targetBlurRadius by androidx.compose.animation.core.animateDpAsState(
             targetValue = if (shouldHaveBackground) 24.dp else 0.dp,
             animationSpec = androidx.compose.animation.core.tween(250),
         )
         val targetTintAlpha by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (isTopDock) {
+            targetValue = if (isSeamlessTop) {
                 if (amoledMode) 0.94f else 0.85f
-            } else if (isScrolled || !isHome) {
-                if (amoledMode) 0.88f else 0.76f
             } else {
                 0.0f
             },
@@ -84,6 +88,24 @@ fun TopBar(
             amoledMode -> Color.Black
             else -> Color(0xFF0F0F14)
         }
+
+        val glassBase = when {
+            isLightMode -> Color.White
+            amoledMode -> Color.Black
+            else -> Color(0xFF14141A)
+        }
+        val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                glassBase.copy(alpha = if (amoledMode) 0.88f else 0.75f),
+                glassBase.copy(alpha = if (amoledMode) 0.75f else 0.60f),
+            ),
+        )
+        val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+            colors = listOf(
+                if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f),
+            ),
+        )
 
         val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp) {
             Modifier.hazeEffect(
@@ -130,43 +152,93 @@ fun TopBar(
                     detectTapGestures { }
                 },
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(if (isCompact) 50.dp else 56.dp)
                     .padding(start = navPaddingStart, end = navPaddingEnd),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Top-Left: Clock & Date Widget anchored to corner
                 if (!isCompact) {
-                    ClockWidget(alignment = Alignment.Start)
+                    Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                        ClockWidget(alignment = Alignment.Start)
+                    }
                 }
 
                 if (isTopDock) {
-                    // Center: Navigation Dock Tabs directly embedded without overlapping
+                    // Center: 100% Window-Centered Navigation Dock (Seamless or Floating Island Pill)
                     Box(
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        modifier = Modifier.align(Alignment.Center),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            DockItemsList(
-                                currentTitle = currentTitle,
-                                isHorizontal = true,
-                                indicatorAtTop = true,
-                                onNavigate = onNavigate,
-                                onSearchClick = onSearchClick,
-                            )
+                        if (isSeamless) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                DockItemsList(
+                                    currentTitle = currentTitle,
+                                    isHorizontal = true,
+                                    indicatorAtTop = true,
+                                    onNavigate = onNavigate,
+                                    onSearchClick = onSearchClick,
+                                )
+                            }
+                        } else {
+                            val topDockHazeModifier = if (hazeState != null) {
+                                Modifier.hazeEffect(
+                                    state = hazeState,
+                                    style = dev.chrisbanes.haze.HazeStyle(
+                                        backgroundColor = glassBase.copy(alpha = if (amoledMode) 0.85f else 0.65f),
+                                        tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = if (amoledMode) 0.85f else 0.65f)),
+                                        blurRadius = 24.dp,
+                                    ),
+                                )
+                            } else Modifier
+
+                            val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp)
+                            Box(modifier = Modifier.height(52.dp).wrapContentWidth()) {
+                                // Drop shadow
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .blur(14.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                                        .background(Color.Black.copy(alpha = 0.45f), pillShape),
+                                )
+
+                                // Main Glass Pill Container
+                                Box(
+                                    modifier = Modifier
+                                        .clip(pillShape)
+                                        .then(topDockHazeModifier)
+                                        .background(glassGradient)
+                                        .border(1.2.dp, borderGradient, pillShape)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures { }
+                                        },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        DockItemsList(
+                                            currentTitle = currentTitle,
+                                            isHorizontal = true,
+                                            indicatorAtTop = false,
+                                            onNavigate = onNavigate,
+                                            onSearchClick = onSearchClick,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    Spacer(Modifier.weight(1f))
                 }
 
                 // Top-Right: Home Actions & Profile Avatar Pill
                 Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp),
                 ) {
@@ -498,6 +570,11 @@ private fun ClockWidget(alignment: Alignment.Horizontal = Alignment.Start) {
     }
 
     val textAlign = if (alignment == Alignment.Start) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End
+    val textShadow = androidx.compose.ui.graphics.Shadow(
+        color = Color.Black.copy(alpha = 0.40f),
+        offset = androidx.compose.ui.geometry.Offset(0f, 1f),
+        blurRadius = 2f,
+    )
 
     Column(
         horizontalAlignment = alignment,
@@ -510,22 +587,30 @@ private fun ClockWidget(alignment: Alignment.Horizontal = Alignment.Start) {
                 } catch (_: Exception) {
                     "--:--"
                 },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.InterFontFamily,
+                fontSize = if (mode == ClockDisplayMode.BOTH) 15.sp else 16.sp,
                 fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
+                color = Color.White,
                 textAlign = textAlign,
+                style = androidx.compose.ui.text.TextStyle(shadow = textShadow),
             )
         }
         if (mode == ClockDisplayMode.DATE_ONLY || mode == ClockDisplayMode.BOTH) {
+            val isDateOnly = mode == ClockDisplayMode.DATE_ONLY
             Text(
                 text = try {
                     now.format(java.time.format.DateTimeFormatter.ofPattern(dateFormat))
                 } catch (_: Exception) {
                     "---"
                 },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.InterFontFamily,
+                fontSize = if (isDateOnly) 14.5.sp else 12.sp,
+                fontWeight = if (isDateOnly) FontWeight.SemiBold else FontWeight.Normal,
+                letterSpacing = 0.2.sp,
+                color = if (isDateOnly) Color.White else Color.White.copy(alpha = 0.70f),
                 textAlign = textAlign,
+                style = androidx.compose.ui.text.TextStyle(shadow = textShadow),
             )
         }
     }

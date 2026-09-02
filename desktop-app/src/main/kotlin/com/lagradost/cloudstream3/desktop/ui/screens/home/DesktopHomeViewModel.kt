@@ -135,7 +135,9 @@ class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEf
 
 
     private fun updateHistory() {
-        val all = DesktopDataStore.getAllWatchHistory()
+        val all = DesktopDataStore.getAllWatchHistory().filter {
+            it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local"
+        }
         val grouped = all.groupBy { it.parentId }
         val newHistory = grouped.mapNotNull { (_, histories) ->
             val inProgressOrQueued = histories.filter {

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
@@ -33,6 +35,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,9 +51,11 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey
+import com.lagradost.cloudstream3.desktop.ui.theme.ThemeMode
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -118,7 +125,7 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
         AppearanceHubCard(
             icon = Icons.Default.PlayArrow,
             title = "Home Feed & Cinema",
-            subtitle = "Hero spotlight trending slider, banner layout styles (Cinema/Fullscreen/Filmstrip), auto-slide delay, dynamic backdrop blur, and glass card opacity.",
+            subtitle = "Hero spotlight trending slider, banner layout styles (Cinema/Fullscreen/Filmstrip), auto-slide transitions, and Continue Watching row.",
             badge = if (heroEnabled) "Hero Active" else "Hero Off",
             onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_HOME_FEED) },
         )
@@ -127,7 +134,7 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
         AppearanceHubCard(
             icon = Icons.Default.Edit,
             title = "Details Page & Modular Sections",
-            subtitle = "Modular sections drag-and-drop reordering (episodes, cast, trailers, recommendations), unreleased episode locking, anti-spoiler mode, and current/end time badges.",
+            subtitle = "Modular sections drag reordering, atmospheric backdrop blur & softening, unreleased episode locking, and anti-spoiler mode.",
             badge = "Modular Layout",
             onClick = { onNavigateToSubScreen(SettingsSubScreen.DETAILS_LAYOUT) },
         )
@@ -213,7 +220,7 @@ private fun AppearanceHubCard(
                 }
 
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Open",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.size(20.dp),
@@ -607,23 +614,76 @@ fun SettingsThemeWallpaperScreen() {
     val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
     val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
     val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
     val availableFonts by CustomFontManager.availableFonts.collectAsState()
     val userInstalledFonts by CustomFontManager.userInstalledFonts.collectAsState()
     var fontInstallFeedback by remember { mutableStateOf<String?>(null) }
 
-    val accentColors = remember(customThemeAccent) {
+    var showCustomAccentDialog by remember { mutableStateOf(false) }
+    var showCustomBgDialog by remember { mutableStateOf(false) }
+
+    val presetAccents = remember {
         listOf(
             "Purple" to Color(0xFF7C6BFF),
             "Blue" to Color(0xFF3B82F6),
             "Green" to Color(0xFF10B981),
             "Red" to Color(0xFFEF4444),
             "Orange" to Color(0xFFF59E0B),
-            "Custom" to com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customThemeAccent, Color(0xFF7C6BFF)),
+        )
+    }
+
+    val curatedAccentColors = remember {
+        listOf(
+            "Neon Pink" to "#FF007F",
+            "Cyber Cyan" to "#00F0FF",
+            "Emerald" to "#10B981",
+            "Electric Violet" to "#8B5CF6",
+            "Sunset Gold" to "#F59E0B",
+            "Crimson" to "#EF4444",
+            "Mint" to "#6EE7B7",
+            "Lavender" to "#C084FC",
+        )
+    }
+
+    val curatedBackgroundColors = remember {
+        listOf(
+            "Deep Carbon" to "#0E0E10",
+            "Dark Slate" to "#18181B",
+            "Midnight Navy" to "#0B1120",
+            "Dark Mocha" to "#1E1815",
+            "Deep Forest" to "#0F1714",
+            "Deep Amethyst" to "#130C1C",
         )
     }
 
     val scrollState = rememberScrollState()
+
+    CustomColorStudioDialog(
+        show = showCustomAccentDialog,
+        title = "Custom Accent Color Studio",
+        initialHex = customThemeAccent,
+        defaultHex = "#7C6BFF",
+        curatedColors = curatedAccentColors,
+        onDismiss = { showCustomAccentDialog = false },
+        onColorConfirmed = { hex ->
+            AppearanceConfig.setCustomThemeAccent(hex)
+            AppearanceConfig.setThemeAccent("Custom")
+        },
+    )
+
+    CustomColorStudioDialog(
+        show = showCustomBgDialog,
+        title = "Custom Background Tone Studio",
+        initialHex = customAppThemeBackground,
+        defaultHex = "#0C0C16",
+        curatedColors = curatedBackgroundColors,
+        onDismiss = { showCustomBgDialog = false },
+        onColorConfirmed = { hex ->
+            AppearanceConfig.setCustomAppThemeBackground(hex)
+            AppearanceConfig.setAppThemeBackground("Custom")
+        },
+    )
 
     Column(
         modifier = Modifier
@@ -633,31 +693,86 @@ fun SettingsThemeWallpaperScreen() {
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         SettingsGroupCard(title = "App Mode & Palette") {
-            SettingsToggleItem(
-                label = "Light Theme",
-                subtitle = "Switch application palette to bright daylight mode",
-                checked = isLightMode,
-                onCheckedChange = { AppearanceConfig.setLightMode(it) },
-            )
+            val currentThemeMode = when {
+                isLightMode -> ThemeMode.LIGHT
+                amoledMode -> ThemeMode.AMOLED
+                else -> ThemeMode.DARK
+            }
 
-            if (!isLightMode) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                SettingsToggleItem(
-                    label = "AMOLED Pure Black Mode",
-                    subtitle = "Overrides dark backgrounds with pure #000000 black for OLED displays",
-                    checked = amoledMode,
-                    onCheckedChange = { AppearanceConfig.setAmoledMode(it) },
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Theme Mode",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                 )
+                Text(
+                    text = "Select base visual style and contrast profile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    ThemeMode.entries.forEach { mode ->
+                        val isSelected = currentThemeMode == mode
+                        Surface(
+                            onClick = { AppearanceConfig.setThemeMode(mode) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            border = BorderStroke(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            ),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = when (mode) {
+                                        ThemeMode.LIGHT -> Icons.Default.LightMode
+                                        ThemeMode.DARK -> Icons.Default.DarkMode
+                                        ThemeMode.AMOLED -> Icons.Default.Contrast
+                                    },
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = mode.label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text("Accent Color", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text("Primary tint used across buttons, indicators, and focus highlights", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    accentColors.forEach { (name, color) ->
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    presetAccents.forEach { (name, color) ->
                         val isSelected = themeAccent == name
                         Box(
                             modifier = Modifier
@@ -677,38 +792,125 @@ fun SettingsThemeWallpaperScreen() {
                             }
                         }
                     }
-                }
-            }
 
-            if (themeAccent == "Custom") {
-                CustomColorPickerUI(
-                    colorHex = customThemeAccent,
-                    onColorChanged = { AppearanceConfig.setCustomThemeAccent(it) },
-                )
+                    Spacer(Modifier.width(4.dp))
+
+                    val isCustomAccent = themeAccent == "Custom"
+                    val customColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customThemeAccent, Color(0xFF7C6BFF))
+
+                    Surface(
+                        onClick = {
+                            showCustomAccentDialog = true
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCustomAccent) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = BorderStroke(
+                            width = if (isCustomAccent) 1.5.dp else 1.dp,
+                            color = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                        ),
+                        modifier = Modifier.height(38.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(customColor)
+                                    .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                            )
+                            Text(
+                                text = if (isCustomAccent) "Custom ($customThemeAccent)" else "Custom Color Picker...",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isCustomAccent) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit Custom Color",
+                                tint = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            SettingsDropdownItem(
-                label = "App Background Palette",
-                subtitle = "Base canvas color tone across all screens",
-                options = listOf(
-                    "Navy" to "Deep Navy",
-                    "Midnight" to "Midnight Blue",
-                    "Slate" to "Dark Slate",
-                    "Mocha" to "Warm Mocha",
-                    "Pure Black" to "Pure Black (#000000)",
-                    "Custom" to "Custom Hex Tint",
-                ),
-                currentValue = appThemeBackground,
-                onSelectionChanged = { AppearanceConfig.setAppThemeBackground(it) },
-            )
-
-            if (appThemeBackground == "Custom") {
-                CustomColorPickerUI(
-                    colorHex = customAppThemeBackground,
-                    onColorChanged = { AppearanceConfig.setCustomAppThemeBackground(it) },
+            if (currentThemeMode == ThemeMode.AMOLED) {
+                SettingsDropdownItem(
+                    label = "App Background Palette",
+                    subtitle = "Locked to pure #000000 black in AMOLED mode",
+                    options = listOf("Pure Black" to "Pure Black (#000000)"),
+                    currentValue = "Pure Black",
+                    enabled = false,
+                    onSelectionChanged = { },
                 )
+            } else {
+                SettingsDropdownItem(
+                    label = "App Background Palette",
+                    subtitle = "Base canvas color tone across all screens",
+                    options = listOf(
+                        "Navy" to "Deep Navy",
+                        "Midnight" to "Midnight Blue",
+                        "Slate" to "Dark Slate",
+                        "Mocha" to "Warm Mocha",
+                        "Pure Black" to "Pure Black (#000000)",
+                        "Custom" to "Custom Hex Tint",
+                    ),
+                    currentValue = appThemeBackground,
+                    onSelectionChanged = {
+                        AppearanceConfig.setAppThemeBackground(it)
+                        if (it == "Custom") {
+                            showCustomBgDialog = true
+                        }
+                    },
+                )
+
+                if (appThemeBackground == "Custom") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            onClick = { showCustomBgDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                            modifier = Modifier.height(36.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customAppThemeBackground, Color(0xFF0C0C16)))
+                                        .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                                )
+                                Text(
+                                    text = "Custom Background ($customAppThemeBackground)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Edit Background Color",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1097,6 +1299,17 @@ fun SettingsThemeWallpaperScreen() {
                         )
                     }
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                SettingsSliderItem(
+                    label = "UI Container & Card Glass Opacity",
+                    subtitle = "${(uiCardOpacity * 100).toInt()}% opacity",
+                    value = uiCardOpacity,
+                    onValueChange = { AppearanceConfig.setUiCardOpacity(it) },
+                    valueRange = 0.15f..1.0f,
+                    steps = 17,
+                )
             }
         }
     }
@@ -1216,7 +1429,7 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
 
             SettingsToggleItem(
                 label = "Auto-Clean Messy Release Titles",
-                subtitle = "Strips raw release tags (WEB-DL, Dual Audio, codecs) to show pure titles",
+                subtitle = "Strips raw release tags (WEB-DL, Dual Audio, codecs) to show pure titles across the app",
                 checked = autoCleanTitles,
                 onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
             )
@@ -1228,60 +1441,6 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                 subtitle = "Omits the 'Source' row from the movie and show technical specs sidebar",
                 checked = hideDetailsSource,
                 onCheckedChange = { AppearanceConfig.setHideDetailsSource(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsDropdownItem(
-                label = "Provider Badges on Cards",
-                subtitle = "Choose how plugin and scraper branding appears across Continue Watching and media cards",
-                options = listOf(
-                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden (Clean)",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon Only",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full Badge",
-                ),
-                currentValue = providerBadgeDisplayMode,
-                onSelectionChanged = { AppearanceConfig.setProviderBadgeDisplayMode(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsToggleItem(
-                label = "Quality Badges (4K / 1080p)",
-                subtitle = "Display HD and 4K resolution tags on media cards",
-                checked = autoDetectQuality,
-                onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsToggleItem(
-                label = "SUB / DUB Language Badges",
-                subtitle = "Display audio & subtitle availability tags on anime and international media",
-                checked = autoDetectSubDub,
-                onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsToggleItem(
-                label = "Rating Badges (★ Gold Pill)",
-                subtitle = "Show aggregate community star rating scores on cards",
-                checked = showRatingBadges,
-                onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsDropdownItem(
-                label = "Continue Watching Card Style",
-                subtitle = "Switch between modern wide horizontal card and classic thumbnail layout",
-                options = listOf(
-                    com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide Card (Modern)",
-                    com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic (16:9)",
-                ),
-                currentValue = continueWatchingStyle,
-                onSelectionChanged = { AppearanceConfig.setContinueWatchingStyle(it) },
             )
         }
 
@@ -1354,10 +1513,6 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
     val showContinueWatching by AppearanceConfig.showContinueWatching.collectAsState()
     val heroAutoSlideDelaySeconds by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val heroBannerStyle by AppearanceConfig.heroBannerStyle.collectAsState()
-    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
-    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -1415,48 +1570,6 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
                 )
             }
         }
-
-        SettingsGroupCard(title = "Backdrop Frosted Blur & Translucency") {
-            SettingsToggleItem(
-                label = "Dynamic Backdrop Blur",
-                subtitle = "Apply atmospheric frosted blur to hero backdrops on movie details screens",
-                checked = heroBackgroundBlurEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
-            )
-
-            if (heroBackgroundBlurEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                SettingsSliderItem(
-                    label = "Backdrop Softness",
-                    subtitle = "${heroBackdropBlurRadius.toInt()} dp blur",
-                    value = heroBackdropBlurRadius,
-                    onValueChange = { AppearanceConfig.setHeroBackdropBlurRadius(it) },
-                    valueRange = 8f..64f,
-                    steps = 7,
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                SettingsSliderItem(
-                    label = "Backdrop Darkening",
-                    subtitle = "${(heroBackdropDarkening * 100).toInt()}% overlay",
-                    value = heroBackdropDarkening,
-                    onValueChange = { AppearanceConfig.setHeroBackdropDarkening(it) },
-                    valueRange = 0.1f..0.8f,
-                    steps = 7,
-                )
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsSliderItem(
-                label = "UI Container & Card Glass Opacity",
-                subtitle = "${(uiCardOpacity * 100).toInt()}% opacity",
-                value = uiCardOpacity,
-                onValueChange = { AppearanceConfig.setUiCardOpacity(it) },
-                valueRange = 0.15f..1.0f,
-                steps = 17,
-            )
-        }
     }
 }
 
@@ -1469,6 +1582,9 @@ fun SettingsDetailsSectionsScreen() {
     val antiSpoilerEnabled by AppearanceConfig.antiSpoilerEnabled.collectAsState()
     val detailsShowCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
     val detailsShowEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
+    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
     val sectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val disabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
     val scrollState = rememberScrollState()
@@ -1699,6 +1815,37 @@ fun SettingsDetailsSectionsScreen() {
                 onCheckedChange = { AppearanceConfig.setDetailsShowEndTime(it) },
             )
         }
+
+        SettingsGroupCard(title = "Backdrop Frosted Blur & Atmosphere") {
+            SettingsToggleItem(
+                label = "Dynamic Backdrop Blur",
+                subtitle = "Apply atmospheric frosted blur to hero backdrops on movie details screens",
+                checked = heroBackgroundBlurEnabled,
+                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
+            )
+
+            if (heroBackgroundBlurEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                SettingsSliderItem(
+                    label = "Backdrop Softness",
+                    subtitle = "${heroBackdropBlurRadius.toInt()} dp blur",
+                    value = heroBackdropBlurRadius,
+                    onValueChange = { AppearanceConfig.setHeroBackdropBlurRadius(it) },
+                    valueRange = 8f..64f,
+                    steps = 7,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                SettingsSliderItem(
+                    label = "Backdrop Darkening",
+                    subtitle = "${(heroBackdropDarkening * 100).toInt()}% overlay",
+                    value = heroBackdropDarkening,
+                    onValueChange = { AppearanceConfig.setHeroBackdropDarkening(it) },
+                    valueRange = 0.1f..0.8f,
+                    steps = 7,
+                )
+            }
+        }
     }
 }
 
@@ -1790,137 +1937,261 @@ fun hsvToColor(h: Float, s: Float, v: Float): Color {
 }
 
 @Composable
-fun CustomColorPickerUI(colorHex: String, onColorChanged: (String) -> Unit) {
-    val initialColor = remember { com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(colorHex, Color.Red) }
-    val initialHsv = remember { colorToHsv(initialColor) }
+fun CustomColorStudioDialog(
+    show: Boolean,
+    title: String,
+    initialHex: String,
+    defaultHex: String = "#7C6BFF",
+    curatedColors: List<Pair<String, String>>,
+    onDismiss: () -> Unit,
+    onColorConfirmed: (String) -> Unit,
+) {
+    if (!show) return
 
-    var hue by remember { mutableStateOf(initialHsv[0]) }
-    var saturation by remember { mutableStateOf(initialHsv[1]) }
-    var value by remember { mutableStateOf(initialHsv[2]) }
-
-    LaunchedEffect(colorHex) {
-        val currentC = hsvToColor(hue, saturation, value)
-        val currentHex = String.format("#%02X%02X%02X", (currentC.red * 255).toInt(), (currentC.green * 255).toInt(), (currentC.blue * 255).toInt())
-        if (currentHex != colorHex) {
-            val parsedColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(colorHex, Color.Red)
-            val hsv = colorToHsv(parsedColor)
-            hue = hsv[0]
-            saturation = hsv[1]
-            value = hsv[2]
-        }
+    var currentHexInput by remember(initialHex, show) { mutableStateOf(initialHex.uppercase()) }
+    var parsedColor by remember(initialHex, show) {
+        mutableStateOf(com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(initialHex, Color(0xFF7C6BFF)))
     }
+    val hsv = remember(parsedColor) { colorToHsv(parsedColor) }
+    var hue by remember(show) { mutableStateOf(hsv[0]) }
+    var saturation by remember(show) { mutableStateOf(hsv[1]) }
+    var value by remember(show) { mutableStateOf(hsv[2]) }
 
-    fun updateColor() {
+    fun syncFromHsv() {
         val c = hsvToColor(hue, saturation, value)
         val r = (c.red * 255).toInt()
         val g = (c.green * 255).toInt()
         val b = (c.blue * 255).toInt()
         val hex = String.format("#%02X%02X%02X", r, g, b)
-        onColorChanged(hex)
+        currentHexInput = hex
+        parsedColor = c
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth(0.5f)
-            .padding(top = 12.dp, start = 24.dp, bottom = 8.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-            .background(com.lagradost.cloudstream3.desktop.ui.components.DesktopUi.SurfaceElevated)
-            .padding(12.dp),
-    ) {
-        Text("Custom Color Configuration", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(12.dp))
+    fun syncFromHex(hex: String) {
+        currentHexInput = hex.uppercase()
+        val clean = hex.trim().removePrefix("#")
+        if (clean.length == 6 || clean.length == 8) {
+            val color = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(hex, parsedColor)
+            parsedColor = color
+            val newHsv = colorToHsv(color)
+            hue = newHsv[0]
+            saturation = newHsv[1]
+            value = newHsv[2]
+        }
+    }
 
-        // 2D Saturation/Value Box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                .background(Color.Black),
+    CloudstreamCustomDialog(
+        show = show,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.widthIn(min = 460.dp, max = 520.dp).padding(16.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val baseHueColor = hsvToColor(hue, 1f, 1f)
-            androidx.compose.foundation.Canvas(
-                modifier = Modifier.matchParentSize()
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, _ ->
-                            change.consume()
-                            val width = size.width.toFloat()
-                            val height = size.height.toFloat()
-                            saturation = (change.position.x / width).coerceIn(0f, 1f)
-                            value = 1f - (change.position.y / height).coerceIn(0f, 1f)
-                            updateColor()
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                }
+            }
+
+            // Hex Input & Preview Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = currentHexInput,
+                    onValueChange = { syncFromHex(it) },
+                    label = { Text("Hex Color Code (#RRGGBB)") },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f),
+                )
+
+                // Live Preview Block
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(parsedColor)
+                        .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                )
+            }
+
+            // 2D Saturation / Value Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.Black),
+            ) {
+                val baseHueColor = hsvToColor(hue, 1f, 1f)
+                androidx.compose.foundation.Canvas(
+                    modifier = Modifier.matchParentSize()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, _ ->
+                                change.consume()
+                                saturation = (change.position.x / size.width).coerceIn(0f, 1f)
+                                value = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
+                                syncFromHsv()
+                            }
+                        },
+                ) {
+                    drawRect(color = baseHueColor, size = size)
+                    drawRect(
+                        brush = Brush.horizontalGradient(listOf(Color.White, Color.Transparent)),
+                        size = size,
+                    )
+                    drawRect(
+                        brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)),
+                        size = size,
+                    )
+                    val thumbX = saturation * size.width
+                    val thumbY = (1f - value) * size.height
+                    drawCircle(
+                        color = Color.White,
+                        radius = 7.dp.toPx(),
+                        center = Offset(thumbX, thumbY),
+                        style = Stroke(width = 2.5.dp.toPx()),
+                    )
+                }
+            }
+
+            // Hue Rainbow Slider
+            val rainbowColors = listOf(
+                Color.Red,
+                Color.Yellow,
+                Color.Green,
+                Color.Cyan,
+                Color.Blue,
+                Color.Magenta,
+                Color.Red,
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            ) {
+                androidx.compose.foundation.Canvas(
+                    modifier = Modifier.matchParentSize()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, _ ->
+                                change.consume()
+                                hue = ((change.position.x / size.width) * 360f).coerceIn(0f, 360f)
+                                syncFromHsv()
+                            }
+                        },
+                ) {
+                    drawRect(brush = Brush.horizontalGradient(rainbowColors), size = size)
+                    val thumbX = (hue / 360f) * size.width
+                    drawCircle(
+                        color = Color.White,
+                        radius = 8.dp.toPx(),
+                        center = Offset(thumbX, size.height / 2f),
+                        style = Stroke(width = 2.5.dp.toPx()),
+                    )
+                }
+            }
+
+            // Quick Select Curated Swatches
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Curated Palette",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    curatedColors.forEach { (name, hex) ->
+                        val swatchColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(hex, Color.Gray)
+                        val isPicked = currentHexInput.equals(hex, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(swatchColor)
+                                .border(
+                                    width = if (isPicked) 2.5.dp else 1.dp,
+                                    color = if (isPicked) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp),
+                                )
+                                .clickable { syncFromHex(hex) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (isPicked) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
-                    .clickable { },
-            ) {
-                drawRect(color = baseHueColor, size = size)
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(Color.White, Color.Transparent),
-                    ),
-                    size = size,
-                )
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black),
-                    ),
-                    size = size,
-                )
+                }
+            }
 
-                val thumbX = saturation * size.width
-                val thumbY = (1f - value) * size.height
-                drawCircle(
-                    color = Color.White,
-                    radius = 6.dp.toPx(),
-                    center = Offset(thumbX, thumbY),
-                    style = Stroke(width = 2.dp.toPx()),
-                )
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = { syncFromHex(defaultHex) },
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Reset to Default")
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            val finalHex = if (currentHexInput.startsWith("#")) currentHexInput else "#$currentHexInput"
+                            onColorConfirmed(finalHex)
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Text("Apply & Save")
+                    }
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Hue Slider
-        val rainbowColors = listOf(
-            Color.Red,
-            Color.Yellow,
-            Color.Green,
-            Color.Cyan,
-            Color.Blue,
-            Color.Magenta,
-            Color.Red,
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(24.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-        ) {
-            androidx.compose.foundation.Canvas(
-                modifier = Modifier.matchParentSize()
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, _ ->
-                            change.consume()
-                            hue = ((change.position.x / size.width) * 360f).coerceIn(0f, 360f)
-                            updateColor()
-                        }
-                    },
-            ) {
-                drawRect(
-                    brush = Brush.horizontalGradient(colors = rainbowColors),
-                    size = size,
-                )
-
-                val thumbX = (hue / 360f) * size.width
-                drawCircle(
-                    color = Color.White,
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, size.height / 2f),
-                    style = Stroke(width = 2.dp.toPx()),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -1938,6 +2209,11 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
     val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
+    val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
+    val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
 
     var isControlsExpanded by remember { mutableStateOf(true) }
     var activeControlTab by remember { mutableStateOf(0) }
@@ -1963,7 +2239,9 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             season = 2,
             episodeId = "dummy_ep_1",
             position = 1800,
-            duration = 3600
+            duration = 3600,
+            episodeName = "A Son for a Son",
+            episodeDescription = "As grief and rage take hold across Westeros, Rhaenyra struggles to maintain control while Daemon plots revenge.",
         )
     }
     val mockHistory2 = remember {
@@ -1979,126 +2257,236 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             season = 1,
             episodeId = "dummy_ep_2",
             position = 2400,
-            duration = 3600
+            duration = 3600,
+            episodeName = "The Eightfold Fence",
+            episodeDescription = "Blackthorne and Mariko test their new alliance as they train Toranaga's gun regiment for impending conflict.",
         )
     }
 
-    val fallbackPosters = remember {
+    val fallbackMovies = remember {
         listOf(
-            mockApi.newMovieSearchResponse("Obsession", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/uU0wX6kCj9mD3wT6j1uQhM0qE8g.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("The Invite", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/1X4h40fcB4WWUmIBK0auT4zRBAV.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("Don't Say Good Luck", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("Project Hail Mary", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nx11H.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("Masters of the Universe", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/9PFonQ9Zq0RdRLEBun50Y9Y3eq5.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("Arcane", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn396nlv8g9qc.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
-            },
-            mockApi.newMovieSearchResponse("Dune: Part Two", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+            mockApi.newMovieSearchResponse("Dune: Part Two [4K] [IMAX.BluRay.DTS-HD]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
                 posterUrl = "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg"
-                quality = com.lagradost.cloudstream3.SearchQuality.HD
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(8.6)
             },
-            mockApi.newMovieSearchResponse("Severance", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
-                posterUrl = "https://image.tmdb.org/t/p/w500/8t4fF2k9YvW1F7yW71c5Mv2M8k7.jpg"
+            mockApi.newMovieSearchResponse("The Batman [4K] [UHD.Remux.HDR10]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(7.9)
+            },
+            mockApi.newMovieSearchResponse("Oppenheimer [4K] [IMAX.x265]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(8.9)
+            },
+            mockApi.newMovieSearchResponse("Alien: Romulus [1080p.HEVC.Dual-Audio]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/b33nnKl1vGa6kKK4a3GQU0IO4a.jpg"
                 quality = com.lagradost.cloudstream3.SearchQuality.HD
+                score = com.lagradost.cloudstream3.Score.from10(7.3)
+            },
+            mockApi.newMovieSearchResponse("Deadpool & Wolverine [4K] [HDR]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(7.8)
+            },
+            mockApi.newMovieSearchResponse("Interstellar [4K] [Remastered.UHD]", "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(8.7)
             }
         )
     }
 
-    var mockPosters by remember { mutableStateOf<List<com.lagradost.cloudstream3.SearchResponse>>(emptyList()) }
+    val fallbackSeries = remember {
+        listOf(
+            mockApi.newMovieSearchResponse("House of the Dragon [4K] [HDR] [Dual-Audio.2160p]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/1X4h40fcB4WWUmIBK0auT4zRBAV.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(8.9)
+            },
+            mockApi.newMovieSearchResponse("Arcane: Season 2 [SUB] [4K] [WEB-DL.x265]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn396nlv8g9qc.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(9.1)
+            },
+            mockApi.newMovieSearchResponse("Shōgun [DUB] [1080p.HEVC.Multi-Audio]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+                score = com.lagradost.cloudstream3.Score.from10(8.8)
+            },
+            mockApi.newMovieSearchResponse("Severance [4K] [WEB-DL.Atmos]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8t4fF2k9YvW1F7yW71c5Mv2M8k7.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(8.7)
+            },
+            mockApi.newMovieSearchResponse("Solo Leveling [SUB] [1080p.FHD.AAC]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nx11H.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.HD
+                score = com.lagradost.cloudstream3.Score.from10(8.4)
+            },
+            mockApi.newMovieSearchResponse("Breaking Bad [4K] [Remastered.UHD]", "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                posterUrl = "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg"
+                quality = com.lagradost.cloudstream3.SearchQuality.UHD
+                score = com.lagradost.cloudstream3.Score.from10(9.5)
+            }
+        )
+    }
+
+    var liveMovies by remember { mutableStateOf<List<com.lagradost.cloudstream3.SearchResponse>>(emptyList()) }
+    var liveSeries by remember { mutableStateOf<List<com.lagradost.cloudstream3.SearchResponse>>(emptyList()) }
 
     LaunchedEffect(Unit) {
         withContext(kotlinx.coroutines.Dispatchers.IO) {
+            // 1. Fetch Live Trending Movies from Cinemeta
             try {
-                val data = com.lagradost.cloudstream3.app.get("https://v3-cinemeta.strem.io/catalog/movie/top.json")
+                val movieData = com.lagradost.cloudstream3.app.get("https://v3-cinemeta.strem.io/catalog/movie/top.json")
                     .parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                
-                val metas = data?.get("metas")
-                if (metas != null && metas.isArray) {
-                    val posters = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
-                    for (node in metas) {
-                        val name = node.get("name")?.asText() ?: continue
-                        val posterUrl = node.get("poster")?.asText()
-                        posters.add(
-                            mockApi.newMovieSearchResponse(name, "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
+                val movieMetas = movieData?.get("metas")
+                if (movieMetas != null && movieMetas.isArray) {
+                    val list = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
+                    for ((idx, node) in movieMetas.withIndex()) {
+                        val rawName = node.get("name")?.asText() ?: continue
+                        val posterUrl = node.get("poster")?.asText() ?: continue
+                        val imdbRating = node.get("imdbRating")?.asDouble()
+                        // Attach sample tokens to demonstrate real-time badge toggles on live titles
+                        val enrichedTitle = when (idx % 4) {
+                            0 -> "$rawName [4K] [HDR]"
+                            1 -> "$rawName [1080p.WEB-DL]"
+                            2 -> "$rawName [Dual-Audio.1080p]"
+                            else -> "$rawName [4K] [IMAX.Remux]"
+                        }
+                        list.add(
+                            mockApi.newMovieSearchResponse(enrichedTitle, "dummy", com.lagradost.cloudstream3.TvType.Movie, false) {
                                 this.posterUrl = posterUrl
-                                this.quality = com.lagradost.cloudstream3.SearchQuality.HD
+                                this.quality = if (idx % 2 == 0) com.lagradost.cloudstream3.SearchQuality.UHD else com.lagradost.cloudstream3.SearchQuality.HD
+                                this.score = imdbRating?.let { com.lagradost.cloudstream3.Score.from10(it) }
                             }
                         )
-                        if (posters.size >= 16) break
+                        if (list.size >= 16) break
                     }
-                    if (posters.isNotEmpty()) {
-                        mockPosters = posters
-                    }
+                    if (list.isNotEmpty()) liveMovies = list
                 }
-            } catch (_: Exception) {
-            }
+            } catch (_: Exception) {}
+
+            // 2. Fetch Live Popular Series from Cinemeta
+            try {
+                val seriesData = com.lagradost.cloudstream3.app.get("https://v3-cinemeta.strem.io/catalog/series/top.json")
+                    .parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+                val seriesMetas = seriesData?.get("metas")
+                if (seriesMetas != null && seriesMetas.isArray) {
+                    val list = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
+                    for ((idx, node) in seriesMetas.withIndex()) {
+                        val rawName = node.get("name")?.asText() ?: continue
+                        val posterUrl = node.get("poster")?.asText() ?: continue
+                        val imdbRating = node.get("imdbRating")?.asDouble()
+                        // Attach sample SUB/DUB/4K tokens on series
+                        val enrichedTitle = when (idx % 4) {
+                            0 -> "$rawName [4K] [HDR] [Dual-Audio]"
+                            1 -> "$rawName [SUB] [4K] [WEB-DL]"
+                            2 -> "$rawName [DUB] [1080p.HEVC]"
+                            else -> "$rawName [SUB] [DUB] [1080p]"
+                        }
+                        list.add(
+                            mockApi.newMovieSearchResponse(enrichedTitle, "dummy", com.lagradost.cloudstream3.TvType.TvSeries, false) {
+                                this.posterUrl = posterUrl
+                                this.quality = if (idx % 2 == 0) com.lagradost.cloudstream3.SearchQuality.UHD else com.lagradost.cloudstream3.SearchQuality.HD
+                                this.score = imdbRating?.let { com.lagradost.cloudstream3.Score.from10(it) }
+                            }
+                        )
+                        if (list.size >= 16) break
+                    }
+                    if (list.isNotEmpty()) liveSeries = list
+                }
+            } catch (_: Exception) {}
         }
     }
 
-    val displayPosters = if (mockPosters.isNotEmpty()) mockPosters else fallbackPosters
+    val displayMovies = if (liveMovies.isNotEmpty()) liveMovies else fallbackMovies
+    val displaySeries = if (liveSeries.isNotEmpty()) liveSeries else fallbackSeries
 
-    val animatedSpacing by animateDpAsState(
-        targetValue = homeSpacingDp.dp,
-        animationSpec = androidx.compose.animation.core.tween(250),
-    )
-    val animatedWidth by animateDpAsState(
-        targetValue = posterWidthDp.dp,
-        animationSpec = androidx.compose.animation.core.tween(250),
-    )
-    val animatedVerticalSpacing by animateDpAsState(
-        targetValue = homeVerticalSpacingDp.dp,
-        animationSpec = androidx.compose.animation.core.tween(250),
-    )
+    val currentSpacing = homeSpacingDp.dp
+    val currentWidth = posterWidthDp.dp
+    val currentVerticalSpacing = homeVerticalSpacingDp.dp
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // ── 1. Full-Width Scrollable Canvas ─────────────────────────────────────
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
+    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val availableWidth = this.maxWidth
+        val isCompact = availableWidth < 600.dp
+        val effectivePaddingStart = if (isCompact) 8.dp else paddingStart
+        val effectivePaddingEnd = if (isCompact) 8.dp else paddingEnd
+        val spacingDp = if (isCompact) 8.dp else currentSpacing
+
+        val optimalItemWidth = if (isCompact) {
+            115.dp
+        } else {
+            val baseWidth = currentWidth
+            val netWidth = availableWidth - effectivePaddingStart - effectivePaddingEnd - 20.dp
+            val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
+            val columns = exactColumns.toInt().coerceAtLeast(1)
+            ((netWidth + spacingDp) / columns) - spacingDp
+        }
+
+        // ── 1. Full-Width Scrollable Canvas (100% Real-Time & Identical to HomePage) ──
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = 80.dp, bottom = 180.dp, start = 32.dp, end = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(animatedVerticalSpacing),
+                .padding(top = 74.dp, bottom = 220.dp),
+            verticalArrangement = Arrangement.spacedBy(currentVerticalSpacing),
         ) {
-            // Row 1: Continue Watching
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Continue Watching",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
-                ) {
-                    item {
-                        if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+            // Row 1: Continue Watching Shelf
+            com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader(
+                title = "Continue Watching",
+                itemCount = 2,
+                rowContentPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                    bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                ),
+                headerPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                    bottom = 4.dp,
+                ),
+                itemSpacing = spacingDp,
+            ) {
+                item {
+                    when (continueWatchingStyle) {
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.4f).coerceAtLeast(360f).dp
+                            val cardHeight = if (isCompact) 130.dp else (posterWidthDp * 1.5f).dp
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide(
-                                modifier = Modifier.width(animatedWidth * 2.2f).height(animatedWidth * 1.5f),
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
                                 history = mockHistory1,
                                 provider = mockApi,
                                 onRemove = {},
                                 onClick = {},
                                 onPlayClick = {}
                             )
-                        } else {
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.5f).coerceAtLeast(420f).dp
+                            val cardHeight = if (isCompact) 130.dp else 145.dp
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardDetailed(
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
+                                history = mockHistory1,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL -> {
+                            val cardWidth = if (isCompact) 180.dp else (posterWidthDp * 1.8f).dp
+                            val cardHeight = if (isCompact) 100.dp else (posterWidthDp * 1.8f * 9f / 16f).dp
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard(
-                                modifier = Modifier.width(animatedWidth * 2.0f).height((animatedWidth * 2.0f) * 9f / 16f),
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
                                 history = mockHistory1,
                                 provider = mockApi,
                                 onRemove = {},
@@ -2107,19 +2495,38 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                             )
                         }
                     }
-                    item {
-                        if (continueWatchingStyle == com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM) {
+                }
+                item {
+                    when (continueWatchingStyle) {
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.4f).coerceAtLeast(360f).dp
+                            val cardHeight = if (isCompact) 130.dp else (posterWidthDp * 1.5f).dp
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide(
-                                modifier = Modifier.width(animatedWidth * 2.2f).height(animatedWidth * 1.5f),
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
                                 history = mockHistory2,
                                 provider = mockApi,
                                 onRemove = {},
                                 onClick = {},
                                 onPlayClick = {}
                             )
-                        } else {
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED -> {
+                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.5f).coerceAtLeast(420f).dp
+                            val cardHeight = if (isCompact) 130.dp else 145.dp
+                            com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardDetailed(
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
+                                history = mockHistory2,
+                                provider = mockApi,
+                                onRemove = {},
+                                onClick = {},
+                                onPlayClick = {}
+                            )
+                        }
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL -> {
+                            val cardWidth = if (isCompact) 180.dp else (posterWidthDp * 1.8f).dp
+                            val cardHeight = if (isCompact) 100.dp else (posterWidthDp * 1.8f * 9f / 16f).dp
                             com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard(
-                                modifier = Modifier.width(animatedWidth * 2.0f).height((animatedWidth * 2.0f) * 9f / 16f),
+                                modifier = Modifier.width(cardWidth).height(cardHeight),
                                 history = mockHistory2,
                                 provider = mockApi,
                                 onRemove = {},
@@ -2131,51 +2538,63 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                 }
             }
 
-            // Row 2: Trending Movies
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Trending Movies",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
-                ) {
-                    items(displayPosters.size) { index ->
-                        com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
-                            item = displayPosters[index],
-                            provider = mockApi,
-                            gridScale = "Normal",
-                            itemWidth = animatedWidth,
-                            onClick = {},
-                            onPlayClick = {}
-                        )
-                    }
+            // Row 2: Trending Movies Shelf (with Exact Arrow Chevrons)
+            com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Trending Movies",
+                itemCount = displayMovies.size,
+                rowContentPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                    bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                ),
+                headerPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                    bottom = 4.dp,
+                ),
+                itemSpacing = spacingDp,
+            ) {
+                items(displayMovies.size) { index ->
+                    com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
+                        item = displayMovies[index],
+                        provider = mockApi,
+                        itemWidth = optimalItemWidth,
+                        onClick = {},
+                        onPlayClick = {}
+                    )
                 }
             }
 
-            // Row 3: Popular Series
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Popular Series",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(animatedSpacing),
-                ) {
-                    items(displayPosters.reversed().size) { index ->
-                        com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
-                            item = displayPosters.reversed()[index],
-                            provider = mockApi,
-                            gridScale = "Normal",
-                            itemWidth = animatedWidth,
-                            onClick = {},
-                            onPlayClick = {}
-                        )
-                    }
+            // Row 3: Popular Series Shelf (with Exact Arrow Chevrons)
+            com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Popular Series",
+                itemCount = displaySeries.size,
+                rowContentPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                    bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                ),
+                headerPadding = PaddingValues(
+                    start = effectivePaddingStart + 10.dp,
+                    end = effectivePaddingEnd + 10.dp,
+                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                    bottom = 4.dp,
+                ),
+                itemSpacing = spacingDp,
+            ) {
+                items(displaySeries.size) { index ->
+                    com.lagradost.cloudstream3.desktop.ui.components.PosterCard(
+                        item = displaySeries[index],
+                        provider = mockApi,
+                        itemWidth = optimalItemWidth,
+                        onClick = {},
+                        onPlayClick = {}
+                    )
                 }
             }
         }
@@ -2236,7 +2655,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         )
                     }
                     Text(
-                        "Live full-screen canvas preview across your actual display width",
+                        "Live full-screen canvas preview matching your actual display width and column-snapping",
                         style = MaterialTheme.typography.labelSmall,
                         color = theme.TextMuted,
                     )
@@ -2253,7 +2672,12 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         AppearanceConfig.setPosterRoundingDp(12)
                         AppearanceConfig.setPosterTitlePosition(com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW)
                         AppearanceConfig.setContinueWatchingStyle(com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM)
+                        AppearanceConfig.setProviderBadgeDisplayMode(com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN)
                         AppearanceConfig.setPosterHoverGlowEnabled(true)
+                        CardMetadataConfig.setAutoCleanTitles(true)
+                        CardMetadataConfig.setAutoDetectSubDub(true)
+                        CardMetadataConfig.setAutoDetectQuality(true)
+                        CardMetadataConfig.setShowRatingBadges(true)
                     }
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2263,19 +2687,19 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             }
         }
 
-        // ── 3. Bottom Floating Control Dock ─────────────────────────────────────
+        // ── 3. Bottom Floating Control Dock (Responsive 3-Tab Grid) ───────────────
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(start = 24.dp, end = 24.dp, bottom = 18.dp)
-                .widthIn(max = 980.dp)
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+                .widthIn(max = 1040.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
-            color = theme.SurfaceElevated.copy(alpha = 0.92f),
+            color = theme.SurfaceElevated.copy(alpha = 0.94f),
             border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.6f)),
             shadowElevation = 16.dp,
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 // Dock Header with Category Tabs & Collapse Toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2292,7 +2716,13 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         FilterChip(
                             selected = activeControlTab == 1,
                             onClick = { activeControlTab = 1; isControlsExpanded = true },
-                            label = { Text("✨ Style & Glow", fontWeight = FontWeight.Medium) },
+                            label = { Text("✨ Style & Layout", fontWeight = FontWeight.Medium) },
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        FilterChip(
+                            selected = activeControlTab == 2,
+                            onClick = { activeControlTab = 2; isControlsExpanded = true },
+                            label = { Text("🏷️ Badges & Overlays", fontWeight = FontWeight.Medium) },
                             shape = RoundedCornerShape(10.dp),
                         )
                     }
@@ -2311,156 +2741,265 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                 }
 
                 if (isControlsExpanded) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    if (activeControlTab == 0) {
-                        // ── Tab 0: Dimensions & Spacing Sliders ───────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        ) {
-                            // Poster Width
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Poster Width", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                    Text("${posterWidthDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                }
-                                Slider(
-                                    value = posterWidthDp.toFloat(),
-                                    onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
-                                    valueRange = 100f..250f,
-                                    steps = 29,
-                                )
-                            }
+                    when (activeControlTab) {
+                        0 -> {
+                            // ── Tab 0: Dimensions & Spacing Sliders (Spacious 2x2 Grid) ────
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                ) {
+                                    // 1. Poster Width
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Poster Width", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                            Text("${posterWidthDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        }
+                                        Slider(
+                                            value = posterWidthDp.toFloat(),
+                                            onValueChange = { AppearanceConfig.setPosterWidthDp(it.toInt()) },
+                                            valueRange = 100f..250f,
+                                            steps = 29,
+                                        )
+                                    }
 
-                            // Card Spacing
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Card Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                    Text("${homeSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    // 2. Card Spacing
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Card Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                            Text("${homeSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        }
+                                        Slider(
+                                            value = homeSpacingDp.toFloat(),
+                                            onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
+                                            valueRange = 0f..32f,
+                                            steps = 15,
+                                        )
+                                    }
                                 }
-                                Slider(
-                                    value = homeSpacingDp.toFloat(),
-                                    onValueChange = { AppearanceConfig.setHomeSpacingDp(it.toInt()) },
-                                    valueRange = 0f..32f,
-                                    steps = 15,
-                                )
-                            }
 
-                            // Row Spacing
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Row Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                    Text("${homeVerticalSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                }
-                                Slider(
-                                    value = homeVerticalSpacingDp.toFloat(),
-                                    onValueChange = { AppearanceConfig.setHomeVerticalSpacingDp(it.toInt()) },
-                                    valueRange = 0f..64f,
-                                    steps = 31,
-                                )
-                            }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                ) {
+                                    // 3. Row Spacing
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Row Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                            Text("${homeVerticalSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        }
+                                        Slider(
+                                            value = homeVerticalSpacingDp.toFloat(),
+                                            onValueChange = { AppearanceConfig.setHomeVerticalSpacingDp(it.toInt()) },
+                                            valueRange = 0f..64f,
+                                            steps = 31,
+                                        )
+                                    }
 
-                            // Corner Radius
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Corner Radius", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                    Text("${posterRoundingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    // 4. Corner Radius
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Corner Radius", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                            Text("${posterRoundingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                        }
+                                        Slider(
+                                            value = posterRoundingDp.toFloat(),
+                                            onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
+                                            valueRange = 0f..24f,
+                                            steps = 23,
+                                        )
+                                    }
                                 }
-                                Slider(
-                                    value = posterRoundingDp.toFloat(),
-                                    onValueChange = { AppearanceConfig.setPosterRoundingDp(it.toInt()) },
-                                    valueRange = 0f..24f,
-                                    steps = 23,
-                                )
                             }
                         }
-                    } else {
-                        // ── Tab 1: Style & Glow Controls ──────────────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        ) {
-                            // Title Position Selector
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Poster Title Position", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf(
-                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below",
-                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Hover",
-                                        com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
-                                    ).forEach { (pos, label) ->
-                                        FilterChip(
-                                            selected = posterTitlePosition == pos,
-                                            onClick = { AppearanceConfig.setPosterTitlePosition(pos) },
-                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                            shape = RoundedCornerShape(8.dp),
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Continue Watching Style
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Continue Watching Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf(
-                                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide Card",
-                                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic",
-                                    ).forEach { (style, label) ->
-                                        FilterChip(
-                                            selected = continueWatchingStyle == style,
-                                            onClick = { AppearanceConfig.setContinueWatchingStyle(style) },
-                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                            shape = RoundedCornerShape(8.dp),
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Provider Badges on Cards
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Provider Badges on Cards", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf(
-                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden (Clean)",
-                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon Only",
-                                        com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full Badge",
-                                    ).forEach { (mode, label) ->
-                                        FilterChip(
-                                            selected = providerBadgeDisplayMode == mode,
-                                            onClick = { AppearanceConfig.setProviderBadgeDisplayMode(mode) },
-                                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                            shape = RoundedCornerShape(8.dp),
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Hover Ambient Glow Switch
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = theme.SurfaceCard.copy(alpha = 0.6f),
-                                border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                modifier = Modifier.padding(top = 8.dp)
-                            ) {
+                        1 -> {
+                            // ── Tab 1: Style & Layout Controls ─────────────────────────
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Column {
-                                        Text("Hover Ambient Glow", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                        Text("Dynamic backdrop illumination", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                    // 1. Poster Title Position
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Poster Title Position", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf(
+                                                com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW to "Below",
+                                                com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.INSIDE to "Hover",
+                                                com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.HIDDEN to "Hidden",
+                                            ).forEach { (pos, label) ->
+                                                FilterChip(
+                                                    selected = posterTitlePosition == pos,
+                                                    onClick = { AppearanceConfig.setPosterTitlePosition(pos) },
+                                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                )
+                                            }
+                                        }
                                     }
-                                    Switch(
-                                        checked = posterHoverGlowEnabled,
-                                        onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) }
-                                    )
+
+                                    // 2. Continue Watching Style
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Continue Watching Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf(
+                                                com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide Card",
+                                                com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED to "Detailed",
+                                                com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic",
+                                            ).forEach { (style, label) ->
+                                                FilterChip(
+                                                    selected = continueWatchingStyle == style,
+                                                    onClick = { AppearanceConfig.setContinueWatchingStyle(style) },
+                                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 3. Hover Ambient Glow Switch Card
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                    border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Column {
+                                            Text("Hover Ambient Glow", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                            Text("Dynamic backdrop illumination beneath hovered cards", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                        }
+                                        Switch(
+                                            checked = posterHoverGlowEnabled,
+                                            onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        else -> {
+                            // ── Tab 2: Badges & Overlays Controls ──────────────────────
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                ) {
+                                    // 1. Rating Badges (★ Gold Pill)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column {
+                                                Text("Rating Badges (★)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("Community score pill", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Switch(
+                                                checked = showRatingBadges,
+                                                onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) }
+                                            )
+                                        }
+                                    }
+
+                                    // 2. Quality Badges (4K / HD)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column {
+                                                Text("Quality Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("4K and HD resolution tags", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Switch(
+                                                checked = autoDetectQuality,
+                                                onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                ) {
+                                    // 3. SUB / DUB Badges
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column {
+                                                Text("SUB / DUB Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("Audio & subtitle availability", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Switch(
+                                                checked = autoDetectSubDub,
+                                                onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) }
+                                            )
+                                        }
+                                    }
+
+                                    // 4. Provider Badges on Cards
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.weight(1.3f),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column {
+                                                Text("Provider Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("Plugin badge style", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                listOf(
+                                                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden",
+                                                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon",
+                                                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full",
+                                                ).forEach { (mode, label) ->
+                                                    FilterChip(
+                                                        selected = providerBadgeDisplayMode == mode,
+                                                        onClick = { AppearanceConfig.setProviderBadgeDisplayMode(mode) },
+                                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                                        shape = RoundedCornerShape(8.dp),
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

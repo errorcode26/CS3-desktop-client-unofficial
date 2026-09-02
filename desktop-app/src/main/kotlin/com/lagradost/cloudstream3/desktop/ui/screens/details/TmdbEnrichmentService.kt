@@ -549,9 +549,22 @@ object TmdbEnrichmentService {
                             }
 
                             val popularity = result.get("popularity")?.asDouble() ?: 0.0
-                            score += Math.min(5.0, popularity / 20.0)
+                            score += Math.min(8.0, popularity / 15.0)
 
-                            possible.add(Pair(result, score))
+                            val voteCount = result.get("vote_count")?.asInt() ?: 0
+                            if (voteCount > 500) {
+                                score += 6.0
+                            } else if (voteCount > 50) {
+                                score += 3.0
+                            } else if (voteCount < 3 && !isAnime) {
+                                // Heavily penalize unverified/obscure 0-vote entries
+                                score -= 12.0
+                            }
+
+                            // Only consider candidates meeting minimum confidence
+                            if (score >= 9.0) {
+                                possible.add(Pair(result, score))
+                            }
                         }
 
                         if (possible.isEmpty()) {

@@ -32,35 +32,28 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
-sealed class SettingsNav {
-    data class Leaf(val id: LeafTab) : SettingsNav()
-    data class Group(val id: GroupTab, val children: List<LeafTab>) : SettingsNav()
-}
-
-enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     APPEARANCE("Appearance & Theme", Icons.Default.Palette),
-    THEME("Themes & Colors"),
-    LAYOUT("Layout & Dock"),
-    DETAILS("Details Page"),
-    EFFECTS("Backdrop & Effects"),
-    PLAYER("Playback Engine", Icons.Default.PlayCircle),
-    SHORTCUTS("Keyboard Shortcuts", Icons.Default.Keyboard),
-    ACCOUNTS("Profiles & Sync", Icons.Default.AccountCircle),
-    INTEGRATIONS("Metadata & Integrations", Icons.Default.AutoAwesome),
-    SUBTITLES_LEAF("Subtitles & Styling"),
-    EXTENSIONS("Plugins & Repos"),
-    ADDONS("External Addons"),
+    PLAYER("Playback & Video", Icons.Default.PlayCircle),
+    AUDIO("Audio & Equalizer", Icons.Default.GraphicEq),
+    SUBTITLES("Subtitles & Styling", Icons.Default.Subtitles),
+    DOWNLOADS("Downloads & Storage", Icons.Default.Download),
+    ACCOUNTS("Profiles & Accounts", Icons.Default.AccountCircle),
+    INTEGRATIONS("Metadata & Providers", Icons.Default.AutoAwesome),
+    EXTENSIONS("Plugins & Addons", Icons.Default.Extension),
     NETWORK("Network & DNS", Icons.Default.Router),
-    ADVANCED("Storage & Cache"),
-    DEVELOPER("Diagnostics & Logs"),
-    ABOUT("Updates & About"),
-}
+    DEVELOPER("Developer & Logs", Icons.Default.Terminal),
+    ABOUT("About & Updates", Icons.Default.Info),
 
-enum class GroupTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    APPEARANCE("Appearance & UI", Icons.Default.Palette),
-    PLAYBACK("Playback & Media", Icons.Default.PlayCircle),
-    EXTENSIONS_GROUP("Plugins & Stremio Addons", Icons.Default.Extension),
-    SYSTEM_GROUP("System & Tools", Icons.Default.Build),
+    // Compatibility aliases for SettingsSearchIndex and legacy references
+    THEME("Theme & Colors", Icons.Default.Palette),
+    LAYOUT("Layout & Dock", Icons.Default.Palette),
+    DETAILS("Details Page", Icons.Default.Palette),
+    EFFECTS("Backdrop & Effects", Icons.Default.Palette),
+    SHORTCUTS("Keyboard Shortcuts", Icons.Default.Keyboard),
+    SUBTITLES_LEAF("Subtitles & Styling", Icons.Default.Subtitles),
+    ADDONS("External Addons", Icons.Default.Extension),
+    ADVANCED("Storage & Cache", Icons.Default.Download),
 }
 
 // Keeps SettingsSearchIndex compiling without changes
@@ -85,21 +78,26 @@ enum class SettingsSubScreen(val title: String) {
 
 object SettingsSession {
     var selectedLeaf by mutableStateOf(LeafTab.APPEARANCE)
-    var expandedGroups by mutableStateOf<Set<GroupTab>>(emptySet())
     var activeSubScreen by mutableStateOf<SettingsSubScreen?>(null)
     var highlightedSetting by mutableStateOf<String?>(null)
     val settingsViewModel by lazy { SettingsViewModel() }
 }
 
-private val NAV_STRUCTURE: List<SettingsNav> = listOf(
-    SettingsNav.Leaf(LeafTab.APPEARANCE),
-    SettingsNav.Leaf(LeafTab.PLAYER),
-    SettingsNav.Leaf(LeafTab.SHORTCUTS),
-    SettingsNav.Leaf(LeafTab.ACCOUNTS),
-    SettingsNav.Leaf(LeafTab.INTEGRATIONS),
-    SettingsNav.Group(GroupTab.EXTENSIONS_GROUP, listOf(LeafTab.EXTENSIONS, LeafTab.ADDONS)),
-    SettingsNav.Leaf(LeafTab.NETWORK),
-    SettingsNav.Group(GroupTab.SYSTEM_GROUP, listOf(LeafTab.ADVANCED, LeafTab.DEVELOPER, LeafTab.ABOUT)),
+private val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
+    LeafTab.APPEARANCE,
+    LeafTab.PLAYER,
+    LeafTab.AUDIO,
+    LeafTab.SUBTITLES,
+    LeafTab.DOWNLOADS,
+    LeafTab.ACCOUNTS,
+    LeafTab.INTEGRATIONS,
+    LeafTab.EXTENSIONS,
+    LeafTab.NETWORK,
+    LeafTab.DEVELOPER,
+)
+
+private val BOTTOM_NAV_ITEMS: List<LeafTab> = listOf(
+    LeafTab.ABOUT,
 )
 
 
@@ -111,7 +109,6 @@ fun ComposeSettingsScreen(
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel? = null,
 ) {
     var selectedLeaf by SettingsSession::selectedLeaf
-    var expandedGroups by SettingsSession::expandedGroups
     var activeSubScreen by SettingsSession::activeSubScreen
     val settingsViewModel = SettingsSession.settingsViewModel
 
@@ -173,20 +170,12 @@ fun ComposeSettingsScreen(
                 } else {
                     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         results.forEach { result ->
-                            val parentGroup = NAV_STRUCTURE.filterIsInstance<SettingsNav.Group>().find { it.children.contains(result.tab) }
-                            val breadcrumb = when {
-                                result.subScreen != null -> "${result.tab.title} > ${result.subScreen.title}"
-                                parentGroup != null -> "${parentGroup.id.title} > ${result.tab.title}"
-                                else -> result.tab.title
-                            }
+                            val breadcrumb = if (result.subScreen != null) "${result.tab.title} > ${result.subScreen.title}" else result.tab.title
 
                             Surface(
                                 onClick = {
                                     selectedLeaf = result.tab
                                     activeSubScreen = result.subScreen
-                                    if (parentGroup != null && parentGroup.id !in expandedGroups) {
-                                        expandedGroups = expandedGroups + parentGroup.id
-                                    }
                                     SettingsSession.highlightedSetting = result.uiLabel
                                     searchQuery = ""
                                 },
@@ -205,53 +194,31 @@ fun ComposeSettingsScreen(
                     }
                 }
             } else {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    NAV_STRUCTURE.forEach { nav ->
-                        when (nav) {
-                            is SettingsNav.Leaf -> {
-                                if (nav.id == LeafTab.NETWORK) {
-                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                                }
-                                SidebarLeafItem(
-                                    title = nav.id.title,
-                                    icon = nav.id.icon,
-                                    isSelected = selectedLeaf == nav.id && activeSubScreen == null,
-                                    isChild = false,
-                                    onClick = { selectedLeaf = nav.id; activeSubScreen = null },
-                                )
-                            }
-                            is SettingsNav.Group -> {
-                                val isExpanded = nav.id in expandedGroups
-                                val isGroupActive = nav.children.any { it == selectedLeaf } && activeSubScreen == null
-                                SidebarGroupItem(
-                                    title = nav.id.title,
-                                    icon = nav.id.icon,
-                                    isExpanded = isExpanded,
-                                    isActive = isGroupActive,
-                                    onClick = {
-                                        expandedGroups = if (isExpanded) expandedGroups - nav.id
-                                                         else expandedGroups + nav.id
-                                        if (!isExpanded) {
-                                            selectedLeaf = nav.children.first()
-                                            activeSubScreen = null
-                                        }
-                                    },
-                                )
-                                if (isExpanded) {
-                                    nav.children.forEach { child ->
-                                        SidebarLeafItem(
-                                            title = child.title,
-                                            icon = null,
-                                            isSelected = selectedLeaf == child && activeSubScreen == null,
-                                            isChild = true,
-                                            onClick = { selectedLeaf = child; activeSubScreen = null },
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                Column(
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MAIN_NAV_ITEMS.forEach { tab ->
+                        SidebarLeafItem(
+                            title = tab.title,
+                            icon = tab.icon,
+                            isSelected = selectedLeaf == tab && activeSubScreen == null,
+                            onClick = { selectedLeaf = tab; activeSubScreen = null },
+                        )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                    )
+
+                    BOTTOM_NAV_ITEMS.forEach { tab ->
+                        SidebarLeafItem(
+                            title = tab.title,
+                            icon = tab.icon,
+                            isSelected = selectedLeaf == tab && activeSubScreen == null,
+                            onClick = { selectedLeaf = tab; activeSubScreen = null },
+                        )
                     }
                 }
             }
@@ -362,21 +329,24 @@ fun ComposeSettingsScreen(
                         ) { currentLeaf ->
                             when (currentLeaf) {
                                 LeafTab.APPEARANCE     -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.PLAYER         -> SettingsPlayerPlaybackScreen(viewModel = settingsViewModel)
+                                LeafTab.AUDIO          -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
+                                LeafTab.SUBTITLES,
+                                LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                LeafTab.DOWNLOADS,
+                                LeafTab.ADVANCED       -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
+                                LeafTab.INTEGRATIONS   -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.EXTENSIONS,
+                                LeafTab.ADDONS         -> SettingsPluginsAndAddonsScreen(onNavigate = onNavigate)
+                                LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
+                                LeafTab.DEVELOPER      -> SettingsDeveloper()
+                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
                                 LeafTab.THEME          -> SettingsAppearanceThemeScreen()
                                 LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()
                                 LeafTab.EFFECTS        -> SettingsAppearanceEffectsScreen()
-                                LeafTab.PLAYER         -> SettingsPlayer(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.SHORTCUTS      -> SettingsShortcutsScreen()
-                                LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
-                                LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                LeafTab.EXTENSIONS     -> SettingsExtensions(onNavigate = onNavigate)
-                                LeafTab.ADDONS         -> SettingsAddons()
-                                LeafTab.INTEGRATIONS   -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
-                                LeafTab.DEVELOPER      -> SettingsDeveloper()
-                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
                             }
                         }
                     }
@@ -388,46 +358,10 @@ fun ComposeSettingsScreen(
 }
 
 @Composable
-private fun SidebarGroupItem(
-    title: String,
-    icon: ImageVector,
-    isExpanded: Boolean,
-    isActive: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        color = if (isActive) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f) else Color.Transparent,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp),
-                tint = if (isActive) MaterialTheme.colorScheme.onSecondaryContainer
-                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f))
-            Spacer(Modifier.width(12.dp))
-            Text(text = title, modifier = Modifier.weight(1f),
-                color = if (isActive) MaterialTheme.colorScheme.onSecondaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                style = MaterialTheme.typography.bodyMedium)
-            Icon(
-                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-            )
-        }
-    }
-}
-
-@Composable
 private fun SidebarLeafItem(
     title: String,
-    icon: ImageVector?,
+    icon: ImageVector,
     isSelected: Boolean,
-    isChild: Boolean,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -437,33 +371,23 @@ private fun SidebarLeafItem(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(
-                start = if (isChild) 32.dp else 12.dp,
-                end = 12.dp,
-                top = if (isChild) 7.dp else 10.dp,
-                bottom = if (isChild) 7.dp else 10.dp,
-            ),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (icon != null) {
-                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp),
-                    tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f))
-            } else if (isChild) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                    modifier = Modifier.size(4.dp),
-                ) {}
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
+                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            )
             Text(
                 text = title,
                 color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                style = if (isChild) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }

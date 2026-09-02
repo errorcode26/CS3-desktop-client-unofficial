@@ -161,35 +161,55 @@ object CinemetaMetadataProvider : MetadataProvider {
         context: MetadataEnrichmentContext,
         callbacks: MetadataEnrichmentCallbacks,
     ): Boolean {
-        if (match == null) return false
-        val cinemetaData = match.rawData as? StremioAddonClient.StremioMetaItem
+        val isMovie = loaded.type == TvType.Movie || loaded.type == TvType.AnimeMovie
+        val stringType = if (isMovie) "movie" else "series"
+        val effectiveImdbId = match?.imdbId ?: context.directImdbId ?: loaded.syncData["imdb"]?.takeIf { it.startsWith("tt") }
+
+        var cinemetaData = match?.rawData as? StremioAddonClient.StremioMetaItem
+        if (cinemetaData == null && !effectiveImdbId.isNullOrBlank()) {
+            try {
+                cinemetaData = StremioAddonClient.getMeta(effectiveImdbId, stringType)
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Failed to fetch Cinemeta meta for $effectiveImdbId: ${e.message}")
+            }
+        }
+
+        if (cinemetaData == null && match == null) return false
+
+        val imdbRating = cinemetaData?.imdbRating?.toDoubleOrNull() ?: match?.rating
+        val poster = cinemetaData?.poster ?: match?.posterUrl
+        val backdrop = (cinemetaData?.background?.replace("t/p/original//", "t/p/original/")) ?: match?.backdropUrl
+        val logo = cinemetaData?.logo ?: match?.logoUrl ?: effectiveImdbId?.let { "https://images.metahub.space/logo/medium/$it/img" }
+        val description = cinemetaData?.description ?: match?.description
+        val genres = cinemetaData?.genres ?: match?.genres
+        val matchedTitle = cinemetaData?.name ?: match?.matchedTitle
 
         withContext(Dispatchers.Main.immediate) {
-            if (loaded.name.isBlank()) {
-                loaded.name = match.matchedTitle
+            if (loaded.name.isBlank() && !matchedTitle.isNullOrBlank()) {
+                loaded.name = matchedTitle
             }
-            if (match.posterUrl != null) {
-                loaded.posterUrl = match.posterUrl
+            if (poster != null && loaded.posterUrl.isNullOrBlank()) {
+                loaded.posterUrl = poster
             }
-            if (match.backdropUrl != null) {
-                loaded.backgroundPosterUrl = match.backdropUrl
+            if (backdrop != null && loaded.backgroundPosterUrl.isNullOrBlank()) {
+                loaded.backgroundPosterUrl = backdrop
             }
-            if (loaded.plot.isNullOrBlank() && match.description != null) {
-                loaded.plot = match.description
+            if (loaded.plot.isNullOrBlank() && description != null) {
+                loaded.plot = description
             }
-            if (match.logoUrl != null) {
+            if (logo != null) {
                 when (loaded) {
-                    is com.lagradost.cloudstream3.MovieLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = match.logoUrl
-                    is com.lagradost.cloudstream3.TvSeriesLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = match.logoUrl
-                    is com.lagradost.cloudstream3.AnimeLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = match.logoUrl
+                    is com.lagradost.cloudstream3.MovieLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logo
+                    is com.lagradost.cloudstream3.TvSeriesLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logo
+                    is com.lagradost.cloudstream3.AnimeLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logo
                     else -> {}
                 }
             }
-            if (match.rating != null) {
+            if (imdbRating != null) {
                 if (loaded.score == null) {
-                    loaded.score = com.lagradost.cloudstream3.Score.from10(match.rating)
+                    loaded.score = com.lagradost.cloudstream3.Score.from10(imdbRating)
                 }
-                callbacks.onRatingsLoaded(match.rating, null, null)
+                callbacks.onRatingsLoaded(imdbRating, null, null)
             }
 
             // Episode descriptions, thumbnails, and ratings
@@ -245,9 +265,9 @@ object CinemetaMetadataProvider : MetadataProvider {
             null, // budget
             null, // revenue
             null, // networks
-            loaded.year ?: match.matchedYear,
+            loaded.year ?: match?.matchedYear,
             loaded.duration,
-            match.genres,
+            genres,
             loaded.actors,
             null,
             null,

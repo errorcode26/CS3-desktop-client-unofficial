@@ -106,8 +106,6 @@ object TitleUtils {
      * cleanTitle is never blank — falls back to raw.trim() if cleaning removes everything.
      */
     fun cleanProviderTitle(raw: String): Pair<String, Int?> {
-        val year = YEAR_REGEX.find(raw)?.groupValues?.get(1)?.toIntOrNull()
-
         val candidates =
             buildList {
                 JUNK_START_REGEX.find(raw)?.range?.first?.let { add(it) }
@@ -134,8 +132,16 @@ object TitleUtils {
         val cutAt = candidates.minOrNull() ?: raw.length
         val sliced = raw.substring(0, cutAt)
         val cleaned = TRAILING_JUNK_REGEX.replace(sliced, "").trim()
+        val finalTitle = if (cleaned.isBlank()) raw.trim() else cleaned
 
-        return Pair(if (cleaned.isBlank()) raw.trim() else cleaned, year)
+        // Extract year: if the 4-digit number starts at index 0 and is part of the title (e.g. "2012" or "1917"),
+        // it is the title itself, not the release year. Look for a subsequent year tag.
+        val yearMatches = YEAR_REGEX.findAll(raw).map { it.range.first to it.groupValues[1].toInt() }.toList()
+        val year = yearMatches.firstOrNull { (pos, _) ->
+            !(pos <= 2 && Regex("""^\d{4}\b""").containsMatchIn(finalTitle))
+        }?.second
+
+        return Pair(finalTitle, year)
     }
 
     /**

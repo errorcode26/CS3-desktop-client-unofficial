@@ -21,7 +21,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +53,7 @@ fun DownloadsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var taskPendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
+    var showPendingDeleteShow by remember { mutableStateOf<String?>(null) }
     var showCancelAllDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -298,8 +306,10 @@ fun DownloadsScreen(
                     items(completed, key = { it.id }) { task ->
                         DownloadedItemCard(
                             task = task,
+                            allCompletedTasks = completed,
                             onPlay = { onPlayOffline(task) },
                             onDelete = { taskPendingDelete = task },
+                            onDeleteShow = { showPendingDeleteShow = task.showName },
                         )
                     }
                 }
@@ -349,6 +359,56 @@ fun DownloadsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { taskPendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Delete Entire Show Confirmation Dialog
+    if (showPendingDeleteShow != null) {
+        val targetShow = showPendingDeleteShow!!
+        val matchingTasks = uiState.tasks.filter { it.showName.equals(targetShow, ignoreCase = true) }
+        val totalBytes = matchingTasks.sumOf { it.downloadedBytes }
+        CloudstreamAlertDialog(
+            show = true,
+            onDismissRequest = { showPendingDeleteShow = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Text("Delete Entire Show?")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Are you sure you want to delete all ${matchingTasks.size} downloaded episodes of \"$targetShow\"?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    if (totalBytes > 0) {
+                        Text(
+                            text = "This will remove all downloaded files for this show and free up ${formatBytes(totalBytes)}.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val showToDelete = targetShow
+                        showPendingDeleteShow = null
+                        viewModel.deleteShow(showToDelete, deleteFiles = true)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text("Delete All ${matchingTasks.size} Episodes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPendingDeleteShow = null }) {
                     Text("Cancel")
                 }
             },
@@ -561,7 +621,7 @@ private fun DownloadSettingsDialog(
                 }
             }
 
-            // Turbo Workers Slider
+            // Connections Slider
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -575,7 +635,7 @@ private fun DownloadSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Parallel Turbo Download Threads (Chunks)",
+                            text = "Download Connections (Threads)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -584,7 +644,7 @@ private fun DownloadSettingsDialog(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                         ) {
                             Text(
-                                text = "${downloadThreads.toInt()} chunk workers",
+                                text = "${downloadThreads.toInt()} connections",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -593,7 +653,7 @@ private fun DownloadSettingsDialog(
                         }
                     }
                     Text(
-                        text = "Splits HTTP Range streams into parallel concurrent workers for maximum speed.",
+                        text = "Number of parallel connections per download for faster download speeds.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -821,17 +881,71 @@ private fun ActiveDownloadRow(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun DownloadedItemCard(
     task: DownloadTask,
+    allCompletedTasks: List<DownloadTask>,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteShow: () -> Unit,
 ) {
+    var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val isContextMenuEnabled = true
+    val showTasks = remember(task.showName, allCompletedTasks) {
+        allCompletedTasks.filter { it.showName.equals(task.showName, ignoreCase = true) }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onPlay() },
+            .onGloballyPositioned { coordinates ->
+                val newBounds = Rect(
+                    offset = coordinates.positionInWindow(),
+                    size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
+                )
+                if (bounds != newBounds) {
+                    bounds = newBounds
+                }
+            }
+            .pointerInput(isContextMenuEnabled) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Release) {
+                            if (isContextMenuEnabled && event.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
+                                com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForDownload(
+                                    bounds = bounds,
+                                    task = task,
+                                    allShowTasks = showTasks,
+                                    onPlay = onPlay,
+                                    onDelete = onDelete,
+                                    onDeleteShow = onDeleteShow,
+                                    onOpenInExplorer = {
+                                        try {
+                                            val file = task.file
+                                            if (file.exists()) {
+                                                if (System.getProperty("os.name").lowercase().contains("win")) {
+                                                    Runtime.getRuntime().exec(arrayOf("explorer.exe", "/select,", file.absolutePath))
+                                                } else {
+                                                    Desktop.getDesktop().open(file.parentFile ?: file)
+                                                }
+                                            }
+                                        } catch (_: Exception) {
+                                            try {
+                                                Desktop.getDesktop().open(task.file.parentFile ?: task.file)
+                                            } catch (_: Exception) {}
+                                        }
+                                    },
+                                )
+                            } else if (event.button == androidx.compose.ui.input.pointer.PointerButton.Primary) {
+                                onPlay()
+                            }
+                        }
+                    }
+                }
+            },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
@@ -908,8 +1022,9 @@ private fun DownloadedItemCard(
                 )
 
                 if (!task.isMovie) {
+                    val epClean = task.cleanEpisodeTitle
                     Text(
-                        text = "S${task.season ?: 1} E${task.episode ?: 1}${if (!task.episodeTitle.isNullOrBlank()) " • ${task.episodeTitle}" else ""}",
+                        text = "S${task.season ?: 1} E${task.episode ?: 1}${if (!epClean.isNullOrBlank()) " • $epClean" else ""}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -951,7 +1066,7 @@ private fun EmptyDownloadsPlaceholder() {
     }
 }
 
-private fun formatBytes(bytes: Long): String {
+internal fun formatBytes(bytes: Long): String {
     if (bytes <= 0) return "0 MB"
     val mb = bytes.toDouble() / (1024 * 1024)
     return if (mb >= 1024) "%.2f GB".format(mb / 1024) else "%.1f MB".format(mb)

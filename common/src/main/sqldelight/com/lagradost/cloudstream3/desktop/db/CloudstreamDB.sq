@@ -53,11 +53,13 @@ CREATE TABLE IF NOT EXISTS WatchHistory (
     position INTEGER NOT NULL,
     duration INTEGER NOT NULL,
     updateTime INTEGER NOT NULL,
+    episodeName TEXT,
+    episodeDescription TEXT,
     PRIMARY KEY(parentId, episodeId)
 );
 
 insertWatchHistory:
-INSERT OR REPLACE INTO WatchHistory(parentId, episodeId, showName, showUrl, apiName, posterUrl, episodeThumbnailUrl, screenshotUrl, episode, season, position, duration, updateTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO WatchHistory(parentId, episodeId, showName, showUrl, apiName, posterUrl, episodeThumbnailUrl, screenshotUrl, episode, season, position, duration, updateTime, episodeName, episodeDescription) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteWatchHistoryByParent:
 DELETE FROM WatchHistory WHERE parentId = ?;

@@ -116,22 +116,28 @@ object HeroRepository {
 
         try {
             backgroundSemaphore.withPermit {
+                val isSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.name)
+                    || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.url)
+                val isAnime = item.type == com.lagradost.cloudstream3.TvType.Anime || item.type == com.lagradost.cloudstream3.TvType.AnimeMovie
+                val actualType = when {
+                    isAnime -> com.lagradost.cloudstream3.TvType.Anime
+                    isSeriesPattern -> com.lagradost.cloudstream3.TvType.TvSeries
+                    item.type != null && item.type != com.lagradost.cloudstream3.TvType.Movie -> item.type!!
+                    else -> com.lagradost.cloudstream3.TvType.Movie
+                }
+
                 val (dummyTitle, parsedYear) = TitleUtils.cleanProviderTitle(item.name)
-                AppLogger.i("Enrichment", "[HERO] prefetch | raw='${item.name}' | clean='$dummyTitle' | type=${item.type} | url=${item.url}")
+                AppLogger.i("Enrichment", "[HERO] prefetch | raw='${item.name}' | clean='$dummyTitle' | type=$actualType | url=${item.url}")
 
                 if (provider != null) {
-                    // Use the real type from the search result so Cinemeta/TMDB search the correct catalog.
-                    val actualType = item.type ?: com.lagradost.cloudstream3.TvType.Movie
-
                     val dummy =
                         provider.newMovieLoadResponse(
-                            name = dummyTitle,
+                            name = item.name,
                             url = item.url,
                             type = actualType,
                             dataUrl = item.url,
                         ) {
                             this.posterUrl = item.posterUrl
-                            // Seed the year from title parsing so enrichment has it immediately.
                             if (this.year == null && parsedYear != null) this.year = parsedYear
                         }
 
@@ -144,7 +150,7 @@ object HeroRepository {
 
                     val backdropUrl = dummy.backgroundPosterUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
                     val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
-                    val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle } ?: dummyTitle
+                    val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle && it != item.name } ?: dummyTitle
                     val tags = dummy.tags?.take(4) ?: emptyList()
                     val plot = dummy.plot?.take(200)
                     val score = dummy.score?.toString()

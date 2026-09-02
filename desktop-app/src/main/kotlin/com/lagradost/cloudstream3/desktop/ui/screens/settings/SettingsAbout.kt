@@ -1,15 +1,21 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.AppConfig
 
 @Composable
 fun SettingsAbout() {
@@ -17,87 +23,72 @@ fun SettingsAbout() {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        SettingsGroupCard(title = "CloudStream Desktop") {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    "CloudStream Desktop",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
                 ) {
                     Text(
-                        "UNOFFICIAL PRE-ALPHA",
+                        "UNOFFICIAL DESKTOP CLIENT",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "This is an unofficial desktop port in early pre-alpha. It is actively being developed. Expect bugs and missing features.",
+                    "Independent, desktop-native streaming client for Windows, macOS, and Linux.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
 
-        Text(
-            "This Application",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
-        )
-        ListItem(
-            headlineContent = { Text("Desktop Source Code") },
-            supportingContent = { Text("View the GitHub repository for this unofficial Windows port.") },
-            modifier = Modifier.clickable { openUrl("https://github.com/errorcode26/CS3-desktop-client-unofficial") },
-        )
+        SettingsGroupCard(title = "Desktop Source & Development") {
+            SettingsNavigationItem(
+                label = "Desktop Source Code",
+                subtitle = "View repository, report desktop issues, and inspect release builds.",
+                onClick = { openUrl("https://github.com/errorcode26/CS3-desktop-client-unofficial") },
+            )
+        }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+        SettingsGroupCard(title = "Upstream Community & Documentation") {
+            SettingsNavigationItem(
+                label = "Official Android Repository",
+                subtitle = "View upstream CloudStream core source code and releases.",
+                onClick = { openUrl("https://github.com/recloudstream/cloudstream") },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            SettingsNavigationItem(
+                label = "Community Discord",
+                subtitle = "Join the community Discord server for discussions and announcements.",
+                onClick = { openUrl("https://discord.gg/5Hus6fM") },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            SettingsNavigationItem(
+                label = "Wiki & Extension Docs",
+                subtitle = "Read plugin development guides and extension APIs documentation.",
+                onClick = { openUrl("https://recloudstream.github.io/csdocs/") },
+            )
+        }
 
-        Text(
-            "The Official Project",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
-        )
-        ListItem(
-            headlineContent = { Text("Official Android App") },
-            supportingContent = { Text("View the official CloudStream 3 repository for Android.") },
-            modifier = Modifier.clickable { openUrl("https://github.com/recloudstream/cloudstream") },
-        )
-        ListItem(
-            headlineContent = { Text("Official Discord") },
-            supportingContent = { Text("Join the official community Discord server.") },
-            modifier = Modifier.clickable { openUrl("https://discord.gg/5Hus6fM") },
-        )
-        ListItem(
-            headlineContent = { Text("Wiki & Documentation") },
-            supportingContent = { Text("Read the official guides and extension developer wiki.") },
-            modifier = Modifier.clickable { openUrl("https://recloudstream.github.io/csdocs/") },
-        )
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
-
-        Text(
-            "Disclaimer: This application does not ship with any media content or scrapers. This product uses the TMDB API but is not endorsed or certified by TMDB.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(16.dp),
-        )
+        SettingsGroupCard(title = "Legal & Disclaimer") {
+            Text(
+                "This application is a media browser shell and does not host, scrape, or distribute media content directly. All metadata is provided by third-party APIs.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+            )
+        }
     }
 }
 
@@ -118,8 +109,8 @@ fun SettingsAboutAndUpdates() {
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(scrollState)
-            .padding(top = 20.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+            .padding(top = 16.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         SettingsUpdates()
         SettingsAbout()

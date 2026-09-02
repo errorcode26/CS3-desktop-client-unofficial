@@ -121,6 +121,32 @@ object CardTitleSanitizer {
         return result
     }
 
+    /**
+     * Sanitizes raw episode names to filter out scraper payloads, JSON link arrays, raw URLs,
+     * and internal metadata tags (e.g. ||DATE:...||).
+     */
+    fun sanitizeEpisodeTitle(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val trimmed = raw.trim()
+        // Check for raw JSON arrays or objects (e.g. [{"source":"..."}, ...] or {"source":...})
+        if (trimmed.startsWith("[{") ||
+            trimmed.startsWith("{\"") ||
+            (trimmed.startsWith("[") && trimmed.endsWith("]") && (trimmed.contains("\"source\"") || trimmed.contains("\"url\"") || trimmed.contains("http"))) ||
+            trimmed.startsWith("http://") ||
+            trimmed.startsWith("https://") ||
+            trimmed.startsWith("magnet:?")
+        ) {
+            return null
+        }
+
+        // Clean out date markers and other metadata tags
+        val clean = trimmed.replace(Regex("""\|\|DATE:[^|]+\|\|"""), "").trim()
+        if (clean.isBlank() || clean.startsWith("http://") || clean.startsWith("https://")) {
+            return null
+        }
+        return clean
+    }
+
     private fun putCache(key: String, value: SanitizedCardMeta) {
         if (cache.size > MAX_CACHE_SIZE) {
             cache.clear()
@@ -128,3 +154,4 @@ object CardTitleSanitizer {
         cache[key] = value
     }
 }
+

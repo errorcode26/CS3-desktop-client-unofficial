@@ -175,6 +175,20 @@ class DownloadsViewModel : InstanceKeeper.Instance {
         }
     }
 
+    fun deleteShow(showName: String, deleteFiles: Boolean = true) {
+        val showTasks = _uiState.value.tasks.filter { it.showName.equals(showName, ignoreCase = true) }
+        var deletedCount = 0
+        var totalBytesReclaimed = 0L
+        for (t in showTasks) {
+            totalBytesReclaimed += t.downloadedBytes
+            val ok = DesktopDownloadManager.delete(t.id, deleteFiles)
+            if (ok) deletedCount++
+        }
+        if (deletedCount > 0) {
+            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Deleted $deletedCount episodes of '$showName' (${formatSize(totalBytesReclaimed)})")
+        }
+    }
+
     private fun formatSize(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
         val kb = bytes / 1024.0

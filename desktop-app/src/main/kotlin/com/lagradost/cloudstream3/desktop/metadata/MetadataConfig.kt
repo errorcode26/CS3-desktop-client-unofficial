@@ -259,7 +259,7 @@ object MetadataConfig {
             "anilist" -> _anilistEnabled.value
             "kitsu" -> _kitsuEnabled.value
             "tvmaze" -> _tvmazeEnabled.value
-            "stremio", "cinemeta" -> _stremioAddonEnabled.value && _stremioAddonUrl.value.isNotBlank()
+            "stremio", "cinemeta" -> com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.getEnabledMetadataAddons().isNotEmpty() || (_stremioAddonEnabled.value && _stremioAddonUrl.value.isNotBlank())
             else -> true
         }
     }

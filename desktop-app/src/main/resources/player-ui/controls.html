@@ -55,17 +55,20 @@
         .hidden-controls .bottom-bar { transform: translateY(20px) scale(0.98); }
         body.hidden-controls, body.hidden-controls * { cursor: none !important; }
 
-        /* ── Top Bar Pill ────────────────────────────────────────────────── */
+        /* ── Top Bar Container (Frameless, Back Button + Clean Floating Title) ── */
         .top-bar {
             position: relative; z-index: var(--z-player-controls);
-            padding: 10px 24px 10px 14px;
-            background: rgba(15, 15, 15, 0.45);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50px;
+            margin-top: 14px; margin-left: 24px;
+            padding: 0;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: none;
+            border-radius: 0;
             display: inline-flex; align-items: center; align-self: flex-start;
+            gap: 16px;
             pointer-events: auto; flex-shrink: 0;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: none;
             transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
@@ -160,13 +163,29 @@
         }
 
         .back-btn {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.05); color: white; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            width: 38px; height: 38px; border-radius: 50%;
-            transition: background 0.2s, transform 0.1s;
+            background: rgba(15, 15, 18, 0.55);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            transition: background 0.2s, transform 0.15s, border-color 0.2s;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
         }
-        .back-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
-        .back-btn:active { transform: scale(0.95); }
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.20);
+            border-color: rgba(255, 255, 255, 0.30);
+            transform: scale(1.06);
+        }
+        .back-btn:active {
+            transform: scale(0.94);
+        }
         .back-btn svg { width: 22px; height: 22px; }
 
         .hw-toggle-btn {
@@ -242,11 +261,17 @@
         }
 
         .player-title {
-            color: rgba(255, 255, 255, 0.95);
-            font-size: 16px; font-weight: 600;
-            margin-left: 16px; text-shadow: none;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 400px; letter-spacing: 0.3px;
+            color: #FFFFFF;
+            font-size: 16.5px;
+            font-weight: 600;
+            margin-left: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 550px;
+            letter-spacing: 0.2px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+            user-select: none;
         }
 
         /* ── Bottom Dock (Premium Desktop Style) ─────────────────────────── */
@@ -1319,24 +1344,27 @@
             outline: none; user-select: none;
         }
         .probing-btn.play {
-            background: var(--accent-color);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(var(--accent-color-rgb), 0.45);
+            background: #FFFFFF;
+            color: #000000;
+            border: 1px solid #FFFFFF;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         }
         .probing-btn.play:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(var(--accent-color-rgb), 0.65);
+            background: #E5E5EA;
+            border-color: #E5E5EA;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
         }
         .probing-btn.close {
-            background: rgba(255,255,255,0.12);
-            backdrop-filter: blur(12px);
-            color: rgba(255,255,255,0.9);
-            border: 1px solid rgba(255,255,255,0.18);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.30);
         }
         .probing-btn.close:hover {
-            background: rgba(255,255,255,0.22);
-            color: #fff;
-            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+            border-color: rgba(255, 255, 255, 0.50);
+            transform: translateY(-1px);
         }
         .probing-btn:active { transform: translateY(0) scale(0.97); }
         /* Spinning dots for the active link */

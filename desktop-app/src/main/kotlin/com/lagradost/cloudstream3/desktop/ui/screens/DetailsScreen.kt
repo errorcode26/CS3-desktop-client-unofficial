@@ -636,7 +636,7 @@ fun DetailsContent(
                             item(key = "Episodes") {
                                 BoxWithConstraints {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
-                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
                                             provider = provider,
                                             data = data,
@@ -695,6 +695,21 @@ fun DetailsContent(
                                         )
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStatsSection(
                                             data = data,
+                                            uiState = uiState,
+                                            modifier = Modifier.padding(horizontal = hPadding),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.STUDIOS -> {
+                        if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasStudiosOrNetworks(uiState)) {
+                            item(key = "Studios") {
+                                BoxWithConstraints {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStudiosSection(
                                             uiState = uiState,
                                             modifier = Modifier.padding(horizontal = hPadding),
                                             onCompanyClick = { comp ->
@@ -813,147 +828,37 @@ fun DetailsContent(
             }
         }
 
-        val isScrolled by remember {
-            derivedStateOf {
-                scrollState.firstVisibleItemIndex > 0 || scrollState.firstVisibleItemScrollOffset > 180
-            }
-        }
-
-        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-
-        val targetBlurRadius by androidx.compose.animation.core.animateDpAsState(
-            targetValue = if (isScrolled) 24.dp else 0.dp,
-            animationSpec = androidx.compose.animation.core.tween(250),
-        )
-        val targetTintAlpha by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (isScrolled) (if (amoledMode) 0.65f else 0.40f) else 0.0f,
-            animationSpec = androidx.compose.animation.core.tween(250),
-        )
-
-        val barTintColor = when {
-            isLightMode -> Color(0xFFFAFAFC)
-            amoledMode -> Color.Black
-            else -> Color(0xFF0F0F14)
-        }
-
-        val activeLogoUrl = remember(data, enrichmentPhase, uiState) {
-            uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
-                ?: data.logoUrl?.takeIf { it.isNotBlank() }
-                ?: provider.fixUrlNull(data.logoUrl)
-        }
-
-        // Floating Haze Details Top Bar
-        Box(
+        // Floating Top Action Layer (Corner-anchored, matching Web Player 1:1 geometry)
+        Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(if (isWindowCompact) 52.dp else 58.dp)
-                .then(
-                    if (targetBlurRadius > 0.dp) {
-                        Modifier.hazeEffect(
-                            state = hazeState,
-                            style = dev.chrisbanes.haze.HazeStyle(
-                                backgroundColor = barTintColor.copy(alpha = targetTintAlpha),
-                                tint = dev.chrisbanes.haze.HazeTint(barTintColor.copy(alpha = targetTintAlpha)),
-                                blurRadius = targetBlurRadius,
-                            ),
-                        ).drawWithCache {
-                            onDrawWithContent {
-                                drawContent()
-                                if (isScrolled) {
-                                    drawLine(
-                                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
-                                        start = Offset(0f, size.height),
-                                        end = Offset(size.width, size.height),
-                                        strokeWidth = 1.dp.toPx(),
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Modifier
-                    }
-                )
-                .pointerInput(Unit) {
-                    detectTapGestures { }
-                },
+                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(
+            // Floating Back Button (1:1 with Web Player UI)
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0F0F12).copy(alpha = 0.55f))
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
             ) {
-                // Back Button
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (!isScrolled) Color.Black.copy(alpha = 0.35f) else Color.Transparent
-                        ),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = if (!isScrolled) Color.White else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-
-                Spacer(Modifier.width(12.dp))
-
-                // Center: Title Logo or Stylized Name
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = isScrolled,
-                        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(250)) { -it / 2 },
-                        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) + androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(200)) { -it / 2 },
-                    ) {
-                        var logoLoadFailed by remember(activeLogoUrl) { mutableStateOf(false) }
-
-                        if (!activeLogoUrl.isNullOrBlank() && !logoLoadFailed) {
-                            coil3.compose.AsyncImage(
-                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                    .data(activeLogoUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = data.name,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .height(36.dp)
-                                    .widthIn(max = 240.dp),
-                                onError = { logoLoadFailed = true },
-                            )
-                        } else {
-                            Text(
-                                text = data.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(12.dp))
-
-                // Right: Window Controls
-                com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(
-                    isHome = false,
-                    isCompact = isWindowCompact,
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
                 )
             }
+
+            // Floating Window Controls Pill
+            com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(
+                isHome = false,
+                isCompact = isWindowCompact,
+            )
         }
 
         androidx.compose.animation.AnimatedVisibility(

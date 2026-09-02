@@ -41,9 +41,27 @@ class HlsDownloader(
 
         val tempSegmentDir = File(tempPartFile.parentFile, "${tempPartFile.name}.segments").apply { mkdirs() }
         val semaphore = Semaphore(maxConcurrentSegments)
-        val downloadedBytes = AtomicLong(0L)
-        val completedSegments = AtomicInteger(0)
-        val speedTracker = TurboSpeedTracker()
+
+        // Scan for existing segments on disk to resume smoothly without restarting from zero
+        val initialExistingBytes = (segmentUrls.indices).sumOf { index ->
+            val segFile = File(tempSegmentDir, "seg_%06d.ts".format(index))
+            if (segFile.exists()) segFile.length() else 0L
+        }
+        val initialCompletedCount = (segmentUrls.indices).count { index ->
+            val segFile = File(tempSegmentDir, "seg_%06d.ts".format(index))
+            segFile.exists() && segFile.length() > 0L
+        }
+
+        val downloadedBytes = AtomicLong(initialExistingBytes)
+        val completedSegments = AtomicInteger(initialCompletedCount)
+        val speedTracker = HlsSpeedTracker()
+
+        if (initialCompletedCount > 0) {
+            val avgSize = initialExistingBytes / initialCompletedCount.coerceAtLeast(1)
+            val estimatedTotal = avgSize * segmentUrls.size
+            onProgress(initialExistingBytes, estimatedTotal, 0L)
+            AppLogger.i("HlsDownloader: Resuming from $initialCompletedCount / ${segmentUrls.size} segments ($initialExistingBytes bytes)")
+        }
 
         try {
             coroutineScope {
@@ -52,10 +70,16 @@ class HlsDownloader(
                         if (isCancelled()) return@launch
                         val segmentFile = File(tempSegmentDir, "seg_%06d.ts".format(index))
 
+                        // If segment file already downloaded and valid, skip immediately
+                        if (segmentFile.exists() && segmentFile.length() > 0L) {
+                            return@launch
+                        }
+
                         semaphore.withPermit {
                             if (isCancelled()) return@withPermit
                             var attempts = 0
-                            while (attempts < 3 && !isCancelled() && !segmentFile.exists()) {
+                            val maxAttempts = 5
+                            while (attempts < maxAttempts && !isCancelled() && (!segmentFile.exists() || segmentFile.length() == 0L)) {
                                 try {
                                     val reqBuilder = Request.Builder().url(segUrl)
                                     headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
@@ -82,7 +106,7 @@ class HlsDownloader(
                                     break
                                 } catch (e: Exception) {
                                     attempts++
-                                    if (attempts >= 3) {
+                                    if (attempts >= maxAttempts) {
                                         AppLogger.w("Failed to download segment $index ($segUrl): ${e.message}")
                                     }
                                     delay(500L * attempts)
@@ -94,17 +118,28 @@ class HlsDownloader(
                 jobs.joinAll()
             }
 
-            if (isCancelled()) return@withContext false
+            if (isCancelled()) {
+                // Keep tempSegmentDir so resuming can proceed later!
+                return@withContext false
+            }
+
+            val allSegmentsExist = (segmentUrls.indices).all { i ->
+                val segmentFile = File(tempSegmentDir, "seg_%06d.ts".format(i))
+                segmentFile.exists() && segmentFile.length() > 0L
+            }
+
+            if (!allSegmentsExist) {
+                AppLogger.w("HlsDownloader: Incomplete segment count (${completedSegments.get()} / ${segmentUrls.size}). Keeping segments for resume.")
+                return@withContext false
+            }
 
             // Concatenate all segments into the staging output file
             AppLogger.i("HlsDownloader: Assembling ${segmentUrls.size} segments into ${destinationFile.name}...")
             FileOutputStream(tempPartFile).use { outStream ->
                 for (i in segmentUrls.indices) {
                     val segmentFile = File(tempSegmentDir, "seg_%06d.ts".format(i))
-                    if (segmentFile.exists()) {
-                        segmentFile.inputStream().use { inStream ->
-                            inStream.copyTo(outStream)
-                        }
+                    segmentFile.inputStream().use { inStream ->
+                        inStream.copyTo(outStream)
                     }
                 }
                 outStream.flush()
@@ -115,7 +150,6 @@ class HlsDownloader(
             true
         } catch (e: Exception) {
             AppLogger.e("HlsDownloader error: ${e.message}", e)
-            tempSegmentDir.deleteRecursively()
             false
         }
     }
@@ -174,7 +208,7 @@ class HlsDownloader(
         }
     }
 
-    private class TurboSpeedTracker {
+    private class HlsSpeedTracker {
         private var lastTime = System.currentTimeMillis()
         private var bytesSinceLast = 0L
         private var currentSpeed = 0L

@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details.contract
 
+import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
@@ -8,12 +9,14 @@ import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.WatchHistory
 
+@Immutable
 sealed interface EnrichmentPhase {
     data object Idle : EnrichmentPhase
     data object InProgress : EnrichmentPhase
     data object Complete : EnrichmentPhase
 }
 
+@Immutable
 data class SeasonMetadata(
     val seasonNumber: Int,
     val name: String,
@@ -21,6 +24,7 @@ data class SeasonMetadata(
     val posterUrl: String?,
 )
 
+@Immutable
 data class ReviewData(
     val author: String,
     val content: String,
@@ -30,6 +34,7 @@ data class ReviewData(
     val url: String?,
 )
 
+@Immutable
 data class DetailsUiState(
     val preloadedName: String? = null,
     val response: LoadResponse? = null,
@@ -98,7 +103,8 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
     SCREENSHOTS("Screenshots Gallery", "High-resolution production backdrops"),
     COLLECTION("Franchise Collection", "Franchise sequels, prequels, and sagas"),
     RECOMMENDATIONS("Similar Content", "Recommendations and similar media"),
-    INFO("Details & Technical Info", "Studios, networks, release date, status, budget, and language"),
+    INFO("Details & Technical Info", "Release date, runtime, status, certification, budget, and language"),
+    STUDIOS("Studios & Networks", "Production companies, broadcast networks, and studio logos"),
     REVIEWS("Community Reviews", "User star ratings and written reviews");
 
     companion object {
@@ -110,6 +116,7 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
             COLLECTION,
             RECOMMENDATIONS,
             INFO,
+            STUDIOS,
             REVIEWS,
         )
 

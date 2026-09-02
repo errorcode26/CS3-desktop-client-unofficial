@@ -135,17 +135,7 @@ fun main(args: Array<String> = emptyArray()) {
             window.minimumSize = if (isPipMode) java.awt.Dimension(280, 180) else java.awt.Dimension(980, 640)
             fullscreenHelper.attachToWindow(window)
             setupWindowBackgroundAndListeners(fullscreenHelper.controller)
-            val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
-            val baseDensity = androidx.compose.ui.platform.LocalDensity.current
-            val scaledDensity = remember(baseDensity, globalUiScale) {
-                androidx.compose.ui.unit.Density(
-                    density = baseDensity.density * globalUiScale,
-                    fontScale = baseDensity.fontScale * globalUiScale,
-                )
-            }
-
             CompositionLocalProvider(
-                androidx.compose.ui.platform.LocalDensity provides scaledDensity,
                 com.lagradost.cloudstream3.desktop.ui.LocalWindowState provides state,
                 LocalFullscreenController provides fullscreenHelper.controller,
                 com.lagradost.cloudstream3.desktop.ui.LocalComposeWindow provides window,

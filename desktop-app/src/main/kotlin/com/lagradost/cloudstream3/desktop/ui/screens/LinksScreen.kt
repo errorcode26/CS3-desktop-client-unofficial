@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
@@ -516,7 +517,7 @@ private fun StreamStatusCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerSelector(selectedPlayer: String, onSelect: (String) -> Unit) {
-    val players = listOf("mpv" to "MPV Player", "vlc" to "VLC (Internal)")
+    val players = listOf("mpv" to "MPV (Internal)", "vlc" to "VLC (External)")
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -540,7 +541,7 @@ private fun PlayerSelector(selectedPlayer: String, onSelect: (String) -> Unit) {
                     selectedContainerColor = DesktopUi.AccentSoft,
                     selectedLabelColor = DesktopUi.Accent,
                 ),
-                shape = CircleShape,
+                shape = RoundedCornerShape(8.dp),
             )
         }
     }
@@ -590,17 +591,22 @@ private fun StreamLinkCard(
         else -> "MP4"
     }
 
+    val cleanSize = remember(link.name) { extractCleanSize(link.name) }
+    val hostSource = remember(link.name, link.source) {
+        if (link.source.isNotBlank() && link.source != link.name) link.source else extractCleanServer(link.name, "")
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale)
             .hoverable(interaction),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(10.dp),
         color = if (hovered) DesktopUi.SurfaceElevated else DesktopUi.SurfaceCard,
         tonalElevation = if (hovered) 6.dp else 2.dp,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (hovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else DesktopUi.Divider.copy(alpha = 0.4f),
+            if (hovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f) else DesktopUi.Divider.copy(alpha = 0.4f),
         ),
     ) {
         Column(
@@ -609,24 +615,12 @@ private fun StreamLinkCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Full Stream Title (Wrapped so sizes and codecs are completely visible)
-            Text(
-                text = link.name,
-                fontWeight = FontWeight.SemiBold,
-                style = MaterialTheme.typography.bodyMedium,
-                color = DesktopUi.TextPrimary,
-                softWrap = true,
-                lineHeight = androidx.compose.ui.unit.TextUnit(20f, androidx.compose.ui.unit.TextUnitType.Sp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Metadata Badges & Action Buttons
+            // Row 1: Badges on Left, File Size on Right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Left Metadata: Quality + Format + Source
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -662,14 +656,14 @@ private fun StreamLinkCard(
                         )
                     }
 
-                    // Source Tag (if different from link name)
-                    if (link.source.isNotBlank() && link.source != link.name) {
+                    // Host / Source Tag
+                    if (hostSource.isNotBlank()) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                         ) {
                             Text(
-                                text = link.source,
+                                text = hostSource,
                                 color = DesktopUi.TextMuted,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
@@ -681,67 +675,100 @@ private fun StreamLinkCard(
                     }
                 }
 
-                // Right Action Cluster
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    IconButton(
-                        onClick = onCopy,
-                        enabled = !isBusy,
-                        modifier = Modifier.size(34.dp),
+                // Extracted File Size Badge
+                if (cleanSize != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                     ) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = "Copy Stream URL",
-                            tint = DesktopUi.TextMuted,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onDownload,
-                        enabled = !isBusy,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.defaultMinSize(minHeight = 34.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Download",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-
-                    Button(
-                        onClick = onPlay,
-                        enabled = !isBusy,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = DesktopUi.Accent,
-                            contentColor = Color.White,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        modifier = Modifier.defaultMinSize(minHeight = 34.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            "Play",
+                            text = cleanSize,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
+                }
+            }
+
+            // Row 2: Full Raw Release Title (100% visible and unclipped)
+            Text(
+                text = link.name,
+                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                color = DesktopUi.TextPrimary,
+                softWrap = true,
+                lineHeight = 19.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Row 3: Action Buttons (Copy, Download, Play)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+            ) {
+                IconButton(
+                    onClick = onCopy,
+                    enabled = !isBusy,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = "Copy Stream URL",
+                        tint = DesktopUi.TextMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                OutlinedButton(
+                    onClick = onDownload,
+                    enabled = !isBusy,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.defaultMinSize(minHeight = 34.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Download",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = onPlay,
+                    enabled = !isBusy,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DesktopUi.Accent,
+                        contentColor = Color.White,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                    modifier = Modifier.defaultMinSize(minHeight = 34.dp),
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Play",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                 }
             }
         }

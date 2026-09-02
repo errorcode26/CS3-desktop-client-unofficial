@@ -130,7 +130,8 @@ fun CloudstreamCustomDialog(
 
     if (isVisible) {
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-        val isAmoled = appThemeBackground == "Pure Black"
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+        val isAmoled = amoledMode || appThemeBackground == "Pure Black"
         val effectiveColor = containerColor ?: (if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface)
         val showBorder = isAmoled && containerColor == null
 

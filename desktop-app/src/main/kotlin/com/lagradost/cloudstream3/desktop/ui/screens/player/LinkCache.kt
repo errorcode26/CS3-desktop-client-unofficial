@@ -13,6 +13,7 @@ object LinkCache {
 
     private val cache = ConcurrentHashMap<String, CachedLinks>()
     private const val CACHE_DURATION_MS = 5 * 60 * 1000L // 5 minutes
+    private const val MAX_ENTRIES = 20
 
     fun get(episodeId: String): CachedLinks? {
         val entry = cache[episodeId] ?: return null
@@ -32,10 +33,24 @@ object LinkCache {
     }
 
     fun set(episodeId: String, links: List<ExtractorLink>, subtitles: List<SubtitleFile>) {
+        val now = System.currentTimeMillis()
+
+        // 1. Prune all expired entries
+        cache.entries.removeIf { now - it.value.timestamp > CACHE_DURATION_MS }
+
+        // 2. Enforce maximum capacity bound (evict oldest)
+        if (cache.size >= MAX_ENTRIES) {
+            val oldestKey = cache.minByOrNull { it.value.timestamp }?.key
+            if (oldestKey != null) {
+                cache.remove(oldestKey)
+            }
+        }
+
+        // 3. Store new entry
         cache[episodeId] = CachedLinks(
             links = links,
             subtitles = subtitles,
-            timestamp = System.currentTimeMillis(),
+            timestamp = now,
         )
     }
 }

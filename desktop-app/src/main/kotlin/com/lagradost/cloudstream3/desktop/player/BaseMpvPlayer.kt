@@ -58,7 +58,17 @@ private val ISO_639_LANG_MAP = mapOf(
 private val URL_AND_DOMAIN_REGEX = Regex("""(?i)(https?://\S+|www\.\S+|(\b[a-z0-9-]+\.(com|org|net|cc|to|is|ru|me|tv|cx|ws|site|top|club|vip|app|link|xyz|info|biz|co|in|live|stream|xyz)\b))""")
 private val JUNK_PREFIX_REGEX = Regex("""(?i)^\s*(\[.*?\]|\(.*?\)|Encoded by.*|Downloaded from.*|Rip by.*|Subtitles by.*|Synced by.*|www\..*?|-)\s*""")
 
-internal fun cleanTrackDisplayName(type: String, id: Int, rawTitle: String?, rawLang: String?): String {
+internal fun cleanTrackDisplayName(
+    type: String,
+    id: Int,
+    rawTitle: String?,
+    rawLang: String?,
+    codec: String? = null,
+    isForced: Boolean = false,
+    isDefault: Boolean = false,
+    isExternal: Boolean = false,
+    channels: String? = null,
+): String {
     val cleanLang = rawLang?.trim()?.lowercase()
     val resolvedLang = if (!cleanLang.isNullOrBlank()) {
         ISO_639_LANG_MAP[cleanLang] ?: try {
@@ -77,22 +87,67 @@ internal fun cleanTrackDisplayName(type: String, id: Int, rawTitle: String?, raw
     title = JUNK_PREFIX_REGEX.replace(title, "").trim()
     title = title.replace(Regex("""^[-\s_–—:|\[\](){}]+|[-\s_–—:|\[\](){}]+$"""), "").trim()
 
-    // If title is blank, just numbers, or just junk after stripping URLs
-    if (title.isBlank() || title.length < 2 || title.matches(Regex("""^\d+$"""))) {
-        return resolvedLang ?: (if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id")
+    val lowerTitle = title.lowercase()
+    val forcedDetected = isForced || lowerTitle.contains("forced")
+    val sdhDetected = lowerTitle.contains("sdh") || lowerTitle.contains("cc") || lowerTitle.contains("hearing impaired") || lowerTitle.contains("hi")
+    val pgsDetected = codec?.contains("pgs", ignoreCase = true) == true || lowerTitle.contains("pgs")
+    val vobsubDetected = codec?.contains("vobsub", ignoreCase = true) == true || lowerTitle.contains("vobsub")
+
+    var baseName = when {
+        title.isNotBlank() && title.length >= 2 && !title.matches(Regex("""^\d+$""")) -> {
+            if (resolvedLang != null) {
+                val lowerLang = resolvedLang.lowercase()
+                if (!lowerTitle.contains(lowerLang)) {
+                    "$resolvedLang ($title)"
+                } else {
+                    title
+                }
+            } else {
+                title
+            }
+        }
+        resolvedLang != null -> resolvedLang
+        else -> if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id"
     }
 
-    // If we resolved a language code (e.g. "English"), make sure the language name is shown prominently
-    if (resolvedLang != null) {
-        val lowerTitle = title.lowercase()
-        val lowerLang = resolvedLang.lowercase()
-        // If title does not already contain the language name (e.g. title is "SDH" or "Full" or "Forced")
-        if (!lowerTitle.contains(lowerLang)) {
-            title = "$resolvedLang ($title)"
+    if (type == "sub") {
+        val extraTags = mutableListOf<String>()
+        if (forcedDetected && !baseName.contains("Forced", ignoreCase = true)) {
+            extraTags.add("Forced")
+        } else if (isDefault && !baseName.contains("Default", ignoreCase = true) && !forcedDetected) {
+            extraTags.add("Default")
+        }
+        if (sdhDetected && !baseName.contains("SDH", ignoreCase = true)) {
+            extraTags.add("SDH")
+        }
+        if (pgsDetected && !baseName.contains("PGS", ignoreCase = true)) {
+            extraTags.add("PGS")
+        } else if (vobsubDetected && !baseName.contains("VobSub", ignoreCase = true)) {
+            extraTags.add("VobSub")
+        }
+        if (isExternal && !baseName.contains("External", ignoreCase = true)) {
+            extraTags.add("External")
+        }
+
+        if (extraTags.isNotEmpty()) {
+            baseName = "$baseName [${extraTags.joinToString(", ")}]"
+        }
+    } else if (type == "audio") {
+        val ch = channels?.trim()
+        if (!ch.isNullOrBlank() && !baseName.contains(ch, ignoreCase = true)) {
+            val friendlyChannel = when (ch) {
+                "5.1", "6" -> "5.1 Surround"
+                "7.1", "8" -> "7.1 Surround"
+                "2", "stereo" -> "Stereo"
+                else -> ch
+            }
+            if (!baseName.contains(friendlyChannel, ignoreCase = true)) {
+                baseName = "$baseName ($friendlyChannel)"
+            }
         }
     }
 
-    return title
+    return baseName
 }
 
 @Composable
@@ -176,9 +231,25 @@ fun BaseMpvPlayer(
                         val type = MpvLibrary.getPropertyString(handle, "track-list/$i/type") ?: continue
                         val lang = MpvLibrary.getPropertyString(handle, "track-list/$i/lang")
                         val title = MpvLibrary.getPropertyString(handle, "track-list/$i/title")
+                        val codec = MpvLibrary.getPropertyString(handle, "track-list/$i/codec")
+                        val isForced = MpvLibrary.getPropertyString(handle, "track-list/$i/forced") == "yes"
+                        val isDefault = MpvLibrary.getPropertyString(handle, "track-list/$i/default") == "yes"
+                        val isExternal = MpvLibrary.getPropertyString(handle, "track-list/$i/external") == "yes"
+                        val channels = MpvLibrary.getPropertyString(handle, "track-list/$i/audio-channels")
+                            ?: MpvLibrary.getPropertyString(handle, "track-list/$i/demux-channel-count")
                         val selected = MpvLibrary.getPropertyString(handle, "track-list/$i/selected") == "yes"
 
-                        val name = cleanTrackDisplayName(type, id, title, lang)
+                        val name = cleanTrackDisplayName(
+                            type = type,
+                            id = id,
+                            rawTitle = title,
+                            rawLang = lang,
+                            codec = codec,
+                            isForced = isForced,
+                            isDefault = isDefault,
+                            isExternal = isExternal,
+                            channels = channels,
+                        )
                         if (type == "audio") {
                             audioTracks.add(PlayerState.VideoTrack(id, name, selected))
                         } else if (type == "sub") {
@@ -194,8 +265,34 @@ fun BaseMpvPlayer(
                             videoTracks.add(PlayerState.VideoTrack(id, finalName, selected))
                         }
                     }
-                    playerState?._audioTracks?.value = audioTracks
-                    playerState?._subtitleTracks?.value = subTracks
+
+                    // Disambiguate duplicate names so each track is uniquely identified
+                    val subNameCounts = subTracks.groupingBy { it.name }.eachCount()
+                    val subDupTracker = mutableMapOf<String, Int>()
+                    val disambiguatedSubTracks = subTracks.map { track ->
+                        if ((subNameCounts[track.name] ?: 0) > 1) {
+                            val idx = (subDupTracker[track.name] ?: 0) + 1
+                            subDupTracker[track.name] = idx
+                            track.copy(name = "${track.name} #$idx")
+                        } else {
+                            track
+                        }
+                    }
+
+                    val audioNameCounts = audioTracks.groupingBy { it.name }.eachCount()
+                    val audioDupTracker = mutableMapOf<String, Int>()
+                    val disambiguatedAudioTracks = audioTracks.map { track ->
+                        if ((audioNameCounts[track.name] ?: 0) > 1) {
+                            val idx = (audioDupTracker[track.name] ?: 0) + 1
+                            audioDupTracker[track.name] = idx
+                            track.copy(name = "${track.name} #$idx")
+                        } else {
+                            track
+                        }
+                    }
+
+                    playerState?._audioTracks?.value = disambiguatedAudioTracks
+                    playerState?._subtitleTracks?.value = disambiguatedSubTracks
                     playerState?._videoTracks?.value = videoTracks
 
                     // Auto-attach active, preferred, or default audio track if MPV has 0 native audio tracks loaded

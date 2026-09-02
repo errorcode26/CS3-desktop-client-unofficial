@@ -86,26 +86,48 @@ object MetadataPipeline {
                 allEpisodes.forEach { ep -> ep.season = titleSeason }
             }
 
-            // 2. Extract year from URL slug if available
-            var parsedYear: Int? = null
-            try {
-                val pathSegment = urlClean.substringBefore("?").split("/").lastOrNull { it.isNotBlank() }
-                if (pathSegment != null) {
-                    val yearMatch = Regex("""\b(19\d{2}|20\d{2})\b""").find(pathSegment)
-                    parsedYear = yearMatch?.groupValues?.get(1)?.toIntOrNull()
-                }
-            } catch (_: Exception) {}
-
-            if (loaded.year == null && parsedYear != null) {
-                loaded.year = parsedYear
-            }
-
             val (cleanName, titleYear) = TitleUtils.cleanProviderTitle(loaded.name)
             if (loaded.year == null && titleYear != null) {
                 loaded.year = titleYear
             }
 
-            AppLogger.i(TAG, "▶ START pipeline | raw='${loaded.name}' | clean='$cleanName' | year=${loaded.year} | type=${loaded.type}")
+            // 2. Extract year from URL slug if available and not title prefix
+            if (loaded.year == null) {
+                try {
+                    val pathSegment = urlClean.substringBefore("?").split("/").lastOrNull { it.isNotBlank() }
+                    if (pathSegment != null) {
+                        val yearMatches = Regex("""\b(19\d{2}|20\d{2})\b""").findAll(pathSegment).map { it.range.first to it.groupValues[1].toInt() }.toList()
+                        val parsedYear = yearMatches.firstOrNull { (pos, _) ->
+                            !(pos <= 2 && Regex("""^\d{4}\b""").containsMatchIn(cleanName))
+                        }?.second
+                        if (parsedYear != null) {
+                            loaded.year = parsedYear
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // Ground-Truth Type Disambiguation: If loaded has multiple episodes, series response, or season/series tokens, enforce TvSeries
+            val hasSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(loaded.name)
+                || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(urlClean)
+            val isMovie = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
+            if (isMovie && (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse || allEpisodes.size > 1 || titleSeason != null || hasSeriesPattern)) {
+                loaded.type = if (loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie) com.lagradost.cloudstream3.TvType.Anime else com.lagradost.cloudstream3.TvType.TvSeries
+            }
+
+            // Direct Scraper Ground-Truth ID Extraction (Fast-Path)
+            val directImdbId = loaded.syncData["imdb"]?.takeIf { it.startsWith("tt") && it != "tt0000000" }
+                ?: loaded.syncData.values.firstNotNullOfOrNull { raw ->
+                    Regex("""\b(tt\d{6,10})\b""").find(raw)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
+                }
+                ?: Regex("""\b(tt\d{6,10})\b""").find(urlClean)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
+                ?: Regex("""\b(tt\d{6,10})\b""").find(loaded.url)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
+
+            val directTmdbId = loaded.syncData["tmdb"]?.toIntOrNull()?.takeIf { it > 0 }
+                ?: Regex("""themoviedb\.org/(?:movie|tv)/(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                ?: Regex("""themoviedb\.org/(?:movie|tv)/(\d+)""").find(loaded.url)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+
+            AppLogger.i(TAG, "▶ START pipeline | raw='${loaded.name}' | clean='$cleanName' | year=${loaded.year} | type=${loaded.type} | directImdb=$directImdbId | directTmdb=$directTmdbId")
 
             val currentProviders = synchronized(providers) { providers.toList() }
             val supportedProviders = currentProviders.filter {
@@ -129,9 +151,18 @@ object MetadataPipeline {
                 )
             )
 
-            // 3. Resolve Media Identity (Stage 1 Resolvers with Concurrent Search & Deduplication)
-            val identityKey = "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
-            var activeMatch: MetadataMatch? = identityCache[identityKey]
+            // 3. Resolve Media Identity (Fast Path if Direct ID Available, else Stage 1 Resolvers)
+            val identityKey = if (directImdbId != null) "imdb_$directImdbId" else if (directTmdbId != null) "tmdb_$directTmdbId" else "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
+            var activeMatch: MetadataMatch? = identityCache[identityKey] ?: if (directImdbId != null || directTmdbId != null) {
+                AppLogger.i(TAG, "⚡ Direct ID Fast-Path triggered: IMDb=$directImdbId, TMDB=$directTmdbId for '$cleanName'")
+                MetadataMatch(
+                    providerId = "direct",
+                    matchedTitle = loaded.name,
+                    matchedYear = loaded.year,
+                    imdbId = directImdbId,
+                    tmdbId = directTmdbId,
+                ).also { identityCache[identityKey] = it }
+            } else null
 
             if (activeMatch == null) {
                 var isInitiator = false

@@ -1000,11 +1000,26 @@
     <img id="pauseInfoLogo" src="" />
     <h1 id="pauseInfoTitleFallback"></h1>
     <div id="pauseInfoMeta">
+        <span id="pauseInfoRating" class="pause-info-rating-badge" style="display: none;"></span>
+        <span id="pauseInfoScore" class="pause-info-score-badge" style="display: none;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="#F5C518"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span id="pauseInfoScoreText"></span>
+        </span>
         <span id="pauseInfoYear"></span>
         <span id="pauseInfoTags"></span>
     </div>
     <p id="pauseInfoEpisode"></p>
     <p id="pauseInfoPlot"></p>
+</div>
+
+<!-- ── Playback Start Content Advisory Banner (Netflix Style) ── -->
+<div id="maturityAdvisoryBanner" class="maturity-advisory-banner">
+    <div class="maturity-advisory-pill" id="advisoryRatingBadge">18+</div>
+    <div class="maturity-advisory-divider" id="advisoryDivider"></div>
+    <div class="maturity-advisory-content">
+        <div class="maturity-advisory-reasons" id="advisoryReasonsText">VIOLENCE • GORE • LANGUAGE</div>
+        <div class="maturity-advisory-subtext" id="advisorySubtext">Suitable for broad audiences</div>
+    </div>
 </div>
 
 <!-- ── Floating Player Toast HUD ────────────────────────────────────── -->
@@ -1035,6 +1050,13 @@
             <span>Take Screenshot</span>
         </div>
         <span class="ctx-badge">S</span>
+    </div>
+    <div class="ctx-item" onclick="openPauseInfoModal()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Pause Info Settings...</span>
+        </div>
+        <span class="ctx-badge" id="ctxPauseInfoBadge">5s</span>
     </div>
     <div class="ctx-divider"></div>
     <div class="ctx-item" onclick="copyCurrentTimecode()">
@@ -1097,6 +1119,57 @@
                 <div class="shortcut-row"><span>Cycle Subtitles</span><span class="kbd">C</span></div>
                 <div class="shortcut-row"><span>Toggle Visibility</span><span class="kbd">V</span></div>
                 <div class="shortcut-row"><span>Delay Sync (±100ms)</span><span class="kbd">Z / X</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Pause Info Selection Modal ────────────────────────────────────── -->
+<div id="pauseInfoModalOverlay" onclick="closePauseInfoModal(event)" style="display: none;">
+    <div class="pause-info-modal-dialog" onclick="event.stopPropagation()">
+        <div class="shortcuts-header">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Pause Metadata Overlay
+            </h3>
+            <button class="shortcuts-close-btn" onclick="closePauseInfoModal()">&times;</button>
+        </div>
+        <p class="pause-modal-desc">Choose when title, synopsis, and rating badges appear on pause:</p>
+        <div class="pause-modal-options" id="pauseModalOptions">
+            <div class="pause-modal-option" data-mode="delay_5s" onclick="selectPauseInfoMode('delay_5s')">
+                <div class="pause-modal-option-info">
+                    <span class="pause-modal-option-title">5 Seconds Idle (Recommended)</span>
+                    <span class="pause-modal-option-sub">Keeps the frame clean on pause; info fades in if idle</span>
+                </div>
+                <div class="pause-modal-radio"></div>
+            </div>
+            <div class="pause-modal-option" data-mode="delay_10s" onclick="selectPauseInfoMode('delay_10s')">
+                <div class="pause-modal-option-info">
+                    <span class="pause-modal-option-title">10 Seconds Idle</span>
+                    <span class="pause-modal-option-sub">Longer delay for reading subtitles and scene inspection</span>
+                </div>
+                <div class="pause-modal-radio"></div>
+            </div>
+            <div class="pause-modal-option" data-mode="delay_20s" onclick="selectPauseInfoMode('delay_20s')">
+                <div class="pause-modal-option-info">
+                    <span class="pause-modal-option-title">20 Seconds Idle</span>
+                    <span class="pause-modal-option-sub">Ambient screensaver info for stepping away</span>
+                </div>
+                <div class="pause-modal-radio"></div>
+            </div>
+            <div class="pause-modal-option" data-mode="immediate" onclick="selectPauseInfoMode('immediate')">
+                <div class="pause-modal-option-info">
+                    <span class="pause-modal-option-title">Immediately on Pause</span>
+                    <span class="pause-modal-option-sub">Displays metadata cards instantly when pausing</span>
+                </div>
+                <div class="pause-modal-radio"></div>
+            </div>
+            <div class="pause-modal-option" data-mode="off" onclick="selectPauseInfoMode('off')">
+                <div class="pause-modal-option-info">
+                    <span class="pause-modal-option-title">Disabled (Always Clean Frame)</span>
+                    <span class="pause-modal-option-sub">Never displays metadata overlay on pause</span>
+                </div>
+                <div class="pause-modal-radio"></div>
             </div>
         </div>
     </div>

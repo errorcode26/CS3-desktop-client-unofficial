@@ -1,14 +1,17 @@
 package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,12 +19,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.plus
@@ -89,13 +99,14 @@ fun CloudstreamApp(rootComponent: RootComponent) {
     val childStack by rootComponent.childStack.subscribeAsState()
 
     val isLightMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.amoledMode.collectAsState()
     val themeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.themeAccent.collectAsState()
     val appThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.appThemeBackground.collectAsState()
     val customThemeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customThemeAccent.collectAsState()
     val customAppThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customAppThemeBackground.collectAsState()
 
     val primaryColor = com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName(themeAccent, customThemeAccent)
-    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, appThemeBackground, customAppThemeBackground)
+    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, amoledMode, appThemeBackground, customAppThemeBackground)
     val selectedFont by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.selectedFont.collectAsState()
     val typography = androidx.compose.runtime.remember(selectedFont) {
         com.lagradost.cloudstream3.desktop.ui.theme.buildTypography(
@@ -151,8 +162,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                 modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                 color = androidx.compose.material3.MaterialTheme.colorScheme.background,
             ) {
-                if (showStartupProfileSelect || showProfileManagerModal) {
-                    com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
+                androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+                    if (showStartupProfileSelect || showProfileManagerModal) {
+                        com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
                         onNavigateHome = {
                             showStartupProfileSelect = false
                             showProfileManagerModal = false
@@ -277,22 +289,34 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             else -> true
                         }
 
-                        DesktopAppShell(
-                            onNavigate = { config -> rootComponent.bringToFront(config) },
-                            onBack = { rootComponent.pop() },
-                            title = title,
-                            homeUiState = (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.uiState?.collectAsState()?.value,
-                            homeActionDispatcher = { ev -> (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.onEvent(ev) },
-                            showDock = showDock,
-                            showTopBar = showTopBar,
-                            applySafePadding = applySafePadding,
-                            onOpenProfileManager = { showProfileManagerModal = true },
+                        val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
+                        val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+                        val scaledDensity = remember(baseDensity, globalUiScale) {
+                            androidx.compose.ui.unit.Density(
+                                density = baseDensity.density * globalUiScale,
+                                fontScale = baseDensity.fontScale * globalUiScale,
+                            )
+                        }
+
+                        CompositionLocalProvider(
+                            androidx.compose.ui.platform.LocalDensity provides scaledDensity,
                         ) {
-                            Children(
-                                stack = childStack,
-                                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                                animation = stackAnimation(slide(tween(220, easing = FastOutSlowInEasing)) + fade(tween(180, easing = FastOutSlowInEasing))),
+                            DesktopAppShell(
+                                onNavigate = { config -> rootComponent.bringToFront(config) },
+                                onBack = { rootComponent.pop() },
+                                title = title,
+                                homeUiState = (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.uiState?.collectAsState()?.value,
+                                homeActionDispatcher = { ev -> (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.onEvent(ev) },
+                                showDock = showDock,
+                                showTopBar = showTopBar,
+                                applySafePadding = applySafePadding,
+                                onOpenProfileManager = { showProfileManagerModal = true },
                             ) {
+                                Children(
+                                    stack = childStack,
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                    animation = stackAnimation(slide(tween(220, easing = FastOutSlowInEasing)) + fade(tween(180, easing = FastOutSlowInEasing))),
+                                ) {
                                 when (val child = it.instance) {
                                     is RootComponent.Child.Details -> {
                                         val api = child.component.api
@@ -367,10 +391,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                             subtitles = emptyList(),
                                                             startPositionMs = 0L,
                                                             history = WatchHistory(
-                                                                parentId = task.showUrl,
+                                                                parentId = "offline_media",
                                                                 showName = task.showName,
-                                                                showUrl = task.showUrl,
-                                                                apiName = task.apiName,
+                                                                showUrl = task.filePath,
+                                                                apiName = "Offline",
                                                                 posterUrl = task.posterUrl,
                                                                 episodeThumbnailUrl = null,
                                                                 screenshotUrl = null,
@@ -380,6 +404,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                                 position = 0L,
                                                                 duration = 0L,
                                                                 updateTime = System.currentTimeMillis(),
+                                                                episodeName = task.cleanEpisodeTitle ?: task.episodeTitle,
                                                             ),
                                                             enrichedBackdropUrl = task.backdropUrl,
                                                         )
@@ -428,6 +453,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     }
                                 }
                             }
+                        }
                         }
                     }
 
@@ -496,7 +522,52 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     }
                 }
             }
+
+            // Global Development Unit Watermark (Visible across every Compose screen)
+            GlobalDevelopmentWatermark(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 14.dp, bottom = 10.dp)
+                    .zIndex(99f),
+            )
         }
     }
 }
+}
+}
+
+@Composable
+private fun GlobalDevelopmentWatermark(modifier: Modifier = Modifier) {
+    val dateStr = remember {
+        java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd"))
+    }
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .alpha(0.40f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Text(
+                text = "PRE-ALPHA • v${com.lagradost.cloudstream3.desktop.AppConfig.APP_VERSION} • $dateStr",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    letterSpacing = 0.5.sp,
+                ),
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }

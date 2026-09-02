@@ -59,13 +59,30 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             uiState.map { it.searchQuery }
                 .distinctUntilChanged()
-                .debounce(500)
+                .debounce(350)
                 .collectLatest { query ->
                     if (query.isBlank()) {
                         searchJob?.cancel()
-                        updateState { copy(searchResultsGrouped = null, isLoadingSearch = false) }
+                        updateState { copy(searchResultsGrouped = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
                     } else {
                         search()
+                    }
+                }
+        }
+
+        // Debounced search suggestions
+        viewModelScope.launch {
+            @OptIn(kotlinx.coroutines.FlowPreview::class)
+            uiState.map { it.searchQuery }
+                .distinctUntilChanged()
+                .debounce(200)
+                .collectLatest { query ->
+                    val trimmed = query.trim()
+                    if (trimmed.length >= 2) {
+                        val suggestions = SearchSuggestionApi.getSuggestions(trimmed, uiState.value.searchHistory)
+                        updateState { copy(searchSuggestions = suggestions, showSuggestions = suggestions.isNotEmpty()) }
+                    } else {
+                        updateState { copy(searchSuggestions = emptyList(), showSuggestions = false) }
                     }
                 }
         }
@@ -82,16 +99,25 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
         when (event) {
             is SearchUiEvent.OnSearchQueryChange -> updateState { copy(searchQuery = event.query) }
             is SearchUiEvent.OnSearch -> {
+                updateState { copy(showSuggestions = false) }
                 addToHistory(uiState.value.searchQuery)
                 search(force = true)
             }
             is SearchUiEvent.OnClearSearch -> {
                 searchJob?.cancel()
                 lastSearchedQuery = ""
-                updateState { copy(searchQuery = "", searchResultsGrouped = null, isLoadingSearch = false) }
+                updateState { copy(searchQuery = "", searchResultsGrouped = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
             }
+            is SearchUiEvent.OnSelectSuggestion -> {
+                updateState { copy(searchQuery = event.query, showSuggestions = false) }
+                if (event.submitSearch) {
+                    addToHistory(event.query)
+                    search(force = true)
+                }
+            }
+            is SearchUiEvent.OnDismissSuggestions -> updateState { copy(showSuggestions = false) }
             is SearchUiEvent.OnToggleGlobalSearch -> {
-                updateState { copy(isGlobalSearchEnabled = event.enabled) }
+                updateState { copy(isGlobalSearchEnabled = event.enabled, showSuggestions = false) }
                 if (uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }

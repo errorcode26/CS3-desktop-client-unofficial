@@ -172,6 +172,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                             position = 0,
                             duration = 0,
                             updateTime = System.currentTimeMillis() + 1000,
+                            episodeName = nextEp.name,
+                            episodeDescription = nextEp.description,
                         )
                         DesktopDataStore.setLastWatched(nextEpHistory)
                     } else {
@@ -477,6 +479,8 @@ class EmbeddedPlayerViewModel : BaseMviViewModel<PlayerUiState, PlayerUiEvent, P
                                 position = 0,
                                 duration = 0,
                                 updateTime = System.currentTimeMillis() + 1000,
+                                episodeName = nextEp.name,
+                                episodeDescription = nextEp.description,
                             )
                             DesktopDataStore.setLastWatched(nextEpHistory)
                         } else {

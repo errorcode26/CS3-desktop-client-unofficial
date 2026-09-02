@@ -123,7 +123,7 @@ fun QualitySelector(
                         selectedContainerColor = DesktopUi.AccentSoft,
                         selectedLabelColor = DesktopUi.Accent,
                     ),
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(8.dp),
                 )
                 availableQualities.forEach { option ->
                     FilterChip(
@@ -139,7 +139,7 @@ fun QualitySelector(
                             selectedContainerColor = DesktopUi.AccentSoft,
                             selectedLabelColor = DesktopUi.Accent,
                         ),
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(8.dp),
                     )
                 }
             }
@@ -173,7 +173,7 @@ fun QualitySelector(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                                 selectedLabelColor = MaterialTheme.colorScheme.primary,
                             ),
-                            shape = CircleShape,
+                            shape = RoundedCornerShape(8.dp),
                         )
                     }
                 }

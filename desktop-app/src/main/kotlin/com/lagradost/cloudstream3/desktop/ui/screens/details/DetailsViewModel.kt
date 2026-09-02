@@ -294,7 +294,8 @@ class DetailsViewModel(
             } else if (resp is MovieLoadResponse) {
                 provider.newEpisode(resp.dataUrl) {
                     this.name = resp.name
-                    this.posterUrl = resp.posterUrl
+                    this.posterUrl = resp.backgroundPosterUrl ?: resp.posterUrl
+                    this.description = resp.plot
                 }
             } else {
                 null
@@ -328,6 +329,7 @@ class DetailsViewModel(
             saved?.position ?: 0L,
             saved?.duration ?: 0L,
         )
+        val isMovie = data is MovieLoadResponse
         return WatchHistory(
             parentId = parentId,
             showName = data.name,
@@ -336,11 +338,13 @@ class DetailsViewModel(
             posterUrl = data.posterUrl,
             episodeThumbnailUrl = ep.posterUrl ?: data.posterUrl,
             screenshotUrl = saved?.screenshotUrl,
-            episode = ep.episode,
-            season = ep.season,
+            episode = if (isMovie) null else ep.episode,
+            season = if (isMovie) null else ep.season,
             episodeId = ep.data,
             position = resumePos,
             duration = saved?.duration ?: 0L,
+            episodeName = if (isMovie) null else ep.name,
+            episodeDescription = ep.description ?: data.plot,
         )
     }
 
@@ -376,20 +380,23 @@ class DetailsViewModel(
     private fun handleDownloadEpisode(ep: Episode) {
         val data = uiState.value.response ?: return
         val patchedData = patchEpisodeData(ep, data)
+        val isMovie = data is MovieLoadResponse
         val history = WatchHistory(
             parentId = data.url,
             showName = data.name,
             showUrl = data.url,
             apiName = provider.name,
             posterUrl = ep.posterUrl ?: data.posterUrl,
-            episodeThumbnailUrl = null,
+            episodeThumbnailUrl = ep.posterUrl ?: data.posterUrl,
             screenshotUrl = null,
-            episode = ep.episode,
-            season = ep.season,
-            episodeId = ep.name,
+            episode = if (isMovie) null else ep.episode,
+            season = if (isMovie) null else ep.season,
+            episodeId = ep.data,
             position = 0L,
             duration = 0L,
             updateTime = System.currentTimeMillis(),
+            episodeName = if (isMovie) null else ep.name,
+            episodeDescription = ep.description ?: data.plot,
         )
         openLinksPanel(Triple(provider, patchedData, history))
     }
@@ -433,6 +440,7 @@ class DetailsViewModel(
             val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
                 ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
             val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
+            val isMovie = data is MovieLoadResponse
             val history = WatchHistory(
                 parentId = currentParentId,
                 showName = data.name,
@@ -441,11 +449,13 @@ class DetailsViewModel(
                 posterUrl = data.posterUrl,
                 episodeThumbnailUrl = ep.posterUrl,
                 screenshotUrl = saved?.screenshotUrl,
-                episode = ep.episode,
-                season = ep.season,
+                episode = if (isMovie) null else ep.episode,
+                season = if (isMovie) null else ep.season,
                 episodeId = ep.data,
                 position = dur,
                 duration = dur,
+                episodeName = if (isMovie) null else ep.name,
+                episodeDescription = ep.description ?: data.plot,
             )
             DesktopDataStore.setLastWatched(history)
 
@@ -474,6 +484,8 @@ class DetailsViewModel(
                         position = 0,
                         duration = 0,
                         updateTime = System.currentTimeMillis() + 1000,
+                        episodeName = nextEp.name,
+                        episodeDescription = nextEp.description ?: data.plot,
                     )
                     DesktopDataStore.setLastWatched(nextEpHistory)
                 } else if (existingNext.position < (existingNext.duration * 0.9)) {
@@ -481,6 +493,8 @@ class DetailsViewModel(
                         existingNext.copy(
                             updateTime = System.currentTimeMillis() + 1000,
                             episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
+                            episodeName = nextEp.name,
+                            episodeDescription = nextEp.description ?: data.plot,
                         ),
                     )
                 }
@@ -508,6 +522,7 @@ class DetailsViewModel(
                     val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
                         ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
                     val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
+                    val isMovie = data is MovieLoadResponse
                     historiesToSave.add(
                         WatchHistory(
                             parentId = currentParentId,
@@ -517,11 +532,13 @@ class DetailsViewModel(
                             posterUrl = data.posterUrl,
                             episodeThumbnailUrl = ep.posterUrl,
                             screenshotUrl = saved?.screenshotUrl,
-                            episode = ep.episode,
-                            season = ep.season,
+                            episode = if (isMovie) null else ep.episode,
+                            season = if (isMovie) null else ep.season,
                             episodeId = ep.data,
                             position = dur,
                             duration = dur,
+                            episodeName = if (isMovie) null else ep.name,
+                            episodeDescription = ep.description ?: data.plot,
                         ),
                     )
                 }
@@ -555,6 +572,8 @@ class DetailsViewModel(
                                     position = 0,
                                     duration = 0,
                                     updateTime = System.currentTimeMillis() + 1000,
+                                    episodeName = nextEp.name,
+                                    episodeDescription = nextEp.description ?: data.plot,
                                 ),
                             )
                         } else if (existingNext.position < (existingNext.duration * 0.9)) {
@@ -562,6 +581,8 @@ class DetailsViewModel(
                                 existingNext.copy(
                                     updateTime = System.currentTimeMillis() + 1000,
                                     episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
+                                    episodeName = nextEp.name,
+                                    episodeDescription = nextEp.description ?: data.plot,
                                 ),
                             )
                         }
@@ -579,6 +600,7 @@ class DetailsViewModel(
                     val backup = uiState.value.backupSeasonHistory[ep.data]
                     if (backup != null) {
                         val dur = if (backup.duration > 0L) backup.duration else 60L
+                        val isMovie = data is MovieLoadResponse
                         historiesToRestore.add(
                             WatchHistory(
                                 parentId = currentParentId,
@@ -588,11 +610,13 @@ class DetailsViewModel(
                                 posterUrl = data.posterUrl,
                                 episodeThumbnailUrl = ep.posterUrl,
                                 screenshotUrl = backup.screenshotUrl,
-                                episode = ep.episode,
-                                season = ep.season,
+                                episode = if (isMovie) null else ep.episode,
+                                season = if (isMovie) null else ep.season,
                                 episodeId = ep.data,
                                 position = backup.position,
                                 duration = dur,
+                                episodeName = backup.episodeName ?: if (isMovie) null else ep.name,
+                                episodeDescription = backup.episodeDescription ?: ep.description ?: data.plot,
                             ),
                         )
                     } else {

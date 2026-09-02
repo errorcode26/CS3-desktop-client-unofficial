@@ -18,11 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -64,7 +66,6 @@ fun WatchHistoryCardWide(
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
-    val shape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp) }
     val cardShape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp + 4.dp) }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -165,10 +166,10 @@ fun WatchHistoryCardWide(
         }
 
         // Outer Card
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (isHovered) Modifier.border(2.dp, primary, cardShape) else Modifier)
+                .then(if (isHovered) Modifier.border(1.5.dp, primary, cardShape) else Modifier.border(0.5.dp, Color.White.copy(alpha = 0.08f), cardShape))
                 .clip(cardShape)
                 .background(backgroundColor)
                 .hoverable(interactionSource)
@@ -200,190 +201,130 @@ fun WatchHistoryCardWide(
                     }
                 },
         ) {
-            // Left: Vertical Poster with Play Button Overlay
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .aspectRatio(2f / 3f)
-                    .clip(shape),
-            ) {
-                val rawPoster = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
-                val enhancedPoster = remember(rawPoster) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawPoster) }
+            // Ambient Backdrop Glow
+            val rawBackdrop = provider?.fixUrlNull(history.episodeThumbnailUrl ?: history.posterUrl) ?: history.posterUrl
+            if (!rawBackdrop.isNullOrBlank()) {
                 AsyncImage(
-                    model = enhancedPoster,
-                    contentDescription = history.showName,
+                    model = rawBackdrop,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
-                    modifier = Modifier.fillMaxSize(),
-                )
-
-                // Play action overlay
-                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = if (isHovered) 0.35f else 0.05f)),
-                    contentAlignment = Alignment.Center,
+                        .blur(20.dp)
+                        .alpha(0.20f),
+                )
+            }
+
+            // Dark Scrim over ambient backdrop
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.40f),
+                                Color(0xFF0F1015).copy(alpha = 0.85f),
+                                Color(0xFF0F1015).copy(alpha = 0.95f),
+                            ),
+                        ),
+                    ),
+            )
+
+            Row(modifier = Modifier.fillMaxSize()) {
+                // Left: Vertical Poster with Play Button Overlay (Flush against left edge)
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(2f / 3f),
                 ) {
-                    if (isHovered) {
-                        Surface(
-                            shape = CircleShape,
-                            color = primary.copy(alpha = 0.90f),
-                            shadowElevation = 8.dp,
-                            modifier = Modifier.size(46.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = "Play",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(28.dp),
-                                )
+                    val rawPoster = provider?.fixUrlNull(history.posterUrl) ?: history.posterUrl
+                    val enhancedPoster = remember(rawPoster) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhancePosterUrl(rawPoster) }
+                    AsyncImage(
+                        model = enhancedPoster,
+                        contentDescription = history.showName,
+                        contentScale = ContentScale.Crop,
+                        filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    // Play action overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = if (isHovered) 0.35f else 0.05f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isHovered) {
+                            Surface(
+                                shape = CircleShape,
+                                color = primary.copy(alpha = 0.90f),
+                                shadowElevation = 8.dp,
+                                modifier = Modifier.size(44.dp),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(26.dp),
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Right: Content Details & Metadata
-            BoxWithConstraints(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-            ) {
-                val isNarrow = maxWidth < 190.dp
-
-                Box(
+                // Right: Content Details & Metadata
+                BoxWithConstraints(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(if (isNarrow) 10.dp else 16.dp),
+                        .weight(1f)
+                        .fillMaxHeight(),
                 ) {
-                    // Top area: Title and Metadata Badges
+                    val isNarrow = maxWidth < 190.dp
+
                     Column(
-                        modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
-                    ) {
-                        Text(
-                            text = displayTitle,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = if (isNarrow) 14.sp else 19.sp,
-                            lineHeight = if (isNarrow) 18.sp else 23.sp,
-                            color = Color.White,
-                            maxLines = if (isNarrow) 2 else 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = LocalTextStyle.current.copy(
-                                shadow = Shadow(
-                                    color = Color.Black.copy(alpha = 0.75f),
-                                    offset = Offset(0f, 1f),
-                                    blurRadius = 4f,
-                                ),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                start = if (isNarrow) 10.dp else 16.dp,
+                                end = if (isNarrow) 10.dp else 16.dp,
+                                top = if (isNarrow) 10.dp else 14.dp,
+                                bottom = if (isNarrow) 10.dp else 14.dp,
                             ),
-                        )
-
-                        Spacer(modifier = Modifier.height(if (isNarrow) 4.dp else 8.dp))
-
-                        // Metadata Badges Row (Rating, Type, Provider Icon/Badge)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 5.dp else 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // ⭐ Verified Cached Rating
-                            if (cachedRating != null && cachedRating > 0.0) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.Black.copy(alpha = 0.60f))
-                                        .border(0.5.dp, Color(0xFFFFD700).copy(alpha = 0.50f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        // Top & Middle Content Group
+                        Column(verticalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 6.dp)) {
+                            // 🔌 Provider Branding (if enabled in appearance settings)
+                            if (provider != null && !isCleanMode && providerBadgeDisplayMode != ProviderBadgeDisplayMode.HIDDEN) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Star,
-                                            contentDescription = "Rating",
-                                            tint = Color(0xFFFFD700),
-                                            modifier = Modifier.size(10.dp),
-                                        )
-                                        Text(
-                                            text = String.format(java.util.Locale.US, "%.1f", cachedRating),
-                                            fontSize = if (isNarrow) 9.5.sp else 11.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFFFFD700),
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 🎬 Series / Movie Type Badge
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.White.copy(alpha = 0.12f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = if (isSeries) "SERIES" else "MOVIE",
-                                    fontSize = if (isNarrow) 9.sp else 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp,
-                                    color = Color.White.copy(alpha = 0.85f),
-                                )
-                            }
-
-                            // 🔌 Provider Branding (Controlled by Appearance Settings)
-                            if (provider != null && !isCleanMode) {
-                                when (providerBadgeDisplayMode) {
-                                    ProviderBadgeDisplayMode.HIDDEN -> {
-                                        // Clean mode: Zero scraper clutter
-                                    }
-                                    ProviderBadgeDisplayMode.ICON_ONLY -> {
-                                        if (pluginIconUrl != null) {
-                                            AsyncImage(
-                                                model = pluginIconUrl,
-                                                contentDescription = provider.name,
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    .clip(CircleShape)
-                                                    .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape),
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    .clip(CircleShape)
-                                                    .background(primary.copy(alpha = 0.85f)),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    text = provider.name.take(1).uppercase(),
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = Color.White,
+                                    when (providerBadgeDisplayMode) {
+                                        ProviderBadgeDisplayMode.HIDDEN -> {}
+                                        ProviderBadgeDisplayMode.ICON_ONLY -> {
+                                            if (pluginIconUrl != null) {
+                                                AsyncImage(
+                                                    model = pluginIconUrl,
+                                                    contentDescription = provider.name,
+                                                    modifier = Modifier
+                                                        .size(16.dp)
+                                                        .clip(CircleShape)
+                                                        .border(0.5.dp, Color.White.copy(alpha = 0.2f), CircleShape),
                                                 )
                                             }
                                         }
-                                    }
-                                    ProviderBadgeDisplayMode.FULL_BADGE -> {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(primary.copy(alpha = 0.80f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ProviderBadgeDisplayMode.FULL_BADGE -> {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(primary.copy(alpha = 0.80f))
+                                                    .padding(horizontal = 5.dp, vertical = 1.5.dp),
                                             ) {
-                                                if (pluginIconUrl != null) {
-                                                    AsyncImage(
-                                                        model = pluginIconUrl,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(12.dp).clip(CircleShape),
-                                                    )
-                                                }
                                                 Text(
                                                     text = provider.name,
-                                                    fontSize = if (isNarrow) 9.sp else 10.sp,
+                                                    fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color.White,
                                                 )
@@ -392,57 +333,88 @@ fun WatchHistoryCardWide(
                                     }
                                 }
                             }
-                        }
-                    }
 
-                    // Bottom area: Episode Badge, Progress Bar & Time Remaining
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 6.dp),
-                    ) {
-                        // Season & Episode / Time Left Info Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (isSeries && seText.isNotBlank()) {
-                                val isUpNext = history.duration == 0L && history.position == 0L
-                                Text(
-                                    text = if (isUpNext) "Up Next • $seText" else seText,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = if (isNarrow) 11.5.sp else 13.5.sp,
-                                    color = if (isUpNext) primary else Color.White,
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.width(1.dp))
-                            }
+                            // Show Title
+                            Text(
+                                text = displayTitle,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = if (isNarrow) 15.sp else 17.5.sp,
+                                lineHeight = if (isNarrow) 19.sp else 22.sp,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
 
-                            if (remainingText != null) {
+                            // Episode Subtitle (if series)
+                            if (isSeries && (seText.isNotBlank() || !history.episodeName.isNullOrBlank())) {
+                                val epHeader = buildString {
+                                    if (seText.isNotBlank()) append(seText)
+                                    val epName = history.episodeName
+                                    if (!epName.isNullOrBlank()) {
+                                        if (isNotEmpty()) append(" • ")
+                                        append(epName)
+                                    }
+                                }
                                 Text(
-                                    text = remainingText,
-                                    fontSize = if (isNarrow) 10.5.sp else 12.sp,
+                                    text = epHeader,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFE2E8F0).copy(alpha = 0.75f),
+                                    fontSize = if (isNarrow) 11.5.sp else 13.sp,
+                                    color = primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
 
-                        // Cinematic Progress Bar
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(if (isNarrow) 4.dp else 5.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(Color.White.copy(alpha = 0.20f)),
+                        // Bottom Progress & Time Remaining Section
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
+                            if (remainingText != null || (history.duration > 0 && history.position > 0)) {
+                                val isUpNext = history.duration == 0L && history.position == 0L
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    val progressPercent = if (progress in 0.01f..0.99f) "${(progress * 100).toInt()}%" else ""
+                                    if (progressPercent.isNotEmpty()) {
+                                        Text(
+                                            text = progressPercent,
+                                            fontSize = if (isNarrow) 10.sp else 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = primary,
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.width(1.dp))
+                                    }
+
+                                    Text(
+                                        text = if (isUpNext) "Up Next" else (remainingText ?: ""),
+                                        fontSize = if (isNarrow) 10.5.sp else 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isUpNext) primary else Color.White.copy(alpha = 0.85f),
+                                    )
+                                }
+                            }
+
+                            // Progress Bar
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(progress)
-                                    .fillMaxHeight()
+                                    .fillMaxWidth()
+                                    .height(if (isNarrow) 4.dp else 5.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(primary),
-                            )
+                                    .background(Color.White.copy(alpha = 0.18f)),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(primary),
+                                )
+                            }
                         }
                     }
                 }

@@ -37,7 +37,7 @@ object ExploreCatalogClient {
             val url = "$cleanBase/catalog/$type/$catalogId$pathExtra.json"
             AppLogger.d(TAG, "Fetching catalog from: $url")
 
-            val response = app.get(url, timeout = 10_000L)
+            val response = app.get(url, timeout = 10_000L, cacheTime = 60 * 6)
             val root = mapper.readTree(response.text)
             val metas = root["metas"] ?: return emptyList()
 

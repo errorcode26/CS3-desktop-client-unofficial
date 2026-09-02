@@ -39,8 +39,8 @@ object SettingsSearchIndex {
         
         SettingsSearchEntry("Enable Hero Slider", LeafTab.APPEARANCE, listOf("hero", "carousel", "banner", "home", "slider", "featured", "spotlight"), uiLabel = "Enable Hero Slider", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
         SettingsSearchEntry("Hero Banner Layout Style", LeafTab.APPEARANCE, listOf("hero style", "cinema", "fullscreen", "filmstrip", "banner layout"), uiLabel = "Hero Banner Layout Style", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
-        SettingsSearchEntry("Dynamic Backdrop Blur", LeafTab.APPEARANCE, listOf("hero", "blur", "background", "backdrop", "frosted", "glass", "gaussian", "details"), uiLabel = "Dynamic Backdrop Blur", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
-        SettingsSearchEntry("UI Container & Card Glass Opacity", LeafTab.APPEARANCE, listOf("glass", "opacity", "card opacity", "translucent", "transparency"), uiLabel = "UI Container & Card Glass Opacity", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
+        SettingsSearchEntry("Dynamic Backdrop Blur", LeafTab.APPEARANCE, listOf("hero", "blur", "background", "backdrop", "frosted", "glass", "gaussian", "details"), uiLabel = "Dynamic Backdrop Blur", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
+        SettingsSearchEntry("UI Container & Card Glass Opacity", LeafTab.APPEARANCE, listOf("glass", "opacity", "card opacity", "translucent", "transparency"), uiLabel = "UI Container & Card Glass Opacity", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
         
         SettingsSearchEntry("Details Page Sections & Layout", LeafTab.APPEARANCE, listOf("details", "order", "drag", "section", "layout", "modular", "reorder"), uiLabel = "Details Page Layout & Sections", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
         SettingsSearchEntry("Lock Unreleased Episodes", LeafTab.DETAILS, listOf("lock", "unreleased", "episodes", "future", "upcoming", "air date", "countdown", "schedule", "anime", "protect"), uiLabel = "Lock Unreleased Episodes", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
