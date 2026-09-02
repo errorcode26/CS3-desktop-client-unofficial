@@ -1,11 +1,13 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.player.contract
 
+import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.cloudstream3.utils.ExtractorLink
 
+@Immutable
 data class PlayerUiState(
     val launchData: VideoLaunchData? = null,
     val nextEpisodeError: PlayerError? = null,

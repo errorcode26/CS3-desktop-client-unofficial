@@ -1,9 +1,11 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search.contract
 
+import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 
+@Immutable
 data class SearchUiState(
     val searchQuery: String = "",
     val searchResultsGrouped: Map<String, Pair<com.lagradost.cloudstream3.MainAPI, List<SearchResponse>>>? = null,
