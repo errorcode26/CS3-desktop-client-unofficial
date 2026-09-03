@@ -3,7 +3,11 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
+import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.HeroRepository.HeroUpdate
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
@@ -15,11 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
-import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
-import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
-
 const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
 
 /**
@@ -29,19 +28,20 @@ const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
  */
 fun MainAPI.isRealProvider(): Boolean = ActiveProviderRepository.isRealContentProvider(this)
 
-class DesktopHomeViewModel : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
+class DesktopHomeViewModel(
+    private val getContinueWatching: GetContinueWatching = AppContainerHolder.container.getContinueWatching,
+    private val removeWatchHistory: RemoveWatchHistory = AppContainerHolder.container.removeWatchHistory,
+    private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
+) : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
-    private val watchHistoryRepo = WatchHistoryRepositoryImpl()
-    private val getContinueWatching = GetContinueWatching(watchHistoryRepo)
-    private val removeWatchHistory = RemoveWatchHistory(watchHistoryRepo)
 
     // Redundant StateFlow mappings have been permanently deleted in accordance with MVI best practices.
     // UI should collect `uiState` and read properties directly from the immutable snapshot.
 
     init {
         viewModelScope.launch {
-            BookmarksRepository.bookmarksFlow.collect { bookmarks ->
+            getBookmarks.subscribeAll().collect { bookmarks ->
                 updateState { copy(bookmarks = bookmarks) }
             }
         }

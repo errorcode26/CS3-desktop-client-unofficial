@@ -19,4 +19,6 @@ sealed interface DetailsUiEvent : UiEvent {
     data class OnToggleEpisodesStackedView(val isStacked: Boolean) : DetailsUiEvent
     data class OnSetEpisodeViewMode(val viewMode: Int) : DetailsUiEvent
     data object OnRefresh : DetailsUiEvent
+    data class OnAddBookmark(val bookmark: com.lagradost.common.storage.DesktopBookmark) : DetailsUiEvent
+    data class OnRemoveBookmark(val id: String) : DetailsUiEvent
 }

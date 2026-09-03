@@ -47,11 +47,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -211,7 +206,7 @@ fun ComposeDetailsScreen(
             val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
             if (isLoading) {
                 if (fakeData != null) {
-                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
+                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl, onEvent = viewModel::onEvent)
                 } else {
                     DetailsSkeletonPlaceholder(
                         onBack = onBack,
@@ -220,7 +215,7 @@ fun ComposeDetailsScreen(
                     )
                 }
             } else if (response != null) {
-                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl)
+                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl, onEvent = viewModel::onEvent)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Surface(
@@ -328,7 +323,7 @@ fun ComposeDetailsScreen(
                             ),
                         ),
                 ) {
-                    activeLinkData?.let { (linkProvider, linkUrl, linkHistory) ->
+                    activeLinkData.let { (linkProvider, linkUrl, linkHistory) ->
                         LinksSidePanel(
                             provider = linkProvider,
                             dataUrl = linkUrl,
@@ -365,10 +360,10 @@ fun DetailsContent(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState? = null,
     showHistory: Map<String, com.lagradost.common.storage.WatchHistory> = emptyMap(),
     activeBgUrl: String? = null,
+    onEvent: (DetailsUiEvent) -> Unit = {},
 ) {
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val hazeState = remember { HazeState() }
 
     val latestHistory = remember(data.url, uiState?.watchHistory) {
         uiState?.watchHistory?.values?.maxByOrNull { it.updateTime }
@@ -397,7 +392,6 @@ fun DetailsContent(
             provider = provider,
             data = data,
             scrollState = scrollState,
-            hazeState = hazeState,
             enrichmentPhase = enrichmentPhase,
             modifier = Modifier.fillMaxSize(),
             dynamicColorEnabled = dynamicColorEnabled,
@@ -435,8 +429,7 @@ fun DetailsContent(
             state = scrollState,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { }
-                .hazeSource(state = hazeState),
+                .graphicsLayer { },
             contentPadding = PaddingValues(
                 bottom = 32.dp,
             ),
@@ -459,7 +452,6 @@ fun DetailsContent(
                     DetailsMetadata(
                         provider = provider,
                         data = data,
-                        hazeState = hazeState,
                         heroAction = heroAction,
                         downloadAction = downloadAction,
                         enrichmentPhase = enrichmentPhase,
@@ -481,151 +473,15 @@ fun DetailsContent(
                                 ?: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData(id = url, name = "${data.name} Official Trailer", url = url)
                             activeTrailer = trailer
                         },
+                        onEvent = onEvent,
                     )
 
-                    val progress = remember(latestHistory) {
-                        if (latestHistory != null && latestHistory.duration > 0) {
-                            if (PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)) {
-                                1f
-                            } else {
-                                (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
-                            }
-                        } else {
-                            0f
-                        }
-                    }
-
-                    val showCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
-                    val showEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
-                    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
-
-                    val currentFormattedTime by produceState(initialValue = "", key1 = clockTimeFormat) {
-                        val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
-                        while (true) {
-                            val formatter = try {
-                                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
-                            } catch (_: Exception) {
-                                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-                            }
-                            value = formatter.format(java.util.Date())
-                            kotlinx.coroutines.delay(1000L)
-                        }
-                    }
-
-                    val remainingSecondsForEnd = remember(latestHistory, data, progress) {
-                        if (latestHistory != null && latestHistory.duration > 0) {
-                            if (progress > 0f && progress < 1f) {
-                                latestHistory.duration - latestHistory.position
-                            } else {
-                                latestHistory.duration
-                            }
-                        } else if ((data as? com.lagradost.cloudstream3.MovieLoadResponse)?.duration != null) {
-                            (data as com.lagradost.cloudstream3.MovieLoadResponse).duration?.toLong()?.times(60L)
-                        } else {
-                            null
-                        }
-                    }
-
-                    val formattedEndTime = remember(remainingSecondsForEnd, currentFormattedTime, clockTimeFormat) {
-                        remainingSecondsForEnd?.let { secs ->
-                            val calendar = java.util.Calendar.getInstance()
-                            calendar.add(java.util.Calendar.SECOND, secs.toInt())
-                            val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
-                            val formatter = try {
-                                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
-                            } catch (_: Exception) {
-                                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-                            }
-                            "Ends at ${formatter.format(calendar.time)}"
-                        }
-                    }
-
-                    val showTimePill = (showCurrentTime && currentFormattedTime.isNotBlank()) || (showEndTime && formattedEndTime != null)
-
-                    if (showTimePill) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .padding(
-                                    start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
-                                    end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
-                                    bottom = 32.dp,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .shadow(
-                                        elevation = 8.dp,
-                                        shape = RoundedCornerShape(100.dp),
-                                        ambientColor = Color.Black.copy(alpha = 0.5f),
-                                        spotColor = Color.Black.copy(alpha = 0.5f),
-                                    )
-                                    .clip(RoundedCornerShape(100.dp))
-                                    .background(Color.Black.copy(alpha = 0.48f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(100.dp))
-                                    .padding(horizontal = 14.dp, vertical = 5.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    if (showCurrentTime && currentFormattedTime.isNotBlank()) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            Text(
-                                                text = "🕒",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            )
-                                            Text(
-                                                text = currentFormattedTime,
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    letterSpacing = 0.3.sp,
-                                                ),
-                                                color = Color.White.copy(alpha = 0.95f),
-                                            )
-                                        }
-                                    }
-
-                                    if (showCurrentTime && currentFormattedTime.isNotBlank() && showEndTime && formattedEndTime != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(3.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.White.copy(alpha = 0.4f)),
-                                        )
-                                    }
-
-                                    if (showEndTime && formattedEndTime != null) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            Text(
-                                                text = "⏳",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            )
-                                            Text(
-                                                text = formattedEndTime,
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    letterSpacing = 0.3.sp,
-                                                ),
-                                                color = Color.White.copy(alpha = 0.85f),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    DetailsClockPill(
+                        latestHistory = latestHistory,
+                        data = data,
+                        viewportWidth = viewportWidth,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
                 }
             }
 
@@ -1129,6 +985,158 @@ fun DetailsSkeletonPlaceholder(
         // Window Controls
         Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
             com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(isHome = false)
+        }
+    }
+}
+
+@Composable
+private fun DetailsClockPill(
+    latestHistory: com.lagradost.common.storage.WatchHistory?,
+    data: LoadResponse,
+    viewportWidth: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    val showCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
+    val showEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
+    val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
+
+    if (!showCurrentTime && !showEndTime) return
+
+    val currentFormattedTime by produceState(initialValue = "", key1 = clockTimeFormat) {
+        val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
+        while (true) {
+            val formatter = try {
+                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+            } catch (_: Exception) {
+                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            }
+            value = formatter.format(java.util.Date())
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+
+    val progress = remember(latestHistory) {
+        if (latestHistory != null && latestHistory.duration > 0) {
+            if (PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)) {
+                1f
+            } else {
+                (latestHistory.position.toFloat() / latestHistory.duration.toFloat()).coerceIn(0f, 1f)
+            }
+        } else {
+            0f
+        }
+    }
+
+    val remainingSecondsForEnd = remember(latestHistory, data, progress) {
+        if (latestHistory != null && latestHistory.duration > 0) {
+            if (progress > 0f && progress < 1f) {
+                latestHistory.duration - latestHistory.position
+            } else {
+                latestHistory.duration
+            }
+        } else if (data is com.lagradost.cloudstream3.MovieLoadResponse && data.duration != null) {
+            data.duration?.toLong()?.times(60L)
+        } else {
+            null
+        }
+    }
+
+    val formattedEndTime = remember(remainingSecondsForEnd, currentFormattedTime, clockTimeFormat) {
+        remainingSecondsForEnd?.let { secs ->
+            val calendar = java.util.Calendar.getInstance()
+            calendar.add(java.util.Calendar.SECOND, secs.toInt())
+            val pattern = if (clockTimeFormat.isNotBlank()) clockTimeFormat else "h:mm a"
+            val formatter = try {
+                java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+            } catch (_: Exception) {
+                java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            }
+            "Ends at ${formatter.format(calendar.time)}"
+        }
+    }
+
+    val showTimePill = (showCurrentTime && currentFormattedTime.isNotBlank()) || (showEndTime && formattedEndTime != null)
+    if (!showTimePill) return
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(
+                start = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
+                end = if (viewportWidth < 1100.dp) 24.dp else 64.dp,
+                bottom = 32.dp,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(100.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.5f),
+                    spotColor = Color.Black.copy(alpha = 0.5f),
+                )
+                .clip(RoundedCornerShape(100.dp))
+                .background(Color.Black.copy(alpha = 0.48f))
+                .border(0.5.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(100.dp))
+                .padding(horizontal = 14.dp, vertical = 5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (showCurrentTime && currentFormattedTime.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "🕒",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        )
+                        Text(
+                            text = currentFormattedTime,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.3.sp,
+                            ),
+                            color = Color.White.copy(alpha = 0.95f),
+                        )
+                    }
+                }
+
+                if (showCurrentTime && currentFormattedTime.isNotBlank() && showEndTime && formattedEndTime != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.4f)),
+                    )
+                }
+
+                if (showEndTime && formattedEndTime != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "⏳",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        )
+                        Text(
+                            text = formattedEndTime,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.3.sp,
+                            ),
+                            color = Color.White.copy(alpha = 0.85f),
+                        )
+                    }
+                }
+            }
         }
     }
 }

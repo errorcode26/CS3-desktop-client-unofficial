@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.UpsertWatchHistory
@@ -29,6 +30,7 @@ class DetailsViewModel(
     private val upsertWatchHistory: UpsertWatchHistory = AppContainerHolder.container.upsertWatchHistory,
     private val removeWatchHistory: RemoveWatchHistory = AppContainerHolder.container.removeWatchHistory,
     private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
+    private val bookmarksRepository: BookmarksRepository = AppContainerHolder.container.bookmarksRepository,
 ) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
     initialState = cachedUiState?.copy(
         fetchFailed = false,
@@ -109,6 +111,16 @@ class DetailsViewModel(
             is DetailsUiEvent.OnToggleEpisodesStackedView -> handleToggleEpisodesStackedView(event.isStacked)
             is DetailsUiEvent.OnSetEpisodeViewMode -> handleSetEpisodeViewMode(event.viewMode)
             is DetailsUiEvent.OnRefresh -> refresh()
+            is DetailsUiEvent.OnAddBookmark -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    bookmarksRepository.addBookmark(event.bookmark)
+                }
+            }
+            is DetailsUiEvent.OnRemoveBookmark -> {
+                viewModelScope.launch(Dispatchers.IO) {
+                    bookmarksRepository.removeBookmark(event.id)
+                }
+            }
         }
     }
 

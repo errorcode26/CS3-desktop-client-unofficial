@@ -63,15 +63,12 @@ import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 
 @Composable
 fun DetailsBackdrop(
     provider: MainAPI,
     data: LoadResponse,
     scrollState: LazyListState,
-    hazeState: HazeState,
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
     modifier: Modifier = Modifier,
     dynamicColorEnabled: Boolean = false,
@@ -89,8 +86,7 @@ fun DetailsBackdrop(
                 } else {
                     alpha = 0f
                 }
-            }
-            .hazeSource(state = hazeState),
+            },
     ) {
         val currentPhase = enrichmentPhase
 
@@ -118,7 +114,7 @@ fun DetailsBackdrop(
                 label = "backdrop_crossfade",
                 modifier = Modifier
                     .fillMaxSize()
-                    .run { if (isFallback) this.blur(80.dp) else this }
+                    .run { if (isFallback) this.blur(18.dp) else this }
                     .graphicsLayer { alpha = 0.99f }
                     .drawWithCache {
                         val verticalFade = Brush.verticalGradient(
@@ -130,7 +126,7 @@ fun DetailsBackdrop(
                             1.00f to Color.Transparent,
                         )
                         val scrimBase = Color.Black
-                        // Smooth horizontal sweep from left — many stops so the edge is completely invisible
+                        // Horizontal vignette gradient
                         val logoVignette = Brush.horizontalGradient(
                             0.00f to scrimBase.copy(alpha = 0.85f),
                             0.08f to scrimBase.copy(alpha = 0.80f),
@@ -219,7 +215,6 @@ fun AdaptiveMetadataLayout(
 fun DetailsMetadata(
     provider: MainAPI,
     data: LoadResponse,
-    hazeState: HazeState,
     heroAction: @Composable (Modifier) -> Unit = {},
     downloadAction: (@Composable (Modifier) -> Unit)? = null,
     enrichmentPhase: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase,
@@ -230,6 +225,7 @@ fun DetailsMetadata(
     onCastClick: () -> Unit = {},
     onActorClick: (com.lagradost.cloudstream3.ActorData) -> Unit = {},
     onTrailerClick: ((String) -> Unit)? = null,
+    onEvent: (com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent) -> Unit = {},
 ) {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     var isRightColumnHovered by remember { mutableStateOf(false) }
@@ -257,6 +253,7 @@ fun DetailsMetadata(
                 onCastClick = onCastClick,
                 onActorClick = onActorClick,
                 onTrailerClick = onTrailerClick,
+                onEvent = onEvent,
             )
         } else {
             // Prevent crash on unbounded height (Dp.Infinity) when inside LazyColumn
@@ -485,7 +482,7 @@ fun DetailsMetadata(
                             }
                         }
 
-                        // Row 2: Authentic Branded Rating Stickers + Flowing Genre Typography
+                        // Row 2: Ratings and genres
                         val imdbScore = uiState?.enrichedImdbRating
                         val tmdbScore = uiState?.enrichedTmdbRating ?: if (imdbScore == null) data.score?.toFloat(10)?.toDouble() else null
                         val anilistScore = uiState?.enrichedAniListRating
@@ -498,7 +495,7 @@ fun DetailsMetadata(
                                 horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
                                 modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                             ) {
-                                // 1. Authentic IMDb Logo Sticker (Frameless)
+                                // IMDb score
                                 if (imdbScore != null && imdbScore > 0.0) {
                                     com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                         logoRes = "badges/rating_imdb.png",
@@ -509,7 +506,7 @@ fun DetailsMetadata(
                                     )
                                 }
 
-                                // 2. Authentic TMDB Logo Sticker (Frameless)
+                                // TMDB score
                                 if (tmdbScore != null && tmdbScore > 0.0) {
                                     com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                         logoRes = "badges/rating_tmdb.png",
@@ -520,7 +517,7 @@ fun DetailsMetadata(
                                     )
                                 }
 
-                                // 3. Authentic MAL / AniList Sticker (Frameless)
+                                // MAL / AniList score
                                 if (anilistScore != null && anilistScore > 0.0) {
                                     com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                         logoRes = "badges/rating_mal.png",
@@ -531,7 +528,7 @@ fun DetailsMetadata(
                                     )
                                 }
 
-                                // 4. Flowing Genre Typography (Frameless, clean & elegant)
+                                // Genres
                                 if (!finalTags.isNullOrEmpty()) {
                                     val hasRatings = (imdbScore != null && imdbScore > 0.0) || (tmdbScore != null && tmdbScore > 0.0) || (anilistScore != null && anilistScore > 0.0)
                                     Text(
@@ -547,9 +544,10 @@ fun DetailsMetadata(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
-                    if (!isLoading && !data.plot.isNullOrBlank()) {
+                    val cleanedPlot = remember(data.plot) { com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(data.plot) }
+                    if (!isLoading && !cleanedPlot.isNullOrBlank()) {
                         Text(
-                            text = data.plot ?: "",
+                            text = cleanedPlot,
                             color = Color.White.copy(alpha = 0.88f),
                             fontSize = 16.sp,
                             lineHeight = 24.sp,
@@ -580,12 +578,12 @@ fun DetailsMetadata(
                             posterUrl = data.posterUrl,
                             watchType = type.id,
                         )
-                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+                        onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnAddBookmark(newBookmark))
                         isEditingStatus = false
                     }
 
                     val removeBookmarkAction: () -> Unit = {
-                        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+                        onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnRemoveBookmark(bookmarkId))
                         isEditingStatus = false
                     }
 
@@ -887,7 +885,6 @@ fun DetailsMetadata(
                         }
 
                         // Stats & Info Sidebar
-                        val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
                         val hideDetailsSource by AppearanceConfig.hideDetailsSource.collectAsState()
 
                         Column(
@@ -895,7 +892,7 @@ fun DetailsMetadata(
                             horizontalAlignment = if (isNarrow) Alignment.CenterHorizontally else Alignment.End,
                         ) {
                             val stats = buildList {
-                                if (!isCleanMode && !hideDetailsSource) {
+                                if (!hideDetailsSource) {
                                     add("Source" to provider.name)
                                 }
 
@@ -935,6 +932,7 @@ private fun DetailsMetadataCompact(
     onCastClick: () -> Unit,
     onActorClick: (com.lagradost.cloudstream3.ActorData) -> Unit,
     onTrailerClick: ((String) -> Unit)?,
+    onEvent: (com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent) -> Unit,
 ) {
     val activeLogoUrl = remember(data, enrichmentPhase, uiState) {
         uiState?.enrichedLogoUrl?.takeIf { it.isNotBlank() }
@@ -957,12 +955,12 @@ private fun DetailsMetadataCompact(
             posterUrl = data.posterUrl,
             watchType = type.id,
         )
-        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.addBookmark(newBookmark)
+        onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnAddBookmark(newBookmark))
         isEditingStatus = false
     }
 
     val removeBookmarkAction: () -> Unit = {
-        com.lagradost.cloudstream3.desktop.repo.BookmarksRepository.removeBookmark(bookmarkId)
+        onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnRemoveBookmark(bookmarkId))
         isEditingStatus = false
     }
 
@@ -1243,7 +1241,7 @@ private fun DetailsMetadataCompact(
         }
 
         // 5. Compact 2-Line Synopsis
-        val rawPlot = data.plot
+        val rawPlot = remember(data.plot) { com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(data.plot) }
         if (!rawPlot.isNullOrBlank()) {
             Text(
                 text = rawPlot,
@@ -1424,10 +1422,9 @@ fun DetailsCastSection(
         val spacingDp = if (isCompact) 12.dp else 16.dp
         val minCardWidth = if (isCompact) 110.dp else 140.dp
 
-        // Dynamic column calculation: exact number of columns that fit comfortably within netWidth
+        // Column calculation
         val columns = maxOf(2, ((netWidth + spacingDp) / (minCardWidth + spacingDp)).toInt())
         val totalSpacingDp = spacingDp * (columns - 1)
-        // Exact dynamic width ensuring 100% of netWidth is filled edge-to-edge across safe zone
         val dynamicCardWidth = (netWidth - totalSpacingDp) / columns
 
         if (cast.isNotEmpty() || directors.isNotEmpty()) {
