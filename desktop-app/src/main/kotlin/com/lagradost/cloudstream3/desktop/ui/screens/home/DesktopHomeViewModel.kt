@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
@@ -68,7 +69,7 @@ class DesktopHomeViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             uiState.map { it.activeProviders }.distinctUntilChanged().collect { names ->
                 val disabledMap = names.associateWith { name ->
-                    DesktopDataStore.getKey<Set<String>>("disabled_catalogs_$name") ?: emptySet()
+                    DesktopDataStore.getKey<Set<String>>(PreferenceKeys.disabledCatalogsKey(name)) ?: emptySet()
                 }
                 updateState { copy(disabledCatalogs = disabledMap) }
             }
@@ -130,7 +131,7 @@ class DesktopHomeViewModel(
                         currentDisabled + event.catalogName
                     }
                     viewModelScope.launch(Dispatchers.IO) {
-                        DesktopDataStore.setKey("disabled_catalogs_${event.providerName}", newDisabled)
+                        DesktopDataStore.setKey(PreferenceKeys.disabledCatalogsKey(event.providerName), newDisabled)
                     }
                     copy(disabledCatalogs = disabledCatalogs + (event.providerName to newDisabled))
                 }

@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository
@@ -62,8 +63,8 @@ class DetailsViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-            val isStacked = DesktopDataStore.getKey<Boolean>("pref_episodes_stacked_view") ?: false
-            val viewMode = DesktopDataStore.getKey<Int>("pref_episodes_view_mode") ?: if (isStacked) 1 else 0
+            val isStacked = DesktopDataStore.getKey<Boolean>(PreferenceKeys.PREF_EPISODES_STACKED_VIEW) ?: false
+            val viewMode = DesktopDataStore.getKey<Int>(PreferenceKeys.PREF_EPISODES_VIEW_MODE) ?: if (isStacked) 1 else 0
             updateState {
                 copy(
                     autoPlayEnabled = autoPlay,
@@ -662,8 +663,8 @@ class DetailsViewModel(
         val viewMode = if (isStacked) 1 else 0
         updateState { copy(isEpisodesStackedView = isStacked, episodeViewMode = viewMode) }
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey("pref_episodes_stacked_view", isStacked)
-            DesktopDataStore.setKey("pref_episodes_view_mode", viewMode)
+            DesktopDataStore.setKey(PreferenceKeys.PREF_EPISODES_STACKED_VIEW, isStacked)
+            DesktopDataStore.setKey(PreferenceKeys.PREF_EPISODES_VIEW_MODE, viewMode)
         }
     }
 
@@ -671,8 +672,8 @@ class DetailsViewModel(
         val isStacked = viewMode != 0
         updateState { copy(episodeViewMode = viewMode, isEpisodesStackedView = isStacked) }
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey("pref_episodes_view_mode", viewMode)
-            DesktopDataStore.setKey("pref_episodes_stacked_view", isStacked)
+            DesktopDataStore.setKey(PreferenceKeys.PREF_EPISODES_VIEW_MODE, viewMode)
+            DesktopDataStore.setKey(PreferenceKeys.PREF_EPISODES_STACKED_VIEW, isStacked)
         }
     }
 

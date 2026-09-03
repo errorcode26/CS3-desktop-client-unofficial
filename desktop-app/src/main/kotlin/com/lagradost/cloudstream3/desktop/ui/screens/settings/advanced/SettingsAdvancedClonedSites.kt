@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.models.CustomSite
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
@@ -36,10 +37,10 @@ fun SettingsAdvancedClonedSites(
     val scope = rememberCoroutineScope()
 
     var showAddCloneDialog by remember { mutableStateOf(false) }
-    var clonedSites by remember(uiState.stringSettings["USER_PROVIDER_API"]) {
+    var clonedSites by remember(uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API]) {
         mutableStateOf<List<CustomSite>>(
             try {
-                val json = uiState.stringSettings["USER_PROVIDER_API"] ?: com.lagradost.common.storage.DesktopDataStore.getKey<String>("USER_PROVIDER_API")
+                val json = uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API] ?: com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
                 if (json != null) {
                     val mapper = jacksonObjectMapper()
                     mapper.readValue<List<CustomSite>>(
@@ -86,7 +87,7 @@ fun SettingsAdvancedClonedSites(
                     clonedSites = newList
                     scope.launch(Dispatchers.IO) {
                         val mapper = jacksonObjectMapper()
-                        viewModel.onEvent(SettingsUiEvent.OnUpdateString("USER_PROVIDER_API", mapper.writeValueAsString(newList)))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList)))
                     }
                 }) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
@@ -236,7 +237,7 @@ fun SettingsAdvancedClonedSites(
 
                                         scope.launch(Dispatchers.IO) {
                                             val mapper = jacksonObjectMapper()
-                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString("USER_PROVIDER_API", mapper.writeValueAsString(newList)))
+                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList)))
 
                                             try {
                                                 val clone = provider.javaClass.getDeclaredConstructor().newInstance()

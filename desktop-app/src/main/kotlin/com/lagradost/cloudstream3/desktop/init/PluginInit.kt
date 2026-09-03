@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.init
 
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.metaproviders.CrossTmdbProvider
@@ -104,7 +105,7 @@ private fun loadInstalledPlugins() {
  */
 fun loadClonedSites() {
     try {
-        val clonedSitesJson = com.lagradost.common.storage.DesktopDataStore.getKey<String>("USER_PROVIDER_API")
+        val clonedSitesJson = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
         if (clonedSitesJson != null) {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val list = mapper.readValue<List<com.lagradost.cloudstream3.desktop.models.CustomSite>>(
