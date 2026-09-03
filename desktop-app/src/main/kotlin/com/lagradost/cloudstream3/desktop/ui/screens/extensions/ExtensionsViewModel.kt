@@ -1,6 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
-import com.lagradost.cloudstream3.desktop.data.plugins.PluginRepositoryImpl
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.plugins.interactor.*
 import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.Extensi
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -29,7 +30,7 @@ data class LocalPlugin(
 )
 
 class ExtensionsViewModel(
-    private val pluginRepo: PluginRepository = PluginRepositoryImpl(),
+    private val pluginRepo: PluginRepository = AppContainerHolder.container.pluginRepository,
     private val getPluginRepositories: GetPluginRepositories = GetPluginRepositories(pluginRepo),
     private val addPluginRepository: AddPluginRepository = AddPluginRepository(pluginRepo),
     private val removePluginRepository: RemovePluginRepository = RemovePluginRepository(pluginRepo),
@@ -361,7 +362,7 @@ class ExtensionsViewModel(
                     // Step 2: Force JVM to release native Windows file handles.
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
-                    Thread.sleep(150)
+                    delay(150)
                     @Suppress("deprecation")
                     System.runFinalization()
 

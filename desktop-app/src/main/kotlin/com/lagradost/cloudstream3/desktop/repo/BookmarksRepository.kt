@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.repo
 
-import com.lagradost.cloudstream3.desktop.data.bookmarks.BookmarksRepositoryImpl
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository as DomainBookmarksRepository
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.Dispatchers
@@ -8,9 +9,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 object BookmarksRepository {
-    val instance = BookmarksRepositoryImpl()
+    val instance: DomainBookmarksRepository
+        get() = AppContainerHolder.container.bookmarksRepository
 
-    val bookmarksFlow: StateFlow<Map<String, DesktopBookmark>> = instance.subscribeAll()
+    val bookmarksFlow: StateFlow<Map<String, DesktopBookmark>>
+        get() = instance.subscribeAll()
 
     fun addBookmark(bookmark: DesktopBookmark) {
         appScope.launch(Dispatchers.IO) {

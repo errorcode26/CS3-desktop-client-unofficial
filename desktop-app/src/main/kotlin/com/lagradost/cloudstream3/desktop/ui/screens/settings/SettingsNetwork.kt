@@ -14,12 +14,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream3.desktop.download.AppDownloadManager
+import com.lagradost.cloudstream3.desktop.download.TaskStatus
 import com.lagradost.cloudstream3.desktop.network.DohProvider
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
+import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
+import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Desktop
 
 @Composable
 fun SettingsNetwork(viewModel: SettingsViewModel) {
@@ -50,9 +59,9 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                 )
             }
 
-            SettingsGroupCard(title = "Security & Browser Isolation") {
+            SettingsGroupCard(title = "Experimental & Scraper Engine") {
                 Text(
-                    "Control how CloudStream interacts with external browsers for CAPTCHA bypasses and trailers.",
+                    "Advanced network resolution options for providers and scraping.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -60,189 +69,49 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
 
                 MviSettingsToggle(
                     key = DesktopDataStore.PREF_ALLOW_CF_BYPASS,
-                    label = "Allow Experimental Cloudflare Bypass",
-                    subtitle = "EXPERIMENTAL AND CURRENTLY BROKEN. Advised to leave OFF until further updates. Uses background browser to solve captchas.",
+                    label = "Experimental Cloudflare Solver",
+                    subtitle = "Attempts automated browser-based clearance when providers encounter Turnstile challenges. Recommended off.",
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     defaultValue = false,
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                MviSettingsToggle(
-                    key = DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER,
-                    label = "Allow Opening Trailers & External Links",
-                    subtitle = "Allow CloudStream to open official trailers and external web links.",
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = false,
-                )
-
-                // Dynamic visibility for dependent settings
-                val allowExternalBrowser = uiState.booleanSettings[DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER] ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_EXTERNAL_BROWSER) ?: false)
-
-                if (allowExternalBrowser) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    MviSettingsToggle(
-                        key = DesktopDataStore.PREF_ISOLATED_EXTERNAL_BROWSER,
-                        label = "Use Isolated Sandbox for Trailers",
-                        subtitle = "Instead of opening your personal browser, click-to-play trailers will open in a strict, disposable, popup-blocked sandboxed window.",
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent,
-                        defaultValue = true,
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    MviSettingsToggle(
-                        key = DesktopDataStore.PREF_DONT_ASK_EXTERNAL_LINKS,
-                        label = "Don't Ask Again Before Opening Trailers",
-                        subtitle = "Automatically open external links in your preferred browser without showing the confirmation dialog.",
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent,
-                        defaultValue = false,
-                    )
-                }
             }
 
             SettingsGroupCard(title = "Peer-to-Peer (Torrent) Streaming") {
                 Text(
-                    "Stream high-bitrate torrents and magnet links directly in MPV using the embedded TorrServer daemon without requiring external debrid accounts.",
+                    "Stream high-bitrate torrents and magnet links directly using the embedded P2P engine.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val coroutineScope = rememberCoroutineScope()
-                var isCheckingStatus by remember { mutableStateOf(false) }
-                var daemonRunning by remember { mutableStateOf(false) }
-                var statusMessage by remember { mutableStateOf<String?>(null) }
-                val binaryExists = remember {
-                    try {
-                        com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.getBinaryFile().exists()
-                    } catch (_: Exception) { false }
-                }
+                val p2pEnabled = uiState.booleanSettings[DesktopDataStore.PREF_P2P_ENABLED]
+                    ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false)
+                var showP2pDisclaimer by remember { mutableStateOf(false) }
 
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        daemonRunning = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.isRunning()
-                    }
-                }
-
-                // Daemon Live Status Banner
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (daemonRunning) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                    } else if (binaryExists) {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                    },
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (daemonRunning) Color(0xFF10B981)
-                        else if (binaryExists) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                    ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(
-                                        color = if (daemonRunning) Color(0xFF10B981)
-                                        else if (binaryExists) Color(0xFF9E9E9E)
-                                        else MaterialTheme.colorScheme.error,
-                                        shape = CircleShape,
-                                    ),
-                            )
-                            Column {
-                                Text(
-                                    text = if (daemonRunning) "TorrServer Daemon: Running (Active)"
-                                    else if (binaryExists) "TorrServer Daemon: Standby (Auto-Starts on Play)"
-                                    else "TorrServer Daemon: Not Installed",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = statusMessage ?: if (daemonRunning) "Listening on http://127.0.0.1:8091"
-                                    else if (binaryExists) "Executable ready in %APPDATA%/CloudStreamDesktop/torrserver/bin"
-                                    else "Binary will download automatically when playing a torrent",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    if (isCheckingStatus) return@OutlinedButton
-                                    isCheckingStatus = true
-                                    statusMessage = "Testing daemon..."
-                                    coroutineScope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            val start = System.currentTimeMillis()
-                                            try {
-                                                com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.start()
-                                                val running = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.isRunning()
-                                                val elapsed = System.currentTimeMillis() - start
-                                                daemonRunning = running
-                                                statusMessage = if (running) "Online (HTTP 200 in ${elapsed}ms)" else "Failed to start"
-                                            } catch (e: Exception) {
-                                                statusMessage = "Error: ${e.message}"
-                                            } finally {
-                                                isCheckingStatus = false
-                                            }
-                                        }
-                                    }
-                                },
-                                enabled = !isCheckingStatus,
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            ) {
-                                Text(if (isCheckingStatus) "Testing..." else "Test Daemon")
-                            }
-
-                            if (daemonRunning) {
-                                Button(
-                                    onClick = {
-                                        try {
-                                            java.awt.Desktop.getDesktop().browse(java.net.URI("http://127.0.0.1:8091"))
-                                        } catch (_: Exception) {}
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                ) {
-                                    Text("Open Web UI")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                MviSettingsToggle(
-                    key = DesktopDataStore.PREF_P2P_ENABLED,
+                SettingsToggleItem(
                     label = "Enable P2P Torrent Streaming",
-                    subtitle = "Automatically boots the embedded TorrServer engine when playing magnet or torrent streams.",
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = true,
+                    subtitle = "Allows playing torrent and magnet streams. When active, your public IP address is visible to other peers in the swarm.",
+                    checked = p2pEnabled,
+                    onCheckedChange = { nextVal ->
+                        if (nextVal) {
+                            showP2pDisclaimer = true
+                        } else {
+                            viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_P2P_ENABLED, false))
+                        }
+                    },
                 )
 
-                val p2pEnabled = uiState.booleanSettings[DesktopDataStore.PREF_P2P_ENABLED] ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: true)
+                P2pTorrentDisclaimerDialog(
+                    show = showP2pDisclaimer,
+                    isSettingsContext = true,
+                    onDismiss = { showP2pDisclaimer = false },
+                    onConfirm = {
+                        showP2pDisclaimer = false
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_P2P_ENABLED, true))
+                    },
+                )
+
                 if (p2pEnabled) {
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -254,6 +123,179 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                         onEvent = viewModel::onEvent,
                         defaultValue = true,
                     )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    val tasks by AppDownloadManager.tasks.collectAsState()
+                    val torrTask = tasks.firstOrNull { it.id == "torrserver" }
+                    val scope = rememberCoroutineScope()
+                    var isInstalled by remember { mutableStateOf(DesktopTorrentEngine.binary.isInstalled()) }
+                    var fileSizeMB by remember { mutableStateOf(DesktopTorrentEngine.binary.getFileSizeMB()) }
+                    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+                    var isCheckingUpdates by remember { mutableStateOf(false) }
+                    var updateFeedbackText by remember { mutableStateOf<String?>(null) }
+
+                    LaunchedEffect(torrTask?.status) {
+                        if (torrTask?.status == TaskStatus.COMPLETED || torrTask == null) {
+                            isInstalled = DesktopTorrentEngine.binary.isInstalled()
+                            fileSizeMB = DesktopTorrentEngine.binary.getFileSizeMB()
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "TorrServer Streaming Engine",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = when {
+                                        torrTask?.status == TaskStatus.RUNNING -> "Downloading engine... ${torrTask.downloadedMB} / ${torrTask.totalMB} (${torrTask.speedFormatted})"
+                                        isInstalled -> "Installed (${com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getTorrServerInstalledVersion()} • ${String.format(java.util.Locale.ROOT, "%.1f", fileSizeMB)} MB) • Ready to stream"
+                                        else -> "Not Installed (0 MB) • Downloads on first torrent play or install now"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (updateFeedbackText != null) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = updateFeedbackText!!,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color(0xFF4CAF50),
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (torrTask?.status == TaskStatus.RUNNING) {
+                            if (torrTask.progress >= 0f) {
+                                LinearProgressIndicator(
+                                    progress = { torrTask.progress },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                )
+                            } else {
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    onClick = { AppDownloadManager.cancelDownload("torrserver") },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Text("Cancel Download")
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (!isInstalled) {
+                                    Button(
+                                        onClick = {
+                                            DesktopTorrentEngine.binary.downloadWithManager()
+                                        },
+                                    ) {
+                                        Text("Download Engine Now (~28 MB)")
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = {
+                                            isCheckingUpdates = true
+                                            updateFeedbackText = null
+                                            scope.launch {
+                                                val update = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.checkTorrServerUpdate(force = true)
+                                                isCheckingUpdates = false
+                                                if (update != null) {
+                                                    com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.showDialogForUpdate(update)
+                                                } else {
+                                                    updateFeedbackText = "✓ TorrServer is up to date (${com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getTorrServerInstalledVersion()})"
+                                                }
+                                            }
+                                        },
+                                        enabled = !isCheckingUpdates,
+                                    ) {
+                                        Text(if (isCheckingUpdates) "Checking..." else "Check for Updates")
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            DesktopTorrentEngine.binary.downloadWithManager()
+                                        },
+                                    ) {
+                                        Text("Re-download")
+                                    }
+
+                                    TextButton(
+                                        onClick = { showDeleteConfirmDialog = true },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                    ) {
+                                        Text("Uninstall")
+                                    }
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        val parent = DesktopTorrentEngine.binary.getBinaryFile().parentFile
+                                        parent.mkdirs()
+                                        try {
+                                            Desktop.getDesktop().open(parent)
+                                        } catch (e: Exception) {
+                                            AppLogger.e("Failed to open torrent engine folder", e)
+                                            AppToastManager.showError("Unable to open folder in system explorer")
+                                        }
+                                    },
+                                ) {
+                                    Text("Open Folder")
+                                }
+                            }
+                        }
+                    }
+
+                    if (showDeleteConfirmDialog) {
+                        CloudstreamAlertDialog(
+                            show = true,
+                            onDismissRequest = { showDeleteConfirmDialog = false },
+                            title = { Text("Uninstall Torrent Engine?") },
+                            text = { Text("This will delete the 28 MB TorrServer executable from your computer to free up space. You can re-download it at any time.") },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        showDeleteConfirmDialog = false
+                                        scope.launch(Dispatchers.IO) {
+                                            DesktopTorrentEngine.binary.deleteBinary()
+                                            isInstalled = DesktopTorrentEngine.binary.isInstalled()
+                                            fileSizeMB = DesktopTorrentEngine.binary.getFileSizeMB()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Text("Uninstall")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                                    Text("Cancel")
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }

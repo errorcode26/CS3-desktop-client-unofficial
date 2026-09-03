@@ -2,15 +2,15 @@ package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.desktop.repo.BookmarksRepository
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.UpsertWatchHistory
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.UpsertWatchHistory
-import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
@@ -25,6 +25,10 @@ class DetailsViewModel(
     val preloadedBg: String? = null,
     cachedResponse: LoadResponse? = DetailsCache.get(url),
     cachedUiState: DetailsUiState? = EnrichedDetailsCache.get(url),
+    private val getWatchHistory: GetWatchHistory = AppContainerHolder.container.getWatchHistory,
+    private val upsertWatchHistory: UpsertWatchHistory = AppContainerHolder.container.upsertWatchHistory,
+    private val removeWatchHistory: RemoveWatchHistory = AppContainerHolder.container.removeWatchHistory,
+    private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
 ) : BaseMviViewModel<DetailsUiState, DetailsUiEvent, DetailsUiEffect>(
     initialState = cachedUiState?.copy(
         fetchFailed = false,
@@ -52,10 +56,6 @@ class DetailsViewModel(
         },
     ),
 ) {
-    private val watchHistoryRepo = WatchHistoryRepositoryImpl()
-    private val getWatchHistory = GetWatchHistory(watchHistoryRepo)
-    private val upsertWatchHistory = UpsertWatchHistory(watchHistoryRepo)
-    private val removeWatchHistory = RemoveWatchHistory(watchHistoryRepo)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -87,7 +87,7 @@ class DetailsViewModel(
             }
         }
         viewModelScope.launch {
-            BookmarksRepository.bookmarksFlow.collect { bookmarks ->
+            getBookmarks.subscribeAll().collect { bookmarks ->
                 updateState { copy(bookmarks = bookmarks) }
             }
         }
@@ -665,7 +665,9 @@ class DetailsViewModel(
     }
 
     private fun handlePlayRequest(data: Triple<MainAPI, String, WatchHistory>, forceAutoPlay: Boolean? = null) {
-        val shouldAutoPlay = forceAutoPlay ?: uiState.value.autoPlayEnabled
+        val isTorrent = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentProvider(data.first)
+        val isP2pOn = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isP2pEnabled
+        val shouldAutoPlay = (forceAutoPlay ?: uiState.value.autoPlayEnabled) && (!isTorrent || isP2pOn)
         if (shouldAutoPlay) {
             val linkHistory = data.third
             val epTitle = buildString {
