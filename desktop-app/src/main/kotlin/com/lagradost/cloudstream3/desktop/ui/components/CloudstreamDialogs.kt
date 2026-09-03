@@ -73,8 +73,9 @@ fun CloudstreamAlertDialog(
     }
 
     if (isVisible) {
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
         val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-        val isAmoled = appThemeBackground == "Pure Black"
+        val isAmoled = amoledMode || appThemeBackground == "Pure Black"
 
         Dialog(
             onDismissRequest = onDismissRequest,

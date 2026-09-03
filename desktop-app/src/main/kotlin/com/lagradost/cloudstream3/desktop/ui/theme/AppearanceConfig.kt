@@ -274,7 +274,7 @@ object AppearanceConfig {
     val isLightMode: StateFlow<Boolean> = _isLightMode.asStateFlow()
     private val _gridScale = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal")
     val gridScale: StateFlow<String> = _gridScale.asStateFlow()
-    private val _ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true)
+    private val _ambientGlowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: false)
     val ambientGlowEnabled: StateFlow<Boolean> = _ambientGlowEnabled.asStateFlow()
     private val _ambientGlowIntensity = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f)
     val ambientGlowIntensity: StateFlow<Float> = _ambientGlowIntensity.asStateFlow()
@@ -292,7 +292,7 @@ object AppearanceConfig {
     val navigationStyle: StateFlow<NavigationStyle> = _navigationStyle.asStateFlow()
     private val _dockPosition = MutableStateFlow(DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left"))
     val dockPosition: StateFlow<DockPosition> = _dockPosition.asStateFlow()
-    private val _selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter")
+    private val _selectedFont = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_FONT) ?: "Plus Jakarta Sans")
     val selectedFont: StateFlow<String> = _selectedFont.asStateFlow()
     private val _screensaverEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true)
     val screensaverEnabled: StateFlow<Boolean> = _screensaverEnabled.asStateFlow()
@@ -308,7 +308,7 @@ object AppearanceConfig {
     val cleanModeEnabled: StateFlow<Boolean> = _cleanModeEnabled.asStateFlow()
     private val _hideProviderNames = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_PROVIDER_NAMES) ?: true)
     val hideProviderNames: StateFlow<Boolean> = _hideProviderNames.asStateFlow()
-    private val _hideDetailsSource = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_DETAILS_SOURCE) ?: true)
+    private val _hideDetailsSource = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_DETAILS_SOURCE) ?: false)
     val hideDetailsSource: StateFlow<Boolean> = _hideDetailsSource.asStateFlow()
     private val _hideStreamProviders = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_HIDE_STREAM_PROVIDERS) ?: false)
     val hideStreamProviders: StateFlow<Boolean> = _hideStreamProviders.asStateFlow()
@@ -423,8 +423,10 @@ object AppearanceConfig {
             ThemeMode.AMOLED -> {
                 _isLightMode.value = false
                 _amoledMode.value = true
+                _appThemeBackground.value = "Pure Black"
                 DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
                 DesktopDataStore.setKey(PREF_AMOLED_MODE, true)
+                DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, "Pure Black")
             }
         }
     }
@@ -433,7 +435,9 @@ object AppearanceConfig {
         _amoledMode.value = enabled
         if (enabled) {
             _isLightMode.value = false
+            _appThemeBackground.value = "Pure Black"
             DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
+            DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, "Pure Black")
         }
         DesktopDataStore.setKey(PREF_AMOLED_MODE, enabled)
     }
@@ -598,7 +602,6 @@ object AppearanceConfig {
     fun setCleanModeEnabled(enabled: Boolean) {
         _cleanModeEnabled.value = enabled
         _hideProviderNames.value = enabled
-        _hideDetailsSource.value = enabled
         _hideStreamProviders.value = enabled
         if (enabled) {
             _providerBadgeDisplayMode.value = ProviderBadgeDisplayMode.HIDDEN
@@ -607,7 +610,6 @@ object AppearanceConfig {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             DesktopDataStore.setKey(PREF_CLEAN_MODE_ENABLED, enabled)
             DesktopDataStore.setKey(PREF_HIDE_PROVIDER_NAMES, enabled)
-            DesktopDataStore.setKey(PREF_HIDE_DETAILS_SOURCE, enabled)
             DesktopDataStore.setKey(PREF_HIDE_STREAM_PROVIDERS, enabled)
             if (enabled) {
                 DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, ProviderBadgeDisplayMode.HIDDEN.name)
@@ -964,12 +966,16 @@ object AppearanceConfig {
         _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
         _dockDisabledItems.value = DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
-        _selectedFont.value = DesktopDataStore.getKey<String>(PREF_FONT) ?: "Inter"
+        _selectedFont.value = DesktopDataStore.getKey<String>(PREF_FONT) ?: "Plus Jakarta Sans"
         _screensaverEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_SCREENSAVER_ENABLED) ?: true
         _heroAutoSlideDelaySeconds.value = DesktopDataStore.getKey<Int>(PREF_HERO_AUTO_SLIDE_DELAY) ?: 10
         _heroBannerStyle.value = HeroBannerStyle.fromString(DesktopDataStore.getKey<String>(PREF_HERO_BANNER_STYLE))
         _continueWatchingStyle.value = ContinueWatchingStyle.fromString(DesktopDataStore.getKey<String>(PREF_CONTINUE_WATCHING_STYLE))
         _topBarProviderStyle.value = TopBarProviderStyle.fromString(DesktopDataStore.getKey<String>(PREF_TOP_BAR_PROVIDER_STYLE))
+        _cleanModeEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_CLEAN_MODE_ENABLED) ?: false
+        _hideProviderNames.value = DesktopDataStore.getKey<Boolean>(PREF_HIDE_PROVIDER_NAMES) ?: true
+        _hideDetailsSource.value = DesktopDataStore.getKey<Boolean>(PREF_HIDE_DETAILS_SOURCE) ?: false
+        _hideStreamProviders.value = DesktopDataStore.getKey<Boolean>(PREF_HIDE_STREAM_PROVIDERS) ?: false
         _providerBadgeDisplayMode.value = ProviderBadgeDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_PROVIDER_BADGE_DISPLAY_MODE))
         _posterHoverGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_POSTER_HOVER_GLOW_ENABLED) ?: true
         _posterTitlePosition.value = PosterTitlePosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TITLE_POSITION))

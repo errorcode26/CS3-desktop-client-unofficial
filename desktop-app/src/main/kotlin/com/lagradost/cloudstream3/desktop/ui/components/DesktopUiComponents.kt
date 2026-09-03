@@ -55,27 +55,15 @@ fun darkDesktopColors(
     customBgHex: String = "#0C0C16",
 ): DesktopThemeColors {
     val (bg, surface, surfaceElevated) = if (isAmoled) {
-        Triple(Color.Black, Color(0xFF0C0C0E), Color(0xFF16161A))
+        Triple(Color.Black, Color.Black, Color(0xFF0A0A0A))
     } else {
         when (backgroundTheme) {
-            "Custom" -> {
-                val base = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customBgHex, Color(0xFF0C0C16))
-                fun Color.lighten(fraction: Float): Color {
-                    return Color(
-                        red = (this.red + (1f - this.red) * fraction).coerceIn(0f, 1f),
-                        green = (this.green + (1f - this.green) * fraction).coerceIn(0f, 1f),
-                        blue = (this.blue + (1f - this.blue) * fraction).coerceIn(0f, 1f),
-                        alpha = this.alpha,
-                    )
-                }
-                Triple(base, base.lighten(0.04f), base.lighten(0.08f))
-            }
             "Midnight Blue", "Midnight" -> Triple(Color(0xFF0B1120), Color(0xFF131B2D), Color(0xFF1E293B))
-            "Slate Grey", "Slate" -> Triple(Color(0xFF18181B), Color(0xFF27272A), Color(0xFF3F3F46))
-            "Mocha" -> Triple(Color(0xFF1E1815), Color(0xFF2C2420), Color(0xFF3B302B))
-            "Forest" -> Triple(Color(0xFF0F1714), Color(0xFF1B2722), Color(0xFF26372E))
-            "Deep Purple" -> Triple(Color(0xFF130C1C), Color(0xFF1F162E), Color(0xFF2D2043))
-            "Pure Black" -> Triple(Color.Black, Color(0xFF0C0C0E), Color(0xFF16161A))
+            "Slate Grey", "Slate", "Dark Slate" -> Triple(Color(0xFF18181B), Color(0xFF27272A), Color(0xFF3F3F46))
+            "Mocha", "Warm Mocha" -> Triple(Color(0xFF1E1815), Color(0xFF2C2420), Color(0xFF3B302B))
+            "Forest", "Deep Forest" -> Triple(Color(0xFF0F1714), Color(0xFF1B2722), Color(0xFF26372E))
+            "Deep Purple", "Deep Amethyst", "Amethyst" -> Triple(Color(0xFF130C1C), Color(0xFF1F162E), Color(0xFF2D2043))
+            "Pure Black" -> Triple(Color.Black, Color.Black, Color(0xFF0A0A0A))
             else -> Triple(Color(0xFF0C0C16), Color(0xFF161624), Color(0xFF20202E)) // Navy
         }
     }
@@ -88,42 +76,26 @@ fun darkDesktopColors(
         SurfaceElevated = surfaceElevated,
         TextPrimary = Color.White,
         TextMuted = Color.White.copy(alpha = 0.7f),
-        Divider = if (isAmoled) Color(0xFF222228) else Color(0xFF2A2A38),
+        Divider = if (isAmoled) Color(0xFF1C1C22) else Color(0xFF2A2A38),
     )
 }
 
 fun lightDesktopColors(accent: Color, backgroundTheme: String, customBgHex: String = "#0C0C16"): DesktopThemeColors {
     val (bg, surface, surfaceElevated) = when (backgroundTheme) {
-        "Custom" -> {
-            val base = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customBgHex, Color(0xFFF8FAFC))
-            fun Color.darken(fraction: Float): Color {
-                return Color(
-                    red = (this.red * (1f - fraction)).coerceIn(0f, 1f),
-                    green = (this.green * (1f - fraction)).coerceIn(0f, 1f),
-                    blue = (this.blue * (1f - fraction)).coerceIn(0f, 1f),
-                    alpha = this.alpha,
-                )
-            }
-            Triple(base, base.darken(0.04f), base.darken(0.08f))
-        }
-        "Midnight Blue" -> Triple(Color(0xFFE0E7FF), Color(0xFFC7D2FE), Color(0xFFA5B4FC))
-        "Slate Grey" -> Triple(Color(0xFFF1F5F9), Color(0xFFE2E8F0), Color(0xFFCBD5E1))
-        "Mocha" -> Triple(Color(0xFFF5F5F4), Color(0xFFE7E5E4), Color(0xFFD6D3D1))
-        "Forest" -> Triple(Color(0xFFF0FDF4), Color(0xFFDCFCE7), Color(0xFFBBF7D0))
-        "Deep Purple" -> Triple(Color(0xFFFAF5FF), Color(0xFFF3E8FF), Color(0xFFE9D5FF))
-        "Pure Black" -> Triple(Color.White, Color(0xFFF5F5F5), Color(0xFFE5E5E5)) // Light mode equivalent
-        else -> Triple(Color(0xFFF8FAFC), Color(0xFFFFFFFF), Color(0xFFF1F5F9)) // Slate 50 default
+        "Warm Mocha", "Mocha" -> Triple(Color(0xFFFBF9F7), Color(0xFFFFFFFF), Color(0xFFF3EEEA))
+        "Dark Slate", "Slate", "Slate Grey" -> Triple(Color(0xFFF1F5F9), Color(0xFFFFFFFF), Color(0xFFE2E8F0))
+        else -> Triple(Color(0xFFF8FAFC), Color(0xFFFFFFFF), Color(0xFFF1F5F9)) // Clean Slate 50 default
     }
 
     return DesktopThemeColors(
         Accent = accent,
-        AccentSoft = accent.copy(alpha = 0.15f),
+        AccentSoft = accent.copy(alpha = 0.12f),
         Background = bg,
         SurfaceCard = surface,
         SurfaceElevated = surfaceElevated,
-        TextPrimary = Color.Black.copy(alpha = 0.87f),
-        TextMuted = Color.Black.copy(alpha = 0.6f),
-        Divider = Color.Black.copy(alpha = 0.1f),
+        TextPrimary = Color(0xFF0F172A),
+        TextMuted = Color(0xFF475569),
+        Divider = Color(0xFFE2E8F0),
     )
 }
 

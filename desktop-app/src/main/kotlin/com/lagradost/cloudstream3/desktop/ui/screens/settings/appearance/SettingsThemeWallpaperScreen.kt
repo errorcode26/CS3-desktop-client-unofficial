@@ -34,12 +34,11 @@ fun SettingsThemeWallpaperScreen() {
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val amoledMode by AppearanceConfig.amoledMode.collectAsState()
     val themeAccent by AppearanceConfig.themeAccent.collectAsState()
-    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
     val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
     val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
     val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
     val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
@@ -57,70 +56,32 @@ fun SettingsThemeWallpaperScreen() {
     val userInstalledFonts by CustomFontManager.userInstalledFonts.collectAsState()
     var fontInstallFeedback by remember { mutableStateOf<String?>(null) }
 
-    var showCustomAccentDialog by remember { mutableStateOf(false) }
-    var showCustomBgDialog by remember { mutableStateOf(false) }
-
-    val presetAccents = remember {
+    val curatedAccents = remember {
         listOf(
             "Purple" to Color(0xFF7C6BFF),
             "Blue" to Color(0xFF3B82F6),
+            "Cyan" to Color(0xFF06B6D4),
             "Green" to Color(0xFF10B981),
+            "Amber" to Color(0xFFF59E0B),
+            "Orange" to Color(0xFFF97316),
             "Red" to Color(0xFFEF4444),
-            "Orange" to Color(0xFFF59E0B),
+            "Rose" to Color(0xFFEC4899),
+            "Ice" to Color(0xFF94A3B8),
         )
     }
 
-    val curatedAccentColors = remember {
+    val curatedBackgrounds = remember {
         listOf(
-            "Neon Pink" to "#FF007F",
-            "Cyber Cyan" to "#00F0FF",
-            "Emerald" to "#10B981",
-            "Electric Violet" to "#8B5CF6",
-            "Sunset Gold" to "#F59E0B",
-            "Crimson" to "#EF4444",
-            "Mint" to "#6EE7B7",
-            "Lavender" to "#C084FC",
-        )
-    }
-
-    val curatedBackgroundColors = remember {
-        listOf(
-            "Deep Carbon" to "#0E0E10",
-            "Dark Slate" to "#18181B",
-            "Midnight Navy" to "#0B1120",
-            "Dark Mocha" to "#1E1815",
-            "Deep Forest" to "#0F1714",
-            "Deep Amethyst" to "#130C1C",
+            "Navy" to ("Deep Navy" to Color(0xFF0C0C16)),
+            "Midnight" to ("Midnight" to Color(0xFF0B1120)),
+            "Slate" to ("Dark Slate" to Color(0xFF18181B)),
+            "Mocha" to ("Warm Mocha" to Color(0xFF1E1815)),
+            "Forest" to ("Deep Forest" to Color(0xFF0F1714)),
+            "Pure Black" to ("Pure Black" to Color.Black),
         )
     }
 
     val scrollState = rememberScrollState()
-
-    CustomColorStudioDialog(
-        show = showCustomAccentDialog,
-        title = "Custom Accent Color Studio",
-        initialHex = customThemeAccent,
-        defaultHex = "#7C6BFF",
-        curatedColors = curatedAccentColors,
-        onDismiss = { showCustomAccentDialog = false },
-        onColorConfirmed = { hex ->
-            AppearanceConfig.setCustomThemeAccent(hex)
-            AppearanceConfig.setThemeAccent("Custom")
-        },
-    )
-
-    CustomColorStudioDialog(
-        show = showCustomBgDialog,
-        title = "Custom Background Tone Studio",
-        initialHex = customAppThemeBackground,
-        defaultHex = "#0C0C16",
-        curatedColors = curatedBackgroundColors,
-        onDismiss = { showCustomBgDialog = false },
-        onColorConfirmed = { hex ->
-            AppearanceConfig.setCustomAppThemeBackground(hex)
-            AppearanceConfig.setAppThemeBackground("Custom")
-        },
-    )
 
     Column(
         modifier = Modifier
@@ -205,11 +166,11 @@ fun SettingsThemeWallpaperScreen() {
                 Text("Primary tint used across buttons, indicators, and focus highlights", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 ) {
-                    presetAccents.forEach { (name, color) ->
+                    curatedAccents.forEach { (name, color) ->
                         val isSelected = themeAccent == name
                         Box(
                             modifier = Modifier
@@ -218,59 +179,15 @@ fun SettingsThemeWallpaperScreen() {
                                 .background(color)
                                 .border(
                                     width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.White.copy(alpha = 0.25f),
                                     shape = CircleShape,
                                 )
                                 .clickable { AppearanceConfig.setThemeAccent(name) },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Check, contentDescription = name, tint = Color.White, modifier = Modifier.size(18.dp))
                             }
-                        }
-                    }
-
-                    Spacer(Modifier.width(4.dp))
-
-                    val isCustomAccent = themeAccent == "Custom"
-                    val customColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customThemeAccent, Color(0xFF7C6BFF))
-
-                    Surface(
-                        onClick = {
-                            showCustomAccentDialog = true
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isCustomAccent) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        border = BorderStroke(
-                            width = if (isCustomAccent) 1.5.dp else 1.dp,
-                            color = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                        ),
-                        modifier = Modifier.height(38.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(customColor)
-                                    .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
-                            )
-                            Text(
-                                text = if (isCustomAccent) "Custom ($customThemeAccent)" else "Custom Color Picker...",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (isCustomAccent) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Edit Custom Color",
-                                tint = if (isCustomAccent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(14.dp),
-                            )
                         }
                     }
                 }
@@ -278,72 +195,54 @@ fun SettingsThemeWallpaperScreen() {
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            if (currentThemeMode == ThemeMode.AMOLED) {
-                SettingsDropdownItem(
-                    label = "App Background Palette",
-                    subtitle = "Locked to pure #000000 black in AMOLED mode",
-                    options = listOf("Pure Black" to "Pure Black (#000000)"),
-                    currentValue = "Pure Black",
-                    enabled = false,
-                    onSelectionChanged = { },
-                )
-            } else {
-                SettingsDropdownItem(
-                    label = "App Background Palette",
-                    subtitle = "Base canvas color tone across all screens",
-                    options = listOf(
-                        "Navy" to "Deep Navy",
-                        "Midnight" to "Midnight Blue",
-                        "Slate" to "Dark Slate",
-                        "Mocha" to "Warm Mocha",
-                        "Pure Black" to "Pure Black (#000000)",
-                        "Custom" to "Custom Hex Tint",
-                    ),
-                    currentValue = appThemeBackground,
-                    onSelectionChanged = {
-                        AppearanceConfig.setAppThemeBackground(it)
-                        if (it == "Custom") {
-                            showCustomBgDialog = true
-                        }
-                    },
-                )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("App Background Palette", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("Base canvas color tone across all screens", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                if (appThemeBackground == "Custom") {
+                if (currentThemeMode == ThemeMode.AMOLED) {
+                    Text(
+                        text = "Locked to 100% Pure Black (#000000) in AMOLED mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                } else if (currentThemeMode == ThemeMode.LIGHT) {
+                    Text(
+                        text = "Calibrated to clean high-contrast neutral day palette in Light mode",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                } else {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Surface(
-                            onClick = { showCustomBgDialog = true },
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                            modifier = Modifier.height(36.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(horizontal = 12.dp),
+                        curatedBackgrounds.forEach { (key, pair) ->
+                            val (label, color) = pair
+                            val isSelected = appThemeBackground == key
+                            Surface(
+                                onClick = { AppearanceConfig.setAppThemeBackground(key) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = color,
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.20f),
+                                ),
+                                modifier = Modifier.weight(1f).height(44.dp),
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customAppThemeBackground, Color(0xFF0C0C16)))
-                                        .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
-                                )
-                                Text(
-                                    text = "Custom Background ($customAppThemeBackground)",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Edit Background Color",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(14.dp),
-                                )
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+                                        maxLines = 1,
+                                    )
+                                }
                             }
                         }
                     }
@@ -357,6 +256,7 @@ fun SettingsThemeWallpaperScreen() {
                 subtitle = "Font family applied globally across all titles, cards, and UI components",
                 options = availableFonts.map { it to it },
                 currentValue = selectedFont,
+                fontFamilyForOption = { com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(it) },
                 onSelectionChanged = { AppearanceConfig.setSelectedFont(it) },
             )
 
@@ -511,7 +411,16 @@ fun SettingsThemeWallpaperScreen() {
                 onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) },
             )
 
-            if (ambientGlowEnabled) {
+            if (isLightMode || amoledMode) {
+                Text(
+                    text = if (isLightMode) "Ambient glow is bypassed in Light mode to keep the day canvas crisp and clean" else "Ambient glow is bypassed in AMOLED mode to maintain pure 0-nit black",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
+            }
+
+            if (ambientGlowEnabled && !isLightMode && !amoledMode) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 SettingsSliderItem(
                     label = "Ambient Glow Intensity",
@@ -521,6 +430,50 @@ fun SettingsThemeWallpaperScreen() {
                     valueRange = 0.05f..0.60f,
                     steps = 11,
                 )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Glow Projection Corners & Positions",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Select one or more screen positions and corners to project ambient glow",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    val positions = listOf(
+                        "Top Left" to "Top Left Corner",
+                        "Top Right" to "Top Right Corner",
+                        "Center" to "Center",
+                        "Bottom Left" to "Bottom Left Corner",
+                        "Bottom Right" to "Bottom Right Corner",
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        positions.forEach { (posKey, _) ->
+                            val isSelected = ambientGlowPositions.contains(posKey)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { AppearanceConfig.toggleAmbientGlowPosition(posKey) },
+                                label = { Text(posKey, style = MaterialTheme.typography.labelSmall) },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null,
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
 

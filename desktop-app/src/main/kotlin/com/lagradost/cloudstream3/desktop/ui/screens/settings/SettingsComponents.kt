@@ -15,6 +15,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
@@ -85,6 +86,8 @@ fun SettingsGroupCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val isLightMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.amoledMode.collectAsState()
     val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
 
     Column(modifier = modifier.fillMaxWidth().highlightAndScrollIfRequested(title)) {
@@ -97,9 +100,20 @@ fun SettingsGroupCard(
         )
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-            shadowElevation = 0.dp,
+            color = when {
+                isLightMode -> Color.White
+                amoledMode -> Color.Black
+                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
+            },
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                when {
+                    isLightMode -> Color(0xFFE2E8F0)
+                    amoledMode -> Color.White.copy(alpha = 0.12f)
+                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                },
+            ),
+            shadowElevation = if (isLightMode) 1.dp else 0.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -161,6 +175,7 @@ fun <T> SettingsDropdownItem(
     options: List<Pair<T, String>>,
     currentValue: T,
     enabled: Boolean = true,
+    fontFamilyForOption: ((T) -> FontFamily?)? = null,
     onSelectionChanged: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -191,12 +206,21 @@ fun <T> SettingsDropdownItem(
                 onClick = { expanded = true },
                 enabled = enabled,
             ) {
-                Text(options.find { it.first == currentValue }?.second ?: currentValue.toString())
+                val currentTitle = options.find { it.first == currentValue }?.second ?: currentValue.toString()
+                Text(
+                    text = currentTitle,
+                    fontFamily = fontFamilyForOption?.invoke(currentValue),
+                )
             }
             AppDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { (value, title) ->
                     DropdownMenuItem(
-                        text = { Text(title) },
+                        text = {
+                            Text(
+                                text = title,
+                                fontFamily = fontFamilyForOption?.invoke(value),
+                            )
+                        },
                         onClick = {
                             onSelectionChanged(value)
                             expanded = false
@@ -371,6 +395,7 @@ inline fun <reified T> MviSettingsDropdown(
     uiState: SettingsUiState,
     crossinline onEvent: (SettingsUiEvent) -> Unit,
     defaultValue: T,
+    noinline fontFamilyForOption: ((T) -> FontFamily?)? = null,
 ) {
     val initialValue = remember(key) { DesktopDataStore.getKey<T>(key) ?: defaultValue }
 
@@ -388,6 +413,7 @@ inline fun <reified T> MviSettingsDropdown(
         subtitle = subtitle,
         options = options,
         currentValue = currentValue,
+        fontFamilyForOption = fontFamilyForOption,
         onSelectionChanged = { newValue ->
             when (newValue) {
                 is String -> onEvent(SettingsUiEvent.OnUpdateString(key, newValue))

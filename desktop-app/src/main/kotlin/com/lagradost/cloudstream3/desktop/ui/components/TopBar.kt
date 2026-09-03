@@ -94,26 +94,35 @@ fun TopBar(
             amoledMode -> Color.Black
             else -> Color(0xFF14141A)
         }
-        val glassGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-            colors = listOf(
-                glassBase.copy(alpha = if (amoledMode) 0.88f else 0.75f),
-                glassBase.copy(alpha = if (amoledMode) 0.75f else 0.60f),
-            ),
-        )
-        val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
-            colors = listOf(
-                if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
-                if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f),
-            ),
-        )
+        val glassGradient = if (amoledMode) {
+            androidx.compose.ui.graphics.SolidColor(Color.Black)
+        } else {
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                colors = listOf(
+                    glassBase.copy(alpha = 0.75f),
+                    glassBase.copy(alpha = 0.60f),
+                ),
+            )
+        }
+        val borderGradient = if (amoledMode) {
+            androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.12f))
+        } else {
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                colors = listOf(
+                    if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                    if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f),
+                ),
+            )
+        }
 
-        val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp) {
+        val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp && !amoledMode) {
             Modifier.hazeEffect(
                 state = hazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
-                    backgroundColor = tintColor.copy(alpha = targetTintAlpha),
-                    tint = dev.chrisbanes.haze.HazeTint(tintColor.copy(alpha = targetTintAlpha)),
+                    backgroundColor = tintColor.copy(alpha = 0.65f),
+                    tint = dev.chrisbanes.haze.HazeTint(tintColor.copy(alpha = 0.65f)),
                     blurRadius = targetBlurRadius,
+                    noiseFactor = 0f,
                 ),
             )
         } else {
@@ -185,12 +194,12 @@ fun TopBar(
                                 )
                             }
                         } else {
-                            val topDockHazeModifier = if (hazeState != null) {
+                            val topDockHazeModifier = if (hazeState != null && !amoledMode) {
                                 Modifier.hazeEffect(
                                     state = hazeState,
                                     style = dev.chrisbanes.haze.HazeStyle(
-                                        backgroundColor = glassBase.copy(alpha = if (amoledMode) 0.85f else 0.65f),
-                                        tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = if (amoledMode) 0.85f else 0.65f)),
+                                        backgroundColor = glassBase.copy(alpha = 0.65f),
+                                        tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = 0.65f)),
                                         blurRadius = 24.dp,
                                     ),
                                 )
@@ -242,6 +251,8 @@ fun TopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp),
                 ) {
+                    TopBarDownloadPill()
+
                     WindowControlsPill(
                         isHome = isHome,
                         isCompact = isCompact,

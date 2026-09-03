@@ -108,7 +108,7 @@ fun DesktopAppShell(
                             val radius = size.width.coerceAtLeast(size.height) * 0.8f
 
                             // 1. Base Ambient Glows (from positions)
-                            val glowBrushes = if (ambientGlowEnabled && !isLightMode) {
+                            val glowBrushes = if (ambientGlowEnabled && !isLightMode && !amoledMode) {
                                 ambientGlowPositions.map { position ->
                                     val yOffset = 0f
                                     val centerOffset = when (position) {
@@ -137,7 +137,7 @@ fun DesktopAppShell(
                                 emptyList()
                             }
 
-                            // 2. Premium Background Gradient
+                            // Background gradient
                             val bgGradientBrush = if (backgroundGradientEnabled && !amoledMode) {
                                 val gradientAlpha = backgroundGradientIntensity
                                 val endColor = if (isLightMode) Color.White.copy(alpha = gradientAlpha) else Color.Black.copy(alpha = gradientAlpha)
@@ -471,7 +471,7 @@ private fun NavigationDock(
     }
 
     if (isSeamless) {
-        // ── Seamless Edge-to-Edge Navigation Bar Mode ──
+        // Navigation bar mode
         val barModifier = when {
             isBottom -> Modifier.fillMaxWidth().height(56.dp)
             isTop -> Modifier.fillMaxWidth().height(56.dp)
@@ -479,12 +479,12 @@ private fun NavigationDock(
             else -> Modifier.fillMaxHeight().width(64.dp)
         }
 
-        val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom) {
+        val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode) {
             Modifier.hazeEffect(
                 state = dockHazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
-                    backgroundColor = barBase.copy(alpha = if (amoledMode) 0.85f else 0.65f),
-                    tint = dev.chrisbanes.haze.HazeTint(barBase.copy(alpha = if (amoledMode) 0.85f else 0.65f)),
+                    backgroundColor = barBase.copy(alpha = 0.65f),
+                    tint = dev.chrisbanes.haze.HazeTint(barBase.copy(alpha = 0.65f)),
                     blurRadius = 24.dp,
                 ),
             )
@@ -497,7 +497,7 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) Color.Black.copy(0.08f) else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
                         start = Offset(0f, 0f),
                         end = Offset(size.width, 0f),
                         strokeWidth = 1.dp.toPx(),
@@ -508,7 +508,7 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) Color.Black.copy(0.08f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) Color.Black.copy(0.08f) else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
                         start = Offset(0f, size.height),
                         end = Offset(size.width, size.height),
                         strokeWidth = 1.dp.toPx(),
@@ -518,9 +518,12 @@ private fun NavigationDock(
             else -> Modifier
         }
 
+        val seamlessBackgroundModifier = if (isTopOrBottom) Modifier.background(barBase) else Modifier
+
         Box(
             modifier = modifier
                 .then(barModifier)
+                .then(seamlessBackgroundModifier)
                 .then(seamlessHazeModifier)
                 .then(borderModifier)
                 .pointerInput(Unit) {
@@ -579,12 +582,12 @@ private fun NavigationDock(
             ),
         )
 
-        val dockHazeModifier = if (dockHazeState != null && isTopOrBottom) {
+        val dockHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode) {
             Modifier.hazeEffect(
                 state = dockHazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
-                    backgroundColor = glassBase.copy(alpha = if (amoledMode) 0.65f else 0.45f),
-                    tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = if (amoledMode) 0.65f else 0.45f)),
+                    backgroundColor = glassBase.copy(alpha = 0.45f),
+                    tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = 0.45f)),
                     blurRadius = 20.dp,
                 ),
             )

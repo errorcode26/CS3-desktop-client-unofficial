@@ -27,11 +27,15 @@ fun parseHexColor(hexString: String, fallback: Color): Color {
 }
 
 fun accentColorFromName(name: String, customHex: String = "#7C6BFF"): Color = when (name) {
-    "Custom" -> parseHexColor(customHex, Color(0xFF7C6BFF))
     "Blue" -> Color(0xFF3B82F6)
+    "Cyan" -> Color(0xFF06B6D4)
     "Green" -> Color(0xFF10B981)
+    "Amber" -> Color(0xFFF59E0B)
+    "Orange" -> Color(0xFFF97316)
     "Red" -> Color(0xFFEF4444)
-    "Orange" -> Color(0xFFF59E0B)
+    "Rose" -> Color(0xFFEC4899)
+    "Ice" -> Color(0xFF94A3B8)
+    "Custom" -> parseHexColor(customHex, Color(0xFF7C6BFF))
     else -> Color(0xFF7C6BFF) // Purple
 }
 
@@ -97,6 +101,8 @@ fun buildColorScheme(primaryColor: Color, desktopColors: DesktopThemeColors, isL
             onSurfaceVariant = desktopColors.TextMuted,
             background = desktopColors.Background,
             onBackground = desktopColors.TextPrimary,
+            outline = Color(0xFFCBD5E1),
+            outlineVariant = Color(0xFFE2E8F0),
             error = Color(0xFFEF4444),
             onError = Color.White,
         )
@@ -110,6 +116,8 @@ fun buildColorScheme(primaryColor: Color, desktopColors: DesktopThemeColors, isL
             onSurfaceVariant = desktopColors.TextMuted,
             background = desktopColors.Background,
             onBackground = desktopColors.TextPrimary,
+            outline = Color.White.copy(alpha = 0.22f),
+            outlineVariant = Color.White.copy(alpha = 0.12f),
             error = Color(0xFFEF4444),
             onError = Color.White,
         )
