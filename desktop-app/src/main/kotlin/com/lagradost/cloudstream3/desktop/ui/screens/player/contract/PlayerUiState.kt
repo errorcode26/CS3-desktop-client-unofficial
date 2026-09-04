@@ -52,6 +52,9 @@ data class PlayerUiState(
 
     val episodes: List<Episode> get() {
         val currentData = launchData ?: return emptyList()
+        if (currentData.episodes.isNotEmpty()) {
+            return currentData.episodes
+        }
         return when (val resp = currentData.loadResponse) {
             is com.lagradost.cloudstream3.TvSeriesLoadResponse -> resp.episodes
             is com.lagradost.cloudstream3.AnimeLoadResponse -> {

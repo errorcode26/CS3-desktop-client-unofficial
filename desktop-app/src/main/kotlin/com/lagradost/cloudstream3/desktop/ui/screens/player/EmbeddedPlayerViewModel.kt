@@ -7,7 +7,6 @@ import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
-import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerError
@@ -40,8 +39,7 @@ class EmbeddedPlayerViewModel(
     private var saveJob: Job? = null
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
-    private var preScrapeJob: Job? = null
-    private var lastPreScrapedEpisodeId: String? = null
+    private val scraper = PlayerStreamScraper(viewModelScope)
 
     private val linkRetries = mutableMapOf<String, Int>()
     companion object {
@@ -80,8 +78,8 @@ class EmbeddedPlayerViewModel(
                 val percentage = if (durSec > 0) currentPosSec.toFloat() / durSec.toFloat() else 0f
                 if (percentage >= 0.88f && uiState.value.hasNextEpisode && uiState.value.autoPlayEnabled) {
                     triggerBackgroundPreScrape()
-                } else if (percentage < 0.85f && preScrapeJob?.isActive == true) {
-                    preScrapeJob?.cancel()
+                } else if (percentage < 0.85f && scraper.isPreScrapeActive) {
+                    scraper.cancelPreScrape()
                 }
 
                 if (currentData != null) {
@@ -131,7 +129,7 @@ class EmbeddedPlayerViewModel(
     }
 
     override fun dispose() {
-        preScrapeJob?.cancel()
+        scraper.cancelPreScrape()
         countdownJob?.cancel()
         timeoutJob?.cancel()
         com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.onPlayerStopped()
@@ -150,42 +148,44 @@ class EmbeddedPlayerViewModel(
                 screenshotUrl = "file:///$screenshotPath",
                 updateTime = System.currentTimeMillis(),
             )
-            DesktopDataStore.setLastWatched(updatedHistory)
+            viewModelScope.launch(Dispatchers.IO) {
+                savePlaybackProgress.await(updatedHistory)
 
-            val percentage = currentPosSec.toFloat() / currentDurSec.toFloat()
-            if (percentage >= 0.90f && uiState.value.hasNextEpisode) {
-                val nextEp = uiState.value.nextEpisodeData
-                if (nextEp != null) {
-                    val existingNext = DesktopDataStore.getEpisodeWatched(
-                        parentId = updatedHistory.parentId,
-                        episodeId = nextEp.data,
-                    )
-                    if (existingNext == null) {
-                        val nextEpHistory = WatchHistory(
+                val percentage = currentPosSec.toFloat() / currentDurSec.toFloat()
+                if (percentage >= 0.90f && uiState.value.hasNextEpisode) {
+                    val nextEp = uiState.value.nextEpisodeData
+                    if (nextEp != null) {
+                        val existingNext = DesktopDataStore.getEpisodeWatched(
                             parentId = updatedHistory.parentId,
-                            showName = updatedHistory.showName,
-                            showUrl = updatedHistory.showUrl,
-                            apiName = updatedHistory.apiName,
-                            posterUrl = updatedHistory.posterUrl,
-                            episodeThumbnailUrl = nextEp.posterUrl ?: updatedHistory.posterUrl,
-                            screenshotUrl = null,
-                            episode = nextEp.episode,
-                            season = nextEp.season,
                             episodeId = nextEp.data,
-                            position = 0,
-                            duration = 0,
-                            updateTime = System.currentTimeMillis() + 1000,
-                            episodeName = nextEp.name,
-                            episodeDescription = nextEp.description,
                         )
-                        DesktopDataStore.setLastWatched(nextEpHistory)
-                    } else {
-                        DesktopDataStore.setLastWatched(
-                            existingNext.copy(
+                        if (existingNext == null) {
+                            val nextEpHistory = WatchHistory(
+                                parentId = updatedHistory.parentId,
+                                showName = updatedHistory.showName,
+                                showUrl = updatedHistory.showUrl,
+                                apiName = updatedHistory.apiName,
+                                posterUrl = updatedHistory.posterUrl,
+                                episodeThumbnailUrl = nextEp.posterUrl ?: updatedHistory.posterUrl,
+                                screenshotUrl = null,
+                                episode = nextEp.episode,
+                                season = nextEp.season,
+                                episodeId = nextEp.data,
+                                position = 0,
+                                duration = 0,
                                 updateTime = System.currentTimeMillis() + 1000,
-                                episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: updatedHistory.posterUrl,
-                            ),
-                        )
+                                episodeName = nextEp.name,
+                                episodeDescription = nextEp.description,
+                            )
+                            savePlaybackProgress.await(nextEpHistory)
+                        } else {
+                            savePlaybackProgress.await(
+                                existingNext.copy(
+                                    updateTime = System.currentTimeMillis() + 1000,
+                                    episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: updatedHistory.posterUrl,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -197,7 +197,7 @@ class EmbeddedPlayerViewModel(
         saveJob?.cancel()
         countdownJob?.cancel()
         timeoutJob?.cancel()
-        preScrapeJob?.cancel()
+        scraper.cancelPreScrape()
         updateState { copy(launchData = null, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
     }
 
@@ -290,11 +290,12 @@ class EmbeddedPlayerViewModel(
         val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
         val state = uiState.value
         val hasNext = state.hasNextEpisode
+        val isOffline = state.launchData?.history?.apiName in listOf("Offline", "Local")
         // When loadResponse is null (history / deep-link launch), episodes is empty so
         // hasNextEpisode is always false. Fall back to the episode number as a heuristic —
         // if the current entry has an episode number it is a series episode and there may
         // be a next one. loadNextEpisode will surface a toast if nothing is found.
-        val episodesUnknown = state.episodes.isEmpty() && state.launchData?.history?.episode != null
+        val episodesUnknown = !isOffline && state.episodes.isEmpty() && state.launchData?.history?.episode != null
         if ((hasNext || episodesUnknown) && autoPlay) {
             startCountdown()
         }
@@ -302,7 +303,7 @@ class EmbeddedPlayerViewModel(
 
     private fun cancelCountdown() {
         countdownJob?.cancel()
-        preScrapeJob?.cancel()
+        scraper.cancelPreScrape()
         updateState { copy(countdownToNextEpisode = null) }
     }
 
@@ -327,43 +328,7 @@ class EmbeddedPlayerViewModel(
         val state = uiState.value
         if (!state.autoPlayEnabled || !state.hasNextEpisode) return
         val nextEp = state.nextEpisodeData ?: return
-        val nextEpId = nextEp.data
-
-        if (preScrapeJob?.isActive == true || lastPreScrapedEpisodeId == nextEpId) return
-        if (LinkCache.get(nextEpId) != null) return
-
-        val currentData = state.launchData ?: return
-        val apiName = currentData.history.apiName.takeIf { it.isNotBlank() } ?: currentData.loadResponse?.apiName
-        val provider = apiName?.let { APIHolder.getApiFromNameNull(it) } ?: return
-
-        lastPreScrapedEpisodeId = nextEpId
-        preScrapeJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                AppLogger.i("EmbeddedPlayerViewModel", "Starting background pre-scrape for next episode: ${nextEp.name ?: nextEp.data}")
-                val collectedLinks = mutableListOf<ExtractorLink>()
-                val collectedSubs = mutableListOf<SubtitleFile>()
-
-                provider.loadLinks(
-                    data = nextEpId,
-                    isCasting = false,
-                    subtitleCallback = { sub ->
-                        collectedSubs.add(sub)
-                    },
-                    callback = { link ->
-                        collectedLinks.add(link)
-                        com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
-                    },
-                )
-
-                if (collectedLinks.isNotEmpty()) {
-                    val sorted = sortLinks(collectedLinks)
-                    LinkCache.set(nextEpId, sorted, collectedSubs)
-                    AppLogger.i("EmbeddedPlayerViewModel", "Background pre-scrape complete: cached ${sorted.size} streams for ${nextEp.name ?: nextEp.data}")
-                }
-            } catch (e: Throwable) {
-                AppLogger.w("EmbeddedPlayerViewModel", "Background pre-scrape error: ${e.message}")
-            }
-        }
+        scraper.preScrapeNextEpisode(nextEp, state.launchData)
     }
 
     private fun handlePlaybackError(failedUrl: String, reason: String = "Connection failed") {
@@ -460,7 +425,7 @@ class EmbeddedPlayerViewModel(
                 if (hasNext) {
                     val nextEp = uiState.value.nextEpisodeData
                     if (nextEp != null) {
-                        DesktopDataStore.setLastWatched(history)
+                        savePlaybackProgress.await(history)
                         // Only create a "queued" placeholder for the next episode if it has never
                         // been touched — avoids wiping real progress if user already started it.
                         val existingNext = DesktopDataStore.getEpisodeWatched(
@@ -485,9 +450,9 @@ class EmbeddedPlayerViewModel(
                                 episodeName = nextEp.name,
                                 episodeDescription = nextEp.description,
                             )
-                            DesktopDataStore.setLastWatched(nextEpHistory)
+                            savePlaybackProgress.await(nextEpHistory)
                         } else {
-                            DesktopDataStore.setLastWatched(
+                            savePlaybackProgress.await(
                                 existingNext.copy(
                                     updateTime = System.currentTimeMillis() + 1000,
                                     episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: history.posterUrl,
@@ -498,7 +463,7 @@ class EmbeddedPlayerViewModel(
                     }
                 }
             }
-            DesktopDataStore.setLastWatched(history)
+            savePlaybackProgress.await(history)
         }
     }
 
@@ -507,7 +472,7 @@ class EmbeddedPlayerViewModel(
         loadLinksJob?.cancel()
         countdownJob?.cancel()
         timeoutJob?.cancel()
-        preScrapeJob?.cancel()
+        scraper.cancelPreScrape()
 
         val isFinished = initialData.history.duration > 0 && initialData.history.position >= initialData.history.duration - 15
         val adjustedData = if (isFinished) {
@@ -613,6 +578,51 @@ class EmbeddedPlayerViewModel(
 
         countdownJob?.cancel()
         loadLinksJob?.cancel()
+
+        val isOffline = currentData.history.apiName in listOf("Offline", "Local") || java.io.File(episode.data).exists()
+        if (isOffline) {
+            val file = java.io.File(episode.data)
+            if (file.exists()) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    val offlineLink = com.lagradost.cloudstream3.utils.newExtractorLink(
+                        source = "Downloaded (Offline)",
+                        name = episode.name ?: file.name,
+                        url = file.absolutePath,
+                        type = if (file.name.contains(".m3u8", ignoreCase = true)) com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 else com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
+                    ) {
+                        this.referer = ""
+                        this.quality = com.lagradost.cloudstream3.utils.Qualities.Unknown.value
+                    }
+                    val newLaunchData = currentData.copy(
+                        links = listOf(offlineLink),
+                        initialIndex = 0,
+                        title = episode.name ?: file.name,
+                        startPositionMs = 0L,
+                        history = currentData.history.copy(
+                            showUrl = file.absolutePath,
+                            episodeId = file.absolutePath,
+                            episode = episode.episode,
+                            season = episode.season,
+                            position = 0L,
+                            duration = 0L,
+                            updateTime = System.currentTimeMillis(),
+                            episodeName = episode.name,
+                        ),
+                    )
+                    updateState {
+                        copy(
+                            launchData = newLaunchData,
+                            phase = PlayerPhase.Probing(offlineLink, stillScraping = false),
+                            targetEpisodeData = null,
+                            nextEpisodeLinks = listOf(offlineLink),
+                            nextEpisodeError = null,
+                        )
+                    }
+                }
+                return
+            }
+        }
+
         updateState {
             copy(
                 phase = PlayerPhase.Scraping,
@@ -624,8 +634,8 @@ class EmbeddedPlayerViewModel(
             )
         }
 
-        val apiName = currentData.loadResponse?.apiName
-        val provider = APIHolder.getApiFromNameNull(apiName ?: "")
+        val apiName = currentData.loadResponse?.apiName ?: currentData.history.apiName
+        val provider = APIHolder.getApiFromNameNull(apiName)
 
         if (provider != null) {
             loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
@@ -970,13 +980,13 @@ class EmbeddedPlayerViewModel(
             return
         }
 
-        val prefQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-
-        val sharedSubtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub: SubtitleFile ->
-            val cleanUrl = sub.url.trim()
-            if (cleanUrl.isNotBlank()) {
-                val cleanSub = sub.copy(url = cleanUrl, lang = sub.lang.trim())
-                AppLogger.i("Plugin:${provider.name}", "Extracted subtitle: [${cleanSub.lang}] ${cleanSub.url}")
+        val result = scraper.executeScrape(
+            provider = provider,
+            targetEpisodeId = targetEpisodeId,
+            autoPlay = autoPlay,
+            currentLaunchData = current,
+            targetEpisodeData = targetEpisodeData,
+            onSubtitle = { cleanSub ->
                 updateState {
                     val newSubs = (nextEpisodeSubtitles + cleanSub).distinctBy { it.url.trim().lowercase() }
                     if (!hasStartedPlaying.get()) {
@@ -991,89 +1001,36 @@ class EmbeddedPlayerViewModel(
                         copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
                     }
                 }
-            }
-        }
-
-        val sharedLinkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
-            AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
-            com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
-
-            // Probe range seekability for non-HLS/DASH streams in background
-            if (!link.isM3u8 && !link.isDash && link.type != com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 && link.type != com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    val isSeekable = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.probeRangeSeekability(link)
-                    if (isSeekable) {
-                        updateState {
-                            if (!isScrapingLinks) return@updateState this
-                            val reSorted = sortLinks(nextEpisodeLinks, startPos)
-                            val curLaunch = launchData
-                            val updated = if (curLaunch != null && curLaunch.history.episodeId == targetEpisodeId) {
-                                curLaunch.copy(links = reSorted)
-                            } else curLaunch
-                            copy(nextEpisodeLinks = reSorted, launchData = updated)
-                        }
+            },
+            onLink = { link ->
+                updateState {
+                    if (!isScrapingLinks) return@updateState this
+                    val newLinks = sortLinks(nextEpisodeLinks + link, startPos)
+                    val currentLaunch = launchData
+                    val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
+                        currentLaunch.copy(links = newLinks)
+                    } else {
+                        currentLaunch
                     }
+
+                    copy(
+                        nextEpisodeLinks = newLinks,
+                        launchData = updatedLaunch,
+                    )
                 }
-            }
-
-            updateState {
-                if (!isScrapingLinks) {
-                    return@updateState this
+            },
+            onSeekableConfirmed = {
+                updateState {
+                    if (!isScrapingLinks) return@updateState this
+                    val reSorted = sortLinks(nextEpisodeLinks, startPos)
+                    val curLaunch = launchData
+                    val updated = if (curLaunch != null && curLaunch.history.episodeId == targetEpisodeId) {
+                        curLaunch.copy(links = reSorted)
+                    } else curLaunch
+                    copy(nextEpisodeLinks = reSorted, launchData = updated)
                 }
-                val newLinks = sortLinks(nextEpisodeLinks + link, startPos)
-                val currentLaunch = launchData
-                val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
-                    currentLaunch.copy(links = newLinks)
-                } else {
-                    currentLaunch
-                }
-
-                copy(
-                    nextEpisodeLinks = newLinks,
-                    launchData = updatedLaunch,
-                )
-            }
-        }
-
-        // Concurrently query installed Stremio stream addons
-        val epHistoryId = current.history.episodeId
-        val loadResp = current.loadResponse
-        val resolvedImdbId = when {
-            targetEpisodeId.startsWith("tt", ignoreCase = true) -> targetEpisodeId.substringBefore(":")
-            epHistoryId?.startsWith("tt", ignoreCase = true) == true -> epHistoryId.substringBefore(":")
-            loadResp?.syncData?.get("imdb")?.startsWith("tt", ignoreCase = true) == true -> loadResp.syncData["imdb"]
-            loadResp?.url?.startsWith("tt", ignoreCase = true) == true -> loadResp.url.substringBefore(":")
-            else -> com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(current.history.showName)
-        }
-
-        val epNumber = current.history.episode ?: targetEpisodeData?.episode
-        val seasonNumber = current.history.season ?: targetEpisodeData?.season
-        viewModelScope.launch(Dispatchers.IO) {
-            StremioAddonManager.searchStreams(
-                imdbId = resolvedImdbId,
-                season = seasonNumber,
-                episode = epNumber,
-                title = current.history.showName,
-                onLink = { link -> sharedLinkCallback(link) },
-            )
-        }
-
-        val result = SafePluginInvoker.invoke(
-            tag = "EmbeddedPlayerViewModel:${provider.name}",
-            providerName = provider.name,
-            timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
-            // Timeout on scraping is expected — links stream via callback and may already
-            // be in UI. A slow/dead extractor should not trip the circuit breaker.
-            penalizeOnTimeout = false,
-        ) {
-            AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (autoPlay=$autoPlay)")
-            provider.loadLinks(
-                data = targetEpisodeId,
-                isCasting = false,
-                subtitleCallback = sharedSubtitleCallback,
-                callback = sharedLinkCallback,
-            )
-        }
+            },
+        )
 
         if (result.isSuccess) {
             var bestLinkToProbe: ExtractorLink? = null
@@ -1156,31 +1113,19 @@ class EmbeddedPlayerViewModel(
             val showUrl = current.loadResponse?.url ?: current.history.showUrl
             if (isJsonParseError && targetEpisodeId.startsWith("http")) {
                 AppLogger.w("Plugin:${provider.name}", "Detected invalid episode data payload ($targetEpisodeId). Performing automatic self-healing re-fetch from $showUrl...")
-                val parentId = DesktopDataStore.watchHistoryId(provider.name, showUrl)
-                DesktopDataStore.removeEpisodeWatched(parentId, targetEpisodeId)
-                try {
-                    val freshResp = SafePluginInvoker.invokeOrNull(
-                        tag = "SelfHealing:${provider.name}",
-                        timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
-                    ) {
-                        provider.load(showUrl)
+                val healed = scraper.attemptSelfHealing(provider, targetEpisodeId, showUrl)
+                if (healed != null) {
+                    val (freshDataUrl, freshResp) = healed
+                    val newTargetEp = provider.newEpisode(freshDataUrl) {
+                        this.name = freshResp.name
+                        this.posterUrl = freshResp.posterUrl
                     }
-                    if (freshResp is MovieLoadResponse && freshResp.dataUrl.isNotBlank() && freshResp.dataUrl != targetEpisodeId) {
-                        val freshDataUrl = freshResp.dataUrl
-                        AppLogger.i("Plugin:${provider.name}", "Self-healing resolved valid movie data payload. Retrying scraping...")
-                        val newTargetEp = provider.newEpisode(freshDataUrl) {
-                            this.name = freshResp.name
-                            this.posterUrl = freshResp.posterUrl
-                        }
-                        val updatedLaunch = current.copy(
-                            loadResponse = freshResp,
-                            history = current.history.copy(episodeId = freshDataUrl),
-                        )
-                        scrapeAndPlay(provider, freshDataUrl, updatedLaunch, newTargetEp)
-                        return
-                    }
-                } catch (healEx: Throwable) {
-                    AppLogger.e("Plugin:${provider.name}", "Self-healing re-fetch failed: ${healEx.message}")
+                    val updatedLaunch = current.copy(
+                        loadResponse = freshResp,
+                        history = current.history.copy(episodeId = freshDataUrl),
+                    )
+                    scrapeAndPlay(provider, freshDataUrl, updatedLaunch, newTargetEp)
+                    return
                 }
             }
 

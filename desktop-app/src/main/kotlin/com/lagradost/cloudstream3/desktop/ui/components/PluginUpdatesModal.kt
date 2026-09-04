@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.utils.DesktopStrings
 import com.lagradost.common.storage.PluginUpdateRecord
 import kotlinx.coroutines.Dispatchers
@@ -46,9 +45,9 @@ fun PluginUpdatesModal(
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-    val isAmoled = appThemeBackground == "Pure Black"
+    val theme = LocalDesktopTheme.current
+    val isLightMode = theme.isLightMode
+    val isAmoled = theme.isAmoled
 
     val filteredUpdates = remember(updatesHistory, searchQuery) {
         if (searchQuery.isBlank()) {

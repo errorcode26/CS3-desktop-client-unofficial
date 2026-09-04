@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -218,14 +219,17 @@ fun ExtensionCard(
                 ) {
                     if (!tvTypes.isNullOrEmpty()) {
                         tvTypes.take(3).forEach { type ->
+                            val isTorrent = type.contains("Torrent", ignoreCase = true)
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                color = if (isTorrent) Color(0xFFF59E0B).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                border = if (isTorrent) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.4f)) else null,
                             ) {
                                 Text(
-                                    text = type,
+                                    text = if (isTorrent) "⚡ $type" else type,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isTorrent) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isTorrent) FontWeight.SemiBold else FontWeight.Normal,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

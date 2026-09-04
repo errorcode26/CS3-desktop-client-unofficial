@@ -42,9 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Full-bleed cinematic 16:13.5 Episode Card component.
- * Features Skia-baked ambient background extension, star ratings, anti-spoiler blurs,
- * lock state handling, and interactive hover animations.
+ * Episode card component.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -68,9 +66,28 @@ fun EpisodeCard(
 ) {
     var isHovered by remember { mutableStateOf(false) }
 
-    val releaseStatus = remember(ep.description) { parseEpisodeReleaseStatus(ep) }
     val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
-    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
+    val p = rememberEpisodePresentation(
+        ep = ep,
+        history = history,
+        provider = provider,
+        data = data,
+        uiState = uiState,
+        isAntiSpoiler = isAntiSpoiler,
+        lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+    )
+    val releaseStatus = p.releaseStatus
+    val isEpisodeLocked = p.isEpisodeLocked
+    val targetUrl = p.targetUrl
+    val progress = p.progress
+    val isWatched = p.isWatched
+    val shouldHideSpoilers = p.shouldHideSpoilers
+    val finalTitle = p.finalTitle
+    val runTimeStr = p.runTimeStr
+    val cleanDesc = p.cleanDesc
+    val hasDesc = p.hasDesc
+    val formattedDate = p.formattedDate
+    val durationText = p.durationText
 
     val scale by animateFloatAsState(if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 1.02f else 1f, animationSpec = tween(180))
 
@@ -78,76 +95,11 @@ fun EpisodeCard(
     // thumbnails are enriched in-place (plain field mutations don't trigger recompose otherwise).
     @Suppress("UNUSED_EXPRESSION")
     thumbnailVersion
-    val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() && !it.contains("imgbb") }
-    val fallbackBackdrop = (uiState?.enrichedBackdropUrl ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: data.backgroundPosterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-    val fallbackPoster = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() && !it.contains("imgbb") }
-    val targetUrl = epImg ?: fallbackBackdrop ?: fallbackPoster
-
-    val progress = if (history != null && history.duration > 0) {
-        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
-            1f
-        } else {
-            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-        }
-    } else {
-        0f
-    }
-
-    val isWatched = progress > 0.9f
-    val hasStartedPlayback = progress > 0f || (history != null && history.position > 5)
-    val shouldHideSpoilers = isAntiSpoiler && !hasStartedPlayback && !isWatched
-
-    val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
-    val titleCleaned = rawTitle
-        .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
-        .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
-        .trim()
-    val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
-
-    val epRunTime = ep.runTime ?: data.duration
-    val runTimeStr = epRunTime?.let { dur ->
-        val mins = if (dur > 1000) dur / 60 else dur
-        if (mins >= 60) {
-            val h = mins / 60
-            val m = mins % 60
-            if (m > 0) "${h}h ${m}m" else "${h}h"
-        } else {
-            "${mins}m"
-        }
-    }
 
     val heroColor = MaterialTheme.colorScheme.primary
 
-    val rawDesc = ep.description ?: ""
-    val formattedDate = releaseStatus.formattedDate
-    val cleanDesc = rawDesc.replace(EPISODE_DATE_REGEX, "").trim()
-    val hasDesc = cleanDesc.isNotBlank()
-
-    val durationText = if (history != null && history.duration > 0) {
-        if (progress > 0f && progress < 1f) {
-            val leftSeconds = history.duration - history.position
-            val leftMins = leftSeconds / 60L
-            if (leftMins >= 60) {
-                "${leftMins / 60}h ${leftMins % 60}m left"
-            } else if (leftMins > 0) {
-                "${leftMins}m left"
-            } else {
-                "<1m left"
-            }
-        } else {
-            val totalMins = history.duration / 60L
-            if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
-        }
-    } else if (epRunTime != null) {
-        val totalMins = if (epRunTime > 1000) epRunTime / 60 else epRunTime
-        if (totalMins >= 60) "${totalMins / 60}h ${totalMins % 60}m" else "${totalMins}m"
-    } else {
-        null
-    }
-
     val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
-    // Full-Bleed Cinematic Card (Hero Section Architecture)
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
 
     Box(
@@ -241,7 +193,7 @@ fun EpisodeCard(
                     .background(Color(0xFF141518)),
             )
 
-            // Background image & true downward ambient extension (Bake once into static ImageBitmap)
+            // Card background image
             if (targetUrl != null) {
                 val context = coil3.compose.LocalPlatformContext.current
                 var bakedBitmap by remember(targetUrl, shouldHideSpoilers) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
@@ -272,7 +224,7 @@ fun EpisodeCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    // Smooth temporary placeholder while baking (0ms)
+                    // Image placeholder
                     coil3.compose.AsyncImage(
                         model = targetUrl,
                         contentDescription = ep.name,
@@ -353,7 +305,7 @@ fun EpisodeCard(
                 }
             }
 
-            // Top-Left: Vector-Sharp Branded Rating Badge (IMDb / TMDB / MAL)
+            // Rating badge
             if (rating10p != null && !shouldHideSpoilers) {
                 val isAnime = data is com.lagradost.cloudstream3.AnimeLoadResponse ||
                     data.type == com.lagradost.cloudstream3.TvType.Anime ||
@@ -507,7 +459,7 @@ fun EpisodeCard(
                         .run { if (shouldHideSpoilers) this.blur(2.dp) else this },
                 )
 
-                // Row 2: Synopsis / Plot with comfortable line height
+                // Row 2: Synopsis / Plot
                 Text(
                     text = when {
                         shouldHideSpoilers -> "Description hidden."

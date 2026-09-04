@@ -179,7 +179,7 @@ fun main(args: Array<String> = emptyArray()) {
                     // Run updates in the background so they don't block the UI if the network is down or slow
                     launch(Dispatchers.IO) {
                         launchAutoUpdater()
-                        AppUpdater.checkForUpdates()
+                        com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.checkAllUpdates()
                     }
                 }
 
@@ -210,7 +210,7 @@ fun main(args: Array<String> = emptyArray()) {
                                     }
                                 }
                             }
-                            AppUpdateDialog()
+                            com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
                         } else {
                             com.lagradost.cloudstream3.desktop.ui.components.AppStartupSplashScreen()
                         }

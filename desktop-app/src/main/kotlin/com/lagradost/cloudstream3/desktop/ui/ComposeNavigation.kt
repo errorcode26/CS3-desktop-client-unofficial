@@ -46,6 +46,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeLibraryScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ComposeExtensionScreen
 import com.lagradost.common.storage.WatchHistory
+import kotlinx.coroutines.launch
 
 data class VideoLaunchData(
     val links: List<com.lagradost.cloudstream3.utils.ExtractorLink> = emptyList(),
@@ -55,6 +56,7 @@ data class VideoLaunchData(
     val startPositionMs: Long,
     val history: WatchHistory,
     val loadResponse: com.lagradost.cloudstream3.LoadResponse? = null,
+    val episodes: List<com.lagradost.cloudstream3.Episode> = emptyList(),
     val enrichedLogoUrl: String? = null,
     val enrichedBackdropUrl: String? = null,
 )
@@ -104,9 +106,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
     val appThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.appThemeBackground.collectAsState()
     val customThemeAccent by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customThemeAccent.collectAsState()
     val customAppThemeBackground by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.customAppThemeBackground.collectAsState()
+    val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
 
     val primaryColor = com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName(themeAccent, customThemeAccent)
-    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, amoledMode, appThemeBackground, customAppThemeBackground)
+    val desktopColors = com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(primaryColor, isLightMode, amoledMode, appThemeBackground, customAppThemeBackground).copy(cardOpacity = uiCardOpacity)
     val selectedFont by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.selectedFont.collectAsState()
     val typography = androidx.compose.runtime.remember(selectedFont) {
         com.lagradost.cloudstream3.desktop.ui.theme.buildTypography(
@@ -336,12 +339,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                         stack = childStack,
                                         modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                                         animation = stackAnimation(
-                                            fade(tween(220, easing = FastOutSlowInEasing)) +
-                                                scale(
-                                                    animationSpec = tween(220, easing = FastOutSlowInEasing),
-                                                    frontFactor = 0.97f,
-                                                    backFactor = 1.02f,
-                                                ),
+                                            fade(tween(160, easing = FastOutSlowInEasing)),
                                         ),
                                     ) {
                                         when (val child = it.instance) {
@@ -397,45 +395,57 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                             }
                                             is RootComponent.Child.Downloads -> {
                                                 val launchPlayer = LocalVideoPlayer.current
+                                                val scope = androidx.compose.runtime.rememberCoroutineScope()
                                                 com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsScreen(
                                                     viewModel = child.component.viewModel,
                                                     onPlayOffline = { task ->
-                                                        val file = java.io.File(task.filePath)
-                                                        if (file.exists()) {
-                                                            val offlineLink = com.lagradost.cloudstream3.utils.ExtractorLink(
-                                                                source = "Downloaded (Offline)",
-                                                                name = task.displayTitle,
-                                                                url = file.absolutePath,
-                                                                referer = "",
-                                                                quality = task.quality,
-                                                                type = com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
-                                                            )
-                                                            launchPlayer(
-                                                                VideoLaunchData(
-                                                                    links = listOf(offlineLink),
-                                                                    initialIndex = 0,
-                                                                    title = task.displayTitle,
-                                                                    subtitles = emptyList(),
-                                                                    startPositionMs = 0L,
-                                                                    history = WatchHistory(
-                                                                        parentId = "offline_media",
-                                                                        showName = task.showName,
-                                                                        showUrl = task.filePath,
-                                                                        apiName = "Offline",
-                                                                        posterUrl = task.posterUrl,
-                                                                        episodeThumbnailUrl = null,
-                                                                        screenshotUrl = null,
-                                                                        episode = task.episode,
-                                                                        season = task.season,
-                                                                        episodeId = task.filePath,
-                                                                        position = 0L,
-                                                                        duration = 0L,
-                                                                        updateTime = System.currentTimeMillis(),
-                                                                        episodeName = task.cleanEpisodeTitle ?: task.episodeTitle,
+                                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                            val file = java.io.File(task.filePath)
+                                                            if (file.exists()) {
+                                                                val offlineLink = com.lagradost.cloudstream3.utils.newExtractorLink(
+                                                                    source = "Downloaded (Offline)",
+                                                                    name = task.displayTitle,
+                                                                    url = file.absolutePath,
+                                                                    type = if (file.name.contains(".m3u8", ignoreCase = true)) com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 else com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
+                                                                ) {
+                                                                    this.referer = ""
+                                                                    this.quality = task.quality
+                                                                }
+
+                                                                val allCompletedTasks = child.component.viewModel.uiState.value.completedTasks
+                                                                    .filter { it.showName == task.showName }
+                                                                    .sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 1 }))
+
+                                                                val siblingEpisodes = allCompletedTasks.map { createOfflineEpisode(it) }
+
+                                                                launchPlayer(
+                                                                    VideoLaunchData(
+                                                                        links = listOf(offlineLink),
+                                                                        initialIndex = 0,
+                                                                        title = task.displayTitle,
+                                                                        subtitles = emptyList(),
+                                                                        startPositionMs = 0L,
+                                                                        history = WatchHistory(
+                                                                            parentId = "offline_media",
+                                                                            showName = task.showName,
+                                                                            showUrl = task.filePath,
+                                                                            apiName = "Offline",
+                                                                            posterUrl = task.posterUrl,
+                                                                            episodeThumbnailUrl = null,
+                                                                            screenshotUrl = null,
+                                                                            episode = task.episode,
+                                                                            season = task.season,
+                                                                            episodeId = task.filePath,
+                                                                            position = 0L,
+                                                                            duration = 0L,
+                                                                            updateTime = System.currentTimeMillis(),
+                                                                            episodeName = task.cleanEpisodeTitle ?: task.episodeTitle,
+                                                                        ),
+                                                                        episodes = siblingEpisodes,
+                                                                        enrichedBackdropUrl = task.backdropUrl,
                                                                     ),
-                                                                    enrichedBackdropUrl = task.backdropUrl,
-                                                                ),
-                                                            )
+                                                                )
+                                                            }
                                                         }
                                                     },
                                                 )
@@ -513,9 +523,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
                                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
                             ) {
-                                val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
                                 androidx.compose.material3.TextButton(onClick = {
-                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(errorSnapshot))
+                                    com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.copyToClipboard(errorSnapshot)
                                 }) {
                                     androidx.compose.material3.Text("Copy")
                                 }
@@ -578,4 +587,15 @@ private fun GlobalDevelopmentWatermark(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+@Suppress("DEPRECATION_ERROR")
+private fun createOfflineEpisode(task: com.lagradost.cloudstream3.desktop.downloader.DownloadTask): com.lagradost.cloudstream3.Episode {
+    return com.lagradost.cloudstream3.Episode(
+        data = task.filePath,
+        name = task.cleanEpisodeTitle ?: task.episodeTitle ?: "Episode ${task.episode ?: 1}",
+        season = task.season,
+        episode = task.episode,
+        posterUrl = task.posterUrl,
+    )
 }

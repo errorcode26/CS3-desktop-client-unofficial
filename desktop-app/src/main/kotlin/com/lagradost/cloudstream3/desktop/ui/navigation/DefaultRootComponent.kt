@@ -33,28 +33,28 @@ class DefaultRootComponent(
     private fun createChild(config: Config, componentContext: ComponentContext): RootComponent.Child =
         when (config) {
             is Config.Home -> RootComponent.Child.Home(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.HomeComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Explore -> RootComponent.Child.Explore(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExploreComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExploreComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.History -> RootComponent.Child.History(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.HistoryComponent(componentContext),
             )
             is Config.Search -> RootComponent.Child.Search(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.SearchComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Extensions -> RootComponent.Child.Extensions(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent(componentContext, config.initialTab),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.ExtensionsComponent(componentContext, config.initialTab, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Library -> RootComponent.Child.Library(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.LibraryComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Downloads -> RootComponent.Child.Downloads(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.DownloadsComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.DownloadsComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Settings -> RootComponent.Child.Settings(
-                com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent(componentContext),
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.SettingsComponent(componentContext, rootInstanceKeeper = this.instanceKeeper),
             )
             is Config.Details -> RootComponent.Child.Details(
                 com.lagradost.cloudstream3.desktop.ui.navigation.components.DetailsComponent(componentContext, config),

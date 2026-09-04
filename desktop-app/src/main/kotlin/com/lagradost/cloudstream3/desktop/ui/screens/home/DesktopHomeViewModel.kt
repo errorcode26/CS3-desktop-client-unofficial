@@ -20,8 +20,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
-
 /**
  * Returns true only for real, user-facing content providers:
  * - Excludes built-in MetaProviders (Trakt, TMDB, CrossTMDB)

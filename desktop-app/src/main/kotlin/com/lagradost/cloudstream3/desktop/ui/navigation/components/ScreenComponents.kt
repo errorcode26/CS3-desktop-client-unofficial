@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.navigation.components
 
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import com.arkivanov.essenty.instancekeeper.getOrCreate
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
@@ -14,20 +15,23 @@ import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsView
 
 class HomeComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { DesktopHomeViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "HomeViewModel") { DesktopHomeViewModel() }
 }
 
 class SearchComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { SearchViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "SearchViewModel") { SearchViewModel() }
 }
 
 class ExploreComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "ExploreViewModel") { com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel() }
 }
 
 class HistoryComponent(
@@ -37,26 +41,30 @@ class HistoryComponent(
 class ExtensionsComponent(
     componentContext: ComponentContext,
     val initialTab: Int,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { ExtensionsViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "ExtensionsViewModel") { ExtensionsViewModel() }
 }
 
 class LibraryComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { LibraryViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "LibraryViewModel") { LibraryViewModel() }
 }
 
 class DownloadsComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "DownloadsViewModel") { com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsViewModel() }
 }
 
 class SettingsComponent(
     componentContext: ComponentContext,
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate { PluginSettingsViewModel() }
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "SettingsViewModel") { PluginSettingsViewModel() }
 }
 
 class CategoryGridComponent(

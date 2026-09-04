@@ -23,15 +23,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun GlobalToastOverlay(
     modifier: Modifier = Modifier,
 ) {
     val toasts by AppToastManager.toasts.collectAsState()
-    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+    val theme = LocalDesktopTheme.current
 
     Box(
         modifier = modifier
@@ -51,8 +49,8 @@ fun GlobalToastOverlay(
                 ) {
                     ToastCard(
                         toast = toast,
-                        isAmoledMode = amoledMode,
-                        uiCardOpacity = uiCardOpacity,
+                        isAmoledMode = theme.isAmoled,
+                        uiCardOpacity = theme.cardOpacity,
                         onDismiss = { AppToastManager.dismiss(toast.id) },
                     )
                 }

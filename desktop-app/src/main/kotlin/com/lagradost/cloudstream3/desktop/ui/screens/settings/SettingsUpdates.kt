@@ -19,19 +19,23 @@ import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.net.URI
 
+import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
+import com.lagradost.cloudstream3.desktop.updates.PendingUpdate
+
 @Composable
 fun SettingsUpdates() {
     val coroutineScope = rememberCoroutineScope()
-    val latestRelease by AppUpdater.latestRelease.collectAsState()
+    val availableUpdates by UnifiedUpdateManager.availableUpdates.collectAsState()
     var isChecking by remember { mutableStateOf(false) }
     var showCheckedFeedback by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsGroupCard(title = "Updates & Version") {
+        SettingsGroupCard(title = "Updates & Components") {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp, horizontal = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -40,13 +44,25 @@ fun SettingsUpdates() {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Installed Version",
+                            text = "CS3 Desktop Client",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium,
                         )
                         Text(
-                            text = "v${AppConfig.APP_VERSION}",
+                            text = "Installed: v${AppConfig.APP_VERSION}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "TorrServer Streaming Engine",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = "Installed: ${UnifiedUpdateManager.getTorrServerInstalledVersion()}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -57,9 +73,9 @@ fun SettingsUpdates() {
                             isChecking = true
                             showCheckedFeedback = false
                             coroutineScope.launch {
-                                AppUpdater.checkForUpdates(force = true)
+                                UnifiedUpdateManager.checkAllUpdates(force = true)
                                 isChecking = false
-                                if (AppUpdater.latestRelease.value == null) {
+                                if (UnifiedUpdateManager.availableUpdates.value.isEmpty()) {
                                     showCheckedFeedback = true
                                 }
                             }
@@ -81,67 +97,62 @@ fun SettingsUpdates() {
                     }
                 }
 
-                if (latestRelease != null) {
-                    val release = latestRelease!!
-                    Spacer(modifier = Modifier.height(16.dp))
+                if (availableUpdates.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                    availableUpdates.forEach { update ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    text = "Update Available: ${release.name}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Published: ${release.published_at}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-
-                            Button(
-                                onClick = {
-                                    try {
-                                        Desktop.getDesktop().browse(URI(release.html_url))
-                                    } catch (e: Exception) {
-                                        com.lagradost.common.logging.AppLogger.e("Error opening link ${release.html_url}", e)
-                                    }
-                                },
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Download,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Download", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                    Text(
+                                        text = "${update.title}: ${update.newVersion}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Current: ${update.currentVersion}${if (update.publishedAt != null) " • Published: ${update.publishedAt}" else ""}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { UnifiedUpdateManager.showDialogForUpdate(update) },
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("View & Update", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                 } else if (showCheckedFeedback) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "You are on the latest version.",
+                        text = "✓ Everything is up to date.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }

@@ -49,9 +49,6 @@ fun SettingsIntegrations(
     val stremioAddons by StremioAddonManager.addons.collectAsState()
     val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
-    val coroutineScope = rememberCoroutineScope()
-    var inputManifestUrl by remember { mutableStateOf("") }
-    var isInstallingManifest by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -153,18 +150,20 @@ fun SettingsIntegrations(
             ),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(
+            Row(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -172,11 +171,10 @@ fun SettingsIntegrations(
                             Icons.Default.Extension,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column {
                         Text(
                             text = "Stremio Community Addons",
                             style = MaterialTheme.typography.titleMedium,
@@ -184,87 +182,20 @@ fun SettingsIntegrations(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = "Connect public community manifests (Cinemeta, CyberFlix, Torrentio, Anime Kitsu).",
+                            text = "Manage community manifests, catalogs, and streaming resolvers under Extensions & Sources (${stremioAddons.size} active, ${metadataAddons.size} metadata providers).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-
-                // Quick Installer Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Spacer(Modifier.width(16.dp))
+                FilledTonalButton(
+                    onClick = { SettingsSession.selectedLeaf = LeafTab.EXTENSIONS },
+                    shape = RoundedCornerShape(10.dp),
                 ) {
-                    OutlinedTextField(
-                        value = inputManifestUrl,
-                        onValueChange = { inputManifestUrl = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("https://example.com/manifest.json", fontSize = 13.sp) },
-                        label = { Text("Install Manifest URL") },
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                    )
-                    Button(
-                        onClick = {
-                            val url = inputManifestUrl.trim()
-                            if (url.isBlank()) return@Button
-                            isInstallingManifest = true
-                            coroutineScope.launch(Dispatchers.IO) {
-                                val result = StremioAddonManager.addAddon(url)
-                                withContext(Dispatchers.Main) {
-                                    isInstallingManifest = false
-                                    if (result.isSuccess) {
-                                        inputManifestUrl = ""
-                                        AppToastManager.showSuccess("Stremio Addon installed successfully")
-                                    } else {
-                                        AppToastManager.showError("Failed to install: ${result.exceptionOrNull()?.message ?: "Invalid manifest"}")
-                                    }
-                                }
-                            }
-                        },
-                        enabled = inputManifestUrl.isNotBlank() && !isInstallingManifest,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(56.dp),
-                    ) {
-                        if (isInstallingManifest) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Install")
-                        }
-                    }
-                }
-
-                // Status & Addons Manager Shortcut
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "Active Addons: ${stremioAddons.size} installed (${metadataAddons.size} metadata resolvers)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    OutlinedButton(
-                        onClick = { SettingsSession.selectedLeaf = LeafTab.ADDONS },
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Manage All Addons", fontSize = 13.sp)
-                    }
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open Addons Hub")
                 }
             }
         }

@@ -394,7 +394,7 @@ object AniListMetadataProvider : MetadataProvider {
                     loaded.posterUrl = media.coverImage.extraLarge
                 }
                 if (loaded.plot.isNullOrBlank() && !media.description.isNullOrBlank()) {
-                    loaded.plot = media.description
+                    loaded.plot = TitleUtils.cleanHtml(media.description)
                 }
                 if (media.averageScore != null) {
                     if (loaded.score == null) {

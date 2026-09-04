@@ -138,8 +138,8 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsToggleItem(
-                label = "Hide Source Spec on Details Page",
-                subtitle = "Omits the 'Source' row from the movie and show technical specs sidebar",
+                label = "Hide Source on Details Page",
+                subtitle = "Omits the 'Source' provider name from the auto-hiding technical specs sidebar on Details screens",
                 checked = hideDetailsSource,
                 onCheckedChange = { AppearanceConfig.setHideDetailsSource(it) },
             )

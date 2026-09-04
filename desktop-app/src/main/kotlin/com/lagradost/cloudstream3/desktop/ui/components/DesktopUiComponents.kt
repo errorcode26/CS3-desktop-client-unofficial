@@ -46,6 +46,9 @@ data class DesktopThemeColors(
     val TextPrimary: Color,
     val TextMuted: Color,
     val Divider: Color,
+    val isLightMode: Boolean = false,
+    val isAmoled: Boolean = false,
+    val cardOpacity: Float = 1.0f,
 )
 
 fun darkDesktopColors(
@@ -77,6 +80,8 @@ fun darkDesktopColors(
         TextPrimary = Color.White,
         TextMuted = Color.White.copy(alpha = 0.7f),
         Divider = if (isAmoled) Color(0xFF1C1C22) else Color(0xFF2A2A38),
+        isLightMode = false,
+        isAmoled = isAmoled,
     )
 }
 
@@ -96,6 +101,8 @@ fun lightDesktopColors(accent: Color, backgroundTheme: String, customBgHex: Stri
         TextPrimary = Color(0xFF0F172A),
         TextMuted = Color(0xFF475569),
         Divider = Color(0xFFE2E8F0),
+        isLightMode = true,
+        isAmoled = false,
     )
 }
 

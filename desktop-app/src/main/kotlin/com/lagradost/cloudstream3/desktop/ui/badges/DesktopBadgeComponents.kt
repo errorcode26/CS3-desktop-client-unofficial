@@ -21,17 +21,14 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 
 /**
- * Premium, cinematic studio format badges.
- * Combines deep glassmorphic backdrops, glowing micro-rims, and distinctive typography.
+ * Badges for media cards and detail headers.
  */
 object DesktopBadgeComponents {
 
-    // Rating & 4K Warm Gold Accent
     private val GoldStar = Color(0xFFFBBF24)
     private val GoldText = Color(0xFFFEF08A)
     private val GoldBorder = Color(0x60FBBF24)
 
-    // Ultra-Clean Frosted Acrylic Palette
     private val GlassBg = Color.Black.copy(alpha = 0.55f)
     private val GlassBorder = Color.White.copy(alpha = 0.16f)
     private val TextSilver = Color(0xFFF1F5F9)

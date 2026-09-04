@@ -12,8 +12,7 @@ data class SanitizedCardMeta(
 )
 
 /**
- * Fast, pre-compiled token scanner for title cleanup, resolution detection, and SUB/DUB classification.
- * Runs 100% locally with 0ms latency and in-memory LRU caching.
+ * Title cleanup and audio/subtitle/resolution tag extraction.
  */
 object CardTitleSanitizer {
 

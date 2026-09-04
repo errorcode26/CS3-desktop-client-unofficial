@@ -16,7 +16,7 @@ class CloudStreamApp {
                 _context = if (value == null) null else WeakReference(value)
             }
 
-        /** Provide activity retrieval similar to Android implementation */
+        /** Activity retrieval helper. */
         tailrec fun Context?.getActivity(): android.app.Activity? {
             val ctx = this ?: return null
             return when (ctx) {

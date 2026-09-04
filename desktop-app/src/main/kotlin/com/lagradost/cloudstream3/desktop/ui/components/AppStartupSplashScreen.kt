@@ -59,7 +59,7 @@ fun AppStartupSplashScreen() {
         label = "IconScale",
     )
 
-    // Smooth hairline progress bar shimmer
+    // Progress animation
     val progressShift by infiniteTransition.animateFloat(
         initialValue = -0.5f,
         targetValue = 1.5f,
@@ -80,7 +80,7 @@ fun AppStartupSplashScreen() {
             .background(bgDark),
         contentAlignment = Alignment.Center,
     ) {
-        // 1. Ambient Radial Glow behind the central logo
+        // Background glow
         Box(
             modifier = Modifier
                 .size(340.dp)
@@ -100,7 +100,7 @@ fun AppStartupSplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // 2. Premium App Icon with frosted glass border
+            // App icon
             Box(
                 modifier = Modifier
                     .scale(iconScale)
@@ -118,7 +118,7 @@ fun AppStartupSplashScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. Clean Brand Typography
+            // Title
             Text(
                 text = "CloudStream",
                 color = Color.White,
@@ -129,7 +129,7 @@ fun AppStartupSplashScreen() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 4. Ultra-minimal Indeterminate Hairline Progress Shimmer
+            // Progress indicator
             Box(
                 modifier = Modifier
                     .width(130.dp)

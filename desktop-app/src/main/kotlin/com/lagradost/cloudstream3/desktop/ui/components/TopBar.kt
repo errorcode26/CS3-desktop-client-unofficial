@@ -64,9 +64,9 @@ fun TopBar(
         val isSeamlessTop = isTopDock && isSeamless
 
         val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
-        val isScrolled = com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled
-        val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+        val theme = LocalDesktopTheme.current
+        val isLightMode = theme.isLightMode
+        val amoledMode = theme.isAmoled
 
         val shouldHaveBackground = isSeamlessTop
 
@@ -309,7 +309,7 @@ private fun TopBarProfilePill(
         )
     }
 
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val isLightMode = LocalDesktopTheme.current.isLightMode
     val buttonBg = if (isLightMode) Color.White.copy(alpha = 0.85f) else Color(0xFF1E1E24).copy(alpha = 0.50f)
     val buttonBorder = if (isLightMode) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.12f)
     val hoverBorder = if (isLightMode) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.25f)

@@ -116,8 +116,20 @@ object QualityDataHelper {
     fun getLinkScore(link: ExtractorLink): Int {
         val qualPriority = getQualityPriority(link.quality)
         val srcPriority = getSourcePriority(link.source)
-        // Quality priority weighted higher by 10x, source priority adds preference within same quality tier
-        return (qualPriority * 10) + srcPriority
+        val prefAudio = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
+        val langMatch = LanguageMatcher.matchLinkPriority(
+            linkName = link.name,
+            source = link.source,
+            audioTracks = link.audioTracks,
+            prefLangCode = prefAudio,
+        )
+        val langBonus = when (langMatch) {
+            2 -> 500 // Direct match for preferred language name or code
+            1 -> 200 // Dual Audio / Multi Audio link
+            else -> 0
+        }
+        // Quality priority weighted higher by 10x, source priority adds preference, language bonus prioritizes matching audio
+        return (qualPriority * 10) + srcPriority + langBonus
     }
 
     fun isSeekableLink(link: ExtractorLink): Boolean {

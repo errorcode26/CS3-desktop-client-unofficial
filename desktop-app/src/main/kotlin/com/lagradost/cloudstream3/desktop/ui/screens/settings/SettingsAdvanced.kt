@@ -510,28 +510,6 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
 }
 
 @Composable
-fun SettingsNetworkScreen(viewModel: SettingsViewModel) {
-    val scrollState = rememberScrollState()
-    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
-
-    CompositionLocalProvider(
-        LocalSettingsScrollState provides scrollState,
-        LocalScrollContainerCoordinates provides containerCoordinates,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { containerCoordinates = it }
-                .verticalScroll(scrollState)
-                .padding(top = 20.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            SettingsNetwork(viewModel = viewModel)
-        }
-    }
-}
-
-@Composable
 fun SettingsAdvancedScreen(viewModel: SettingsViewModel) {
     val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
@@ -549,30 +527,6 @@ fun SettingsAdvancedScreen(viewModel: SettingsViewModel) {
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             SettingsAdvanced(viewModel = viewModel)
-        }
-    }
-}
-
-// Legacy combined screen — kept for reference but no longer used by the router
-@Composable
-fun SettingsAdvancedAndNetwork(viewModel: SettingsViewModel) {
-    val scrollState = rememberScrollState()
-    var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
-
-    CompositionLocalProvider(
-        LocalSettingsScrollState provides scrollState,
-        LocalScrollContainerCoordinates provides containerCoordinates,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { containerCoordinates = it }
-                .verticalScroll(scrollState)
-                .padding(top = 20.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            SettingsAdvanced(viewModel = viewModel)
-            SettingsNetwork(viewModel = viewModel)
         }
     }
 }

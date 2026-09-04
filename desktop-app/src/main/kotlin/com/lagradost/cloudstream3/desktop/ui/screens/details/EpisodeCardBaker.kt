@@ -15,10 +15,7 @@ import org.jetbrains.skia.Surface
 private const val MAX_BAKED_EPISODE_CACHE_SIZE = 150
 
 /**
- * Dedicated Skia composite engine for Episode cards.
- * Composites the 16:9 thumbnail, bottom 15% ribbon stretch, 36dp Gaussian blur,
- * true DST_IN alpha dissolve, and soft text foundation into a single flat ImageBitmap.
- * Backed by a thread-safe 150-item bounded LRU cache (~100MB RAM cap).
+ * Caches and renders extended card backgrounds for episode thumbnails.
  */
 object EpisodeCardBaker {
     private val memoryCache = object : java.util.LinkedHashMap<String, ImageBitmap>(64, 0.75f, true) {

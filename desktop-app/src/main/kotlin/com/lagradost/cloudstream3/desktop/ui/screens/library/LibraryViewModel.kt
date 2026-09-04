@@ -3,15 +3,11 @@ package com.lagradost.cloudstream3.desktop.ui.screens.library
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.data.bookmarks.BookmarksRepositoryImpl
-import com.lagradost.cloudstream3.desktop.data.category.CategoryRepositoryImpl
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.RemoveBookmark
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.ToggleBookmark
-import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository
-import com.lagradost.cloudstream3.desktop.domain.category.interactor.GetCategories
 import com.lagradost.cloudstream3.desktop.domain.category.interactor.SetItemCategory
-import com.lagradost.cloudstream3.desktop.domain.category.repository.CategoryRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
@@ -28,13 +24,10 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 
 class LibraryViewModel(
-    private val bookmarksRepo: BookmarksRepository = BookmarksRepositoryImpl(),
-    private val getBookmarks: GetBookmarks = GetBookmarks(bookmarksRepo),
-    private val toggleBookmark: ToggleBookmark = ToggleBookmark(bookmarksRepo),
-    private val removeBookmark: RemoveBookmark = RemoveBookmark(bookmarksRepo),
-    private val categoryRepo: CategoryRepository = CategoryRepositoryImpl(bookmarksRepo),
-    private val getCategories: GetCategories = GetCategories(categoryRepo),
-    private val setItemCategory: SetItemCategory = SetItemCategory(categoryRepo),
+    private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
+    private val toggleBookmark: ToggleBookmark = AppContainerHolder.container.toggleBookmark,
+    private val removeBookmark: RemoveBookmark = AppContainerHolder.container.removeBookmark,
+    private val setItemCategory: SetItemCategory = AppContainerHolder.container.setItemCategory,
 ) : BaseMviViewModel<LibraryUiState, LibraryUiEvent, LibraryUiEffect>(
     initialState = LibraryUiState(),
 ) {

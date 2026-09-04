@@ -848,7 +848,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     // This is the correct approach for MinGW builds without WRL support.
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content --disk-cache-size=1 "
+        L"--allow-running-insecure-content --default-background-color=00000000 --disk-cache-size=1 "
         L"--disable-application-cache --aggressive-cache-discard");
 
     HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
@@ -1005,7 +1005,7 @@ void runWebView2WarmupThread() {
 
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content --disk-cache-size=1 "
+        L"--allow-running-insecure-content --default-background-color=00000000 --disk-cache-size=1 "
         L"--disable-application-cache --aggressive-cache-discard");
 
     createEnvFunc(nullptr, userData.c_str(), nullptr, new WarmupEnvHandler());

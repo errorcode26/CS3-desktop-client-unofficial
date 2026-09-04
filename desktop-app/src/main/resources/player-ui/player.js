@@ -52,6 +52,8 @@
     let _cachedSkipIntervals = [];
     let _activeChapterIndex = -1;
     let pauseInfoMode = 'delay_5s'; // 'delay_5s', 'delay_10s', 'delay_20s', 'immediate', 'off'
+    let showPauseCast = true;
+    let currentCastList = [];
     let pauseInfoTimer = null;
 
     // Element References
@@ -188,8 +190,10 @@
         clearPauseInfoTimer();
         const pauseOverlay = document.getElementById('pauseInfoOverlay');
         const pauseBackdrop = document.getElementById('pauseBackdrop');
+        const pauseCast = document.getElementById('pauseInfoCast');
         if (pauseOverlay) pauseOverlay.classList.remove('visible');
         if (pauseBackdrop) pauseBackdrop.classList.remove('visible');
+        if (pauseCast) pauseCast.classList.remove('visible');
     }
 
     function schedulePauseInfoOverlay() {
@@ -206,11 +210,21 @@
 
         const pauseOverlay = document.getElementById('pauseInfoOverlay');
         const pauseBackdrop = document.getElementById('pauseBackdrop');
+        const pauseCast = document.getElementById('pauseInfoCast');
         if (!pauseOverlay) return;
 
-        if (pauseInfoMode === 'immediate') {
+        const showOverlays = () => {
             pauseOverlay.classList.add('visible');
             if (pauseBackdrop) pauseBackdrop.classList.add('visible');
+            if (showPauseCast && currentCastList && currentCastList.length > 0 && pauseCast) {
+                pauseCast.classList.add('visible');
+            }
+            const advisoryBanner = document.getElementById('maturityAdvisoryBanner');
+            if (advisoryBanner) advisoryBanner.classList.remove('active');
+        };
+
+        if (pauseInfoMode === 'immediate') {
+            showOverlays();
             return;
         }
 
@@ -222,8 +236,7 @@
             const currentProbing = document.getElementById('linkProbingOverlay')?.classList.contains('active');
             const currentEnded = document.getElementById('videoEndedOverlay')?.style.display === 'flex';
             if (!globalIsPlaying && !currentProbing && !isAppLoading && !currentEnded && pauseInfoMode !== 'off') {
-                pauseOverlay.classList.add('visible');
-                if (pauseBackdrop) pauseBackdrop.classList.add('visible');
+                showOverlays();
             }
         }, delayMs);
     }
@@ -233,8 +246,12 @@
             clearTimeout(window.resumeDismissTimer);
             window.resumeDismissTimer = null;
         }
-        if (resumeOverlay) {
-            resumeOverlay.style.display = 'none';
+        if (resumeOverlay && resumeOverlay.style.display !== 'none' && !resumeOverlay.classList.contains('dismissing')) {
+            resumeOverlay.classList.add('dismissing');
+            setTimeout(() => {
+                resumeOverlay.style.display = 'none';
+                resumeOverlay.classList.remove('dismissing');
+            }, 280);
         }
         resumeHandled = true;
     }
@@ -253,6 +270,7 @@
             const timeElem = document.getElementById('resumeTime');
             if (timeElem) timeElem.innerText = fmt(pendingResumeMs);
             if (resumeOverlay && resumeOverlay.style.display !== 'flex') {
+                resumeOverlay.classList.remove('dismissing');
                 resumeOverlay.style.display = 'flex';
                 void resumeOverlay.offsetWidth;
             }
@@ -262,7 +280,9 @@
                 }, 7000);
             }
         } else {
-            if (resumeOverlay) resumeOverlay.style.display = 'none';
+            if (resumeOverlay && !resumeOverlay.classList.contains('dismissing')) {
+                resumeOverlay.style.display = 'none';
+            }
         }
     }
 
@@ -303,14 +323,13 @@
         }
         
         // 2. Loading Container (Spinner)
-        // If the video is actively playing, only genuine native buffering (stalled cache) or active user seek can show the spinner.
-        // isAppLoading (Kotlin scraping) should never keep the center spinner up if MPV is already rendering playback!
-        const isNativeBuffering = globalIsLoading || isSeeking;
+        // If the video is actively playing, only genuine native buffering (stalled cache) can show the spinner.
+        // Micro-seeks should NEVER force the center loading spinner to flash.
+        const isNativeBuffering = globalIsLoading && !isSeeking;
         const isScrapingPhase = isAppLoading && !globalIsPlaying && (currentPosMs <= 100);
-        const shouldBeLoading = (isNativeBuffering || isScrapingPhase) && !isProbing && !isVideoEnded;
+        const shouldBeLoading = (isNativeBuffering || isScrapingPhase) && !isProbing && !isVideoEnded && !isSeeking;
         
         const getCleanLoadingText = () => {
-            if (isSeeking) return 'Seeking...';
             if (isNativeBuffering) return 'Buffering...';
             if (isScrapingPhase) return 'Loading source...';
             return 'Buffering...';
@@ -320,11 +339,10 @@
             isCurrentlyLoading = shouldBeLoading;
             clearTimeout(loadingTimer);
             if (shouldBeLoading) {
-                const delay = isSeeking ? 0 : 150;
                 loadingTimer = setTimeout(() => {
                     if (loadingContainer) loadingContainer.classList.add('show');
                     if (loadingStatus) loadingStatus.innerText = getCleanLoadingText();
-                }, delay);
+                }, 200);
             } else {
                 if (loadingContainer) loadingContainer.classList.remove('show');
                 if (loadingStatus) loadingStatus.innerText = '';
@@ -343,27 +361,44 @@
         pause: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><rect x="5" y="3" width="4" height="18" rx="1.5" fill="currentColor"/><rect x="15" y="3" width="4" height="18" rx="1.5" fill="currentColor"/></svg>`,
         rewind10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>`,
         forward10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>`,
-        volHigh:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M24 12a14 14 0 0 0-4.1-9.9l-1.415 1.415a12 12 0 0 1 0 16.97L19.9 21.9A14 14 0 0 0 24 12ZM11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12ZM17.071 4.93a10 10 0 0 1 0 14.142l-1.414-1.414a8 8 0 0 0 0-11.314L17.07 4.93Z" fill="currentColor"/></svg>`,
-        volLow: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12Z" fill="currentColor"/></svg>`,
+        volHigh:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M17 7a7 7 0 0 1 0 10l-1.06-1.06a5.5 5.5 0 0 0 0-7.88L17 7z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M19.5 4.5a10.5 10.5 0 0 1 0 15l-1.06-1.06a9 9 0 0 0 0-12.88L19.5 4.5z" fill="currentColor"/></svg>`,
+        volMed: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M17 7a7 7 0 0 1 0 10l-1.06-1.06a5.5 5.5 0 0 0 0-7.88L17 7z" fill="currentColor"/></svg>`,
+        volLow: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/></svg>`,
         volMute:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM23.414 12l2.293-2.293-1.414-1.414L22 10.586 19.707 8.293l-1.414 1.414L20.586 12l-2.293 2.293 1.414 1.414L22 13.414l2.293 2.293 1.414-1.414L23.414 12Z" fill="currentColor"/></svg>`,
         check:  `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`,
     };
 
-    // Volume OSD
+    // Volume OSD (Single unified HUD for all volume changes)
     let volumeOsdTimer = null;
-    const showVolumeOsd = (vol) => {
+    const showVolumeOsd = (vol, isMutedState = null) => {
         const osd = document.getElementById('volumeOsd');
         const txt = document.getElementById('volumeOsdText');
         const icon = document.getElementById('volumeOsdIcon');
+        const fill = document.getElementById('volumeOsdBarFill');
         if (!osd || !txt || !icon) return;
         
-        txt.innerText = `${Math.round(vol)}%`;
-        icon.innerHTML = vol > 100 ? SVGS.volHigh : (vol > 0 && !isMuted ? SVGS.volLow : SVGS.volMute);
+        const effectiveMuted = (isMutedState !== null) ? isMutedState : (isMuted || vol <= 0);
+        const clampedVol = Math.round(Math.max(0, Math.min(100, vol)));
+        
+        txt.innerText = effectiveMuted ? 'Muted' : `${clampedVol}%`;
+        if (fill) {
+            fill.style.width = effectiveMuted ? '0%' : `${clampedVol}%`;
+        }
+        if (effectiveMuted) {
+            icon.innerHTML = SVGS.volMute;
+        } else if (clampedVol < 34) {
+            icon.innerHTML = SVGS.volLow;
+        } else if (clampedVol < 67) {
+            icon.innerHTML = SVGS.volMed;
+        } else {
+            icon.innerHTML = SVGS.volHigh;
+        }
         
         osd.classList.add('show');
         clearTimeout(volumeOsdTimer);
-        volumeOsdTimer = setTimeout(() => { osd.classList.remove('show'); }, 1500);
+        volumeOsdTimer = setTimeout(() => { osd.classList.remove('show'); }, 1200);
     };
+    window.showVolumeOsd = showVolumeOsd;
 
     // Action Feedback
     let feedbackTimer;
@@ -405,11 +440,15 @@
     });
     
     const showControls = (e, forceHide = false) => {
+        if (document.body.classList.contains('keyboard-seeking')) {
+            return; // Never show full controls while keyboard seeking is active!
+        }
         if (forceHide) {
             isHoveringControls = false;
         }
         if (e && e.type === 'mousemove') {
-            if (e.clientX === lastMouseX && e.clientY === lastMouseY) {
+            const dist = Math.hypot(e.clientX - lastMouseX, e.clientY - lastMouseY);
+            if (dist < 3) {
                 return; // Ignore synthesized mousemove where mouse didn't actually move
             }
             lastMouseX = e.clientX;
@@ -449,16 +488,17 @@
     window.showControls = showControls;
     window.onNativeKeyActivity = (isSeeking = false) => {
         isHoveringControls = false;
-        if (isSeeking && document.body.classList.contains('hidden-controls')) {
+        if (document.body.classList.contains('hidden-controls')) {
+            if (isSeeking) {
+                triggerKeyboardSeekingHud();
+            }
             return;
         }
         showControls(null, true);
     };
     window.triggerSeekFeedback = (dir) => {
-        if (dir === 'left') {
-            triggerActionFeedback(SVGS.rewind10, 'left');
-        } else {
-            triggerActionFeedback(SVGS.forward10, 'right');
+        if (document.body.classList.contains('hidden-controls')) {
+            triggerKeyboardSeekingHud();
         }
     };
 
@@ -468,32 +508,64 @@
             e.preventDefault();
             e.stopPropagation();
             doRelativeSeek(-10000);
-            triggerActionFeedback(SVGS.rewind10, 'left');
         } else if (e.button === 4) {
             // Mouse 5 (Forward) -> Seek +10s
             e.preventDefault();
             e.stopPropagation();
             doRelativeSeek(10000);
-            triggerActionFeedback(SVGS.forward10, 'right');
         }
     });
 
     document.addEventListener('mousemove', showControls);
+    
+    // Global Focus Lock Prevention: Never allow buttons, sliders, or panels to trap keyboard focus.
+    // Use capture phase (true) so it executes before any stopPropagation() in child elements.
+    document.addEventListener('focusin', (e) => {
+        if (!e.target.closest('input[type="text"], input[type="search"], textarea, [contenteditable]')) {
+            if (e.target instanceof HTMLElement) {
+                e.target.blur();
+            }
+        }
+    }, true);
+
+    document.addEventListener('pointerdown', (e) => {
+        if (!e.target.closest('input[type="text"], input[type="search"], textarea, [contenteditable]')) {
+            if (document.activeElement && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+                document.activeElement.blur();
+            }
+        }
+    }, true);
+
     document.addEventListener('click', e => {
         // Blur active element so buttons don't retain focus when UI hides
-        if (!e.target.closest('input,textarea,[contenteditable]') && document.activeElement instanceof HTMLElement) {
+        if (!e.target.closest('input[type="text"], input[type="search"], textarea, [contenteditable]') && document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
-        // Force OS focus back to WebView in case it was lost to the native window
-        send('focusWebView');
         showControls(e);
     });
     
+    let keyboardSeekingTimer = null;
+    function triggerKeyboardSeekingHud() {
+        if (keyboardSeekingTimer) {
+            clearTimeout(keyboardSeekingTimer);
+            keyboardSeekingTimer = null;
+        }
+        document.body.classList.add('keyboard-seeking');
+        keyboardSeekingTimer = setTimeout(() => {
+            document.body.classList.remove('keyboard-seeking');
+            keyboardSeekingTimer = null;
+        }, 1400);
+    }
+    window.triggerKeyboardSeekingHud = triggerKeyboardSeekingHud;
+
     document.addEventListener('keydown', (e) => {
         isHoveringControls = false;
-        const isSeekKey = e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyJ' || e.code === 'KeyL';
-        if (isSeekKey && document.body.classList.contains('hidden-controls')) {
-            // Keep full UI hidden when seeking
+        // Never flash full UI on keyboard shortcut actions when controls are hidden
+        if (document.body.classList.contains('hidden-controls')) {
+            const isSeekKey = e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyJ' || e.code === 'KeyL' || (!e.ctrlKey && !e.altKey && !e.metaKey && e.key >= '0' && e.key <= '9');
+            if (isSeekKey) {
+                triggerKeyboardSeekingHud();
+            }
             return;
         }
         showControls(e, true);
@@ -579,10 +651,9 @@
         const targetMs = Math.round((pct / 100) * durationMs);
         currentPosMs = targetMs;
         send('seekTo', targetMs);
-        forceShowLoading();
         // Hold the lock — release via incoming state update, not a timer
         clearTimeout(seekLockTimer);
-        seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
+        seekLockTimer = setTimeout(() => { isSeeking = false; }, 800);
     });
     seekBar.addEventListener('change', () => {
         // Fallback release if mouseup didn't fire (e.g. touch or drag-out)
@@ -594,7 +665,7 @@
 
     // Volume
     const updateVolumeTrack = (val) => {
-        const pct = (val / 200) * 100;
+        const pct = Math.max(0, Math.min(100, (val / 100) * 100));
         volumeBar.style.setProperty('--vol-pct', pct + '%');
         const pipVolFill = document.getElementById('pipVolumeFill');
         if (pipVolFill) pipVolFill.style.height = pct + '%';
@@ -602,27 +673,29 @@
     updateVolumeTrack(100); // Initialize
 
     volumeBar.addEventListener('input', e => {
-        updateVolumeTrack(e.target.value);
-        send('setVolume', e.target.value);
+        const v = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+        currentVolume = v;
+        updateVolumeTrack(v);
+        send('setVolume', v);
+        showVolumeOsd(v);
     });
 
     document.addEventListener('wheel', e => {
         if (isMenuOpen) return; // Don't scroll volume if a settings menu is open
-        
+
         let newVol = currentVolume;
-        // Scroll up (negative deltaY) increases volume, scroll down decreases
+        // Scroll up increases volume, scroll down decreases
         if (e.deltaY < 0) {
-            newVol = Math.min(200, newVol + 5);
+            newVol = Math.min(100, newVol + 5);
         } else if (e.deltaY > 0) {
             newVol = Math.max(0, newVol - 5);
         }
-        
+
         if (newVol !== currentVolume) {
             currentVolume = newVol;
             volumeBar.value = newVol;
             updateVolumeTrack(newVol);
             send('setVolume', newVol);
-            showControls(); // Wake up controls so user can see the volume change
             showVolumeOsd(newVol);
         }
     });
@@ -643,7 +716,7 @@
         } else {
             cross.style.opacity = '0'; cross.style.transform = 'scale(0.5)';
             w1.style.opacity = '1'; w1.style.transform = 'scale(1)';
-            
+
             if (currentVolume < 33) {
                 w2.style.opacity = '0'; w2.style.transform = 'scale(0.8)';
                 w3.style.opacity = '0'; w3.style.transform = 'scale(0.8)';
@@ -662,17 +735,30 @@
         if (durationMs <= 0) return; // Prevent relative seek on live/unknown duration
         isSeeking = true;
         currentPosMs = Math.max(0, Math.min(durationMs || Infinity, currentPosMs + deltaMs));
+        let pct = 0;
         if (durationMs > 0) {
-            let pct = (currentPosMs / durationMs) * 100;
+            pct = (currentPosMs / durationMs) * 100;
             pct = Math.max(0, Math.min(100, pct));
             seekFill.style.width = `${pct}%`;
             seekBar.value = pct * 10;
         }
-        timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        const timeFormatted = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        timeDisplay.innerText = timeFormatted;
+        const timeBadge = document.getElementById('seekingTimeBadge');
+        if (timeBadge) {
+            timeBadge.innerText = timeFormatted;
+        }
+        const seekTooltip = document.getElementById('seekTooltip');
+        if (seekTooltip && durationMs > 0) {
+            seekTooltip.innerText = timeFormatted;
+            seekTooltip.style.left = `${pct}%`;
+        }
+        if (document.body.classList.contains('hidden-controls')) {
+            triggerKeyboardSeekingHud();
+        }
         send('seekBy', deltaMs);
-        forceShowLoading();
         clearTimeout(seekLockTimer);
-        seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
+        seekLockTimer = setTimeout(() => { isSeeking = false; }, 800);
     };
 
     // Backend Messages
@@ -864,12 +950,6 @@
             playPauseBtn.classList.toggle('is-playing', globalIsPlaying);
             if (typeof window.updatePipPlayPauseIcon === 'function') {
                 window.updatePipPlayPauseIcon();
-            }
-
-            // Only show controls on actual play/pause toggle, not on every rapid state_update
-            // Throttled to prevent flicker when MPV toggles pause rapidly during buffering
-            if (typeof s.positionMs === 'number' && s.positionMs > 500) {
-                showControls();
             }
         }
 
@@ -1391,6 +1471,44 @@
         }
 
         pauseMeta.style.display = hasMeta ? 'flex' : 'none';
+
+        // Populate Starring Cast Overlay
+        currentCastList = (meta.actors || []).filter(actor => {
+            const r = (actor.role || '').trim().toLowerCase();
+            return r !== 'director' && r !== 'creator' && r !== 'writer' && r !== 'producer' && r !== 'executive producer';
+        });
+        const pauseCast = document.getElementById('pauseInfoCast');
+        const castListEl = document.getElementById('pauseInfoCastList');
+        if (castListEl) {
+            castListEl.innerHTML = '';
+            if (currentCastList.length > 0) {
+                currentCastList.slice(0, 4).forEach(actor => {
+                    const card = document.createElement('div');
+                    card.className = 'pause-cast-card';
+
+                    let avatarHtml = '';
+                    if (actor.image && actor.image.trim().length > 0) {
+                        avatarHtml = `<img class="pause-cast-avatar" src="${actor.image}" onerror="this.outerHTML='<div class=\\\'pause-cast-avatar-fallback\\\'>${(actor.name || '?')[0].toUpperCase()}</div>'" />`;
+                    } else {
+                        const initial = (actor.name || '?')[0].toUpperCase();
+                        avatarHtml = `<div class="pause-cast-avatar-fallback">${initial}</div>`;
+                    }
+
+                    const roleText = actor.role ? `<div class="pause-cast-role">${escapeHtml(actor.role)}</div>` : '';
+                    card.innerHTML = `
+                        ${avatarHtml}
+                        <div class="pause-cast-info">
+                            <div class="pause-cast-name">${escapeHtml(actor.name || 'Unknown')}</div>
+                            ${roleText}
+                        </div>
+                    `;
+                    castListEl.appendChild(card);
+                });
+                if (pauseCast) pauseCast.style.display = 'flex';
+            } else {
+                if (pauseCast) pauseCast.style.display = 'none';
+            }
+        }
 
         // Link Probing Overlay Logic
         const pOverlay = document.getElementById('linkProbingOverlay');
@@ -2171,6 +2289,10 @@
         if (s.pauseInfoMode !== undefined && s.pauseInfoMode !== null) {
             pauseInfoMode = s.pauseInfoMode;
             updatePauseInfoBadge();
+        }
+
+        if (s.showPauseCast !== undefined && s.showPauseCast !== null) {
+            showPauseCast = !!s.showPauseCast;
         }
 
         evaluateUIStates();
@@ -3408,13 +3530,18 @@
         const modal = document.getElementById('pauseInfoModalOverlay');
         if (!modal) return;
         // Update selected class on options
-        document.querySelectorAll('.pause-modal-option').forEach(el => {
+        document.querySelectorAll('.pause-modal-option[data-mode]').forEach(el => {
             if (el.getAttribute('data-mode') === pauseInfoMode) {
                 el.classList.add('selected');
             } else {
                 el.classList.remove('selected');
             }
         });
+        const castOpt = document.getElementById('pauseModalOptionCast');
+        if (castOpt) {
+            if (showPauseCast) castOpt.classList.add('checked');
+            else castOpt.classList.remove('checked');
+        }
         modal.style.display = 'flex';
     };
 
@@ -3422,6 +3549,24 @@
         if (e && e.target !== e.currentTarget && !e.target.classList.contains('shortcuts-close-btn')) return;
         const modal = document.getElementById('pauseInfoModalOverlay');
         if (modal) modal.style.display = 'none';
+    };
+
+    window.togglePauseShowCast = (e) => {
+        if (e) e.stopPropagation();
+        showPauseCast = !showPauseCast;
+        send('set_pause_show_cast', showPauseCast);
+        const castOpt = document.getElementById('pauseModalOptionCast');
+        if (castOpt) {
+            if (showPauseCast) castOpt.classList.add('checked');
+            else castOpt.classList.remove('checked');
+        }
+        showHudToast(showPauseCast ? 'Starring Cast: Enabled' : 'Starring Cast: Disabled');
+        const pauseCast = document.getElementById('pauseInfoCast');
+        if (showPauseCast && currentCastList && currentCastList.length > 0 && !globalIsPlaying && pauseInfoMode !== 'off') {
+            if (pauseCast) pauseCast.classList.add('visible');
+        } else {
+            if (pauseCast) pauseCast.classList.remove('visible');
+        }
     };
 
     window.selectPauseInfoMode = (mode) => {
@@ -3500,8 +3645,10 @@
     let currentSpeed = 1.0;
     document.addEventListener('keydown', e => {
         if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0')) { e.preventDefault(); return; }
-        if (e.target.closest('input,textarea,[contenteditable]')) return;
-        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        if (e.target.closest('input[type="text"], input[type="search"], textarea, [contenteditable]')) return;
+        if (document.activeElement && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+            document.activeElement.blur();
+        }
 
         // Dismiss context menu first on any keypress
         if (ctxMenu && ctxMenu.style.display === 'block') {
@@ -3528,6 +3675,9 @@
                 const targetMs = durationMs * pct;
                 send('seekTo', targetMs);
                 showHudToast(`Seek: ${Math.round(pct * 100)}% (${fmt(targetMs)})`);
+                if (document.body.classList.contains('hidden-controls')) {
+                    triggerKeyboardSeekingHud();
+                }
             }
             return;
         }
@@ -3554,7 +3704,11 @@
                 send('toggleFullscreen');
                 break;
             case 'KeyM':
+                e.preventDefault();
+                isMuted = !isMuted;
                 send('toggleMute');
+                updateMuteIcon();
+                showVolumeOsd(currentVolume, isMuted);
                 break;
             case 'KeyN':
                 e.preventDefault();
@@ -3566,26 +3720,30 @@
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                if (e.shiftKey) { doRelativeSeek(-2000); showHudToast('Seek -2s'); }
-                else { doRelativeSeek(-10000); triggerActionFeedback(SVGS.rewind10, 'left'); }
+                if (e.shiftKey) { doRelativeSeek(-2000); }
+                else { doRelativeSeek(-10000); }
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                if (e.ctrlKey) { doRelativeSeek(85000); showHudToast('Skipped Intro (+85s)'); }
-                else if (e.shiftKey) { doRelativeSeek(2000); showHudToast('Seek +2s'); }
-                else { doRelativeSeek(10000); triggerActionFeedback(SVGS.forward10, 'right'); }
+                if (e.ctrlKey) { doRelativeSeek(85000); }
+                else if (e.shiftKey) { doRelativeSeek(2000); }
+                else { doRelativeSeek(10000); }
                 break;
             case 'ArrowUp':
                 e.preventDefault();
-                currentVolume = Math.min(100, (currentVolume || 100) + 5);
+                currentVolume = Math.min(100, (currentVolume || 0) + 5);
+                volumeBar.value = currentVolume;
+                updateVolumeTrack(currentVolume);
                 send('setVolume', currentVolume);
-                showHudToast(`Volume: ${currentVolume}%`);
+                showVolumeOsd(currentVolume);
                 break;
             case 'ArrowDown':
                 e.preventDefault();
-                currentVolume = Math.max(0, (currentVolume || 100) - 5);
+                currentVolume = Math.max(0, (currentVolume || 0) - 5);
+                volumeBar.value = currentVolume;
+                updateVolumeTrack(currentVolume);
                 send('setVolume', currentVolume);
-                showHudToast(`Volume: ${currentVolume}%`);
+                showVolumeOsd(currentVolume);
                 break;
             case 'PageUp':
                 if (_cachedChapters && _cachedChapters.length > 0) {

@@ -43,26 +43,38 @@ object DesktopTorrentEngine {
     private var currentHash: String? = null
 
     val isP2pEnabled: Boolean
-        get() = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: true
+        get() = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false
+
+    fun isTorrentProvider(provider: com.lagradost.cloudstream3.MainAPI?): Boolean {
+        if (provider == null) return false
+        return provider.supportedTypes.any { it.name.contains("Torrent", ignoreCase = true) } ||
+                provider.name.contains("torrent", ignoreCase = true) ||
+                provider.name.equals("yts", ignoreCase = true) ||
+                provider.mainUrl.contains("yts", ignoreCase = true) ||
+                provider.mainUrl.contains("torrent", ignoreCase = true)
+    }
 
     fun isTorrentLink(link: ExtractorLink): Boolean {
         val url = link.url.trim()
         return link.type == ExtractorLinkType.TORRENT ||
                 link.type == ExtractorLinkType.MAGNET ||
                 url.startsWith("magnet:", ignoreCase = true) ||
+                url.contains("magnet:?xt=", ignoreCase = true) ||
                 url.endsWith(".torrent", ignoreCase = true) ||
                 (url.length == 40 && url.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' })
     }
 
     suspend fun transformLink(link: ExtractorLink): ExtractorLink = withContext(Dispatchers.IO) {
         if (!isP2pEnabled) {
-            AppLogger.w("P2P Torrent Streaming is disabled in settings, passing link as-is")
-            return@withContext link
+            AppLogger.w("DesktopTorrentEngine: P2P Torrent Streaming is disabled in settings. Blocking playback.")
+            throw IllegalStateException("P2P Torrent Streaming is disabled. Please enable it in Settings to stream torrents.")
         }
 
         val rawUrl = link.url.trim()
         val magnetLink = when {
-            rawUrl.startsWith("magnet:", ignoreCase = true) -> rawUrl
+            rawUrl.contains("magnet:?xt=", ignoreCase = true) -> {
+                "magnet:?xt=" + rawUrl.substringAfter("magnet:?xt=")
+            }
             rawUrl.length == 40 && rawUrl.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } -> {
                 buildMagnetUri(rawUrl)
             }

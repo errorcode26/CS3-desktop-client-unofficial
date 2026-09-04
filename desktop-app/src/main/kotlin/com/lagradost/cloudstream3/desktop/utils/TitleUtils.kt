@@ -1,17 +1,7 @@
 package com.lagradost.cloudstream3.desktop.utils
 
 /**
- * Shared title cleaning used by all enrichment stages.
- *
- * Approach:
- *  1. Extract year from the raw string.
- *  2. Find the earliest position where "junk" starts — quality tags, audio
- *     tags, bracket/pipe delimiters, or an explicit year marker.
- *  3. Take only the text before that position and strip trailing punctuation.
- *
- * Mirrors Android's HubCloud.cleanTitle() token-based strategy rather than a
- * chain of regex replaces — more robust for providers that pack many tags into
- * titles/slugs.
+ * Normalizes title components and release years from raw stream metadata.
  */
 object TitleUtils {
 
@@ -42,16 +32,12 @@ object TitleUtils {
                 """)""",
         )
 
-    // Hard delimiters that always mean junk starts here.
-    // Includes '(' to catch patterns like "(Season 1 – 3)", "(2026)", "[Hindi]".
+    // Delimiters indicating non-title metadata
     private val DELIMITER_REGEX = Regex("""[\[\]{}|(]""")
 
-    // Country / Regional disambiguation tags that must NOT be stripped as junk delimiters:
-    // Automatically matches any 2-letter ISO country code or full country name
     private val COUNTRY_TAG_PREFIX_REGEX = Regex("""(?i)^\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
     private val COUNTRY_TAG_REGEX = Regex("""(?i)\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
 
-    // Dynamic ISO 3166-1 country lookup covering all 249 international countries and territories
     private val ISO_COUNTRY_MAP: Map<String, String> by lazy {
         val map = mutableMapOf<String, String>()
         java.util.Locale.getISOCountries().forEach { code ->
@@ -156,13 +142,7 @@ object TitleUtils {
     }
 
     /**
-     * Returns an ordered list of title candidates for progressive fallback matching.
-     * 1. Primary cleaned title (e.g. "24 (IN)")
-     * 2. Country expanded title (e.g. "24 India" / "24: India")
-     * 3. Plain base title without country tag (e.g. "24")
-     * 4. Punctuation normalized title
-     * 5. Pre-colon root title
-     * 6. Pre-hyphen root title
+     * Generates fallback candidate titles for progressive matching.
      */
     fun extractRootTitleCandidates(raw: String): List<Pair<String, Int?>> {
         val primary = cleanProviderTitle(raw)
@@ -215,9 +195,34 @@ object TitleUtils {
         return list
     }
 
-    /**
-     * Android-style filterName: strip everything except [a-zA-Z0-9] and lowercase.
-     * Used to validate search result names against the cleaned query.
-     */
     fun filterName(name: String): String = name.replace(Regex("[^a-zA-Z0-9]"), "").lowercase()
+    fun cleanHtml(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        return text
+            .replace(Regex("""(?i)<br\s*/?>"""), "\n")
+            .replace(Regex("""(?i)</?p\s*.*?>"""), "\n")
+            .replace(Regex("""(?i)</?(div|h[1-6]|li)\s*.*?>"""), "\n")
+            .replace(Regex("""<[^>]*>"""), "")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&#039;", "'")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&nbsp;", " ")
+            .replace("&mdash;", "—")
+            .replace("&ndash;", "–")
+            .replace("&hellip;", "…")
+            .replace(Regex("""&#(\d+);""")) { match ->
+                match.groupValues[1].toIntOrNull()?.toChar()?.toString() ?: match.value
+            }
+            .replace(Regex("""(?i)&#x([0-9a-f]+);""")) { match ->
+                match.groupValues[1].toIntOrNull(16)?.toChar()?.toString() ?: match.value
+            }
+            .replace(Regex("""[ \t]+"""), " ")
+            .replace(Regex("""\n{3,}"""), "\n\n")
+            .trim()
+            .takeIf { it.isNotBlank() }
+    }
 }

@@ -62,7 +62,7 @@ fun EmbeddedVideoPlayer(
 
     if (currentLaunchData == null) return
 
-    val actualLaunchData = currentLaunchData!!
+    val actualLaunchData = currentLaunchData
 
     var isLoading by remember(actualLaunchData.history.episodeId) { mutableStateOf(true) }
     var showSources by remember { mutableStateOf(false) }
@@ -84,8 +84,9 @@ fun EmbeddedVideoPlayer(
         val currentEp = uiState.episodes.find { it.data == actualLaunchData.history.episodeId }
         val epNum = actualLaunchData.history.episode ?: currentEp?.episode ?: 1
         val seasonNum = actualLaunchData.history.season ?: currentEp?.season ?: 1
-        val showTitle = (actualLaunchData.history.showName ?: "").ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
-        if (showTitle.isNotBlank()) {
+        val showTitle = actualLaunchData.history.showName.ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
+        val isOffline = actualLaunchData.history.apiName in listOf("Offline", "Local")
+        if (showTitle.isNotBlank() && !isOffline) {
             playerState.loadSkipIntervals(
                 title = showTitle,
                 episode = epNum,
@@ -143,14 +144,14 @@ fun EmbeddedVideoPlayer(
                     val displayTitle = if (targetEpisodeData != null) {
                         buildString {
                             append(actualLaunchData.history.showName)
-                            val s = targetEpisodeData?.season
-                            val e = targetEpisodeData?.episode
+                            val s = targetEpisodeData.season
+                            val e = targetEpisodeData.episode
                             if (s != null && e != null) {
                                 append(" - S${s}E$e")
                             } else if (e != null) {
                                 append(" - E$e")
                             }
-                            val name = targetEpisodeData?.name
+                            val name = targetEpisodeData.name
                             if (!name.isNullOrBlank() && name != "Episode $e") {
                                 append(" - $name")
                             }
@@ -162,7 +163,7 @@ fun EmbeddedVideoPlayer(
                     val displayEpisodeId = targetEpisodeData?.data ?: actualLaunchData.history.episodeId
                     val episodes = uiState.episodes
                     val provider = actualLaunchData.loadResponse?.apiName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
-                        ?: actualLaunchData.history.apiName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
+                        ?: actualLaunchData.history.apiName.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
 
                     val rawSeriesPoster = actualLaunchData.loadResponse?.posterUrl?.takeIf { it.isNotBlank() }
                         ?: actualLaunchData.history.posterUrl?.takeIf { it.isNotBlank() }
@@ -194,9 +195,8 @@ fun EmbeddedVideoPlayer(
                     // Always use the start position from launchData — it is the canonical
                     // source of truth set by the ViewModel. Falling back to playerState.positionMs
                     val computedStartPos = actualLaunchData.startPositionMs
-                    val isMidStreamSwitch = phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && !phase.isInitial
-                    val displayLoadingStatus = if (isMidStreamSwitch) {
-                        if ((phase as com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing).isRetry) "Reconnecting..." else "Trying next source..."
+                    val displayLoadingStatus = if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && !phase.isInitial) {
+                        if (phase.isRetry) "Reconnecting..." else "Trying next source..."
                     } else {
                         null
                     }
@@ -210,6 +210,7 @@ fun EmbeddedVideoPlayer(
                         tags = tags,
                         contentRating = contentRating,
                         rating = rating,
+                        actors = actualLaunchData.loadResponse?.actors ?: emptyList(),
                         isLive = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live || safeLink?.name?.contains("Live", ignoreCase = true) == true || safeLink?.url?.contains("live", ignoreCase = true) == true,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
@@ -269,8 +270,9 @@ fun EmbeddedVideoPlayer(
                             val currentEp = episodes.find { it.data == actualLaunchData.history.episodeId }
                             val epNum = currentEp?.episode ?: 1
                             val seasonNum = currentEp?.season ?: 1
-                            val showTitle = (actualLaunchData.history.showName ?: "").ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
-                            if (playerState.skipIntervals.value.isEmpty() && showTitle.isNotBlank()) {
+                            val showTitle = actualLaunchData.history.showName.ifBlank { actualLaunchData.loadResponse?.name ?: actualLaunchData.title.orEmpty() }
+                            val isOffline = actualLaunchData.history.apiName in listOf("Offline", "Local")
+                            if (playerState.skipIntervals.value.isEmpty() && showTitle.isNotBlank() && !isOffline) {
                                 playerState.loadSkipIntervals(
                                     title = showTitle,
                                     episode = epNum,

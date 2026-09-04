@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.repo
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.ProviderType
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,8 +15,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
 
-const val PREF_ACTIVE_PROVIDERS_KEY = "home_active_providers"
-const val PREF_SELECTED_PROVIDER_KEY = "preferred_provider_name"
+const val PREF_ACTIVE_PROVIDERS_KEY = PreferenceKeys.PREF_ACTIVE_PROVIDERS
+const val PREF_SELECTED_PROVIDER_KEY = PreferenceKeys.PREF_SELECTED_PROVIDER
 
 /**
  * Single source of truth for active content providers, selected provider state,

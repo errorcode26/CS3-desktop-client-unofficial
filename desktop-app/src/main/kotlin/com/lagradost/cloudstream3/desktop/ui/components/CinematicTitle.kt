@@ -16,8 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.theme.OutfitFontFamily
 
 /**
- * Renders a high-end cinematic typography title for media when a transparent PNG logo is unavailable.
- * Uses geometric Outfit font with a subtle metallic pearl gradient and atmospheric multi-layer backing shadow.
+ * Text title displayed when no image logo is available.
  */
 @Composable
 fun CinematicTitle(

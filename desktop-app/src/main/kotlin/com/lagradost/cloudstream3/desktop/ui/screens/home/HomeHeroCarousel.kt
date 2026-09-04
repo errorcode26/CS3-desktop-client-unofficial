@@ -39,6 +39,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
@@ -114,7 +115,7 @@ fun HomeHeroCarousel(
         rawHeight.coerceAtLeast(400.dp)
     }
 
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val isLightMode = LocalDesktopTheme.current.isLightMode
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
 
     BoxWithConstraints(

@@ -26,7 +26,7 @@ fun Modifier.shimmerBackground(): Modifier = composed {
         label = "ShimmerTranslate",
     )
 
-    // Translucent glassmorphic theme colors for clean modern shimmer sweep
+    // Shimmer gradient colors
     val shimmerColors = listOf(
         Color.White.copy(alpha = 0.05f),
         Color.White.copy(alpha = 0.16f),

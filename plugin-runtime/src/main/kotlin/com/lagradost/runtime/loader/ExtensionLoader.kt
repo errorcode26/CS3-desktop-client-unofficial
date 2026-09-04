@@ -617,6 +617,28 @@ object ExtensionLoader {
         pathsToRemove.forEach { plugins.remove(it) }
     }
 
+    fun unloadAllPlugins() {
+        val allPaths = plugins.keys.toList()
+        for (path in allPaths) {
+            try {
+                unloadPlugin(path)
+            } catch (t: Throwable) {
+                AppLogger.e("Failed to unload plugin $path: ${t.message}")
+            }
+        }
+        for ((loader, _) in classLoaders.toList()) {
+            if (loader is java.io.Closeable) {
+                try {
+                    loader.close()
+                } catch (_: Throwable) {}
+            }
+        }
+        classLoaders.clear()
+        classLoaderToJar.clear()
+        classLoaderToClassNames.clear()
+        plugins.clear()
+    }
+
     fun isPluginLoaded(absolutePath: String): Boolean = plugins.containsKey(absolutePath)
 
     fun getPlugin(absolutePath: String): BasePlugin? = plugins[absolutePath]

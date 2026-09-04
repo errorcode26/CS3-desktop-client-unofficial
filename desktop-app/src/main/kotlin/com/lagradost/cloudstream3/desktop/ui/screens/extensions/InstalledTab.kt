@@ -43,7 +43,7 @@ fun InstalledTab(
             show = true,
             onDismissRequest = { showUnsupportedWarning = false },
             title = { Text("Unsupported Feature") },
-            text = { Text("Custom Android settings UI (Layer 3) is not supported on Desktop.\n\nPlease go to Settings -> Plugins from the sidebar to configure this plugin.") },
+            text = { Text("Custom Android settings UI (Layer 3) is not supported on Desktop.\n\nPlease go to Settings -> Extensions from the sidebar to configure this plugin.") },
             confirmButton = {
                 TextButton(onClick = { showUnsupportedWarning = false }) {
                     Text("OK")

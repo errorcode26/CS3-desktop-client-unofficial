@@ -164,51 +164,58 @@ class DesktopTorrServerBinary {
         return File(binDir, exeName)
     }
 
-    private suspend fun resolveOrDownloadBinary(): File = withContext(Dispatchers.IO) {
-        val binDir = File(PlatformPaths.appDataDir, "torrserver/bin").apply { mkdirs() }
-        val exeName = if (PlatformPaths.currentOS == PlatformPaths.OS.WINDOWS) "TorrServer.exe" else "TorrServer"
-        val targetFile = File(binDir, exeName)
+    fun isInstalled(): Boolean {
+        val file = getBinaryFile()
+        return file.exists() && file.length() > 1_000_000L
+    }
 
+    fun getFileSizeMB(): Float {
+        val file = getBinaryFile()
+        return if (file.exists()) file.length().toFloat() / (1024f * 1024f) else 0f
+    }
+
+    fun deleteBinary(): Boolean {
+        stop()
+        val file = getBinaryFile()
+        return if (file.exists()) file.delete() else false
+    }
+
+    fun downloadWithManager(onComplete: ((File) -> Unit)? = null): kotlinx.coroutines.Job {
+        val target = getBinaryFile()
+        val downloadUrl = getReleaseDownloadUrl()
+        return com.lagradost.cloudstream3.desktop.download.AppDownloadManager.startDownload(
+            id = "torrserver",
+            title = "TorrServer P2P Engine",
+            url = downloadUrl,
+            targetFile = target,
+            onComplete = { file ->
+                val releaseTag = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.availableUpdates.value.firstOrNull { it.id == "torrserver" }?.newVersion
+                    ?: com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.DEFAULT_TORRSERVER_VERSION
+                com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.setTorrServerInstalledVersion(releaseTag)
+                onComplete?.invoke(file)
+            },
+        )
+    }
+
+    private suspend fun resolveOrDownloadBinary(): File = withContext(Dispatchers.IO) {
+        val targetFile = getBinaryFile()
         if (targetFile.exists() && targetFile.length() > 1_000_000L) {
             targetFile.setExecutable(true)
             return@withContext targetFile
         }
 
-        // Auto-download standalone binary from official TorrServer GitHub release
-        AppLogger.i("TorrServer binary not found. Downloading to ${targetFile.absolutePath}...")
-        val downloadUrl = getReleaseDownloadUrl()
-        val tempFile = File(binDir, "$exeName.download.tmp")
+        // Auto-download via AppDownloadManager so it tracks in TopBar with live progress
+        AppLogger.i("TorrServer binary not found. Delegating download to AppDownloadManager...")
+        val job = downloadWithManager()
+        job.join()
 
-        try {
-            val req = Request.Builder().url(downloadUrl).build()
-            httpClient.newCall(req).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw IllegalStateException("Failed to download TorrServer: HTTP ${response.code}")
-                }
-                val body = response.body ?: throw IllegalStateException("Empty response body from $downloadUrl")
-                tempFile.outputStream().use { out ->
-                    body.byteStream().copyTo(out)
-                }
-            }
-
-            if (tempFile.length() < 1_000_000L) {
-                throw IllegalStateException("Downloaded TorrServer binary appears corrupt (size: ${tempFile.length()} bytes)")
-            }
-
-            if (targetFile.exists()) targetFile.delete()
-            if (!tempFile.renameTo(targetFile)) {
-                tempFile.copyTo(targetFile, overwrite = true)
-                tempFile.delete()
-            }
-
-            targetFile.setExecutable(true)
-            AppLogger.i("TorrServer downloaded successfully (${targetFile.length() / 1024 / 1024} MB)")
-            targetFile
-        } catch (e: Exception) {
-            tempFile.delete()
-            AppLogger.e("Failed to download TorrServer from $downloadUrl: ${e.message}")
-            throw e
+        if (!targetFile.exists() || targetFile.length() < 1_000_000L) {
+            val error = com.lagradost.cloudstream3.desktop.download.AppDownloadManager.getTask("torrserver")?.errorMessage
+            throw IllegalStateException(error ?: "Failed to download TorrServer binary")
         }
+
+        targetFile.setExecutable(true)
+        targetFile
     }
 
     private fun getReleaseDownloadUrl(): String {

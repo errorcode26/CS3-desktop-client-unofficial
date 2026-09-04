@@ -57,6 +57,7 @@ fun ComposeNativeWebPlayer(
     tags: List<String>? = null,
     contentRating: String? = null,
     rating: Double? = null,
+    actors: List<com.lagradost.cloudstream3.ActorData> = emptyList(),
     isLive: Boolean = false,
 ) {
     var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
@@ -132,6 +133,37 @@ fun ComposeNativeWebPlayer(
             val safeBackdrop = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawBackdrop) ?: rawBackdrop
             val safeLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawLogo) ?: rawLogo
 
+            val starringCast = actors.filter { actorData ->
+                val role = actorData.roleString ?: actorData.role?.name
+                role?.equals("Director", ignoreCase = true) != true &&
+                    role?.equals("Creator", ignoreCase = true) != true &&
+                    role?.equals("Writer", ignoreCase = true) != true &&
+                    role?.equals("Producer", ignoreCase = true) != true &&
+                    role?.equals("Executive Producer", ignoreCase = true) != true
+            }
+
+            val safeActors = starringCast.take(4).map { actorData ->
+                val rawImg = actorData.actor.image?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
+                val safeImg = rawImg?.let { com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(it) ?: it }
+                ActorPayload(
+                    name = actorData.actor.name,
+                    role = actorData.roleString ?: actorData.role?.name,
+                    image = safeImg,
+                )
+            }
+
+            val availableShaders = com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders()
+            val availableFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts()
+            val activeSubtitleFont = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT)
+            val activeSubtitleBackground = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG)
+            val activeSubtitleBorderColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR)
+            val activeSubtitleBorderSize = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE)
+            val activeSubtitleShadowColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR)
+            val activeSubtitleShadowOffset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET)
+            val activeSubtitleBlur = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR)
+            val activeSubtitleBold = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD)
+            val activeSubtitleItalic = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC)
+
             val payload = PlayerUiSyncState(
                 plot = plot,
                 year = year,
@@ -195,19 +227,19 @@ fun ComposeNativeWebPlayer(
                     LazyTrackPayload(it.url, it.name, it.language)
                 },
                 startPositionMs = startPositionMs,
-                title = title ?: "CloudStream",
-                shaders = com.lagradost.cloudstream3.desktop.player.ShaderManager.getAvailableShaders(),
+                title = title ?: "",
+                shaders = availableShaders,
                 activeShader = activeShader,
-                activeSubtitleFont = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT),
-                availableSubtitleFonts = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getAvailableFonts(),
-                activeSubtitleBackground = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG),
-                activeSubtitleBorderColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR),
-                activeSubtitleBorderSize = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE),
-                activeSubtitleShadowColor = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR),
-                activeSubtitleShadowOffset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET),
-                activeSubtitleBlur = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR),
-                activeSubtitleBold = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD),
-                activeSubtitleItalic = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC),
+                activeSubtitleFont = activeSubtitleFont,
+                availableSubtitleFonts = availableFonts,
+                activeSubtitleBackground = activeSubtitleBackground,
+                activeSubtitleBorderColor = activeSubtitleBorderColor,
+                activeSubtitleBorderSize = activeSubtitleBorderSize,
+                activeSubtitleShadowColor = activeSubtitleShadowColor,
+                activeSubtitleShadowOffset = activeSubtitleShadowOffset,
+                activeSubtitleBlur = activeSubtitleBlur,
+                activeSubtitleBold = activeSubtitleBold,
+                activeSubtitleItalic = activeSubtitleItalic,
                 activeLazyVideoTrackUrl = activeLazyVideoTrackUrl,
                 activeLazyAudioTrackUrl = activeLazyAudioTrackUrl,
                 resolution = resolution,
@@ -221,6 +253,7 @@ fun ComposeNativeWebPlayer(
                 skipIntervals = skipIntervals.map {
                     SkipIntervalPayload(it.startMs, it.endMs, it.type.name, it.label, it.providerId)
                 },
+                actors = safeActors,
             )
 
             val wrapper = MetadataUpdatePayloadWrapper(
@@ -232,7 +265,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, actors) {
         if (isUiReady) {
             pushSyncStateToWebView()
         }
@@ -295,6 +328,7 @@ fun ComposeNativeWebPlayer(
             val showEndTime = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_END_TIME) ?: false
             val showClock = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK) ?: false
             val pauseInfoMode = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE) ?: "delay_5s"
+            val showPauseCast = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true
 
             val payload = AppStateUpdatePayload(
                 volume = vol,
@@ -309,6 +343,7 @@ fun ComposeNativeWebPlayer(
                 showEndTime = showEndTime,
                 showClock = showClock,
                 pauseInfoMode = pauseInfoMode,
+                showPauseCast = showPauseCast,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -609,6 +644,13 @@ fun ComposeNativeWebPlayer(
                         "setPauseInfoMode", "set_pause_info_mode" -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE, eventValue)
+                                pushMetadataToWebView()
+                            }
+                        }
+                        "setPauseShowCast", "set_pause_show_cast", "toggle_pause_show_cast" -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                val nextVal = eventValue.toBooleanStrictOrNull() ?: !(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST, nextVal)
                                 pushMetadataToWebView()
                             }
                         }

@@ -41,137 +41,6 @@ import com.lagradost.player.impl.PlayerLinkHandler
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun MoviePlayCard(
-    ep: Episode,
-    history: WatchHistory?,
-    provider: MainAPI,
-    data: LoadResponse,
-    onPlay: (Episode) -> Unit,
-) {
-    var isHovered by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isHovered) 1.02f else 1f, animationSpec = tween(200))
-    val elevation by animateDpAsState(if (isHovered) 12.dp else 4.dp, animationSpec = tween(200))
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 300.dp, max = 500.dp)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        isHovered = event.type == androidx.compose.ui.input.pointer.PointerEventType.Enter
-                        if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Exit) {
-                            isHovered = false
-                        }
-                    }
-                }
-            }
-            .scale(scale)
-            .clickable { onPlay(ep) },
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = elevation,
-        shadowElevation = elevation.applyShadowMultiplier(),
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-            val fallbackImg = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-
-            if (epImg != null || fallbackImg != null) {
-                val targetUrl = epImg ?: fallbackImg
-                val context = coil3.compose.LocalPlatformContext.current
-                val imageRequest = remember(targetUrl) {
-                    coil3.request.ImageRequest.Builder(context)
-                        .data(targetUrl)
-                        .size(640, 360)
-                        .crossfade(true)
-                        .build()
-                }
-                AsyncImage(
-                    model = imageRequest,
-                    contentDescription = ep.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().run {
-                        val noBackdrop = (data as? MovieLoadResponse)?.backgroundPosterUrl == null &&
-                            (data as? LiveStreamLoadResponse)?.backgroundPosterUrl == null &&
-                            (data as? TvSeriesLoadResponse)?.backgroundPosterUrl == null &&
-                            (data as? AnimeLoadResponse)?.backgroundPosterUrl == null
-                        if (noBackdrop) this.blur(32.dp) else this
-                    },
-                )
-                // Gradient overlay so text is readable
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
-                                startY = 100f,
-                            ),
-                        ),
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
-            }
-
-            // Play Icon centered
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onPrimary)
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(32.dp),
-            ) {
-                val canResume = history != null && PlayerLinkHandler.resumeStartSeconds(history.position, history.duration) > 0
-                val actionText = if (canResume) "Resume Playing" else "Play"
-
-                Text(
-                    text = actionText,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                val runTime = ep.runTime ?: data.duration
-                runTime?.let { rt ->
-                    val runTimeStr = if (rt > 300) "${rt / 60}m" else "${rt}m"
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = runTimeStr,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.7f),
-                    )
-                }
-
-                if (history != null && history.duration > 0) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    com.lagradost.cloudstream3.desktop.ui.components.WatchProgressIndicator(
-                        position = history.position,
-                        duration = history.duration,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
 fun EpisodeListItem(
     ep: Episode,
     isLatest: Boolean,
@@ -192,51 +61,27 @@ fun EpisodeListItem(
 ) {
     var isHovered by remember { mutableStateOf(false) }
 
-    val releaseStatus = remember(ep.description) { parseEpisodeReleaseStatus(ep) }
     val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
-    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
-
-    val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-    val fallbackBackdrop = (uiState?.enrichedBackdropUrl ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: data.backgroundPosterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-    val fallbackImg = (provider.fixUrlNull(data.posterUrl) ?: data.posterUrl)?.let { if (it.startsWith("//")) "https:$it" else it }?.takeIf { it.isNotBlank() }
-
-    val progress = if (history != null && history.duration > 0) {
-        if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
-            1f
-        } else {
-            (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-        }
-    } else {
-        0f
-    }
-
-    val isWatched = progress > 0.9f
-    val hasStartedPlayback = progress > 0f || (history != null && history.position > 5)
-    val shouldHideSpoilers = isAntiSpoiler && !hasStartedPlayback && !isWatched
-
-    val rawTitle = ep.name ?: "Episode ${ep.episode ?: "?"}"
-    val titleCleaned = rawTitle
-        .replace(Regex("^(?i)(E[0-9]+[\\s\\-:]*)+"), "")
-        .replace(Regex("^(?i)(Episode[\\s]*[0-9]+[\\s\\-:]*)+"), "")
-        .trim()
-    val finalTitle = if (titleCleaned.isBlank()) "Episode ${ep.episode ?: "?"}" else titleCleaned
-
-    val epRunTime = ep.runTime ?: data.duration
-    val runTimeStr = epRunTime?.let { dur ->
-        val mins = if (dur > 1000) dur / 60 else dur
-        if (mins >= 60) {
-            val h = mins / 60
-            val m = mins % 60
-            if (m > 0) "${h}h ${m}m" else "${h}h"
-        } else {
-            "${mins}m"
-        }
-    }
-
-    val rawDesc = ep.description ?: ""
-    val formattedDate = releaseStatus.formattedDate
-    val cleanDesc = rawDesc.replace(EPISODE_DATE_REGEX, "").trim()
-    val hasDesc = cleanDesc.isNotBlank()
+    val p = rememberEpisodePresentation(
+        ep = ep,
+        history = history,
+        provider = provider,
+        data = data,
+        uiState = uiState,
+        isAntiSpoiler = isAntiSpoiler,
+        lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+    )
+    val releaseStatus = p.releaseStatus
+    val isEpisodeLocked = p.isEpisodeLocked
+    val targetUrl = p.targetUrl
+    val progress = p.progress
+    val isWatched = p.isWatched
+    val shouldHideSpoilers = p.shouldHideSpoilers
+    val finalTitle = p.finalTitle
+    val runTimeStr = p.runTimeStr
+    val cleanDesc = p.cleanDesc
+    val hasDesc = p.hasDesc
+    val formattedDate = p.formattedDate
     val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
     val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
@@ -316,7 +161,7 @@ fun EpisodeListItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 1. Large 16:9 Thumbnail (340dp x 191dp)
+            // 1. Thumbnail
             Box(
                 modifier = Modifier
                     .width(340.dp)
@@ -324,7 +169,6 @@ fun EpisodeListItem(
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                val targetUrl = epImg ?: fallbackBackdrop ?: fallbackImg
                 if (targetUrl != null) {
                     val context = coil3.compose.LocalPlatformContext.current
                     val imageRequest = remember(targetUrl) {
@@ -406,14 +250,14 @@ fun EpisodeListItem(
 
             Spacer(modifier = Modifier.width(24.dp))
 
-            // 2. Middle Content (Title, Metadata chips, Paragraph-bounded Synopsis)
+            // 2. Details
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Row 1: Title + Gold Star Rating
+                // Row 1: Title and rating
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

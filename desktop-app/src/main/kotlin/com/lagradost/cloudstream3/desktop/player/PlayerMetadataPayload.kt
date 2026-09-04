@@ -43,6 +43,13 @@ data class PlayerUiSyncState(
     val currentChapterIndex: Int = -1,
     val activeSkipInterval: SkipIntervalPayload? = null,
     val skipIntervals: List<SkipIntervalPayload> = emptyList(),
+    val actors: List<ActorPayload> = emptyList(),
+)
+
+data class ActorPayload(
+    val name: String,
+    val role: String?,
+    val image: String?,
 )
 
 data class SkipIntervalPayload(
@@ -115,6 +122,7 @@ data class AppStateUpdatePayload(
     val showEndTime: Boolean = false,
     val showClock: Boolean = false,
     val pauseInfoMode: String = "delay_5s",
+    val showPauseCast: Boolean = true,
 )
 
 data class P2pStatsUpdatePayload(

@@ -817,9 +817,12 @@
         <div class="action-icon-wrap" id="actionFeedbackIcon"></div>
     </div>
 
-    <!-- Volume OSD Overlay -->
+    <!-- Volume OSD Overlay (Smooth Dynamic Bar) -->
     <div id="volumeOsd" class="volume-osd">
         <div id="volumeOsdIcon" class="volume-osd-icon"></div>
+        <div class="volume-osd-bar-track">
+            <div id="volumeOsdBarFill" class="volume-osd-bar-fill"></div>
+        </div>
         <div id="volumeOsdText" class="volume-osd-text">100%</div>
     </div>
 
@@ -894,6 +897,7 @@
 
         <!-- Progress Row (Full Width, above controls) -->
         <div class="progress-row">
+            <div id="seekingTimeBadge" class="seeking-time-badge">0:00 / 0:00</div>
             <div class="seek-wrap" id="seekWrap">
                 <div class="seek-track"></div>
                 <div class="seek-buffer" id="seekBuffer"></div>
@@ -936,7 +940,7 @@
                         </svg>
                     </button>
                     <div class="vol-slider-wrap">
-                        <input type="range" id="volumeBar" class="vol-slider" min="0" max="200" value="100">
+                        <input type="range" id="volumeBar" class="vol-slider" min="0" max="100" value="100">
                     </div>
                 </div>
                 <!-- Time Display -->
@@ -945,46 +949,43 @@
 
             <!-- Right: utility buttons -->
             <div class="ctrl-group right">
-                <!-- Next Episode (hidden by default) -->
+                <!-- Episodes & Chapters -->
                 <button id="nextEpBtn" class="icon-btn hidden" title="Next Episode">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
                 </button>
-                <!-- Episodes -->
                 <button id="episodesBtn" class="icon-btn hidden" title="Episodes">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
                 </button>
-                <!-- Chapters (hidden by default unless stream has chapters) -->
                 <button id="chaptersBtn" class="icon-btn hidden" title="Chapters">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path><path d="M6 6h10"></path><path d="M6 10h10"></path></svg>
                 </button>
-                <!-- Source / Server -->
+
+                <div class="ctrl-divider"></div>
+
+                <!-- Media Tracks & Quality -->
                 <button id="serversBtn" class="icon-btn" title="Video Sources">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                 </button>
-                <!-- Audio Tracks -->
                 <button id="audioBtn" class="icon-btn" title="Audio Tracks">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
                 </button>
-                <!-- Quality -->
-                <button id="qualityBtn" class="icon-btn" title="Video Quality">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
-                </button>
-                <!-- Aspect Ratio -->
-                <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect><path d="M7 12h10"></path></svg>
-                </button>
-                <!-- Playback Speed -->
-                <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 44px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
-                <!-- Subtitles -->
                 <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 3C1 2.44772 1.44772 2 2 2H22C22.5523 2 23 2.44772 23 3V17C23 17.5523 22.5523 18 22 18H19V21C19 21.3688 18.797 21.7077 18.4719 21.8817C18.1467 22.0557 17.7522 22.0366 17.4453 21.8321L11.6972 18H2C1.44772 18 1 17.5523 1 17V3ZM3 4V16H12H12.3028L12.5547 16.1679L17 19.1315V17V16H18H21V4H3ZM10 9L5 9V7L10 7V9ZM19 11H14V13H19V11ZM12 13L5 13V11L12 11V13ZM19 7H12V9H19V7Z" fill="currentColor"></path></svg>
                 </button>
-                <!-- Settings -->
+                <button id="qualityBtn" class="icon-btn" title="Video Quality">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
+                </button>
+                <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect><path d="M7 12h10"></path></svg>
+                </button>
+                <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 38px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
+
+                <div class="ctrl-divider"></div>
+
+                <!-- Settings & Fullscreen -->
                 <button id="settingsBtn" class="icon-btn" title="Settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </button>
-
-                <!-- Fullscreen -->
                 <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 5a2 2 0 0 1 2-2h7v2H2v4H0V5Zm22 0h-7V3h7a2 2 0 0 1 2 2v4h-2V5ZM2 15v4h7v2H2a2 2 0 0 1-2-2v-4h2Zm20 4v-4h2v4a2 2 0 0 1-2 2h-7v-2h7Z" fill="currentColor"></path></svg>
                 </button>
@@ -1010,6 +1011,11 @@
     </div>
     <p id="pauseInfoEpisode"></p>
     <p id="pauseInfoPlot"></p>
+</div>
+
+<div id="pauseInfoCast">
+    <div id="pauseInfoStarringLabel">Starring</div>
+    <div id="pauseInfoCastList"></div>
 </div>
 
 <!-- ── Playback Start Content Advisory Banner (Netflix Style) ── -->
@@ -1171,6 +1177,14 @@
                 </div>
                 <div class="pause-modal-radio"></div>
             </div>
+        </div>
+        <div class="pause-modal-divider"></div>
+        <div class="pause-modal-option checked" id="pauseModalOptionCast" onclick="togglePauseShowCast(event)">
+            <div class="pause-modal-option-info">
+                <span class="pause-modal-option-title">Show Starring Cast</span>
+                <span class="pause-modal-option-sub">Display lead actors alongside synopsis when paused</span>
+            </div>
+            <div class="pause-modal-checkbox"></div>
         </div>
     </div>
 </div>

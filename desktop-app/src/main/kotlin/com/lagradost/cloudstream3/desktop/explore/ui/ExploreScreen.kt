@@ -87,7 +87,7 @@ fun ExploreScreen(
                 .fillMaxSize()
                 .padding(horizontal = 24.dp, vertical = 14.dp),
         ) {
-            // ── Top Header Bar: Perfect Horizontal Alignment ──
+            // Header bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,7 +113,7 @@ fun ExploreScreen(
                     )
                 }
 
-                // Center: Frosted Search Capsule (True Exact Window Center)
+                // Search bar
                 Surface(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -180,7 +180,7 @@ fun ExploreScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             if (uiState.isInitializing) {
-                // Initial Boot Discovery State (Smooth Spinner instead of flashing empty state)
+                // Loading state
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -206,15 +206,13 @@ fun ExploreScreen(
                 // Empty state if no catalog addon is enabled
                 EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Settings) })
             } else {
-                // ── Controls & Filter Hierarchy ──
-
-                // Tier 1: Media Type Selector + Year Dropdown (Aligned in a clean bar)
+                // Controls and filters
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Frosted Segmented Media Type Selector
+                    // Media type selector
                     Surface(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))

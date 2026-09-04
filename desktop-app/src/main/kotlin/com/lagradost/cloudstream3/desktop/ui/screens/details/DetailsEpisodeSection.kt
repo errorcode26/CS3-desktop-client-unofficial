@@ -212,390 +212,368 @@ fun DetailsEpisodeSection(
             val isCompact = maxWidth < 600.dp
             val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
 
-            when (data) {
-                is MovieLoadResponse, is TorrentLoadResponse, is LiveStreamLoadResponse -> {
-                    // Handled by isMovieLike above
+            val rawEpisodes: List<Episode> = remember(data, selectedDub) {
+                when (data) {
+                    is AnimeLoadResponse -> (selectedDub?.let { data.episodes[it] } ?: data.episodes.values.firstOrNull()) ?: emptyList()
+                    is TvSeriesLoadResponse -> data.episodes
+                    else -> emptyList()
                 }
-                is TvSeriesLoadResponse -> {
-                    if (isMovieLike) return@BoxWithConstraints
-                    val preChunkedEpisodes = data.episodes
-                        .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                        .let { list ->
-                            if (isSortAscending) {
-                                list.sortedBy { it.episode ?: Int.MAX_VALUE }
-                            } else {
-                                list.sortedByDescending { it.episode ?: Int.MIN_VALUE }
-                            }
-                        }
-                    val targetEpisodeIndex = remember(preChunkedEpisodes, latestHistory) {
-                        if (latestHistory != null && preChunkedEpisodes.isNotEmpty()) {
-                            val isLatestCompleted = latestHistory.duration > 0 &&
-                                PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
-                            val currentIdx = preChunkedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
-                            if (currentIdx != -1) {
-                                if (isLatestCompleted && currentIdx + 1 < preChunkedEpisodes.size) {
-                                    currentIdx + 1
-                                } else {
-                                    currentIdx
-                                }
-                            } else {
-                                0
-                            }
+            }
+
+            val preChunkedEpisodes = remember(rawEpisodes, selectedSeason, isSortAscending) {
+                rawEpisodes
+                    .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                    .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
+                    .let { list ->
+                        if (isSortAscending) {
+                            list.sortedBy { it.episode ?: Int.MAX_VALUE }
                         } else {
-                            0
+                            list.sortedByDescending { it.episode ?: Int.MIN_VALUE }
                         }
                     }
-                    val chunks = preChunkedEpisodes.chunked(20)
-                    LaunchedEffect(selectedSeason, isSortAscending, data.url, targetEpisodeIndex) {
-                        val targetChunk = if (chunks.isNotEmpty()) (targetEpisodeIndex / 20).coerceIn(0, chunks.size - 1) else 0
-                        selectedEpisodeChunk = targetChunk
-                        val targetInChunk = targetEpisodeIndex % 20
-                        if (targetInChunk > 0) {
-                            episodesScrollState.scrollToItem(targetInChunk)
+            }
+            val targetEpisodeIndex = remember(preChunkedEpisodes, latestHistory) {
+                if (latestHistory != null && preChunkedEpisodes.isNotEmpty()) {
+                    val isLatestCompleted = latestHistory.duration > 0 &&
+                        PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
+                    val currentIdx = preChunkedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
+                    if (currentIdx != -1) {
+                        if (isLatestCompleted && currentIdx + 1 < preChunkedEpisodes.size) {
+                            currentIdx + 1
                         } else {
-                            episodesScrollState.scrollToItem(0)
-                        }
-                    }
-                    if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
-                    val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
-                    val seasonListState = rememberLazyListState()
-                    LaunchedEffect(selectedSeason, seasons) {
-                        val targetIdx = seasons.indexOf(selectedSeason)
-                        if (targetIdx >= 0) {
-                            seasonListState.animateScrollToItem(targetIdx)
-                        }
-                    }
-
-                    val currentSeasonEpisodes = data.episodes
-                        .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                    val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
-                        val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
-                        hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
-                    }
-                    val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (isCompact) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        if (seasons.size <= 1) {
-                                            val singleSeason = seasons.firstOrNull() ?: 1
-                                            val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
-                                            Text(
-                                                text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        } else if (seasons.size <= 4) {
-                                            LazyRow(
-                                                state = seasonListState,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                items(seasons, key = { it }) { season ->
-                                                    val isSelected = selectedSeason == season
-                                                    val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                    val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
-
-                                                    DesktopFilterChip(
-                                                        text = seasonName,
-                                                        isSelected = isSelected,
-                                                        onClick = { selectedSeason = season },
-                                                        minWidth = 75.dp,
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                            val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
-                                            SeasonSelectorButton(
-                                                seasonName = currentSeasonName,
-                                                onClick = { showSeasonModal = true },
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(Modifier.width(8.dp))
-
-                                    DesktopFilterChip(
-                                        text = if (isSortAscending) "▼" else "▲",
-                                        isSelected = false,
-                                        onClick = { isSortAscending = !isSortAscending },
-                                        minWidth = 36.dp,
-                                    )
-
-                                    Spacer(Modifier.width(6.dp))
-
-                                    DesktopIconButton(
-                                        icon = when (currentMode) {
-                                            0 -> Icons.Default.ViewCarousel
-                                            1 -> Icons.Default.GridView
-                                            2 -> Icons.Default.TableRows
-                                            else -> Icons.Default.ViewCarousel
-                                        },
-                                        contentDescription = when (currentMode) {
-                                            0 -> "Current: Carousel (Click for Grid)"
-                                            1 -> "Current: Grid (Click for List)"
-                                            2 -> "Current: List (Click for Carousel)"
-                                            else -> "Toggle Episode View"
-                                        },
-                                        onClick = {
-                                            val nextMode = (currentMode + 1) % 3
-                                            onSetEpisodeViewMode(nextMode)
-                                        },
-                                        isActive = false,
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    if (currentSeasonEpisodes.isNotEmpty()) {
-                                        DesktopActionBadge(
-                                            text = if (isSeasonWatched) "✓ Watched" else "Mark Watched",
-                                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
-                                            isActive = isSeasonWatched,
-                                            activeColor = Color(0xFF4ADE80),
-                                        )
-                                    } else {
-                                        Spacer(Modifier.width(1.dp))
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                        modifier = Modifier.height(34.dp),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
-                                                .padding(horizontal = 8.dp),
-                                        ) {
-                                            Text(
-                                                "Anti-spoiler",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Switch(
-                                                checked = isAntiSpoiler,
-                                                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
-                                                modifier = Modifier.scale(0.7f),
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                                ),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // Desktop single-line header
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                ) {
-                                    if (seasons.isNotEmpty()) {
-                                        if (seasons.size == 1) {
-                                            val singleSeason = seasons.first()
-                                            val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
-                                            Text(
-                                                text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        } else if (seasons.size <= 4) {
-                                            LazyRow(
-                                                state = seasonListState,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .weight(1f, fill = false)
-                                                    .desktopDragScroll(seasonListState),
-                                            ) {
-                                                items(seasons, key = { it }) { season ->
-                                                    val isSelected = selectedSeason == season
-                                                    val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                    val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
-
-                                                    DesktopFilterChip(
-                                                        text = seasonName,
-                                                        isSelected = isSelected,
-                                                        onClick = { selectedSeason = season },
-                                                        minWidth = 90.dp,
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                            val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
-                                            SeasonSelectorButton(
-                                                seasonName = currentSeasonName,
-                                                onClick = { showSeasonModal = true },
-                                            )
-                                        }
-
-                                        if (currentSeasonEpisodes.isNotEmpty()) {
-                                            Text(
-                                                text = "•   ${currentSeasonEpisodes.size} ${if (currentSeasonEpisodes.size == 1) "Episode" else "Episodes"}",
-                                                color = Color.White.copy(alpha = 0.55f),
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium,
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                ) {
-                                    if (currentSeasonEpisodes.isNotEmpty()) {
-                                        DesktopActionBadge(
-                                            text = if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched",
-                                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
-                                            isActive = isSeasonWatched,
-                                            activeColor = Color(0xFF4ADE80),
-                                        )
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                        modifier = Modifier.height(40.dp),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
-                                                .padding(horizontal = 12.dp),
-                                        ) {
-                                            Text(
-                                                "Anti-spoiler",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Switch(
-                                                checked = isAntiSpoiler,
-                                                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
-                                                modifier = Modifier.scale(0.8f),
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                                ),
-                                            )
-                                        }
-                                    }
-
-                                    DesktopFilterChip(
-                                        text = if (isSortAscending) "Sort ▼" else "Sort ▲",
-                                        isSelected = false,
-                                        onClick = { isSortAscending = !isSortAscending },
-                                        minWidth = 70.dp,
-                                    )
-
-                                    DesktopIconButton(
-                                        icon = when (currentMode) {
-                                            0 -> Icons.Default.ViewCarousel
-                                            1 -> Icons.Default.GridView
-                                            2 -> Icons.Default.TableRows
-                                            else -> Icons.Default.ViewCarousel
-                                        },
-                                        contentDescription = when (currentMode) {
-                                            0 -> "Current: Carousel (Click for Grid)"
-                                            1 -> "Current: Grid (Click for List)"
-                                            2 -> "Current: List (Click for Carousel)"
-                                            else -> "Toggle Episode View"
-                                        },
-                                        onClick = {
-                                            val nextMode = (currentMode + 1) % 3
-                                            onSetEpisodeViewMode(nextMode)
-                                        },
-                                        isActive = false,
-                                    )
-                                }
-                            }
-                        }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (allFilteredEpisodes.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
-                            Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
-                        Column {
-                            RenderEpisodesSection(
-                                allFilteredEpisodes = allFilteredEpisodes,
-                                isEpisodesStackedView = isEpisodesStackedView,
-                                episodesScrollState = episodesScrollState,
-                                latestHistory = latestHistory,
-                                showHistory = showHistory,
-                                provider = provider,
-                                data = data,
-                                uiState = uiState,
-                                isAntiSpoiler = isAntiSpoiler,
-                                enableDownloadButtons = enableDownloadButtons,
-                                coroutineScope = coroutineScope,
-                                onPlay = onPlay,
-                                onDownload = onDownload,
-                                onToggleWatched = onToggleWatched,
-                                onToggleSeasonWatched = onToggleSeasonWatched,
-                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                            )
-
-                            // Pagination row
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                chunks.forEachIndexed { index, list ->
-                                    val isSelected = selectedEpisodeChunk == index
-                                    val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
-                                    val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
-                                    
-                                    DesktopFilterChip(
-                                        text = "$startEp - $endEp",
-                                        isSelected = isSelected,
-                                        onClick = {
-                                            selectedEpisodeChunk = index
-                                            coroutineScope.launch { episodesScrollState.scrollToItem(0) }
-                                        },
-                                        height = 36.dp,
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                    )
-                                }
-                            }
+                            currentIdx
                         }
                     } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            }
+            val chunks = preChunkedEpisodes.chunked(20)
+            LaunchedEffect(selectedSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex) {
+                val targetChunk = if (chunks.isNotEmpty()) (targetEpisodeIndex / 20).coerceIn(0, chunks.size - 1) else 0
+                selectedEpisodeChunk = targetChunk
+                val targetInChunk = targetEpisodeIndex % 20
+                if (targetInChunk > 0) {
+                    episodesScrollState.scrollToItem(targetInChunk)
+                } else {
+                    episodesScrollState.scrollToItem(0)
+                }
+            }
+            if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
+            val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
+            val seasonListState = rememberLazyListState()
+            LaunchedEffect(selectedSeason, seasons) {
+                val targetIdx = seasons.indexOf(selectedSeason)
+                if (targetIdx >= 0) {
+                    seasonListState.animateScrollToItem(targetIdx)
+                }
+            }
+
+            val currentSeasonEpisodes = remember(rawEpisodes, selectedSeason) {
+                rawEpisodes
+                    .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+                    .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
+            }
+            val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
+                val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
+                hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
+            }
+            val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isCompact) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (seasons.size <= 1) {
+                                    val singleSeason = seasons.firstOrNull() ?: 1
+                                    val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
+                                    Text(
+                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                } else if (seasons.size <= 4) {
+                                    LazyRow(
+                                        state = seasonListState,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        items(seasons, key = { it }) { season ->
+                                            val isSelected = selectedSeason == season
+                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+
+                                            DesktopFilterChip(
+                                                text = seasonName,
+                                                isSelected = isSelected,
+                                                onClick = { selectedSeason = season },
+                                                minWidth = 75.dp,
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                    val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                    SeasonSelectorButton(
+                                        seasonName = currentSeasonName,
+                                        onClick = { showSeasonModal = true },
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            DesktopFilterChip(
+                                text = if (isSortAscending) "▼" else "▲",
+                                isSelected = false,
+                                onClick = { isSortAscending = !isSortAscending },
+                                minWidth = 36.dp,
+                            )
+
+                            Spacer(Modifier.width(6.dp))
+
+                            DesktopIconButton(
+                                icon = when (currentMode) {
+                                    0 -> Icons.Default.ViewCarousel
+                                    1 -> Icons.Default.GridView
+                                    2 -> Icons.Default.TableRows
+                                    else -> Icons.Default.ViewCarousel
+                                },
+                                contentDescription = when (currentMode) {
+                                    0 -> "Current: Carousel (Click for Grid)"
+                                    1 -> "Current: Grid (Click for List)"
+                                    2 -> "Current: List (Click for Carousel)"
+                                    else -> "Toggle Episode View"
+                                },
+                                onClick = {
+                                    val nextMode = (currentMode + 1) % 3
+                                    onSetEpisodeViewMode(nextMode)
+                                },
+                                isActive = false,
+                            )
+                        }
+
+                        if (dubStatuses.size > 1) {
+                            SubDubSegmentedSwitch(
+                                dubStatuses = dubStatuses,
+                                selectedDub = selectedDub,
+                                onSelectDub = { selectedDub = it },
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            if (currentSeasonEpisodes.isNotEmpty()) {
+                                DesktopActionBadge(
+                                    text = if (isSeasonWatched) "✓ Watched" else "Mark Watched",
+                                    onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
+                                    isActive = isSeasonWatched,
+                                    activeColor = Color(0xFF4ADE80),
+                                )
+                            } else {
+                                Spacer(Modifier.width(1.dp))
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                modifier = Modifier.height(34.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
+                                        .padding(horizontal = 8.dp),
+                                ) {
+                                    Text(
+                                        "Anti-spoiler",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Switch(
+                                        checked = isAntiSpoiler,
+                                        onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
+                                        modifier = Modifier.scale(0.7f),
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Desktop single-line header
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            if (seasons.isNotEmpty()) {
+                                if (seasons.size == 1) {
+                                    val singleSeason = seasons.first()
+                                    val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
+                                    Text(
+                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                } else if (seasons.size <= 4) {
+                                    LazyRow(
+                                        state = seasonListState,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .desktopDragScroll(seasonListState),
+                                    ) {
+                                        items(seasons, key = { it }) { season ->
+                                            val isSelected = selectedSeason == season
+                                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
+                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+
+                                            DesktopFilterChip(
+                                                text = seasonName,
+                                                isSelected = isSelected,
+                                                onClick = { selectedSeason = season },
+                                                minWidth = 90.dp,
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
+                                    val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                    SeasonSelectorButton(
+                                        seasonName = currentSeasonName,
+                                        onClick = { showSeasonModal = true },
+                                    )
+                                }
+
+                                if (currentSeasonEpisodes.isNotEmpty()) {
+                                    Text(
+                                        text = "•   ${currentSeasonEpisodes.size} ${if (currentSeasonEpisodes.size == 1) "Episode" else "Episodes"}",
+                                        color = Color.White.copy(alpha = 0.55f),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            }
+
+                            if (dubStatuses.size > 1) {
+                                SubDubSegmentedSwitch(
+                                    dubStatuses = dubStatuses,
+                                    selectedDub = selectedDub,
+                                    onSelectDub = { selectedDub = it },
+                                )
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            if (currentSeasonEpisodes.isNotEmpty()) {
+                                DesktopActionBadge(
+                                    text = if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched",
+                                    onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
+                                    isActive = isSeasonWatched,
+                                    activeColor = Color(0xFF4ADE80),
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                modifier = Modifier.height(40.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
+                                        .padding(horizontal = 12.dp),
+                                ) {
+                                    Text(
+                                        "Anti-spoiler",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Switch(
+                                        checked = isAntiSpoiler,
+                                        onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
+                                        modifier = Modifier.scale(0.8f),
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                        ),
+                                    )
+                                }
+                            }
+
+                            DesktopFilterChip(
+                                text = if (isSortAscending) "Sort ▼" else "Sort ▲",
+                                isSelected = false,
+                                onClick = { isSortAscending = !isSortAscending },
+                                minWidth = 70.dp,
+                            )
+
+                            DesktopIconButton(
+                                icon = when (currentMode) {
+                                    0 -> Icons.Default.ViewCarousel
+                                    1 -> Icons.Default.GridView
+                                    2 -> Icons.Default.TableRows
+                                    else -> Icons.Default.ViewCarousel
+                                },
+                                contentDescription = when (currentMode) {
+                                    0 -> "Current: Carousel (Click for Grid)"
+                                    1 -> "Current: Grid (Click for List)"
+                                    2 -> "Current: List (Click for Carousel)"
+                                    else -> "Toggle Episode View"
+                                },
+                                onClick = {
+                                    val nextMode = (currentMode + 1) % 3
+                                    onSetEpisodeViewMode(nextMode)
+                                },
+                                isActive = false,
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (allFilteredEpisodes.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+                        Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
+                    Column {
                         RenderEpisodesSection(
                             allFilteredEpisodes = allFilteredEpisodes,
                             isEpisodesStackedView = isEpisodesStackedView,
@@ -605,8 +583,8 @@ fun DetailsEpisodeSection(
                             provider = provider,
                             data = data,
                             uiState = uiState,
-                            enableDownloadButtons = enableDownloadButtons,
                             isAntiSpoiler = isAntiSpoiler,
+                            enableDownloadButtons = enableDownloadButtons,
                             coroutineScope = coroutineScope,
                             onPlay = onPlay,
                             onDownload = onDownload,
@@ -614,463 +592,69 @@ fun DetailsEpisodeSection(
                             onToggleSeasonWatched = onToggleSeasonWatched,
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
-                        val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
-                        if (showCarouselArrows) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    DesktopIconButton(
-                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                        contentDescription = "Scroll Left",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
-                                    )
-                                    DesktopIconButton(
-                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = "Scroll Right",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
-                                    )
-                                }
+
+                        // Pagination row
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            chunks.forEachIndexed { index, list ->
+                                val isSelected = selectedEpisodeChunk == index
+                                val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
+                                val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
+
+                                DesktopFilterChip(
+                                    text = "$startEp - $endEp",
+                                    isSelected = isSelected,
+                                    onClick = {
+                                        selectedEpisodeChunk = index
+                                        coroutineScope.launch { episodesScrollState.scrollToItem(0) }
+                                    },
+                                    height = 36.dp,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    RenderEpisodesSection(
+                        allFilteredEpisodes = allFilteredEpisodes,
+                        isEpisodesStackedView = isEpisodesStackedView,
+                        episodesScrollState = episodesScrollState,
+                        latestHistory = latestHistory,
+                        showHistory = showHistory,
+                        provider = provider,
+                        data = data,
+                        uiState = uiState,
+                        enableDownloadButtons = enableDownloadButtons,
+                        isAntiSpoiler = isAntiSpoiler,
+                        coroutineScope = coroutineScope,
+                        onPlay = onPlay,
+                        onDownload = onDownload,
+                        onToggleWatched = onToggleWatched,
+                        onToggleSeasonWatched = onToggleSeasonWatched,
+                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                    )
+                    val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
+                    if (showCarouselArrows) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DesktopIconButton(
+                                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                    contentDescription = "Scroll Left",
+                                    onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
+                                )
+                                DesktopIconButton(
+                                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = "Scroll Right",
+                                    onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
+                                )
                             }
                         }
                     }
                 }
-                }
-                is AnimeLoadResponse -> {
-                    if (isMovieLike) return@BoxWithConstraints
-                    val preChunkedEpisodes: List<Episode> = (selectedDub?.let { data.episodes[it] } ?: emptyList())
-                        .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                        .let { list ->
-                            if (isSortAscending) {
-                                list.sortedBy { it.episode ?: Int.MAX_VALUE }
-                            } else {
-                                list.sortedByDescending { it.episode ?: Int.MIN_VALUE }
-                            }
-                        }
-                    val targetEpisodeIndex = remember(preChunkedEpisodes, latestHistory) {
-                        if (latestHistory != null && preChunkedEpisodes.isNotEmpty()) {
-                            val isLatestCompleted = latestHistory.duration > 0 &&
-                                PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
-                            val currentIdx = preChunkedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
-                            if (currentIdx != -1) {
-                                if (isLatestCompleted && currentIdx + 1 < preChunkedEpisodes.size) {
-                                    currentIdx + 1
-                                } else {
-                                    currentIdx
-                                }
-                            } else {
-                                0
-                            }
-                        } else {
-                            0
-                        }
-                    }
-                    val chunks = preChunkedEpisodes.chunked(20)
-                    LaunchedEffect(selectedSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex) {
-                        val targetChunk = if (chunks.isNotEmpty()) (targetEpisodeIndex / 20).coerceIn(0, chunks.size - 1) else 0
-                        selectedEpisodeChunk = targetChunk
-                        val targetInChunk = targetEpisodeIndex % 20
-                        if (targetInChunk > 0) {
-                            episodesScrollState.scrollToItem(targetInChunk)
-                        } else {
-                            episodesScrollState.scrollToItem(0)
-                        }
-                    }
-                    if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
-                    val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
-                    val animeSeasonListState = rememberLazyListState()
-                    LaunchedEffect(selectedSeason, seasons) {
-                        val targetIdx = seasons.indexOf(selectedSeason)
-                        if (targetIdx >= 0) {
-                            animeSeasonListState.animateScrollToItem(targetIdx)
-                        }
-                    }
-
-                    val currentSeasonEpisodes = (selectedDub?.let { data.episodes[it] } ?: emptyList())
-                        .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                    val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
-                        val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
-                        hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
-                    }
-                    val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (isCompact) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        if (seasons.size <= 1) {
-                                            val singleSeason = seasons.firstOrNull() ?: 1
-                                            val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
-                                            Text(
-                                                text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        } else if (seasons.size <= 4) {
-                                            LazyRow(
-                                                state = animeSeasonListState,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                items(seasons, key = { it }) { season ->
-                                                    val isSelected = selectedSeason == season
-                                                    val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                    val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
-
-                                                    DesktopFilterChip(
-                                                        text = seasonName,
-                                                        isSelected = isSelected,
-                                                        onClick = { selectedSeason = season },
-                                                        minWidth = 75.dp,
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                            val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
-                                            SeasonSelectorButton(
-                                                seasonName = currentSeasonName,
-                                                onClick = { showSeasonModal = true },
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(Modifier.width(8.dp))
-
-                                    DesktopFilterChip(
-                                        text = if (isSortAscending) "▼" else "▲",
-                                        isSelected = false,
-                                        onClick = { isSortAscending = !isSortAscending },
-                                        minWidth = 36.dp,
-                                    )
-
-                                    Spacer(Modifier.width(6.dp))
-
-                                    DesktopIconButton(
-                                        icon = when (currentMode) {
-                                            0 -> Icons.Default.ViewCarousel
-                                            1 -> Icons.Default.GridView
-                                            2 -> Icons.Default.TableRows
-                                            else -> Icons.Default.ViewCarousel
-                                        },
-                                        contentDescription = when (currentMode) {
-                                            0 -> "Current: Carousel (Click for Grid)"
-                                            1 -> "Current: Grid (Click for List)"
-                                            2 -> "Current: List (Click for Carousel)"
-                                            else -> "Toggle Episode View"
-                                        },
-                                        onClick = {
-                                            val nextMode = (currentMode + 1) % 3
-                                            onSetEpisodeViewMode(nextMode)
-                                        },
-                                        isActive = false,
-                                    )
-                                }
-
-                                if (dubStatuses.size > 1) {
-                                    SubDubSegmentedSwitch(
-                                        dubStatuses = dubStatuses,
-                                        selectedDub = selectedDub,
-                                        onSelectDub = { selectedDub = it },
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    if (currentSeasonEpisodes.isNotEmpty()) {
-                                        DesktopActionBadge(
-                                            text = if (isSeasonWatched) "✓ Watched" else "Mark Watched",
-                                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
-                                            isActive = isSeasonWatched,
-                                            activeColor = Color(0xFF4ADE80),
-                                        )
-                                    } else {
-                                        Spacer(Modifier.width(1.dp))
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                        modifier = Modifier.height(34.dp),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
-                                                .padding(horizontal = 8.dp),
-                                        ) {
-                                            Text(
-                                                "Anti-spoiler",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Switch(
-                                                checked = isAntiSpoiler,
-                                                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
-                                                modifier = Modifier.scale(0.7f),
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                                ),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // Desktop single-line header
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding),
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                ) {
-                                    if (seasons.isNotEmpty()) {
-                                        if (seasons.size == 1) {
-                                            val singleSeason = seasons.first()
-                                            val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
-                                            Text(
-                                                text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
-                                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        } else if (seasons.size <= 4) {
-                                            LazyRow(
-                                                state = animeSeasonListState,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .weight(1f, fill = false)
-                                                    .desktopDragScroll(animeSeasonListState),
-                                            ) {
-                                                items(seasons, key = { it }) { season ->
-                                                    val isSelected = selectedSeason == season
-                                                    val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                                    val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
-
-                                                    DesktopFilterChip(
-                                                        text = seasonName,
-                                                        isSelected = isSelected,
-                                                        onClick = { selectedSeason = season },
-                                                        minWidth = 90.dp,
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                            val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
-                                            SeasonSelectorButton(
-                                                seasonName = currentSeasonName,
-                                                onClick = { showSeasonModal = true },
-                                            )
-                                        }
-
-                                        if (currentSeasonEpisodes.isNotEmpty()) {
-                                            Text(
-                                                text = "•   ${currentSeasonEpisodes.size} ${if (currentSeasonEpisodes.size == 1) "Episode" else "Episodes"}",
-                                                color = Color.White.copy(alpha = 0.55f),
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium,
-                                            )
-                                        }
-                                    }
-
-                                    if (dubStatuses.size > 1) {
-                                        SubDubSegmentedSwitch(
-                                            dubStatuses = dubStatuses,
-                                            selectedDub = selectedDub,
-                                            onSelectDub = { selectedDub = it },
-                                        )
-                                    }
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                ) {
-                                    if (currentSeasonEpisodes.isNotEmpty()) {
-                                        DesktopActionBadge(
-                                            text = if (isSeasonWatched) "✓ Season Watched" else "Mark Season Watched",
-                                            onClick = { onToggleSeasonWatched(currentSeasonEpisodes, !isSeasonWatched) },
-                                            isActive = isSeasonWatched,
-                                            activeColor = Color(0xFF4ADE80),
-                                        )
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                        modifier = Modifier.height(40.dp),
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .clickable { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(!isAntiSpoiler) }
-                                                .padding(horizontal = 12.dp),
-                                        ) {
-                                            Text(
-                                                "Anti-spoiler",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Switch(
-                                                checked = isAntiSpoiler,
-                                                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
-                                                modifier = Modifier.scale(0.8f),
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                                ),
-                                            )
-                                        }
-                                    }
-
-                                    DesktopFilterChip(
-                                        text = if (isSortAscending) "Sort ▼" else "Sort ▲",
-                                        isSelected = false,
-                                        onClick = { isSortAscending = !isSortAscending },
-                                        minWidth = 70.dp,
-                                    )
-
-                                    DesktopIconButton(
-                                        icon = when (currentMode) {
-                                            0 -> Icons.Default.ViewCarousel
-                                            1 -> Icons.Default.GridView
-                                            2 -> Icons.Default.TableRows
-                                            else -> Icons.Default.ViewCarousel
-                                        },
-                                        contentDescription = when (currentMode) {
-                                            0 -> "Current: Carousel (Click for Grid)"
-                                            1 -> "Current: Grid (Click for List)"
-                                            2 -> "Current: List (Click for Carousel)"
-                                            else -> "Toggle Episode View"
-                                        },
-                                        onClick = {
-                                            val nextMode = (currentMode + 1) % 3
-                                            onSetEpisodeViewMode(nextMode)
-                                        },
-                                        isActive = false,
-                                    )
-                                }
-                            }
-                        }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (allFilteredEpisodes.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
-                            Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
-                        Column {
-                            RenderEpisodesSection(
-                                allFilteredEpisodes = allFilteredEpisodes,
-                                isEpisodesStackedView = isEpisodesStackedView,
-                                episodesScrollState = episodesScrollState,
-                                latestHistory = latestHistory,
-                                showHistory = showHistory,
-                                provider = provider,
-                                data = data,
-                                uiState = uiState,
-                                isAntiSpoiler = isAntiSpoiler,
-                                enableDownloadButtons = enableDownloadButtons,
-                                coroutineScope = coroutineScope,
-                                onPlay = onPlay,
-                                onDownload = onDownload,
-                                onToggleWatched = onToggleWatched,
-                                onToggleSeasonWatched = onToggleSeasonWatched,
-                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                            )
-
-                            // Pagination row
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                chunks.forEachIndexed { index, list ->
-                                    val isSelected = selectedEpisodeChunk == index
-                                    val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
-                                    val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
-                                    
-                                    DesktopFilterChip(
-                                        text = "$startEp - $endEp",
-                                        isSelected = isSelected,
-                                        onClick = {
-                                            selectedEpisodeChunk = index
-                                            coroutineScope.launch { episodesScrollState.scrollToItem(0) }
-                                        },
-                                        height = 36.dp,
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        RenderEpisodesSection(
-                            allFilteredEpisodes = allFilteredEpisodes,
-                            isEpisodesStackedView = isEpisodesStackedView,
-                            episodesScrollState = episodesScrollState,
-                            latestHistory = latestHistory,
-                            showHistory = showHistory,
-                            provider = provider,
-                            data = data,
-                            uiState = uiState,
-                            enableDownloadButtons = enableDownloadButtons,
-                            isAntiSpoiler = isAntiSpoiler,
-                            coroutineScope = coroutineScope,
-                            onPlay = onPlay,
-                            onDownload = onDownload,
-                            onToggleWatched = onToggleWatched,
-                            onToggleSeasonWatched = onToggleSeasonWatched,
-                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                        )
-                        val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
-                        if (showCarouselArrows) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    DesktopIconButton(
-                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                        contentDescription = "Scroll Left",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
-                                    )
-                                    DesktopIconButton(
-                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = "Scroll Right",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                }
-                else -> {}
             }
         } // BoxWithConstraints
 

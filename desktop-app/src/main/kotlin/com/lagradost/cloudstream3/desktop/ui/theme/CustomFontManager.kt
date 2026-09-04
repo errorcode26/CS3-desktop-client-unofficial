@@ -8,18 +8,14 @@ import kotlinx.coroutines.flow.asStateFlow
 
 object CustomFontManager {
     val BUILT_IN_FONTS = listOf(
-        "Inter",
+        "Plus Jakarta Sans",
+        "Manrope",
         "Outfit",
+        "Inter",
         "DM Sans",
+        "Poppins",
         "Roboto",
         "Nunito",
-        "Poppins",
-        "Lato",
-        "Ubuntu",
-        "Fira Sans",
-        "Courier Prime",
-        "Pacifico",
-        "Lobster",
     )
 
     private val _availableFonts = MutableStateFlow<List<String>>(BUILT_IN_FONTS)
@@ -49,25 +45,22 @@ object CustomFontManager {
     }
 
     private val BUNDLED_FONT_MAP = mapOf(
-        "courierprime-bold.ttf" to "Courier Prime",
-        "courierprime-regular.ttf" to "Courier Prime",
+        "plusjakartasans-bold.ttf" to "Plus Jakarta Sans",
+        "plusjakartasans-medium.ttf" to "Plus Jakarta Sans",
+        "plusjakartasans-regular.ttf" to "Plus Jakarta Sans",
+        "plusjakartasans-semibold.ttf" to "Plus Jakarta Sans",
+        "manrope-bold.ttf" to "Manrope",
+        "manrope-medium.ttf" to "Manrope",
+        "manrope-regular.ttf" to "Manrope",
+        "manrope-semibold.ttf" to "Manrope",
         "dmsans-bold.ttf" to "DM Sans",
         "dmsans-medium.ttf" to "DM Sans",
         "dmsans-regular.ttf" to "DM Sans",
         "dmsans-semibold.ttf" to "DM Sans",
-        "firasans-bold.ttf" to "Fira Sans",
-        "firasans-medium.ttf" to "Fira Sans",
-        "firasans-regular.ttf" to "Fira Sans",
-        "firasans-semibold.ttf" to "Fira Sans",
         "inter-bold.ttf" to "Inter",
         "inter-medium.ttf" to "Inter",
         "inter-regular.ttf" to "Inter",
         "inter-semibold.ttf" to "Inter",
-        "lato-bold.ttf" to "Lato",
-        "lato-medium.ttf" to "Lato",
-        "lato-regular.ttf" to "Lato",
-        "lato-semibold.ttf" to "Lato",
-        "lobster-regular.ttf" to "Lobster",
         "nunito-bold.ttf" to "Nunito",
         "nunito-medium.ttf" to "Nunito",
         "nunito-regular.ttf" to "Nunito",
@@ -76,7 +69,6 @@ object CustomFontManager {
         "outfit-medium.ttf" to "Outfit",
         "outfit-regular.ttf" to "Outfit",
         "outfit-semibold.ttf" to "Outfit",
-        "pacifico-regular.ttf" to "Pacifico",
         "poppins-bold.ttf" to "Poppins",
         "poppins-medium.ttf" to "Poppins",
         "poppins-regular.ttf" to "Poppins",
@@ -84,9 +76,6 @@ object CustomFontManager {
         "roboto-bold.ttf" to "Roboto",
         "roboto-medium.ttf" to "Roboto",
         "roboto-regular.ttf" to "Roboto",
-        "ubuntu-bold.ttf" to "Ubuntu",
-        "ubuntu-medium.ttf" to "Ubuntu",
-        "ubuntu-regular.ttf" to "Ubuntu",
     )
 
     init {
@@ -166,8 +155,7 @@ object CustomFontManager {
     }
 
     /**
-     * Extracts all bundled fonts from the JAR to the user's AppData directory
-     * so they can be loaded by MPV natively.
+     * Ensures baseline subtitle font availability without polluting AppData.
      */
     fun extractBundledFonts() {
         val fontsDir = PlatformPaths.fontsDir
@@ -175,36 +163,17 @@ object CustomFontManager {
             fontsDir.mkdirs()
         }
 
-        // List of all bundled fonts in src/main/resources/fonts
-        val bundledFonts = listOf(
-            "CourierPrime-Bold.ttf", "CourierPrime-Regular.ttf",
-            "DMSans-Bold.ttf", "DMSans-Medium.ttf", "DMSans-Regular.ttf", "DMSans-SemiBold.ttf",
-            "FiraSans-Bold.ttf", "FiraSans-Medium.ttf", "FiraSans-Regular.ttf", "FiraSans-SemiBold.ttf",
-            "Inter-Bold.ttf", "Inter-Medium.ttf", "Inter-Regular.ttf", "Inter-SemiBold.ttf",
-            "Lato-Bold.ttf", "Lato-Medium.ttf", "Lato-Regular.ttf", "Lato-SemiBold.ttf",
-            "Lobster-Regular.ttf",
-            "Nunito-Bold.ttf", "Nunito-Medium.ttf", "Nunito-Regular.ttf", "Nunito-SemiBold.ttf",
-            "Outfit-Bold.ttf", "Outfit-Medium.ttf", "Outfit-Regular.ttf", "Outfit-SemiBold.ttf",
-            "Pacifico-Regular.ttf",
-            "Poppins-Bold.ttf", "Poppins-Medium.ttf", "Poppins-Regular.ttf", "Poppins-SemiBold.ttf",
-            "Roboto-Bold.ttf", "Roboto-Medium.ttf", "Roboto-Regular.ttf",
-            "Ubuntu-Bold.ttf", "Ubuntu-Medium.ttf", "Ubuntu-Regular.ttf",
-        )
-
-        bundledFonts.forEach { fontName ->
-            val targetFile = File(fontsDir, fontName)
-            if (!targetFile.exists()) {
-                try {
-                    val inputStream = this::class.java.classLoader.getResourceAsStream("fonts/$fontName")
-                    if (inputStream != null) {
-                        java.io.FileOutputStream(targetFile).use { outputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
-                        com.lagradost.common.logging.AppLogger.i("CustomFontManager: Extracted bundled font -> $fontName")
+        val targetFile = File(fontsDir, "PlusJakartaSans-Regular.ttf")
+        if (!targetFile.exists()) {
+            try {
+                val inputStream = this::class.java.classLoader.getResourceAsStream("fonts/PlusJakartaSans-Regular.ttf")
+                if (inputStream != null) {
+                    java.io.FileOutputStream(targetFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
                     }
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.e("CustomFontManager: Failed to extract $fontName", e)
                 }
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("CustomFontManager: Failed to extract baseline font", e)
             }
         }
         refreshCache()

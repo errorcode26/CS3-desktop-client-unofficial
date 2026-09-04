@@ -41,6 +41,7 @@ object PlayerConfig {
     const val PREF_AUTO_SKIP_INTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_INTRO
     const val PREF_AUTO_SKIP_OUTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_OUTRO
     const val PREF_PAUSE_INFO_MODE = "player_pause_info_mode" // "delay_5s" (default), "delay_10s", "delay_20s", "immediate", "off"
+    const val PREF_PAUSE_SHOW_CAST = "player_pause_show_cast"
 
     fun toMpvBackgroundColor(hexOrRgba: String?): Pair<String, String> {
         return when (hexOrRgba?.trim()?.lowercase()) {
@@ -158,5 +159,156 @@ object PlayerConfig {
         lib.mpv_set_option_string(handle, "screenshot-template", screenshotTemplate)
         lib.mpv_set_option_string(handle, "screenshot-png-compression", "7")
         lib.mpv_set_option_string(handle, "screenshot-jpeg-quality", "95")
+    }
+
+    val GLOBAL_LANGUAGE_OPTIONS: List<Pair<String, String>> = listOf(
+        "auto" to "Auto (Stream Default)",
+        "original" to "Original Audio (Native / Org)",
+        "eng,en" to "English",
+        "hin,hi" to "Hindi",
+        "spa,es" to "Spanish",
+        "fre,fra,fr" to "French",
+        "ger,deu,de" to "German",
+        "tha,th" to "Thai",
+        "jpn,ja" to "Japanese",
+        "ita,it" to "Italian",
+        "por,pt" to "Portuguese",
+        "rus,ru" to "Russian",
+        "kor,ko" to "Korean",
+        "chi,zho,zh" to "Chinese / Mandarin",
+        "vie,vi" to "Vietnamese",
+        "ind,id" to "Indonesian",
+        "ara,ar" to "Arabic",
+        "tur,tr" to "Turkish",
+        "tel,te" to "Telugu",
+        "tam,ta" to "Tamil",
+        "mal,ml" to "Malayalam",
+        "kan,kn" to "Kannada",
+        "ben,bn" to "Bengali",
+        "mar,mr" to "Marathi",
+        "pan,pa" to "Punjabi",
+        "guj,gu" to "Gujarati",
+        "urd,ur" to "Urdu",
+        "tgl,fil,tl" to "Tagalog / Filipino",
+        "pol,pl" to "Polish",
+        "nld,dut,nl" to "Dutch",
+        "swe,sv" to "Swedish",
+        "ell,gre,el" to "Greek",
+        "heb,he" to "Hebrew",
+        "fas,per,fa" to "Persian / Farsi",
+        "ron,rum,ro" to "Romanian",
+        "ces,cze,cs" to "Czech",
+        "hun,hu" to "Hungarian",
+        "ukr,uk" to "Ukrainian",
+        "msa,may,ms" to "Malay",
+        "dan,da" to "Danish",
+        "fin,fi" to "Finnish",
+        "nor,no" to "Norwegian",
+    )
+}
+
+object LanguageMatcher {
+    private val LANGUAGE_KEYWORDS: Map<String, List<String>> = mapOf(
+        "original" to listOf("original", "orig", "org"),
+        "eng,en" to listOf("eng", "en", "english"),
+        "hin,hi" to listOf("hin", "hi", "hindi"),
+        "spa,es" to listOf("spa", "es", "spanish", "espanol"),
+        "fre,fra,fr" to listOf("fre", "fra", "fr", "french", "francais"),
+        "ger,deu,de" to listOf("ger", "deu", "de", "german", "deutsch"),
+        "tha,th" to listOf("tha", "th", "thai"),
+        "jpn,ja" to listOf("jpn", "ja", "japanese", "jap"),
+        "ita,it" to listOf("ita", "it", "italian", "italiano"),
+        "por,pt" to listOf("por", "pt", "portuguese", "portugues"),
+        "rus,ru" to listOf("rus", "ru", "russian"),
+        "kor,ko" to listOf("kor", "ko", "korean"),
+        "chi,zho,zh" to listOf("chi", "zho", "zh", "chinese", "mandarin", "cantonese"),
+        "vie,vi" to listOf("vie", "vi", "vietnamese"),
+        "ind,id" to listOf("ind", "id", "indonesian", "indo"),
+        "ara,ar" to listOf("ara", "ar", "arabic"),
+        "tur,tr" to listOf("tur", "tr", "turkish"),
+        "tel,te" to listOf("tel", "te", "telugu"),
+        "tam,ta" to listOf("tam", "ta", "tamil"),
+        "mal,ml" to listOf("mal", "ml", "malayalam"),
+        "kan,kn" to listOf("kan", "kn", "kannada"),
+        "ben,bn" to listOf("ben", "bn", "bengali", "bangla"),
+        "mar,mr" to listOf("mar", "mr", "marathi"),
+        "pan,pa" to listOf("pan", "pa", "punjabi"),
+        "guj,gu" to listOf("guj", "gu", "gujarati"),
+        "urd,ur" to listOf("urd", "ur", "urdu"),
+        "tgl,fil,tl" to listOf("tgl", "fil", "tl", "tagalog", "filipino"),
+        "pol,pl" to listOf("pol", "pl", "polish"),
+        "nld,dut,nl" to listOf("nld", "dut", "nl", "dutch"),
+        "swe,sv" to listOf("swe", "sv", "swedish"),
+        "ell,gre,el" to listOf("ell", "gre", "el", "greek"),
+        "heb,he" to listOf("heb", "he", "hebrew"),
+        "fas,per,fa" to listOf("fas", "per", "fa", "persian", "farsi"),
+        "ron,rum,ro" to listOf("ron", "rum", "ro", "romanian"),
+        "ces,cze,cs" to listOf("ces", "cze", "cs", "czech"),
+        "hun,hu" to listOf("hun", "hu", "hungarian"),
+        "ukr,uk" to listOf("ukr", "uk", "ukrainian"),
+        "msa,may,ms" to listOf("msa", "may", "ms", "malay"),
+        "dan,da" to listOf("dan", "da", "danish"),
+        "fin,fi" to listOf("fin", "fi", "finnish"),
+        "nor,no" to listOf("nor", "no", "norwegian"),
+    )
+
+    private val GENERIC_MULTI_AUDIO_KEYWORDS = listOf(
+        "dual audio", "dual-audio", "dualaudio",
+        "multi audio", "multi-audio", "multiaudio",
+        "multi-sub", "multisub",
+    )
+
+    fun getKeywordsForCode(code: String?): List<String> {
+        if (code.isNullOrBlank() || code == "auto" || code == "off") return emptyList()
+        val mapped = LANGUAGE_KEYWORDS[code]
+        if (mapped != null) return mapped
+        return code.split(",", "-", " ").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+    }
+
+    fun matchLinkPriority(
+        linkName: String?,
+        source: String? = null,
+        audioTracks: List<com.lagradost.cloudstream3.AudioFile> = emptyList(),
+        prefLangCode: String?,
+    ): Int {
+        if (prefLangCode.isNullOrBlank() || prefLangCode == "auto") return 0
+        val keywords = getKeywordsForCode(prefLangCode)
+
+        // 1. Check explicit audioTracks attached to ExtractorLink (e.g. from DASH / multi-audio providers)
+        if (audioTracks.isNotEmpty()) {
+            val hasExplicitAudio = audioTracks.any { audio ->
+                val lowerUrl = audio.url.lowercase()
+                keywords.any { kw ->
+                    val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
+                    regex.containsMatchIn(lowerUrl)
+                }
+            }
+            if (hasExplicitAudio) return 2
+        }
+
+        // 2. Check linkName and source name
+        val textToSearch = "${linkName.orEmpty()} ${source.orEmpty()}".lowercase()
+        if (textToSearch.isBlank()) return 0
+
+        for (kw in keywords) {
+            val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
+            if (regex.containsMatchIn(textToSearch)) {
+                return 2
+            }
+        }
+        for (kw in GENERIC_MULTI_AUDIO_KEYWORDS) {
+            if (textToSearch.contains(kw)) return 1
+        }
+        return 0
+    }
+
+    fun matchesAudioTrack(lang: String?, title: String?, name: String?, prefLangCode: String?): Boolean {
+        if (prefLangCode.isNullOrBlank() || prefLangCode == "auto") return false
+        val keywords = getKeywordsForCode(prefLangCode)
+        val combined = "${lang.orEmpty()} ${title.orEmpty()} ${name.orEmpty()}".lowercase()
+        return keywords.any { kw ->
+            val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
+            regex.containsMatchIn(combined)
+        }
     }
 }

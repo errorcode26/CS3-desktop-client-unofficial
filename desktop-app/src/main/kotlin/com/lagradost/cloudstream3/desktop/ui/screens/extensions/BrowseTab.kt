@@ -36,6 +36,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
@@ -57,7 +58,7 @@ fun BrowseTab(
     val pluginRequiringBypass = uiState.pluginRequiringBypass
     val pluginRequiringPermission = uiState.pluginRequiringPermission
 
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val isLightMode = LocalDesktopTheme.current.isLightMode
 
     val languages = remember(plugins) {
         listOf("All") + plugins.mapNotNull { it.second.language?.takeIf { l -> l.isNotBlank() } }.distinct().sorted()
@@ -93,13 +94,12 @@ fun BrowseTab(
     val extMinSize = (posterWidthDp * 2.2f).coerceAtLeast(320f).dp
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // ── Modern Glassmorphic Search Toolbar ──────────────────────
+        // Search toolbar
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // High-End Custom Search Bar
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = if (isLightMode) Color(0xFFF0F2F6) else Color.White.copy(alpha = 0.05f),
@@ -282,7 +282,7 @@ fun BrowseTab(
             }
         }
 
-        // ── Sleek Category Filter Chips Row ─────────────────────────
+        // Category filter chips
         if (categories.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),

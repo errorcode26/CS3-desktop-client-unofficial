@@ -398,7 +398,8 @@ public:
         g_webviewReady = true;
         LOG_TO_FILE("[NativeBridge] WebView2 Initialized Successfully!");
 
-        SetTimer(g_messageHwnd, 0x4E52, 400, nullptr);
+        // Safe fallback in case ui_ready message is delayed; primary reveal is driven by ui_ready
+        SetTimer(g_messageHwnd, 0x4E52, 2500, nullptr);
 
         SetWindowPos(g_containerHwnd, HWND_TOP, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -704,7 +705,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
 
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content");
+        L"--allow-running-insecure-content --default-background-color=00000000");
 
     HRESULT hr = createEnvFunc(nullptr, userData.c_str(), nullptr, new EnvironmentCompletedHandler());
     LOG_TO_FILE("[NativeBridge] CreateEnvironment hr=0x" << std::hex << hr << std::dec);
@@ -856,7 +857,7 @@ void runWebView2WarmupThread(std::wstring controlsUrl) {
 
     SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         L"--allow-file-access-from-files --disable-web-security "
-        L"--allow-running-insecure-content");
+        L"--allow-running-insecure-content --default-background-color=00000000");
 
     createEnvFunc(nullptr, userData.c_str(), nullptr, new WarmupEnvHandler());
 

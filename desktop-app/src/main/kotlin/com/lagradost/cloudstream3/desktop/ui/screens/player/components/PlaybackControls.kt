@@ -54,7 +54,7 @@ fun PlaybackControls(
 
         Spacer(modifier = Modifier.width(36.dp))
 
-        // Play / Pause (Premium Gradient)
+        // Play / Pause button
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
         val isPressed by interactionSource.collectIsPressedAsState()

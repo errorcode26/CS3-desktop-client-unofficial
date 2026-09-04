@@ -47,34 +47,38 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Anti-Spoiler Mode", LeafTab.DETAILS, listOf("spoiler", "anti-spoiler", "hide", "blur", "thumbnails", "descriptions", "episodes"), uiLabel = "Anti-Spoiler Mode", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
         SettingsSearchEntry("Details Current & End Time Badges", LeafTab.DETAILS, listOf("time", "current", "end time", "badges", "details", "clock"), uiLabel = "Show Current / End Time", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
 
-        // Playback Engine tab (Modular Sub-Screens)
-        SettingsSearchEntry("Hardware Decoding", LeafTab.PLAYER, listOf("hwdec", "hardware", "decoding", "acceleration", "gpu", "mpv"), uiLabel = "Hardware Acceleration", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("Smooth Video / Interpolation", LeafTab.PLAYER, listOf("interpolation", "smooth", "motion", "video", "60fps", "display resample"), uiLabel = "Smooth Video (Display Resample)", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("Preferred Stream Quality", LeafTab.PLAYER, listOf("quality", "resolution", "1080p", "720p", "4k", "stream"), uiLabel = "Preferred Stream Quality", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("Source & Quality Priorities", LeafTab.PLAYER, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Source & Quality Priorities", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("yt-dlp Default Quality", LeafTab.PLAYER, listOf("ytdl", "youtube", "format", "resolution", "quality"), uiLabel = "yt-dlp Default Quality", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("Open Local File", LeafTab.PLAYER, listOf("local", "file", "disk", "mp4", "mkv", "play file"), uiLabel = "Open Local Video File", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        SettingsSearchEntry("Open Network Stream", LeafTab.PLAYER, listOf("network", "stream", "url", "m3u8", "http", "direct link"), uiLabel = "Open Network Stream URL", subScreen = SettingsSubScreen.PLAYER_RENDERING_ENGINE),
-        
-        SettingsSearchEntry("Volume Normalization", LeafTab.PLAYER, listOf("audio", "normalization", "volume", "loudness", "night mode", "drc", "compression"), uiLabel = "Volume Normalization (Stable Audio)", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
-        SettingsSearchEntry("Equalizer Profile", LeafTab.PLAYER, listOf("audio", "equalizer", "eq", "preset", "bass", "treble", "vocal"), uiLabel = "Equalizer Profile", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
-        SettingsSearchEntry("Spatial Audio", LeafTab.PLAYER, listOf("audio", "spatializer", "surround", "3d", "stereo", "widener"), uiLabel = "3D Spatial Audio (Stereo Widener)", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
-        SettingsSearchEntry("Audio Sync / Delay Offset", LeafTab.PLAYER, listOf("audio", "delay", "sync", "offset", "lip sync", "bluetooth"), uiLabel = "Audio Sync (Delay Offset)", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
-        SettingsSearchEntry("Volume Overdrive", LeafTab.PLAYER, listOf("boost", "volume", "200", "overdrive", "loud"), uiLabel = "Volume Overdrive (Boost to 200%)", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
-        SettingsSearchEntry("Preferred Audio Language", LeafTab.PLAYER, listOf("audio", "language", "dub", "track", "english", "japanese"), uiLabel = "Preferred Audio Language", subScreen = SettingsSubScreen.PLAYER_AUDIO_EQ),
+        // Playback & Video Tab
+        SettingsSearchEntry("Hardware Decoding", LeafTab.PLAYER, listOf("hwdec", "hardware", "decoding", "acceleration", "gpu", "mpv"), uiLabel = "Hardware Acceleration"),
+        SettingsSearchEntry("Smooth Video / Interpolation", LeafTab.PLAYER, listOf("interpolation", "smooth", "motion", "video", "60fps", "display resample"), uiLabel = "Smooth Video (Display Resample)"),
+        SettingsSearchEntry("Preferred Stream Quality", LeafTab.PLAYER, listOf("quality", "resolution", "1080p", "720p", "4k", "stream"), uiLabel = "Preferred Stream Quality"),
+        SettingsSearchEntry("Source & Quality Priorities", LeafTab.PLAYER, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Source & Quality Priorities"),
+        SettingsSearchEntry("yt-dlp Default Quality", LeafTab.PLAYER, listOf("ytdl", "youtube", "format", "resolution", "quality"), uiLabel = "yt-dlp Default Quality"),
+        SettingsSearchEntry("Open Local File", LeafTab.PLAYER, listOf("local", "file", "disk", "mp4", "mkv", "play file"), uiLabel = "Open Local Video File"),
+        SettingsSearchEntry("Open Network Stream", LeafTab.PLAYER, listOf("network", "stream", "url", "m3u8", "http", "direct link"), uiLabel = "Open Network Stream URL"),
+        SettingsSearchEntry("Auto-Play Streams", LeafTab.PLAYER, listOf("auto", "play", "next", "episode", "binge", "streams"), uiLabel = "Auto-Play Streams"),
+        SettingsSearchEntry("Auto Play Timeout", LeafTab.PLAYER, listOf("auto", "play", "timeout", "delay", "fallback"), uiLabel = "Playback Timeout"),
+        SettingsSearchEntry("Intro & Outro Skipping", LeafTab.PLAYER, listOf("skip", "intro", "outro", "openings", "endings", "aniskip"), uiLabel = "Enable Intro & Outro Discovery"),
+        SettingsSearchEntry("Auto-Skip Openings", LeafTab.PLAYER, listOf("skip", "openings", "intros", "aniskip"), uiLabel = "Auto-Skip Openings & Intros"),
+        SettingsSearchEntry("Auto-Skip Endings", LeafTab.PLAYER, listOf("skip", "endings", "outros", "credits"), uiLabel = "Auto-Skip Endings & Outros"),
+        SettingsSearchEntry("Keyboard Shortcuts Reference", LeafTab.PLAYER, listOf("keyboard", "shortcuts", "hotkeys", "controls", "keys", "gestures"), uiLabel = "Keyboard Shortcuts Reference", subScreen = SettingsSubScreen.KEYBOARD_SHORTCUTS),
 
-        SettingsSearchEntry("Auto-Play Streams", LeafTab.PLAYER, listOf("auto", "play", "next", "episode", "binge", "streams"), uiLabel = "Auto-Play Streams", subScreen = SettingsSubScreen.PLAYER_AUTOPLAY_SKIP),
-        SettingsSearchEntry("Auto Play Timeout", LeafTab.PLAYER, listOf("auto", "play", "timeout", "delay", "fallback"), uiLabel = "Playback Timeout", subScreen = SettingsSubScreen.PLAYER_AUTOPLAY_SKIP),
-        SettingsSearchEntry("Intro & Outro Skipping", LeafTab.PLAYER, listOf("skip", "intro", "outro", "openings", "endings", "aniskip"), uiLabel = "Enable Intro & Outro Discovery", subScreen = SettingsSubScreen.PLAYER_AUTOPLAY_SKIP),
-        SettingsSearchEntry("Auto-Skip Openings", LeafTab.PLAYER, listOf("skip", "openings", "intros", "aniskip"), uiLabel = "Auto-Skip Openings & Intros", subScreen = SettingsSubScreen.PLAYER_AUTOPLAY_SKIP),
-        SettingsSearchEntry("Auto-Skip Endings", LeafTab.PLAYER, listOf("skip", "endings", "outros", "credits"), uiLabel = "Auto-Skip Endings & Outros", subScreen = SettingsSubScreen.PLAYER_AUTOPLAY_SKIP),
+        // Audio & Equalizer Tab
+        SettingsSearchEntry("Volume Normalization", LeafTab.AUDIO, listOf("audio", "normalization", "volume", "loudness", "night mode", "drc", "compression"), uiLabel = "Volume Normalization (Stable Audio)"),
+        SettingsSearchEntry("Equalizer Profile", LeafTab.AUDIO, listOf("audio", "equalizer", "eq", "preset", "bass", "treble", "vocal"), uiLabel = "Equalizer Profile"),
+        SettingsSearchEntry("Spatial Audio", LeafTab.AUDIO, listOf("audio", "spatializer", "surround", "3d", "stereo", "widener"), uiLabel = "3D Spatial Audio (Stereo Widener)"),
+        SettingsSearchEntry("Audio Sync / Delay Offset", LeafTab.AUDIO, listOf("audio", "delay", "sync", "offset", "lip sync", "bluetooth"), uiLabel = "Audio Sync (Delay Offset)"),
+        SettingsSearchEntry("Volume Overdrive", LeafTab.AUDIO, listOf("boost", "volume", "200", "overdrive", "loud"), uiLabel = "Volume Overdrive (Boost to 200%)"),
+        SettingsSearchEntry("Preferred Audio Language", LeafTab.AUDIO, listOf("audio", "language", "dub", "track", "english", "japanese"), uiLabel = "Preferred Audio Language"),
 
-        SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.PLAYER, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling Studio", subScreen = SettingsSubScreen.SUBTITLES),
+        // Subtitles & Styling Tab
+        SettingsSearchEntry("Default Subtitles", LeafTab.SUBTITLES, listOf("subtitle", "language", "sub", "track", "english"), uiLabel = "Default Subtitles"),
+        SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.SUBTITLES, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling Studio"),
 
-        SettingsSearchEntry("Download Buttons", LeafTab.PLAYER, listOf("download", "buttons", "offline", "storage"), uiLabel = "Show Download Buttons", subScreen = SettingsSubScreen.PLAYER_DOWNLOADS),
-        SettingsSearchEntry("Download Storage Location", LeafTab.PLAYER, listOf("download", "directory", "folder", "path", "storage"), uiLabel = "Download Storage Directory", subScreen = SettingsSubScreen.PLAYER_DOWNLOADS),
-        SettingsSearchEntry("Parallel Turbo Download Threads", LeafTab.PLAYER, listOf("download", "threads", "parallel", "chunks", "speed"), uiLabel = "Parallel Turbo Download Threads", subScreen = SettingsSubScreen.PLAYER_DOWNLOADS),
-        SettingsSearchEntry("Maximum Concurrent Downloads", LeafTab.PLAYER, listOf("download", "concurrent", "queue", "tasks", "simultaneous"), uiLabel = "Maximum Concurrent Active Downloads", subScreen = SettingsSubScreen.PLAYER_DOWNLOADS),
+        // Downloads Engine Tab
+        SettingsSearchEntry("Download Buttons", LeafTab.DOWNLOADS, listOf("download", "buttons", "offline", "storage"), uiLabel = "Show Download Buttons"),
+        SettingsSearchEntry("Download Storage Location", LeafTab.DOWNLOADS, listOf("download", "directory", "folder", "path", "storage"), uiLabel = "Download Storage Directory"),
+        SettingsSearchEntry("Parallel Turbo Download Threads", LeafTab.DOWNLOADS, listOf("download", "threads", "parallel", "chunks", "speed"), uiLabel = "Parallel Turbo Download Threads"),
+        SettingsSearchEntry("Maximum Concurrent Downloads", LeafTab.DOWNLOADS, listOf("download", "concurrent", "queue", "tasks", "simultaneous"), uiLabel = "Maximum Concurrent Active Downloads"),
 
         // Extensions > Extensions tab
         SettingsSearchEntry("Browse Extensions", LeafTab.EXTENSIONS, listOf("extensions", "plugins", "browse", "install", "search", "add"), uiLabel = "Browse Extensions"),
@@ -110,7 +114,7 @@ object SettingsSearchIndex {
 
         // Network tab
         SettingsSearchEntry("DNS over HTTPS (DoH)", LeafTab.NETWORK, listOf("dns", "https", "doh", "cloudflare", "quad9", "adguard", "google", "network", "isp", "bypass"), uiLabel = "DNS over HTTPS (DoH)"),
-        SettingsSearchEntry("Security & Browser Isolation", LeafTab.NETWORK, listOf("security", "browser", "isolation", "proxy", "vpn", "user agent", "cloudflare"), uiLabel = "Security & Browser Isolation"),
+        SettingsSearchEntry("Experimental & Scraper Engine", LeafTab.NETWORK, listOf("security", "cloudflare", "scraper", "solver", "captcha", "bypass"), uiLabel = "Experimental & Scraper Engine"),
 
         // Advanced tab
         SettingsSearchEntry("Storage Directories", LeafTab.ADVANCED, listOf("storage", "directory", "path", "files", "data", "appdata", "roaming"), uiLabel = "Storage Directories"),

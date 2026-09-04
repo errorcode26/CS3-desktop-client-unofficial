@@ -842,7 +842,7 @@ object TmdbEnrichmentService {
 
                                 val overview = tmdbData.get("overview")?.asText()
                                 if (!overview.isNullOrBlank() && overview != "null" && (overwrite || loaded.plot.isNullOrBlank())) {
-                                    loaded.plot = overview
+                                    loaded.plot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(overview)
                                 }
                                 if (loaded.plot.isNullOrBlank() || (overwrite && (overview.isNullOrBlank() || overview == "null"))) {
                                     val translationsList = tmdbData.get("translations")?.get("translations")
@@ -857,7 +857,7 @@ object TmdbEnrichmentService {
                                         }
                                         val fallbackPlot = enOverview?.takeIf { it.isNotBlank() && it != "null" }
                                             ?: nativeOverview?.takeIf { it.isNotBlank() && it != "null" }
-                                        if (!fallbackPlot.isNullOrBlank()) loaded.plot = fallbackPlot
+                                        if (!fallbackPlot.isNullOrBlank()) loaded.plot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(fallbackPlot)
                                     }
                                 }
 

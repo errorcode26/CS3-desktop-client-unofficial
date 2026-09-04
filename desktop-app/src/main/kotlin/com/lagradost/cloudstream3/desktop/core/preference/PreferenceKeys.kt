@@ -8,6 +8,11 @@ object PreferenceKeys {
     // Providers & Plugins
     const val USER_PROVIDER_API = "USER_PROVIDER_API"
     const val PREFERRED_PLAYER = "preferred_player"
+    const val PREF_ACTIVE_PROVIDERS = "home_active_providers"
+    const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
+
+    // Search
+    const val PREF_SEARCH_HISTORY = "search_history"
 
     // Details & Episodes View
     const val PREF_EPISODES_STACKED_VIEW = "pref_episodes_stacked_view"

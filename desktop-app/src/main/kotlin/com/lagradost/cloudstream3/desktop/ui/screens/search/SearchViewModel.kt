@@ -8,6 +8,7 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiState
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val PREF_SEARCH_HISTORY = "search_history"
+private const val PREF_SEARCH_HISTORY = PreferenceKeys.PREF_SEARCH_HISTORY
 private const val MAX_HISTORY_SIZE = 20
 
 class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiEffect>(

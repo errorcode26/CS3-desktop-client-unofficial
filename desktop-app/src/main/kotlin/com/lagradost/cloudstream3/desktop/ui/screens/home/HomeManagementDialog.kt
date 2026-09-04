@@ -31,8 +31,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
+import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryFilterChips
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
+import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeManagementDialog(
@@ -47,9 +53,13 @@ fun HomeManagementDialog(
     onMoveProvider: (Int, Int) -> Unit,
     onToggleCatalog: (String, String, Boolean) -> Unit,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var isAdvancedMode by remember { mutableStateOf(activeProviders.size > 1) }
     var catalogProvider by remember { mutableStateOf<MainAPI?>(null) }
     var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
+    var pendingTorrentProviderKey by remember { mutableStateOf<String?>(null) }
+    var pendingTorrentProviderName by remember { mutableStateOf<String?>(null) }
+    var showTorrentDisclaimer by remember { mutableStateOf(false) }
 
     fun fuzzyMatchIcon(providerName: String): String? {
         val pName = providerName.lowercase().replace(Regex("[^a-z0-9]"), "").replace("provider", "").replace("plugin", "")
@@ -227,8 +237,14 @@ fun HomeManagementDialog(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                     .clickable {
-                                        onSetSingleProvider(pKey)
-                                        onDismissRequest()
+                                        if (DesktopTorrentEngine.isTorrentProvider(provider) && !DesktopTorrentEngine.isP2pEnabled) {
+                                            pendingTorrentProviderKey = pKey
+                                            pendingTorrentProviderName = provider.name
+                                            showTorrentDisclaimer = true
+                                        } else {
+                                            onSetSingleProvider(pKey)
+                                            onDismissRequest()
+                                        }
                                     }
                                     .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -282,6 +298,21 @@ fun HomeManagementDialog(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                             )
+                                        }
+                                        if (DesktopTorrentEngine.isTorrentProvider(provider)) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                            ) {
+                                                Text(
+                                                    text = "⚡ Torrent",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Color(0xFFF59E0B),
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                )
+                                            }
                                         }
                                     }
                                     Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -503,10 +534,33 @@ fun HomeManagementDialog(
                                                             overflow = TextOverflow.Ellipsis,
                                                         )
                                                     }
+                                                    if (DesktopTorrentEngine.isTorrentProvider(provider)) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Surface(
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                                        ) {
+                                                            Text(
+                                                                text = "⚡ Torrent",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = Color(0xFFF59E0B),
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                                 Text("${provider.mainPage.size} catalogs available", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
-                                            FilledTonalIconButton(onClick = { onToggleProviderActive(pKey, true) }) {
+                                            FilledTonalIconButton(onClick = {
+                                                if (DesktopTorrentEngine.isTorrentProvider(provider) && !DesktopTorrentEngine.isP2pEnabled) {
+                                                    pendingTorrentProviderKey = pKey
+                                                    pendingTorrentProviderName = provider.name
+                                                    showTorrentDisclaimer = true
+                                                } else {
+                                                    onToggleProviderActive(pKey, true)
+                                                }
+                                            }) {
                                                 Icon(Icons.Default.Add, contentDescription = "Add")
                                             }
                                         }
@@ -543,6 +597,35 @@ fun HomeManagementDialog(
             }
         }
     }
+
+    P2pTorrentDisclaimerDialog(
+        show = showTorrentDisclaimer,
+        isSettingsContext = false,
+        onDismiss = {
+            showTorrentDisclaimer = false
+            pendingTorrentProviderKey = null
+            pendingTorrentProviderName = null
+            AppToastManager.showWarning("P2P is disabled. Enable it to use torrent providers.")
+        },
+        onConfirm = {
+            showTorrentDisclaimer = false
+            val key = pendingTorrentProviderKey
+            coroutineScope.launch(Dispatchers.IO) {
+                DesktopDataStore.setKey(DesktopDataStore.PREF_P2P_ENABLED, true)
+            }
+            AppToastManager.showSuccess("P2P Torrent Streaming enabled")
+            if (key != null) {
+                if (isAdvancedMode) {
+                    onToggleProviderActive(key, true)
+                } else {
+                    onSetSingleProvider(key)
+                    onDismissRequest()
+                }
+            }
+            pendingTorrentProviderKey = null
+            pendingTorrentProviderName = null
+        },
+    )
 }
 
 @Composable

@@ -15,9 +15,7 @@ import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Ultra-fast, edge-cached rating enricher for poster cards.
- * Resolves IMDb ID via Cinemeta search and fetches verified IMDb rating (8.8) in <60ms.
- * Uses AniList GraphQL (80ms) for Anime.
+ * Asynchronous rating lookup for media cards.
  */
 object FastRatingEnricher {
     private const val TAG = "FastRatingEnricher"

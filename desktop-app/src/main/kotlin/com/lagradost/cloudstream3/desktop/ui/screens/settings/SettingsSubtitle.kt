@@ -71,28 +71,29 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
     Column(
         modifier = Modifier.fillMaxSize(),
     ) {
-        // Preview Area — pinned at top, not scrollable
+        // Preview Area — compact, sleek 120dp viewport
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(120.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color.Black),
+                .background(Color(0xFF0D0D11)),
             contentAlignment = Alignment.BottomCenter,
         ) {
+            @Suppress("DEPRECATION")
             Image(
                 painter = painterResource("subtitle_preview_bg.jpg"),
                 contentDescription = "Preview Background",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                alpha = 0.6f,
+                alpha = 0.45f,
             )
 
             Box(
                 modifier = Modifier
-                    .padding(bottom = 20.dp)
+                    .padding(bottom = 12.dp)
                     .background(subBg.toColor(), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: "no"
@@ -100,7 +101,7 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
 
                 val textStyle = TextStyle(
                     fontFamily = com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(subFont),
-                    fontSize = (parseSize / 1.5f).sp,
+                    fontSize = (parseSize / 1.7f).sp,
                     textAlign = TextAlign.Center,
                     fontWeight = if (subBold == "yes") FontWeight.Bold else FontWeight.Normal,
                     fontStyle = if (subItalic == "yes") androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
@@ -115,9 +116,11 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     },
                 )
 
+                val previewText = "The quick brown fox jumps over the lazy dog"
+
                 if (parseBorderSize > 0f) {
                     Text(
-                        text = "To hell with being forgotten,\nand to hell with forgetting!",
+                        text = previewText,
                         style = textStyle.copy(
                             drawStyle = Stroke(width = parseBorderSize * 1.5f, join = androidx.compose.ui.graphics.StrokeJoin.Round),
                             color = subBorderColor.toColor(),
@@ -126,7 +129,7 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                 }
 
                 Text(
-                    text = "To hell with being forgotten,\nand to hell with forgetting!",
+                    text = previewText,
                     style = textStyle.copy(
                         drawStyle = Fill,
                         color = subColor.toColor(),
@@ -148,14 +151,29 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     .weight(1f)
                     .onGloballyPositioned { containerCoordinates = it }
                     .verticalScroll(scrollState)
-                    .padding(top = 20.dp),
+                    .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                SettingsGroupCard(title = "Global Override") {
+                SettingsGroupCard(title = "Subtitle Preferences") {
+                    MviSettingsDropdown(
+                        key = PlayerConfig.PREF_PREFERRED_SUB_LANG,
+                        label = "Default Subtitle Language",
+                        subtitle = "Choose default subtitle behavior when starting playback",
+                        options = listOf(
+                            "off" to "Off (Disabled by default)",
+                            "auto" to "Auto (Follow stream default)",
+                        ) + PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.filter { it.first != "auto" && it.first != "original" },
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "auto",
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
                     MviSettingsToggle(
                         key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
                         label = "Override Video Subtitles",
-                        subtitle = "When enabled, the player forces these custom styles over the video's default subtitle styles.",
+                        subtitle = "When enabled, forces these custom styles over the video stream's default subtitle styles",
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         defaultValue = false,
@@ -184,6 +202,7 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         defaultValue = "Inter",
+                        fontFamilyForOption = { com.lagradost.cloudstream3.desktop.ui.theme.getFontFamily(it) },
                     )
 
                     Row(

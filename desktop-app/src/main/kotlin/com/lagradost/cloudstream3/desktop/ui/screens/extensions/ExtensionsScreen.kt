@@ -4,8 +4,12 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,14 +33,22 @@ fun ComposeExtensionScreen(
     viewModel: ExtensionsViewModel,
     isInsideSettings: Boolean = false,
 ) {
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 4)) }
-    val tabs = listOf(
-        "Browse Plugins",
-        "Installed Plugins",
-        "Repositories",
-        "Stremio Addons",
-        "Update History",
+    data class ExtensionTabItem(
+        val title: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector,
+        val isExternal: Boolean = false,
     )
+
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 4)) }
+    val tabs = remember {
+        listOf(
+            ExtensionTabItem("Browse Plugins", Icons.Default.Explore),
+            ExtensionTabItem("Installed", Icons.Default.Extension),
+            ExtensionTabItem("Repositories", Icons.Default.Folder),
+            ExtensionTabItem("Stremio Addons", Icons.Default.Public, isExternal = true),
+            ExtensionTabItem("Update History", Icons.Default.Update),
+        )
+    }
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val syncGen = uiState.syncGeneration
@@ -80,9 +92,9 @@ fun ComposeExtensionScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                tabs.forEachIndexed { index, title ->
+                tabs.forEachIndexed { index, tab ->
                     val isSelected = selectedTab == index
-                    val isStremioTab = index == 3
+                    val isStremioTab = tab.isExternal
 
                     Surface(
                         onClick = { selectedTab = index },
@@ -103,17 +115,19 @@ fun ComposeExtensionScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
                         ) {
-                            if (isStremioTab) {
-                                Icon(
-                                    imageVector = Icons.Default.Public,
-                                    contentDescription = null,
-                                    tint = if (isSelected) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = null,
+                                tint = when {
+                                    isSelected && isStremioTab -> Color(0xFF00B4D8)
+                                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(16.dp),
+                            )
 
                             Text(
-                                text = title,
+                                text = tab.title,
                                 color = when {
                                     isSelected && isStremioTab -> Color(0xFF00B4D8)
                                     isSelected -> MaterialTheme.colorScheme.onPrimaryContainer

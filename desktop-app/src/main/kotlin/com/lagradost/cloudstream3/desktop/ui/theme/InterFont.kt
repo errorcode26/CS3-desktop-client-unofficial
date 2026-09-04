@@ -71,44 +71,21 @@ val PoppinsFontFamily: FontFamily by lazy {
     )
 }
 
-val LatoFontFamily: FontFamily by lazy {
+val PlusJakartaSansFontFamily: FontFamily by lazy {
     FontFamily(
-        Font(identity = "Lato-Regular", data = loadFont("fonts/Lato-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
-        Font(identity = "Lato-Medium", data = loadFont("fonts/Lato-Medium.ttf"), weight = FontWeight.Medium, style = FontStyle.Normal),
-        Font(identity = "Lato-SemiBold", data = loadFont("fonts/Lato-SemiBold.ttf"), weight = FontWeight.SemiBold, style = FontStyle.Normal),
-        Font(identity = "Lato-Bold", data = loadFont("fonts/Lato-Bold.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
+        Font(identity = "PlusJakartaSans-Regular", data = loadFont("fonts/PlusJakartaSans-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
+        Font(identity = "PlusJakartaSans-Medium", data = loadFont("fonts/PlusJakartaSans-Medium.ttf"), weight = FontWeight.Medium, style = FontStyle.Normal),
+        Font(identity = "PlusJakartaSans-SemiBold", data = loadFont("fonts/PlusJakartaSans-SemiBold.ttf"), weight = FontWeight.SemiBold, style = FontStyle.Normal),
+        Font(identity = "PlusJakartaSans-Bold", data = loadFont("fonts/PlusJakartaSans-Bold.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
     )
 }
 
-val UbuntuFontFamily: FontFamily by lazy {
+val ManropeFontFamily: FontFamily by lazy {
     FontFamily(
-        Font(identity = "Ubuntu-Regular", data = loadFont("fonts/Ubuntu-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
-        Font(identity = "Ubuntu-Medium", data = loadFont("fonts/Ubuntu-Medium.ttf"), weight = FontWeight.Medium, style = FontStyle.Normal),
-        Font(identity = "Ubuntu-Bold-sb", data = loadFont("fonts/Ubuntu-Bold.ttf"), weight = FontWeight.SemiBold, style = FontStyle.Normal),
-        Font(identity = "Ubuntu-Bold", data = loadFont("fonts/Ubuntu-Bold.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
-    )
-}
-
-val FiraSansFontFamily: FontFamily by lazy {
-    FontFamily(
-        Font(identity = "FiraSans-Regular", data = loadFont("fonts/FiraSans-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
-        Font(identity = "FiraSans-Medium", data = loadFont("fonts/FiraSans-Medium.ttf"), weight = FontWeight.Medium, style = FontStyle.Normal),
-        Font(identity = "FiraSans-SemiBold", data = loadFont("fonts/FiraSans-SemiBold.ttf"), weight = FontWeight.SemiBold, style = FontStyle.Normal),
-        Font(identity = "FiraSans-Bold", data = loadFont("fonts/FiraSans-Bold.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
-    )
-}
-
-val PacificoFontFamily: FontFamily by lazy {
-    FontFamily(
-        Font(identity = "Pacifico-Regular", data = loadFont("fonts/Pacifico-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
-        Font(identity = "Pacifico-Bold", data = loadFont("fonts/Pacifico-Regular.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
-    )
-}
-
-val LobsterFontFamily: FontFamily by lazy {
-    FontFamily(
-        Font(identity = "Lobster-Regular", data = loadFont("fonts/Lobster-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
-        Font(identity = "Lobster-Bold", data = loadFont("fonts/Lobster-Regular.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
+        Font(identity = "Manrope-Regular", data = loadFont("fonts/Manrope-Regular.ttf"), weight = FontWeight.Normal, style = FontStyle.Normal),
+        Font(identity = "Manrope-Medium", data = loadFont("fonts/Manrope-Medium.ttf"), weight = FontWeight.Medium, style = FontStyle.Normal),
+        Font(identity = "Manrope-SemiBold", data = loadFont("fonts/Manrope-SemiBold.ttf"), weight = FontWeight.SemiBold, style = FontStyle.Normal),
+        Font(identity = "Manrope-Bold", data = loadFont("fonts/Manrope-Bold.ttf"), weight = FontWeight.Bold, style = FontStyle.Normal),
     )
 }
 
@@ -118,9 +95,20 @@ val availableFonts: List<String>
     get() = CustomFontManager.getAvailableFonts()
 
 fun getFontFamily(name: String): FontFamily {
-    if (name.isBlank()) return InterFontFamily
+    if (name.isBlank() || name.equals("Plus Jakarta Sans", ignoreCase = true)) return PlusJakartaSansFontFamily
 
-    // Check if the user selected a custom font from their fonts folder
+    // 1. Built-in curated fonts with multi-weight definitions loaded from app resources
+    when (name) {
+        "Manrope" -> return ManropeFontFamily
+        "Outfit" -> return OutfitFontFamily
+        "Inter" -> return InterFontFamily
+        "DM Sans" -> return DMSansFontFamily
+        "Poppins" -> return PoppinsFontFamily
+        "Roboto" -> return RobotoFontFamily
+        "Nunito" -> return NunitoFontFamily
+    }
+
+    // 2. User-installed custom font file from fonts directory
     val customFontFile = CustomFontManager.getFontFile(name)
     if (customFontFile != null) {
         try {
@@ -140,27 +128,12 @@ fun getFontFamily(name: String): FontFamily {
         }
     }
 
-    return when (name) {
-        "Outfit" -> OutfitFontFamily
-        "DM Sans" -> DMSansFontFamily
-        "Roboto" -> RobotoFontFamily
-        "Nunito" -> NunitoFontFamily
-        "Poppins" -> PoppinsFontFamily
-        "Lato" -> LatoFontFamily
-        "Ubuntu" -> UbuntuFontFamily
-        "Fira Sans" -> FiraSansFontFamily
-        "Pacifico" -> PacificoFontFamily
-        "Lobster" -> LobsterFontFamily
-        "Inter" -> InterFontFamily
-        else -> {
-            // Check if it's a valid system font name
-            try {
-                FontFamily(androidx.compose.ui.text.platform.Font(name))
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Failed to load system font: $name", e)
-                InterFontFamily // Fallback
-            }
-        }
+    // 3. System font fallback
+    return try {
+        FontFamily(androidx.compose.ui.text.platform.Font(name))
+    } catch (e: Exception) {
+        com.lagradost.common.logging.AppLogger.e("Failed to load system font: $name", e)
+        PlusJakartaSansFontFamily
     }
 }
 
@@ -185,4 +158,4 @@ fun buildTypography(fontFamily: FontFamily): Typography = Typography(
 )
 
 // Keep this for backward compatibility with anything that already references DesktopTypography
-val DesktopTypography: Typography by lazy { buildTypography(InterFontFamily) }
+val DesktopTypography: Typography by lazy { buildTypography(PlusJakartaSansFontFamily) }

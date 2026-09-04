@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,7 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 object GlobalDialogState {
     var activeDialogCount by mutableStateOf(0)
@@ -73,9 +71,7 @@ fun CloudstreamAlertDialog(
     }
 
     if (isVisible) {
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-        val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-        val isAmoled = amoledMode || appThemeBackground == "Pure Black"
+        val isAmoled = LocalDesktopTheme.current.isAmoled
 
         Dialog(
             onDismissRequest = onDismissRequest,
@@ -130,9 +126,7 @@ fun CloudstreamCustomDialog(
     }
 
     if (isVisible) {
-        val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
-        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-        val isAmoled = amoledMode || appThemeBackground == "Pure Black"
+        val isAmoled = LocalDesktopTheme.current.isAmoled
         val effectiveColor = containerColor ?: (if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface)
         val showBorder = isAmoled && containerColor == null
 

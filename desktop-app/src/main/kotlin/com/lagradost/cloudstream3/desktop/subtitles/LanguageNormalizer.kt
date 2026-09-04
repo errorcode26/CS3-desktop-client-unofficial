@@ -49,7 +49,7 @@ object LanguageNormalizer {
         "ar" to NormalizedLanguage("ara", "ar", "Arabic", "ARA"),
         "arabic" to NormalizedLanguage("ara", "ar", "Arabic", "ARA"),
 
-        // Hindi & South Asian
+        // Indic languages
         "hin" to NormalizedLanguage("hin", "hi", "Hindi", "HIN"),
         "hi" to NormalizedLanguage("hin", "hi", "Hindi", "HIN"),
         "hindi" to NormalizedLanguage("hin", "hi", "Hindi", "HIN"),

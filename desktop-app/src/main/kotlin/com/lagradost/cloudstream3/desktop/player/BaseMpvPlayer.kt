@@ -217,6 +217,7 @@ fun BaseMpvPlayer(
                 var lastUiPositionEmit = 0L
                 var diagnosticLogged = false
                 var playbackStartedAt = 0L
+                var hasAutoSwitchedAudio = false
 
                 fun pollTracksAndChapters(handle: com.sun.jna.Pointer) {
                     val trackCountStr = MpvLibrary.getPropertyString(handle, "track-list/count")
@@ -225,6 +226,7 @@ fun BaseMpvPlayer(
                     val audioTracks = mutableListOf<PlayerState.VideoTrack>()
                     val subTracks = mutableListOf<PlayerState.VideoTrack>()
                     val videoTracks = mutableListOf<PlayerState.VideoTrack>()
+                    val audioSearchInfo = mutableListOf<Triple<Int, Boolean, String>>()
 
                     for (i in 0 until trackCount) {
                         val id = MpvLibrary.getPropertyString(handle, "track-list/$i/id")?.toIntOrNull() ?: continue
@@ -234,6 +236,7 @@ fun BaseMpvPlayer(
                         val codec = MpvLibrary.getPropertyString(handle, "track-list/$i/codec")
                         val isForced = MpvLibrary.getPropertyString(handle, "track-list/$i/forced") == "yes"
                         val isDefault = MpvLibrary.getPropertyString(handle, "track-list/$i/default") == "yes"
+                        val isOriginal = MpvLibrary.getPropertyString(handle, "track-list/$i/original") == "yes"
                         val isExternal = MpvLibrary.getPropertyString(handle, "track-list/$i/external") == "yes"
                         val channels = MpvLibrary.getPropertyString(handle, "track-list/$i/audio-channels")
                             ?: MpvLibrary.getPropertyString(handle, "track-list/$i/demux-channel-count")
@@ -252,6 +255,7 @@ fun BaseMpvPlayer(
                         )
                         if (type == "audio") {
                             audioTracks.add(PlayerState.VideoTrack(id, name, selected))
+                            audioSearchInfo.add(Triple(id, selected, "${lang.orEmpty()} ${title.orEmpty()} $name ${if (isOriginal) "original" else ""}"))
                         } else if (type == "sub") {
                             subTracks.add(PlayerState.VideoTrack(id, name, selected))
                         } else if (type == "video") {
@@ -295,6 +299,23 @@ fun BaseMpvPlayer(
                     playerState?._subtitleTracks?.value = disambiguatedSubTracks
                     playerState?._videoTracks?.value = videoTracks
 
+                    // Auto-select preferred audio track if not already selected by mpv
+                    if (!hasAutoSwitchedAudio && audioSearchInfo.isNotEmpty()) {
+                        val prefAudio = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
+                        if (prefAudio != "auto" && prefAudio.isNotBlank()) {
+                            val target = audioSearchInfo.firstOrNull { (_, _, meta) ->
+                                LanguageMatcher.matchesAudioTrack(null, null, meta, prefAudio)
+                            }
+                            if (target != null) {
+                                if (!target.second) { // not already selected
+                                    com.lagradost.common.logging.AppLogger.i("Player:MPV", "Auto-switching audio track to id=${target.first}")
+                                    MpvLibrary.INSTANCE.mpv_set_property_string(handle, "aid", target.first.toString())
+                                }
+                                hasAutoSwitchedAudio = true
+                            }
+                        }
+                    }
+
                     // Auto-attach active, preferred, or default audio track if MPV has 0 native audio tracks loaded
                     val lazyAudios = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value
                     if (audioTracks.isEmpty() && lazyAudios.isNotEmpty()) {
@@ -304,7 +325,11 @@ fun BaseMpvPlayer(
                         } else {
                             val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
                             if (prefLang != "auto" && prefLang.isNotBlank()) {
-                                lazyAudios.firstOrNull { it.language.contains(prefLang, ignoreCase = true) || it.name.contains(prefLang, ignoreCase = true) } ?: lazyAudios.first()
+                                val keywords = LanguageMatcher.getKeywordsForCode(prefLang)
+                                lazyAudios.firstOrNull { audio ->
+                                    val combined = "${audio.language} ${audio.name}".lowercase()
+                                    keywords.any { kw -> combined.contains(kw) }
+                                } ?: lazyAudios.first()
                             } else {
                                 lazyAudios.first()
                             }
@@ -363,6 +388,7 @@ fun BaseMpvPlayer(
                                     hasEverPlayed = false
                                     playbackStartedAt = 0L
                                     diagnosticLogged = false
+                                    hasAutoSwitchedAudio = false
                                 }
 
                                 7 -> { // MPV_EVENT_END_FILE
@@ -935,8 +961,8 @@ fun BaseMpvPlayer(
                     val escapedSub = sub.url.replace("\\", "\\\\").replace("\"", "\\\"")
                     val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
                     try {
-                        // Load subtitle into MPV track list but DO NOT force select it
-                        val flag = "auto"
+                        val prefSubLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "auto"
+                        val flag = if (prefSubLang == "off") "no" else "auto"
                         lib.mpv_command_string(capturedHandle, "sub-add \"$escapedSub\" $flag \"$escapedTitle\"")
                     } catch (e: Error) {
                         // handle freed, ignore
@@ -1093,7 +1119,6 @@ fun BaseMpvPlayer(
 
                 this.keyDispatcher = java.awt.KeyEventDispatcher { e ->
                     if (e.id == KeyEvent.KEY_PRESSED) {
-                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.focusWebView()
                         val mpvKey = awtKeyToMpv(e)
                         val lower = mpvKey?.lowercase() ?: ""
                         val isSeek = lower == "left" || lower == "right" || lower == "shift+left" || lower == "shift+right" || lower == "ctrl+right" || (lower.length == 1 && lower[0].isDigit())
@@ -1106,18 +1131,40 @@ fun BaseMpvPlayer(
                                     lower == "space" || lower == "k" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle pause")
                                     lower == "left" -> {
                                         MpvLibrary.INSTANCE.mpv_command_string(h, "seek -10")
-                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('left');")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerKeyboardSeekingHud) window.triggerKeyboardSeekingHud();")
                                     }
                                     lower == "right" -> {
                                         MpvLibrary.INSTANCE.mpv_command_string(h, "seek 10")
-                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('right');")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerKeyboardSeekingHud) window.triggerKeyboardSeekingHud();")
                                     }
-                                    lower == "shift+left" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek -2")
-                                    lower == "shift+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 2")
-                                    lower == "ctrl+right" -> MpvLibrary.INSTANCE.mpv_command_string(h, "seek 85")
-                                    lower == "up" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume 5")
-                                    lower == "down" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add volume -5")
-                                    lower == "m" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
+                                    lower == "shift+left" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek -2")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerKeyboardSeekingHud) window.triggerKeyboardSeekingHud();")
+                                    }
+                                    lower == "shift+right" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek 2")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerKeyboardSeekingHud) window.triggerKeyboardSeekingHud();")
+                                    }
+                                    lower == "ctrl+right" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek 85")
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerKeyboardSeekingHud) window.triggerKeyboardSeekingHud();")
+                                    }
+                                    lower == "up" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "add volume 5")
+                                        val vol = ((playerState?._volume?.value ?: 100f) + 5f).coerceIn(0f, 100f)
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.showVolumeOsd) window.showVolumeOsd($vol);")
+                                    }
+                                    lower == "down" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "add volume -5")
+                                        val vol = ((playerState?._volume?.value ?: 100f) - 5f).coerceIn(0f, 100f)
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.showVolumeOsd) window.showVolumeOsd($vol);")
+                                    }
+                                    lower == "m" -> {
+                                        MpvLibrary.INSTANCE.mpv_command_string(h, "cycle mute")
+                                        val isM = !(playerState?._isMuted?.value ?: false)
+                                        val vol = playerState?._volume?.value ?: 100f
+                                        com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.showVolumeOsd) window.showVolumeOsd($vol, $isM);")
+                                    }
                                     lower == "+" || lower == "=" || lower == "]" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed 0.25")
                                     lower == "-" || lower == "_" || lower == "[" -> MpvLibrary.INSTANCE.mpv_command_string(h, "add speed -0.25")
                                     lower == "bs" || lower == "backspace" -> MpvLibrary.INSTANCE.mpv_command_string(h, "set speed 1.0")

@@ -415,6 +415,13 @@ object DesktopDownloadManager {
         activeJobs.remove(taskId)
         updateTaskStatus(taskId, DownloadStatus.CANCELLED)
         getTaskStagingDir(taskId).deleteRecursively()
+        val task = _tasks.value.find { it.id == taskId }
+        if (task != null) {
+            val dest = File(task.filePath)
+            if (dest.exists() && dest.length() == 0L) dest.delete()
+            File("${task.filePath}.part").delete()
+            File("${task.filePath}.part.segments").deleteRecursively()
+        }
         recalculateTotalSpeed()
         dispatchNextTasks()
     }
@@ -507,15 +514,15 @@ object DesktopDownloadManager {
     fun cleanOrphanedTempFiles(): Long {
         var reclaimedBytes = 0L
         try {
-            val activeTaskIds = _tasks.value.filter {
-                it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED
+            val liveTaskIds = _tasks.value.filter {
+                it.status in listOf(DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED, DownloadStatus.PAUSED, DownloadStatus.FAILED)
             }.map { it.id }.toSet()
 
             // 1. Scan .temp directory
             val tempDir = stagingBaseDir
             if (tempDir.exists() && tempDir.isDirectory) {
                 tempDir.listFiles()?.forEach { file ->
-                    if (!activeTaskIds.contains(file.name)) {
+                    if (!liveTaskIds.contains(file.name)) {
                         reclaimedBytes += file.walkTopDown().sumOf { it.length() }
                         file.deleteRecursively()
                     }

@@ -37,12 +37,13 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
     PLAYER("Playback & Video", Icons.Default.PlayCircle),
     AUDIO("Audio & Equalizer", Icons.Default.GraphicEq),
     SUBTITLES("Subtitles & Styling", Icons.Default.Subtitles),
-    DOWNLOADS("Downloads & Storage", Icons.Default.Download),
+    DOWNLOADS("Downloads Engine", Icons.Default.Download),
     ACCOUNTS("Profiles & Accounts", Icons.Default.AccountCircle),
     INTEGRATIONS("Metadata & Providers", Icons.Default.AutoAwesome),
-    EXTENSIONS("Plugins & Addons", Icons.Default.Extension),
+    EXTENSIONS("Extensions & Sources", Icons.Default.Extension),
     NETWORK("Network & DNS", Icons.Default.Router),
     DEVELOPER("Developer & Logs", Icons.Default.Terminal),
+    ADVANCED("Advanced & Storage", Icons.Default.FolderOpen),
     ABOUT("About & Updates", Icons.Default.Info),
 
     // Compatibility aliases for SettingsSearchIndex and legacy references
@@ -53,7 +54,6 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
     SHORTCUTS("Keyboard Shortcuts", Icons.Default.Keyboard),
     SUBTITLES_LEAF("Subtitles & Styling", Icons.Default.Subtitles),
     ADDONS("External Addons", Icons.Default.Extension),
-    ADVANCED("Storage & Cache", Icons.Default.Download),
 }
 
 // Keeps SettingsSearchIndex compiling without changes
@@ -94,6 +94,7 @@ private val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.EXTENSIONS,
     LeafTab.NETWORK,
     LeafTab.DEVELOPER,
+    LeafTab.ADVANCED,
 )
 
 private val BOTTOM_NAV_ITEMS: List<LeafTab> = listOf(
@@ -329,16 +330,16 @@ fun ComposeSettingsScreen(
                         ) { currentLeaf ->
                             when (currentLeaf) {
                                 LeafTab.APPEARANCE     -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.PLAYER         -> SettingsPlayerPlaybackScreen(viewModel = settingsViewModel)
+                                LeafTab.PLAYER         -> SettingsPlayerPlaybackScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.AUDIO          -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
                                 LeafTab.SUBTITLES,
                                 LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                LeafTab.DOWNLOADS,
-                                LeafTab.ADVANCED       -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                LeafTab.DOWNLOADS      -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                LeafTab.ADVANCED       -> SettingsAdvancedScreen(viewModel = settingsViewModel)
                                 LeafTab.ACCOUNTS       -> SettingsAccounts(viewModel = settingsViewModel)
                                 LeafTab.INTEGRATIONS   -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.EXTENSIONS,
-                                LeafTab.ADDONS         -> SettingsPluginsAndAddonsScreen(onNavigate = onNavigate)
+                                LeafTab.ADDONS         -> SettingsExtensions(onNavigate = onNavigate)
                                 LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
                                 LeafTab.DEVELOPER      -> SettingsDeveloper()
                                 LeafTab.ABOUT          -> SettingsAboutAndUpdates()
