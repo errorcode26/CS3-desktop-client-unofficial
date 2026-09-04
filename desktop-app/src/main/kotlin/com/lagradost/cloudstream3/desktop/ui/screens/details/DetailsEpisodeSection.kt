@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs.SeasonSelectionDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopActionBadge
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopFilterChip
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopIconButton
@@ -1074,115 +1074,23 @@ fun DetailsEpisodeSection(
             }
         } // BoxWithConstraints
 
-        if (showSeasonModal) {
-            val allEpisodesList = remember(data) {
-                when (data) {
-                    is TvSeriesLoadResponse -> data.episodes
-                    is AnimeLoadResponse -> data.episodes.values.flatten()
-                    else -> emptyList()
-                }
-            }
-
-            CloudstreamCustomDialog(
-                show = showSeasonModal,
-                onDismissRequest = { showSeasonModal = false },
-                modifier = Modifier
-                    .widthIn(min = 340.dp, max = 440.dp)
-                    .heightIn(max = 520.dp),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Select Season",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        IconButton(
-                            onClick = { showSeasonModal = false },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        items(seasons, key = { it }) { season ->
-                            val isSelected = season == selectedSeason
-                            val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
-                            val epCount = allEpisodesList.count { it.season == season || (it.season == null && season == 1) }
-
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedSeason = season
-                                        showSeasonModal = false
-                                    },
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                        }
-                                        Text(
-                                            text = seasonName,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 15.sp,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-
-                                    if (epCount > 0) {
-                                        Text(
-                                            text = "$epCount Episodes",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        val allEpisodesList = remember(data) {
+            when (data) {
+                is TvSeriesLoadResponse -> data.episodes
+                is AnimeLoadResponse -> data.episodes.values.flatten()
+                else -> emptyList()
             }
         }
+
+        SeasonSelectionDialog(
+            show = showSeasonModal,
+            onDismissRequest = { showSeasonModal = false },
+            seasons = seasons,
+            selectedSeason = selectedSeason,
+            onSelectSeason = { selectedSeason = it },
+            allEpisodesList = allEpisodesList,
+            enrichedSeasonsMetadata = uiState?.enrichedSeasonsMetadata ?: emptyList(),
+        )
     }
 }
 
@@ -1297,7 +1205,7 @@ private fun RenderEpisodesSection(
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 modifier = Modifier.fillMaxWidth().desktopDragScroll(episodesScrollState),
             ) {
-                items(allFilteredEpisodes) { ep ->
+                items(allFilteredEpisodes, key = { it.data }) { ep ->
                     val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
                     val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
                     EpisodeCard(
@@ -1317,94 +1225,6 @@ private fun RenderEpisodesSection(
                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         onMarkPreviousWatched = handleMarkPreviousWatched,
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SeasonSelectorButton(
-    seasonName: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-        modifier = modifier.clickable { onClick() },
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = seasonName,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.5.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Icon(
-                Icons.Default.ArrowDropDown,
-                contentDescription = "Select Season",
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SubDubSegmentedSwitch(
-    dubStatuses: List<DubStatus>,
-    selectedDub: DubStatus?,
-    onSelectDub: (DubStatus) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (dubStatuses.size <= 1) return
-
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = Color.White.copy(alpha = 0.05f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-        modifier = modifier.height(40.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(3.dp),
-        ) {
-            dubStatuses.forEach { dub ->
-                val isSelected = selectedDub == dub
-                val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                val isHovered by interactionSource.collectIsHoveredAsState()
-
-                val label = when (dub) {
-                    DubStatus.Subbed -> "SUB"
-                    DubStatus.Dubbed -> "DUB"
-                    else -> dub.name.uppercase()
-                }
-
-                Surface(
-                    onClick = { onSelectDub(dub) },
-                    shape = RoundedCornerShape(7.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else if (isHovered) Color.White.copy(alpha = 0.08f) else Color.Transparent,
-                    interactionSource = interactionSource,
-                    modifier = Modifier.fillMaxHeight(),
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.75f),
-                            fontSize = 12.sp,
-                            letterSpacing = 0.5.sp,
-                        )
-                    }
                 }
             }
         }
