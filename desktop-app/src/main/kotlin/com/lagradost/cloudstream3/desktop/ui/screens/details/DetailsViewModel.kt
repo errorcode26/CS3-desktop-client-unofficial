@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
@@ -122,6 +121,7 @@ class DetailsViewModel(
                     bookmarksRepository.removeBookmark(event.id)
                 }
             }
+            is DetailsUiEvent.OnSelectSeason -> selectSeason(event.season)
         }
     }
 
@@ -151,6 +151,7 @@ class DetailsViewModel(
             GetEnrichedDetailsUseCase(provider, url, preloadedName, preloadedPoster, preloadedBg).collect { update ->
                 when (update) {
                     is EnrichmentUpdate.RawData -> {
+                        val rawTmdbId = update.response.syncData["tmdb"]?.toIntOrNull()
                         updateState {
                             copy(
                                 response = update.response,
@@ -160,6 +161,7 @@ class DetailsViewModel(
                                 enrichedBackdropUrl = update.response.backgroundPosterUrl,
                                 isEnriching = true,
                                 enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.InProgress,
+                                tmdbId = rawTmdbId ?: tmdbId,
                             )
                         }
                     }
@@ -257,12 +259,21 @@ class DetailsViewModel(
                     }
                     is EnrichmentUpdate.FullyEnriched -> {
                         updateState {
-                            val newState = copy(isEnriching = false, enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete)
+                            val resolvedTmdbId = tmdbId ?: response?.syncData?.get("tmdb")?.toIntOrNull()
+                            val newState = copy(
+                                isEnriching = false,
+                                enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Complete,
+                                tmdbId = resolvedTmdbId ?: tmdbId,
+                            )
                             EnrichedDetailsCache.put(url, newState)
                             newState.response?.url?.let {
                                 if (it != url) EnrichedDetailsCache.put(it, newState)
                             }
                             newState
+                        }
+                        val currentSeason = uiState.value.selectedSeason
+                        if (currentSeason != null && currentSeason > 0) {
+                            loadSeasonCredits(currentSeason)
                         }
                     }
                     is EnrichmentUpdate.Error -> {
@@ -280,128 +291,61 @@ class DetailsViewModel(
         }
     }
 
+    fun selectSeason(season: Int?) {
+        updateState { copy(selectedSeason = season) }
+        if (season != null && season > 0) {
+            loadSeasonCredits(season)
+        }
+    }
+
+    fun loadSeasonCredits(season: Int) {
+        val state = uiState.value
+        if (season <= 0) return
+        if (state.seasonCredits.containsKey(season)) return
+        val tmdbId = state.tmdbId ?: state.response?.syncData?.get("tmdb")?.toIntOrNull() ?: return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val credits = TmdbEnrichmentService.fetchSeasonCredits(tmdbId, season)
+            if (credits.isNotEmpty()) {
+                updateState {
+                    copy(
+                        seasonCredits = seasonCredits + (season to credits),
+                    )
+                }
+            }
+        }
+    }
+
     private fun handleAutoPlay() {
         if (uiState.value.hasAutoPlayed) return
         updateState { copy(hasAutoPlayed = true) }
         viewModelScope.launch(Dispatchers.IO) {
             val resp = uiState.value.response ?: return@launch
-
-            val allEpisodes = when (resp) {
-                is TvSeriesLoadResponse -> resp.episodes
-                is AnimeLoadResponse -> resp.episodes.values.flatten()
-                else -> emptyList()
-            }
-            val sortedEpisodes = allEpisodes.sortedWith(
-                compareBy<Episode> { it.season ?: 1 }
-                    .thenBy { it.episode ?: 1 },
+            val targetEp = DetailsWatchCoordinator.determineAutoPlayTarget(
+                provider = provider,
+                resp = resp,
+                watchHistory = uiState.value.watchHistory,
             )
-
-            val latestHistory = uiState.value.watchHistory.values.maxByOrNull { it.updateTime }
-            val isLatestCompleted = latestHistory != null && latestHistory.duration > 0 &&
-                com.lagradost.player.impl.PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
-
-            val targetEp = if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-                if (isLatestCompleted) {
-                    val currentIdx = sortedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
-                    if (currentIdx != -1 && currentIdx + 1 < sortedEpisodes.size) {
-                        sortedEpisodes[currentIdx + 1]
-                    } else {
-                        sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
-                    }
-                } else {
-                    sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
-                }
-            } else if (sortedEpisodes.isNotEmpty()) {
-                sortedEpisodes.firstOrNull()
-            } else if (resp is MovieLoadResponse) {
-                provider.newEpisode(resp.dataUrl) {
-                    this.name = resp.name
-                    this.posterUrl = resp.backgroundPosterUrl ?: resp.posterUrl
-                    this.description = resp.plot
-                }
-            } else {
-                null
-            }
-
             if (targetEp != null) {
-                val patchedData = patchEpisodeData(targetEp, resp)
-                val history = buildWatchHistory(targetEp, resp).copy(episodeId = patchedData)
+                val patchedData = DetailsWatchCoordinator.patchEpisodeData(targetEp, resp)
+                val history = DetailsWatchCoordinator.buildWatchHistory(provider.name, targetEp, resp)
                 handlePlayRequest(Triple(provider, patchedData, history))
             }
         }
     }
 
-    private fun buildWatchHistory(ep: Episode, data: LoadResponse): WatchHistory {
-        val parentId = DesktopDataStore.watchHistoryId(
-            apiName = provider.name,
-            showUrl = data.url,
-        )
-        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
-            ?: if (data is MovieLoadResponse && ep.data != data.url) {
-                DesktopDataStore.getEpisodeWatched(parentId, data.url)?.also { corrupted ->
-                    DesktopDataStore.setLastWatched(
-                        corrupted.copy(episodeId = ep.data),
-                    )
-                    DesktopDataStore.removeEpisodeWatched(parentId, data.url)
-                }
-            } else {
-                null
-            }
-        val resumePos = com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(
-            saved?.position ?: 0L,
-            saved?.duration ?: 0L,
-        )
-        val isMovie = data is MovieLoadResponse
-        return WatchHistory(
-            parentId = parentId,
-            showName = data.name,
-            showUrl = data.url,
-            apiName = provider.name,
-            posterUrl = data.posterUrl,
-            episodeThumbnailUrl = ep.posterUrl ?: data.posterUrl,
-            screenshotUrl = saved?.screenshotUrl,
-            episode = if (isMovie) null else ep.episode,
-            season = if (isMovie) null else ep.season,
-            episodeId = ep.data,
-            position = resumePos,
-            duration = saved?.duration ?: 0L,
-            episodeName = if (isMovie) null else ep.name,
-            episodeDescription = ep.description ?: data.plot,
-        )
-    }
-
-    private fun patchEpisodeData(ep: Episode, data: LoadResponse): String {
-        val patchedData = ep.data
-        if (patchedData.startsWith("{") && patchedData.endsWith("}")) {
-            return try {
-                val map = mapper.readValue(patchedData, object : TypeReference<MutableMap<String, Any>>() {})
-                if (!map.containsKey("title")) {
-                    map["title"] = data.name
-                }
-                if (!map.containsKey("tvtype")) {
-                    map["tvtype"] = ""
-                }
-                mapper.writeValueAsString(map)
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Failed to patch episode data", e)
-                patchedData
-            }
-        }
-        return patchedData
-    }
-
     private fun handlePlayEpisode(ep: Episode) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val patchedData = patchEpisodeData(ep, data)
-            val history = buildWatchHistory(ep, data).copy(episodeId = patchedData)
+            val patchedData = DetailsWatchCoordinator.patchEpisodeData(ep, data)
+            val history = DetailsWatchCoordinator.buildWatchHistory(provider.name, ep, data)
             handlePlayRequest(Triple(provider, patchedData, history))
         }
     }
 
     private fun handleDownloadEpisode(ep: Episode) {
         val data = uiState.value.response ?: return
-        val patchedData = patchEpisodeData(ep, data)
+        val patchedData = DetailsWatchCoordinator.patchEpisodeData(ep, data)
         val isMovie = data is MovieLoadResponse
         val history = WatchHistory(
             parentId = data.url,
@@ -427,235 +371,42 @@ class DetailsViewModel(
         val data = uiState.value.response ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val currentDataUrl = data.url
-            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
-            val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
-
-            removeWatchHistory.awaitByEpisode(currentParentId, ep.data)
-            if (fallbackParentId != currentParentId) {
-                removeWatchHistory.awaitByEpisode(fallbackParentId, ep.data)
-            }
+            DetailsWatchCoordinator.removeEpisodeWatched(
+                providerName = provider.name,
+                currentDataUrl = data.url,
+                fallbackUrl = url,
+                epData = ep.data,
+                removeWatchHistory = removeWatchHistory,
+            )
         }
     }
 
     private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val currentDataUrl = data.url
-            val currentParentId = DesktopDataStore.watchHistoryId(
-                apiName = provider.name,
-                showUrl = currentDataUrl,
+            DetailsWatchCoordinator.toggleEpisodeWatched(
+                providerName = provider.name,
+                data = data,
+                fallbackUrl = url,
+                ep = ep,
+                isWatched = isWatched,
             )
-            val fallbackParentId = DesktopDataStore.watchHistoryId(
-                apiName = provider.name,
-                showUrl = url,
-            )
-
-            if (!isWatched) {
-                DesktopDataStore.removeEpisodeWatched(currentParentId, ep.data)
-                if (fallbackParentId != currentParentId) {
-                    DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
-                }
-                return@launch
-            }
-
-            val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
-                ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
-            val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
-            val isMovie = data is MovieLoadResponse
-            val history = WatchHistory(
-                parentId = currentParentId,
-                showName = data.name,
-                showUrl = data.url,
-                apiName = provider.name,
-                posterUrl = data.posterUrl,
-                episodeThumbnailUrl = ep.posterUrl,
-                screenshotUrl = saved?.screenshotUrl,
-                episode = if (isMovie) null else ep.episode,
-                season = if (isMovie) null else ep.season,
-                episodeId = ep.data,
-                position = dur,
-                duration = dur,
-                episodeName = if (isMovie) null else ep.name,
-                episodeDescription = ep.description ?: data.plot,
-            )
-            DesktopDataStore.setLastWatched(history)
-
-            val allEps = when (data) {
-                is TvSeriesLoadResponse -> data.episodes
-                is AnimeLoadResponse -> data.episodes.values.flatten()
-                else -> emptyList()
-            }
-            val currentIdx = allEps.indexOfFirst { it.data == ep.data }
-            if (currentIdx != -1 && currentIdx + 1 < allEps.size) {
-                val nextEp = allEps[currentIdx + 1]
-                val existingNext = DesktopDataStore.getEpisodeWatched(currentParentId, nextEp.data)
-                    ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, nextEp.data)
-                if (existingNext == null) {
-                    val nextEpHistory = WatchHistory(
-                        parentId = currentParentId,
-                        showName = data.name,
-                        showUrl = data.url,
-                        apiName = provider.name,
-                        posterUrl = data.posterUrl,
-                        episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
-                        screenshotUrl = null,
-                        episode = nextEp.episode,
-                        season = nextEp.season,
-                        episodeId = nextEp.data,
-                        position = 0,
-                        duration = 0,
-                        updateTime = System.currentTimeMillis() + 1000,
-                        episodeName = nextEp.name,
-                        episodeDescription = nextEp.description ?: data.plot,
-                    )
-                    DesktopDataStore.setLastWatched(nextEpHistory)
-                } else if (existingNext.position < (existingNext.duration * 0.9)) {
-                    DesktopDataStore.setLastWatched(
-                        existingNext.copy(
-                            updateTime = System.currentTimeMillis() + 1000,
-                            episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
-                            episodeName = nextEp.name,
-                            episodeDescription = nextEp.description ?: data.plot,
-                        ),
-                    )
-                }
-            }
         }
     }
 
     private fun handleToggleSeasonWatched(episodes: List<Episode>, isWatched: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
-            val currentDataUrl = data.url
-            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, currentDataUrl)
-            val fallbackParentId = DesktopDataStore.watchHistoryId(provider.name, url)
-
-            if (isWatched) {
-                // Marking as watched. Save backup of current states.
-                val newBackupMap = mutableMapOf<String, WatchHistory>()
-                val historiesToSave = mutableListOf<WatchHistory>()
-
-                episodes.forEach { ep ->
-                    val hist = uiState.value.watchHistory.values.find { (it.episodeId ?: "") == ep.data }
-                    if (hist != null) {
-                        newBackupMap[ep.data] = hist
-                    }
-                    val saved = DesktopDataStore.getEpisodeWatched(currentParentId, ep.data)
-                        ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, ep.data)
-                    val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
-                    val isMovie = data is MovieLoadResponse
-                    historiesToSave.add(
-                        WatchHistory(
-                            parentId = currentParentId,
-                            showName = data.name,
-                            showUrl = data.url,
-                            apiName = provider.name,
-                            posterUrl = data.posterUrl,
-                            episodeThumbnailUrl = ep.posterUrl,
-                            screenshotUrl = saved?.screenshotUrl,
-                            episode = if (isMovie) null else ep.episode,
-                            season = if (isMovie) null else ep.season,
-                            episodeId = ep.data,
-                            position = dur,
-                            duration = dur,
-                            episodeName = if (isMovie) null else ep.name,
-                            episodeDescription = ep.description ?: data.plot,
-                        ),
-                    )
-                }
-
-                // Advance to next episode after the batch if one exists
-                if (episodes.isNotEmpty()) {
-                    val allEps = when (data) {
-                        is TvSeriesLoadResponse -> data.episodes
-                        is AnimeLoadResponse -> data.episodes.values.flatten()
-                        else -> emptyList()
-                    }
-                    val lastWatchedEp = episodes.last()
-                    val lastIdx = allEps.indexOfFirst { it.data == lastWatchedEp.data }
-                    if (lastIdx != -1 && lastIdx + 1 < allEps.size) {
-                        val nextEp = allEps[lastIdx + 1]
-                        val existingNext = DesktopDataStore.getEpisodeWatched(currentParentId, nextEp.data)
-                            ?: DesktopDataStore.getEpisodeWatched(fallbackParentId, nextEp.data)
-                        if (existingNext == null) {
-                            historiesToSave.add(
-                                WatchHistory(
-                                    parentId = currentParentId,
-                                    showName = data.name,
-                                    showUrl = data.url,
-                                    apiName = provider.name,
-                                    posterUrl = data.posterUrl,
-                                    episodeThumbnailUrl = nextEp.posterUrl ?: data.posterUrl,
-                                    screenshotUrl = null,
-                                    episode = nextEp.episode,
-                                    season = nextEp.season,
-                                    episodeId = nextEp.data,
-                                    position = 0,
-                                    duration = 0,
-                                    updateTime = System.currentTimeMillis() + 1000,
-                                    episodeName = nextEp.name,
-                                    episodeDescription = nextEp.description ?: data.plot,
-                                ),
-                            )
-                        } else if (existingNext.position < (existingNext.duration * 0.9)) {
-                            historiesToSave.add(
-                                existingNext.copy(
-                                    updateTime = System.currentTimeMillis() + 1000,
-                                    episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: data.posterUrl,
-                                    episodeName = nextEp.name,
-                                    episodeDescription = nextEp.description ?: data.plot,
-                                ),
-                            )
-                        }
-                    }
-                }
-
-                DesktopDataStore.setMultipleLastWatched(historiesToSave)
-                updateState { copy(backupSeasonHistory = newBackupMap) }
-            } else {
-                // Unmarking. Restore from backup.
-                val historiesToRestore = mutableListOf<WatchHistory>()
-                val episodesToRemove = mutableListOf<String>()
-
-                episodes.forEach { ep ->
-                    val backup = uiState.value.backupSeasonHistory[ep.data]
-                    if (backup != null) {
-                        val dur = if (backup.duration > 0L) backup.duration else 60L
-                        val isMovie = data is MovieLoadResponse
-                        historiesToRestore.add(
-                            WatchHistory(
-                                parentId = currentParentId,
-                                showName = data.name,
-                                showUrl = data.url,
-                                apiName = provider.name,
-                                posterUrl = data.posterUrl,
-                                episodeThumbnailUrl = ep.posterUrl,
-                                screenshotUrl = backup.screenshotUrl,
-                                episode = if (isMovie) null else ep.episode,
-                                season = if (isMovie) null else ep.season,
-                                episodeId = ep.data,
-                                position = backup.position,
-                                duration = dur,
-                                episodeName = backup.episodeName ?: if (isMovie) null else ep.name,
-                                episodeDescription = backup.episodeDescription ?: ep.description ?: data.plot,
-                            ),
-                        )
-                    } else {
-                        episodesToRemove.add(ep.data)
-                    }
-                }
-                if (historiesToRestore.isNotEmpty()) {
-                    DesktopDataStore.setMultipleLastWatched(historiesToRestore)
-                }
-                if (episodesToRemove.isNotEmpty()) {
-                    DesktopDataStore.removeMultipleEpisodesWatched(currentParentId, episodesToRemove)
-                    if (fallbackParentId != currentParentId) {
-                        DesktopDataStore.removeMultipleEpisodesWatched(fallbackParentId, episodesToRemove)
-                    }
-                }
-                updateState { copy(backupSeasonHistory = emptyMap()) }
-            }
+            val newBackup = DetailsWatchCoordinator.toggleSeasonWatched(
+                providerName = provider.name,
+                data = data,
+                fallbackUrl = url,
+                episodes = episodes,
+                isWatched = isWatched,
+                currentWatchHistory = uiState.value.watchHistory,
+                backupSeasonHistory = uiState.value.backupSeasonHistory,
+            )
+            updateState { copy(backupSeasonHistory = newBackup) }
         }
     }
 
@@ -703,7 +454,7 @@ class DetailsViewModel(
                         title = epTitle,
                         subtitles = emptyList(),
                         startPositionMs = resumeMs,
-                        history = linkHistory.copy(episodeId = data.second),
+                        history = linkHistory,
                         loadResponse = response,
                         enrichedLogoUrl = uiState.value.enrichedLogoUrl,
                         enrichedBackdropUrl = uiState.value.enrichedBackdropUrl,

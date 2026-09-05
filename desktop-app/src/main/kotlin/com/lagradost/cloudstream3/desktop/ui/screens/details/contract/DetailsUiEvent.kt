@@ -21,4 +21,5 @@ sealed interface DetailsUiEvent : UiEvent {
     data object OnRefresh : DetailsUiEvent
     data class OnAddBookmark(val bookmark: com.lagradost.common.storage.DesktopBookmark) : DetailsUiEvent
     data class OnRemoveBookmark(val id: String) : DetailsUiEvent
+    data class OnSelectSeason(val season: Int?) : DetailsUiEvent
 }

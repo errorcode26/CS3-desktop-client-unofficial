@@ -52,7 +52,8 @@ object EpisodePresentationHelper {
             ?.let { if (it.startsWith("//")) "https:$it" else it }
             ?.takeIf { it.isNotBlank() && !it.contains("imgbb") }
 
-        val targetUrl = epImg ?: fallbackBackdrop ?: fallbackPoster
+        val isEnriching = uiState?.isEnriching == true
+        val targetUrl = epImg ?: if (isEnriching) null else (fallbackBackdrop ?: fallbackPoster)
 
         val progress = if (history != null && history.duration > 0) {
             if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
@@ -141,8 +142,9 @@ fun rememberEpisodePresentation(
     uiState: DetailsUiState?,
     isAntiSpoiler: Boolean,
     lockUnreleasedEpisodes: Boolean,
+    thumbnailVersion: Int = 0,
 ): EpisodePresentation {
-    return remember(ep, history, data, uiState?.enrichedBackdropUrl, isAntiSpoiler, lockUnreleasedEpisodes) {
+    return remember(ep, history, data, uiState?.enrichedBackdropUrl, uiState?.isEnriching, isAntiSpoiler, lockUnreleasedEpisodes, thumbnailVersion) {
         EpisodePresentationHelper.compute(
             ep = ep,
             history = history,
@@ -153,4 +155,12 @@ fun rememberEpisodePresentation(
             lockUnreleasedEpisodes = lockUnreleasedEpisodes,
         )
     }
+}
+
+fun Episode.matchesHistory(history: WatchHistory?): Boolean {
+    if (history == null) return false
+    if (history.episodeId == this.data) return true
+    if (this.season != null && this.episode != null && history.season == this.season && history.episode == this.episode) return true
+    if (this.episode != null && history.episode != null && this.episode == history.episode && (this.season ?: 1) == (history.season ?: 1)) return true
+    return false
 }

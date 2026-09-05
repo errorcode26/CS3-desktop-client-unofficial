@@ -53,6 +53,7 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Preferred Stream Quality", LeafTab.PLAYER, listOf("quality", "resolution", "1080p", "720p", "4k", "stream"), uiLabel = "Preferred Stream Quality"),
         SettingsSearchEntry("Source & Quality Priorities", LeafTab.PLAYER, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Source & Quality Priorities"),
         SettingsSearchEntry("yt-dlp Default Quality", LeafTab.PLAYER, listOf("ytdl", "youtube", "format", "resolution", "quality"), uiLabel = "yt-dlp Default Quality"),
+        SettingsSearchEntry("Language & Track Defaults", LeafTab.PLAYER, listOf("language", "audio", "subtitle", "track", "dub", "sub", "english", "japanese"), uiLabel = "Language & Track Defaults"),
         SettingsSearchEntry("Open Local File", LeafTab.PLAYER, listOf("local", "file", "disk", "mp4", "mkv", "play file"), uiLabel = "Open Local Video File"),
         SettingsSearchEntry("Open Network Stream", LeafTab.PLAYER, listOf("network", "stream", "url", "m3u8", "http", "direct link"), uiLabel = "Open Network Stream URL"),
         SettingsSearchEntry("Auto-Play Streams", LeafTab.PLAYER, listOf("auto", "play", "next", "episode", "binge", "streams"), uiLabel = "Auto-Play Streams"),

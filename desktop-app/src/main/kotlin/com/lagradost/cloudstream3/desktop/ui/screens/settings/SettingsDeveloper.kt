@@ -1,17 +1,23 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.utils.TestingUtils
 import kotlinx.coroutines.CoroutineScope
@@ -56,16 +62,29 @@ fun SettingsDeveloper() {
     val isDevEnabled = com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.isEnabled
 
     if (!isDevEnabled) {
+        var passwordInput by remember { mutableStateOf("") }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+        var hasError by remember { mutableStateOf(false) }
+
+        val handleUnlock = {
+            if (passwordInput.trim().equals("banana", ignoreCase = true)) {
+                hasError = false
+                com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(true)
+            } else {
+                hasError = true
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
-                imageVector = Icons.Default.Build,
+                imageVector = Icons.Default.Lock,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                modifier = Modifier.size(60.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
             )
             Spacer(Modifier.height(16.dp))
             Text(
@@ -76,19 +95,71 @@ fun SettingsDeveloper() {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Developer tools include live LogCat, Network Inspector, and Provider Diagnostics. Turn on to unlock advanced debugging tools.",
+                text = "Developer tools include live LogCat, Network Inspector, and Provider Diagnostics. Enter password to unlock.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.widthIn(max = 500.dp),
             )
             Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = { com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(true) },
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(),
             ) {
-                Text("Enable Developer Mode", fontWeight = FontWeight.SemiBold)
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = {
+                            passwordInput = it
+                            if (hasError) hasError = false
+                        },
+                        label = { Text("Developer Password") },
+                        placeholder = { Text("Enter password...") },
+                        singleLine = true,
+                        isError = hasError,
+                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (isPasswordVisible) "Hide password" else "Show password",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        supportingText = {
+                            if (hasError) {
+                                Text("Incorrect password. Try again.", color = MaterialTheme.colorScheme.error)
+                            } else {
+                                Text(
+                                    "Hint: If you don't know what monke eats, you can't be trusted with live LogCat",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { handleUnlock() }),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                    )
+
+                    Button(
+                        onClick = handleUnlock,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 12.dp),
+                    ) {
+                        Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Unlock Developer Mode", fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
         return
@@ -102,7 +173,7 @@ fun SettingsDeveloper() {
     val tabs = listOf(
         TabData("Provider Testing", Icons.Default.Build),
         TabData("Network Diagnostics", Icons.Default.NetworkCheck),
-        TabData("Logcat", Icons.Default.List),
+        TabData("Logcat", Icons.AutoMirrored.Filled.List),
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -120,10 +191,11 @@ fun SettingsDeveloper() {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "🛠️",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(end = 10.dp),
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 10.dp).size(20.dp),
                     )
                     Column {
                         Text(

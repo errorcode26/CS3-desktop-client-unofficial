@@ -1501,7 +1501,7 @@
                 Play Now
             </button>
             <button id="probingCloseBtn" class="probing-btn close">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 Close
             </button>
         </div>
@@ -1515,7 +1515,7 @@
     <span id="resumeTitle" style="font-size:12px;color:rgba(255,255,255,0.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">CloudStream</span>
     <span class="resume-bar-spacer"></span>
     <button class="resume-bar-btn secondary" id="btnStartOver">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
         From beginning
     </button>
 </div>
@@ -1543,7 +1543,7 @@
         <div class="subsearch-header">
             <div style="display:flex; align-items:center; gap:12px;">
                 <div class="subsearch-icon-badge">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="13" y2="13"></line></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
                 </div>
                 <div>
                     <div style="display:flex; align-items:center; gap:8px;">
@@ -1554,7 +1554,7 @@
                 </div>
             </div>
             <button class="subsearch-close-btn" onclick="closeSubSearchModal()" title="Close (Esc)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
         </div>
         
@@ -1562,7 +1562,7 @@
         <div class="subsearch-controls-card">
             <!-- Row 1: Query Input with Search & Clear icons -->
             <div class="subsearch-input-wrapper">
-                <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                 <input id="subSearchQuery" type="text" placeholder="Movie or series title..."
                     class="subsearch-text-input" autocomplete="off" spellcheck="false"
                     onkeydown="if(event.key === 'Enter') doSubSearch()"
@@ -1577,12 +1577,12 @@
                     <button type="button" class="custom-lang-trigger" id="customLangTrigger" onclick="toggleCustomLangDropdown(event)">
                         <span class="custom-lang-globe">🌐</span>
                         <span id="selectedLangLabel">English</span>
-                        <svg class="custom-lang-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        <svg class="custom-lang-chevron" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
                     </button>
                     <!-- Floating Popover -->
                     <div class="custom-lang-popover" id="customLangPopover" style="display:none;" onclick="event.stopPropagation()">
                         <div class="custom-lang-search-box">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                             <input type="text" id="customLangSearchInput" placeholder="Search language..." oninput="filterCustomLanguages(this.value)" autocomplete="off" />
                         </div>
                         <div class="custom-lang-options-list" id="customLangOptionsList"></div>
@@ -2082,11 +2082,11 @@
                 </button>
                 <!-- Skip Back 10s -->
                 <button id="skipBackwardBtn" class="icon-btn" title="Rewind 10s">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-1.2v-3.79l-1.19.4V11.6l2.09-.74h.3V16zm3.39-4.8c.84 0 1.34.6 1.34 1.54v1.73c0 .94-.5 1.54-1.34 1.54-.84 0-1.34-.6-1.34-1.54v-1.73c0-.95.5-1.54 1.34-1.54zm0 3.97c.36 0 .54-.33.54-.86v-2.02c0-.53-.18-.86-.54-.86s-.54.33-.54.86v2.02c0 .53.18.86.54.86z"/></svg>
                 </button>
                 <!-- Skip Forward 10s -->
                 <button id="skipForwardBtn" class="icon-btn" title="Forward 10s">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 9.59 12.07 9.59 11.23 11.69 10.49 11.99 10.49 11.99 15.94 10.86 15.94"/><path d="M14.28 14.24c0 .4-.07.72-.21.95s-.35.35-.63.35c-.27 0-.48-.12-.62-.35s-.21-.55-.21-.95v-1.56c0-.4.07-.72.21-.95s.35-.35.62-.35c.28 0 .49.12.63.35s.21.55.21.95v1.56zm1.13-.01v-1.54c0-.66-.17-1.17-.51-1.53s-.82-.54-1.44-.54c-.61 0-1.09.18-1.43.54s-.51.87-.51 1.53v1.54c0 .66.17 1.17.51 1.53s.82.54 1.43.54c.62 0 1.1-.18 1.44-.54s.51-.87.51-1.53z"/></svg>
                 </button>
                 <!-- Volume -->
                 <div class="vol-group">
@@ -2124,11 +2124,11 @@
                 </button>
                 <!-- Source / Server -->
                 <button id="serversBtn" class="icon-btn" title="Video Sources">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="6.5" r="1.5"/><circle cx="7" cy="16.5" r="1.5"/></svg>
                 </button>
                 <!-- Audio Tracks -->
                 <button id="audioBtn" class="icon-btn" title="Audio Tracks">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
                 </button>
                 <!-- Quality -->
                 <button id="qualityBtn" class="icon-btn" title="Video Quality">
@@ -2136,21 +2136,21 @@
                 </button>
                 <!-- Aspect Ratio -->
                 <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect><path d="M7 12h10"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
                 </button>
                 <!-- Playback Speed -->
                 <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 44px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
                 <!-- Subtitles -->
                 <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 3C1 2.44772 1.44772 2 2 2H22C22.5523 2 23 2.44772 23 3V17C23 17.5523 22.5523 18 22 18H19V21C19 21.3688 18.797 21.7077 18.4719 21.8817C18.1467 22.0557 17.7522 22.0366 17.4453 21.8321L11.6972 18H2C1.44772 18 1 17.5523 1 17V3ZM3 4V16H12H12.3028L12.5547 16.1679L17 19.1315V17V16H18H21V4H3ZM10 9L5 9V7L10 7V9ZM19 11H14V13H19V11ZM12 13L5 13V11L12 11V13ZM19 7H12V9H19V7Z" fill="currentColor"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
                 </button>
                 <!-- Settings -->
                 <button id="settingsBtn" class="icon-btn" title="Settings">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" d="M2 12c0-.865.11-1.703.316-2.504A3 3 0 0 0 4.99 4.867a9.99 9.99 0 0 1 4.335-2.505a3 3 0 0 0 5.348 0a9.99 9.99 0 0 1 4.335 2.505a3 3 0 0 0 2.675 4.63a10.036 10.036 0 0 1 0 5.007a3 3 0 0 0-2.675 4.629a9.99 9.99 0 0 1-4.335 2.505a3 3 0 0 0-5.348 0a9.99 9.99 0 0 1-4.335-2.505a3 3 0 0 0-2.675-4.63A10.056 10.056 0 0 1 2 12zm4.804 3c.63 1.091.81 2.346.564 3.524c.408.29.842.541 1.297.75A4.993 4.993 0 0 1 12 18c1.26 0 2.438.471 3.335 1.274c.455-.209.889-.46 1.297-.75A4.993 4.993 0 0 1 17.196 15a4.993 4.993 0 0 1 2.77-2.25a8.126 8.126 0 0 0 0-1.5A4.993 4.993 0 0 1 17.195 9a4.993 4.993 0 0 1-.564-3.524a7.989 7.989 0 0 0-1.297-.75A4.993 4.993 0 0 1 12 6a4.993 4.993 0 0 1-3.335-1.274a7.99 7.99 0 0 0-1.297.75A4.993 4.993 0 0 1 6.804 9a4.993 4.993 0 0 1-2.77 2.25a8.126 8.126 0 0 0 0 1.5A4.993 4.993 0 0 1 6.805 15zM12 15a3 3 0 1 1 0-6a3 3 0 0 1 0 6zm0-2a1 1 0 1 0 0-2a1 1 0 0 0 0 2z"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 </button>
                 <!-- Fullscreen -->
                 <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="2.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 5a2 2 0 0 1 2-2h7v2H2v4H0V5Zm22 0h-7V3h7a2 2 0 0 1 2 2v4h-2V5ZM2 15v4h7v2H2a2 2 0 0 1-2-2v-4h2Zm20 4v-4h2v4a2 2 0 0 1-2 2h-7v-2h7Z" fill="currentColor"></path></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                 </button>
             </div>
 
@@ -2412,13 +2412,14 @@
 
     // SVG Icons
     const SVGS = {
-        play:  `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path d="M4 2.691a1 1 0 0 1 1.482-.876l16.925 9.309a1 1 0 0 1 0 1.752L5.482 22.185A1 1 0 0 1 4 21.309V2.69Z" fill="currentColor"></path></svg>`,
-        pause: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><rect x="5" y="3" width="4" height="18" rx="1.5" fill="currentColor"/><rect x="15" y="3" width="4" height="18" rx="1.5" fill="currentColor"/></svg>`,
-        rewind10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>`,
-        forward10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>`,
-        volHigh:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M24 12a14 14 0 0 0-4.1-9.9l-1.415 1.415a12 12 0 0 1 0 16.97L19.9 21.9A14 14 0 0 0 24 12ZM11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12ZM17.071 4.93a10 10 0 0 1 0 14.142l-1.414-1.414a8 8 0 0 0 0-11.314L17.07 4.93Z" fill="currentColor"/></svg>`,
-        volLow: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM16 12a6 6 0 0 0-1.757-4.243l-1.415 1.415a4 4 0 0 1 0 5.656l1.415 1.415A6 6 0 0 0 16 12Z" fill="currentColor"/></svg>`,
-        volMute:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM23.414 12l2.293-2.293-1.414-1.414L22 10.586 19.707 8.293l-1.414 1.414L20.586 12l-2.293 2.293 1.414 1.414L22 13.414l2.293 2.293 1.414-1.414L23.414 12Z" fill="currentColor"/></svg>`,
+        play:  `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M8 5v14l11-7z"/></svg>`,
+        pause: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
+        rewind10: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-1.2v-3.79l-1.19.4V11.6l2.09-.74h.3V16zm3.39-4.8c.84 0 1.34.6 1.34 1.54v1.73c0 .94-.5 1.54-1.34 1.54-.84 0-1.34-.6-1.34-1.54v-1.73c0-.95.5-1.54 1.34-1.54zm0 3.97c.36 0 .54-.33.54-.86v-2.02c0-.53-.18-.86-.54-.86s-.54.33-.54.86v2.02c0 .53.18.86.54.86z"/></svg>`,
+        forward10: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 9.59 12.07 9.59 11.23 11.69 10.49 11.99 10.49 11.99 15.94 10.86 15.94"/><path d="M14.28 14.24c0 .4-.07.72-.21.95s-.35.35-.63.35c-.27 0-.48-.12-.62-.35s-.21-.55-.21-.95v-1.56c0-.4.07-.72.21-.95s.35-.35.62-.35c.28 0 .49.12.63.35s.21.55.21.95v1.56zm1.13-.01v-1.54c0-.66-.17-1.17-.51-1.53s-.82-.54-1.44-.54c-.61 0-1.09.18-1.43.54s-.51.87-.51 1.53v1.54c0 .66.17 1.17.51 1.53s.82.54 1.43.54c.62 0 1.1-.18 1.44-.54s.51-.87.51-1.53z"/></svg>`,
+        volHigh:`<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`,
+        volMed: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>`,
+        volLow: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M7 9v6h4l5 5V4L11 9H7z"/></svg>`,
+        volMute:`<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>`,
         check:  `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`,
     };
 
@@ -3403,19 +3404,45 @@
         }
         // Audio Tracks
         let audioHtml = '';
+        const renderedAudioNames = new Set();
+
+        function normalizeAudioName(name) {
+            if (!name) return '';
+            return name
+                .replace(/\s*\([^)]*(?:stereo|surround|mono|\d+\.\d+|ch)[^)]*\)/gi, '')
+                .replace(/\s*\[[^\]]*\]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
         if (meta.audioTracks && meta.audioTracks.length > 0) {
-            audioHtml += meta.audioTracks.map(t => `
+            audioHtml += meta.audioTracks.map(t => {
+                const displayName = t.name || ('Track ' + t.id);
+                renderedAudioNames.add(displayName.toLowerCase().trim());
+                const normalized = normalizeAudioName(displayName);
+                if (normalized) renderedAudioNames.add(normalized);
+                return `
                 <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
-                    <span class="track-name">${t.name || ('Track ' + t.id)}</span>
-                    <span class="track-check">${SVGS.check}</span>
-                </div>`).join('');
+                    <span class="track-name">${displayName}</span>
+                    <span class="track-check">${t.isSelected ? SVGS.check : ''}</span>
+                </div>`;
+            }).join('');
         }
         if (meta.lazyAudioTracks && meta.lazyAudioTracks.length > 0) {
-            audioHtml += meta.lazyAudioTracks.map(t => `
-                <div class="track-item" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
-                    <span class="track-name">${t.name}</span>
-                    <span class="track-check"></span>
-                </div>`).join('');
+            for (const t of meta.lazyAudioTracks) {
+                const displayName = t.name;
+                const normalized = normalizeAudioName(displayName);
+                const isAlreadyAttached = (meta.activeLazyAudioTrackUrl && meta.activeLazyAudioTrackUrl === t.url);
+                const isNameRendered = renderedAudioNames.has(displayName.toLowerCase().trim()) || (normalized && renderedAudioNames.has(normalized));
+
+                if (!isAlreadyAttached && !isNameRendered) {
+                    audioHtml += `
+                    <div class="track-item" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
+                        <span class="track-name">${displayName}</span>
+                        <span class="track-check"></span>
+                    </div>`;
+                }
+            }
         }
         document.getElementById('audioList').innerHTML = audioHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">No audio tracks</div>`;
 
@@ -3956,7 +3983,7 @@
         if (results.length === 0) {
             resultsEl.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:#777;gap:12px;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="15" x2="16" y2="15"></line><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 3.5c-2.33 0-4.31 1.46-5.11 3.5h10.22c-.8-2.04-2.78-3.5-5.11-3.5z"/></svg>
                 <div style="font-size:14px;font-weight:500;">No subtitles found</div>
                 <div style="font-size:12px;color:#666;">Try adjusting the title or switching language filter to "All".</div>
             </div>`;
@@ -4035,12 +4062,12 @@
                         ${epTag ? `<span style="color:#90caf9;background:rgba(33,150,243,0.12);border:1px solid rgba(33,150,243,0.25);padding:1px 6px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;">${epTag}</span>` : ''}
                     </div>
                     <div style="color:#777;font-size:12px;margin-top:3px;display:flex;align-items:center;gap:5px;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>
                         <span>${source}</span>
                     </div>
                 </div>
                 <button class="sub-download-btn" id="subDlBtn_${originalIndex}" onclick="downloadSubtitle(event, ${originalIndex})" title="Download and Apply Subtitle">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </button>
             </div>`;
         }).join('');
@@ -4075,7 +4102,7 @@
             if (btn) {
                 btn.classList.remove('downloading');
                 btn.classList.add('success');
-                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
             }
             setTimeout(() => {
                 closeSubSearchModal();

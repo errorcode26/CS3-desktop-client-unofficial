@@ -381,6 +381,27 @@ fun DetailsContent(
             (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
     }
 
+    val availableSeasons = remember(data) {
+        val list = when (data) {
+            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct().sorted()
+            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+            else -> emptyList()
+        }
+        if (list.isEmpty() && (data is com.lagradost.cloudstream3.TvSeriesLoadResponse || data is com.lagradost.cloudstream3.AnimeLoadResponse)) {
+            listOf(1)
+        } else {
+            list
+        }
+    }
+    val currentSeason = uiState?.selectedSeason ?: latestHistory?.season ?: availableSeasons.firstOrNull() ?: 1
+
+    LaunchedEffect(availableSeasons, latestHistory) {
+        if (uiState?.selectedSeason == null && availableSeasons.isNotEmpty()) {
+            val initial = latestHistory?.season ?: availableSeasons.firstOrNull() ?: 1
+            onEvent(DetailsUiEvent.OnSelectSeason(initial))
+        }
+    }
+
     val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
 
@@ -475,13 +496,6 @@ fun DetailsContent(
                         },
                         onEvent = onEvent,
                     )
-
-                    DetailsClockPill(
-                        latestHistory = latestHistory,
-                        data = data,
-                        viewportWidth = viewportWidth,
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
                 }
             }
 
@@ -509,6 +523,8 @@ fun DetailsContent(
                                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                                             onToggleEpisodesStackedView = onToggleEpisodesStackedView,
                                             onSetEpisodeViewMode = onSetEpisodeViewMode ?: {},
+                                            selectedSeason = currentSeason,
+                                            onSeasonChange = { onEvent(DetailsUiEvent.OnSelectSeason(it)) },
                                         )
                                     }
                                 }
@@ -528,7 +544,12 @@ fun DetailsContent(
                                             val searchName = actor.voiceActor?.name?.takeIf { it.isNotBlank() } ?: actor.actor.name
                                             onNavigate(Config.Person(name = searchName, image = actor.actor.image, tmdbId = null))
                                         },
+                                        onNavigate = onNavigate,
                                         horizontalPadding = hPadding,
+                                        selectedSeason = uiState?.selectedSeason ?: currentSeason,
+                                        seasonCredits = uiState?.seasonCredits,
+                                        onSeasonChange = { onEvent(DetailsUiEvent.OnSelectSeason(it)) },
+                                        availableSeasons = availableSeasons,
                                     )
                                 }
                             }

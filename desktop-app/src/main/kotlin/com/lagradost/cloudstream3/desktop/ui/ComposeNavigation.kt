@@ -242,6 +242,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
                             is RootComponent.Child.Person -> activeInstance.component.config.name
                             is RootComponent.Child.Studio -> activeInstance.component.config.name
+                            is RootComponent.Child.FullCast -> "${activeInstance.component.config.mediaTitle} - Cast & Crew"
                         }
 
                         LaunchedEffect(activeInstance, currentVideo) {
@@ -256,6 +257,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     }
                                     is RootComponent.Child.Studio -> {
                                         com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Studio", activeInstance.component.config.name)
+                                    }
+                                    is RootComponent.Child.FullCast -> {
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Cast & Crew", activeInstance.component.config.mediaTitle)
                                     }
                                     else -> {
                                         com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
@@ -276,6 +280,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Details -> false // Details manually pads itself
                             is RootComponent.Child.Person -> false // Person manually pads itself
                             is RootComponent.Child.Studio -> false // Studio manually pads itself
+                            is RootComponent.Child.FullCast -> false // FullCast manually pads itself
                             is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
                             else -> true
                         }
@@ -283,12 +288,14 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Details -> false
                             is RootComponent.Child.Person -> false
                             is RootComponent.Child.Studio -> false
+                            is RootComponent.Child.FullCast -> false
                             else -> true
                         }
                         val showTopBar = when (activeInstance) {
                             is RootComponent.Child.Details -> false
                             is RootComponent.Child.Person -> false
                             is RootComponent.Child.Studio -> false
+                            is RootComponent.Child.FullCast -> false
                             else -> true
                         }
 
@@ -486,6 +493,22 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     onBack = { rootComponent.pop() },
                                                     onNavigate = { config -> rootComponent.bringToFront(config) },
                                                     viewModel = child.component.viewModel,
+                                                )
+                                            }
+                                            is RootComponent.Child.FullCast -> {
+                                                val api = child.component.config.providerName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
+                                                com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastScreen(
+                                                    mediaTitle = child.component.config.mediaTitle,
+                                                    cast = child.component.config.cast,
+                                                    directors = child.component.config.directors,
+                                                    writers = child.component.config.writers,
+                                                    producers = child.component.config.producers,
+                                                    provider = api,
+                                                    onBack = { rootComponent.pop() },
+                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                    tmdbId = child.component.config.tmdbId,
+                                                    availableSeasons = child.component.config.availableSeasons,
+                                                    initialSeason = child.component.config.initialSeason,
                                                 )
                                             }
                                         }

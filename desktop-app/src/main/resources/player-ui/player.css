@@ -2630,6 +2630,107 @@
             margin: 4px 6px;
         }
 
+        /* ── Context Menu Submenus & Hierarchical Layout ──────────────── */
+        .ctx-parent {
+            position: relative;
+        }
+        .ctx-item-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ctx-chevron {
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1;
+            opacity: 0.55;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+        .ctx-item:hover .ctx-chevron {
+            opacity: 1;
+            transform: translateX(1px);
+        }
+
+        .ctx-submenu {
+            position: absolute;
+            display: none;
+            z-index: 5002;
+            min-width: 220px;
+            max-width: 320px;
+            max-height: min(380px, calc(100vh - 40px));
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            background: rgba(16, 17, 24, 0.96);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            color: #eee;
+            font-size: 13px;
+            user-select: none;
+            pointer-events: auto;
+        }
+        .ctx-submenu.open {
+            display: block;
+        }
+
+        .ctx-submenu::-webkit-scrollbar {
+            width: 5px;
+        }
+        .ctx-submenu::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .ctx-submenu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        .ctx-submenu::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .ctx-sub-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12.5px;
+            gap: 8px;
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+        .ctx-sub-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .ctx-sub-item.active {
+            color: var(--accent-color, #7C4DFF);
+            font-weight: 600;
+        }
+        .ctx-sub-item .ctx-sub-check {
+            width: 14px;
+            height: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color, #7C4DFF);
+            flex-shrink: 0;
+        }
+        .ctx-sub-item .ctx-sub-check svg {
+            width: 14px;
+            height: 14px;
+        }
+        .ctx-sub-header {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 6px 10px 3px 10px;
+        }
+
         /* ── Keyboard Shortcuts Modal ────────────────────────────────────── */
         #shortcutsModalOverlay {
             position: fixed;

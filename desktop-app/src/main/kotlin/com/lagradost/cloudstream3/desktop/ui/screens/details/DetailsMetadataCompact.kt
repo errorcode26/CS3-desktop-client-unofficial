@@ -221,9 +221,11 @@ internal fun DetailsMetadataCompact(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                     ) {
-                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFFF5C518)) {
-                            Text("IMDb", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 3.dp))
-                        }
+                        androidx.compose.foundation.Image(
+                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_imdb.png"),
+                            contentDescription = null,
+                            modifier = Modifier.size(width = 24.dp, height = 12.dp),
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(String.format(java.util.Locale.US, "%.1f", imdbScore), color = Color(0xFFF5C518), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
@@ -239,9 +241,11 @@ internal fun DetailsMetadataCompact(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                     ) {
-                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFF01B4E4)) {
-                            Text("TMDB", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 3.dp))
-                        }
+                        androidx.compose.foundation.Image(
+                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_tmdb.png"),
+                            contentDescription = null,
+                            modifier = Modifier.size(width = 20.dp, height = 12.dp),
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(String.format(java.util.Locale.US, "%.1f", tmdbScore), color = Color(0xFF01B4E4), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
@@ -257,9 +261,11 @@ internal fun DetailsMetadataCompact(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                     ) {
-                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFF02A9FF)) {
-                            Text("AniList", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 3.dp))
-                        }
+                        androidx.compose.foundation.Image(
+                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_mal.png"),
+                            contentDescription = null,
+                            modifier = Modifier.size(width = 19.dp, height = 12.dp),
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("${(anilistScore * 10).toInt()}%", color = Color(0xFF02A9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }

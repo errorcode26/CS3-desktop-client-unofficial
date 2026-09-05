@@ -34,7 +34,7 @@ object TmdbRateLimiter {
 // the upstream API goes down), create a new service with the same enrich()
 // signature and swap the single call site in HybridEnrichmentService.
 object TmdbEnrichmentService {
-    private val TMDB_API_KEY: String
+    internal val TMDB_API_KEY: String
         get() = com.lagradost.common.storage.DesktopDataStore.getKey<String>("tmdb_api_key")?.takeIf { it.isNotBlank() } ?: "3828864585df9d4f006c09403eb9a888"
 
     private val dummyApi = object : com.lagradost.cloudstream3.MainAPI() {
@@ -49,364 +49,128 @@ object TmdbEnrichmentService {
         return "https://image.tmdb.org/t/p/$size$cleanPath"
     }
 
-    data class DesktopActorDetails(
-        val id: Int,
-        val name: String,
-        val profilePath: String?,
-        val biography: String?,
-        val birthday: String?,
-        val placeOfBirth: String?,
-        val deathday: String?,
-        val knownFor: List<com.lagradost.cloudstream3.SearchResponse>,
-    )
+    typealias DesktopActorDetails = TmdbPersonFetcher.DesktopActorDetails
 
-    suspend fun getActorDetails(name: String): DesktopActorDetails? {
-        return withContext(Dispatchers.IO) {
-            try {
-                TmdbRateLimiter.acquire()
-                val searchUrl = "https://api.themoviedb.org/3/search/person?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(name, "UTF-8")}&page=1"
-                val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                val results = searchData?.get("results")
-
-                val firstResult = if (results != null && results.isArray && results.size() > 0) results.get(0) else null
-                val id = firstResult?.get("id")?.asInt() ?: return@withContext null
-
-                TmdbRateLimiter.acquire()
-                val detailsUrl = "https://api.themoviedb.org/3/person/$id?api_key=$TMDB_API_KEY&append_to_response=combined_credits"
-                val detailsData = com.lagradost.cloudstream3.app.get(detailsUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>() ?: return@withContext null
-
-                val bio = detailsData.get("biography")?.asText()?.takeIf { it.isNotBlank() }
-                val bday = detailsData.get("birthday")?.asText()?.takeIf { it.isNotBlank() }
-                val pob = detailsData.get("place_of_birth")?.asText()?.takeIf { it.isNotBlank() }
-                val dday = detailsData.get("deathday")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                val profilePath = detailsData.get("profile_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                val profileUrl = tmdbImageUrl(profilePath, "original")
-
-                val castList = detailsData.get("combined_credits")?.get("cast")
-                val knownFor = mutableListOf<com.lagradost.cloudstream3.SearchResponse>()
-                if (castList != null && castList.isArray) {
-                    val sortedCast = castList.toList().sortedByDescending { it.get("popularity")?.asDouble() ?: 0.0 }
-                    sortedCast.take(15).forEach { credit ->
-                        val mediaType = credit.get("media_type")?.asText()
-                        val title = credit.get("title")?.asText() ?: credit.get("name")?.asText() ?: return@forEach
-                        val posterPath = credit.get("poster_path")?.asText()
-                        val posterUrl = tmdbImageUrl(posterPath, "original")
-
-                        val recId = credit.get("id")?.asInt()
-                        val recUrl = if (recId != null) "https://www.themoviedb.org/$mediaType/$recId" else ""
-                        if (mediaType == "movie") {
-                            knownFor.add(
-                                dummyApi.newMovieSearchResponse(title, url = recUrl, com.lagradost.cloudstream3.TvType.Movie, false) {
-                                    this.posterUrl = posterUrl
-                                    if (recId != null) this.id = recId
-                                },
-                            )
-                        } else if (mediaType == "tv") {
-                            knownFor.add(
-                                dummyApi.newTvSeriesSearchResponse(title, url = recUrl, com.lagradost.cloudstream3.TvType.TvSeries, false) {
-                                    this.posterUrl = posterUrl
-                                    if (recId != null) this.id = recId
-                                },
-                            )
-                        }
-                    }
-                }
-
-                DesktopActorDetails(
-                    id = id,
-                    name = name,
-                    profilePath = profileUrl,
-                    biography = bio,
-                    birthday = bday,
-                    placeOfBirth = pob,
-                    deathday = dday,
-                    knownFor = knownFor,
-                )
-            } catch (e: Exception) {
-                null
-            }
-        }
-    }
+    suspend fun getActorDetails(name: String): DesktopActorDetails? =
+        TmdbPersonFetcher.getActorDetails(name)
 
     suspend fun fetchPersonDetail(
         name: String,
         tmdbId: Int? = null,
-    ): com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val resolvedId = if (tmdbId != null && tmdbId > 0) {
-                    tmdbId
-                } else {
-                    TmdbRateLimiter.acquire()
-                    val searchUrl = "https://api.themoviedb.org/3/search/person?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(name, "UTF-8")}&page=1"
-                    val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    val results = searchData?.get("results")
-                    val firstResult = if (results != null && results.isArray && results.size() > 0) results.get(0) else null
-                    firstResult?.get("id")?.asInt() ?: return@withContext null
-                }
-
-                TmdbRateLimiter.acquire()
-                val detailsUrl = "https://api.themoviedb.org/3/person/$resolvedId?api_key=$TMDB_API_KEY&append_to_response=combined_credits"
-                val detailsData = com.lagradost.cloudstream3.app.get(detailsUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>() ?: return@withContext null
-
-                val personName = detailsData.get("name")?.asText()?.takeIf { it.isNotBlank() } ?: name
-                val bio = detailsData.get("biography")?.asText()?.takeIf { it.isNotBlank() }
-                val bday = detailsData.get("birthday")?.asText()?.takeIf { it.isNotBlank() }
-                val pob = detailsData.get("place_of_birth")?.asText()?.takeIf { it.isNotBlank() }
-                val dday = detailsData.get("deathday")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                val profilePath = detailsData.get("profile_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                val profileUrl = tmdbImageUrl(profilePath, "original")
-                val department = detailsData.get("known_for_department")?.asText()?.takeIf { it.isNotBlank() }
-
-                val castNode = detailsData.get("combined_credits")?.get("cast")
-                val movieCredits = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit>()
-                val tvCredits = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit>()
-
-                if (castNode != null && castNode.isArray) {
-                    val sortedList = castNode.toList().sortedByDescending { it.get("popularity")?.asDouble() ?: 0.0 }
-                    val seenIds = mutableSetOf<String>()
-
-                    sortedList.forEach { credit ->
-                        val creditId = credit.get("id")?.asInt() ?: return@forEach
-                        val mediaTypeStr = credit.get("media_type")?.asText() ?: "movie"
-                        val key = "$mediaTypeStr-$creditId"
-                        if (!seenIds.add(key)) return@forEach
-
-                        val title = credit.get("title")?.asText() ?: credit.get("name")?.asText() ?: return@forEach
-                        val posterPath = credit.get("poster_path")?.asText()
-                        val backdropPath = credit.get("backdrop_path")?.asText()
-                        val releaseDate = credit.get("release_date")?.asText() ?: credit.get("first_air_date")?.asText()
-                        val releaseYear = releaseDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
-                        val character = credit.get("character")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                        val voteAverage = credit.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
-                        val popularity = credit.get("popularity")?.asDouble() ?: 0.0
-                        val overview = credit.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-
-                        val item = com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit(
-                            tmdbId = creditId,
-                            title = title,
-                            posterUrl = tmdbImageUrl(posterPath, "w500"),
-                            backdropUrl = tmdbImageUrl(backdropPath, "original"),
-                            releaseYear = releaseYear,
-                            characterOrJob = character,
-                            mediaType = if (mediaTypeStr == "tv") com.lagradost.cloudstream3.TvType.TvSeries else com.lagradost.cloudstream3.TvType.Movie,
-                            voteAverage = voteAverage,
-                            popularity = popularity,
-                            overview = overview,
-                        )
-
-                        if (mediaTypeStr == "tv") {
-                            tvCredits.add(item)
-                        } else {
-                            movieCredits.add(item)
-                        }
-                    }
-                }
-
-                com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail(
-                    tmdbId = resolvedId,
-                    name = personName,
-                    biography = bio,
-                    birthday = bday,
-                    deathday = dday,
-                    placeOfBirth = pob,
-                    profileUrl = profileUrl,
-                    knownForDepartment = department,
-                    movieCredits = movieCredits,
-                    tvCredits = tvCredits,
-                )
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("TmdbEnrichmentService: Failed to fetch person detail", e)
-                null
-            }
-        }
-    }
+    ): com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail? =
+        TmdbPersonFetcher.fetchPersonDetail(name, tmdbId)
 
     suspend fun fetchStudioDetail(
         companyId: Int? = null,
         name: String,
-    ): com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail? {
-        return withContext(Dispatchers.IO) {
-            try {
-                var resolvedId = if (companyId != null && companyId > 0) companyId else null
-                var studioName = name
-                var description: String? = null
-                var headquarters: String? = null
-                var originCountry: String? = null
-                var homepage: String? = null
-                var logoUrl: String? = null
+    ): com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail? =
+        TmdbStudioFetcher.fetchStudioDetail(companyId, name)
 
-                if (resolvedId == null && name.isNotBlank()) {
-                    TmdbRateLimiter.acquire()
-                    val searchUrl = "https://api.themoviedb.org/3/search/company?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(name, "UTF-8")}&page=1"
-                    val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    val results = searchData?.get("results")
-                    if (results != null && results.isArray && results.size() > 0) {
-                        val first = results.get(0)
-                        resolvedId = first.get("id")?.asInt()
-                        val resName = first.get("name")?.asText()
-                        if (!resName.isNullOrBlank()) studioName = resName
-                        val logoPath = first.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                        if (logoPath != null) logoUrl = tmdbImageUrl(logoPath, "w500")
-                        originCountry = first.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+    fun parseCreditsJson(
+        castList: com.fasterxml.jackson.databind.JsonNode?,
+        crewList: com.fasterxml.jackson.databind.JsonNode?,
+        createdBy: com.fasterxml.jackson.databind.JsonNode? = null,
+        limit: Int = 150,
+    ): List<com.lagradost.cloudstream3.ActorData> {
+        val parsedCast = mutableListOf<com.lagradost.cloudstream3.ActorData>()
+        val parsedCrew = mutableListOf<com.lagradost.cloudstream3.ActorData>()
+
+        // 1. Map crew roles by person name (so actors who are also producers/directors get dual attribution)
+        val personCrewRoles = mutableMapOf<String, String>()
+        if (crewList != null && crewList.isArray) {
+            crewList.forEach { crew ->
+                val job = crew.get("job")?.asText()
+                val dept = crew.get("department")?.asText()
+                val name = crew.get("name")?.asText()
+                val profilePath = crew.get("profile_path")?.asText()
+                if (!name.isNullOrBlank() && name != "null") {
+                    val profileUrl = tmdbImageUrl(profilePath, "original")
+                    val role = when {
+                        job?.equals("Director", ignoreCase = true) == true -> "Director"
+                        job?.equals("Screenplay", ignoreCase = true) == true ||
+                        job?.equals("Writer", ignoreCase = true) == true ||
+                        dept?.equals("Writing", ignoreCase = true) == true -> "Writer"
+                        job?.equals("Producer", ignoreCase = true) == true ||
+                        job?.equals("Executive Producer", ignoreCase = true) == true -> "Producer"
+                        else -> null
                     }
-                }
-
-                if (resolvedId != null && resolvedId > 0) {
-                    try {
-                        TmdbRateLimiter.acquire()
-                        val detailsUrl = "https://api.themoviedb.org/3/company/$resolvedId?api_key=$TMDB_API_KEY"
-                        val detailsData = com.lagradost.cloudstream3.app.get(detailsUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                        if (detailsData != null) {
-                            val cName = detailsData.get("name")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                            if (cName != null) studioName = cName
-                            description = detailsData.get("description")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                            headquarters = detailsData.get("headquarters")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                            originCountry = detailsData.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" } ?: originCountry
-                            homepage = detailsData.get("homepage")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                            val logoPath = detailsData.get("logo_path")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                            if (logoPath != null) logoUrl = tmdbImageUrl(logoPath, "w500")
+                    if (role != null) {
+                        val existingRole = personCrewRoles[name.lowercase()]
+                        if (existingRole == null || (role == "Director" && existingRole != "Director")) {
+                            personCrewRoles[name.lowercase()] = role
                         }
-                    } catch (_: Exception) {
-                        // ignore company details fetch failure, continue with discover
-                    }
-                }
-
-                if (resolvedId == null || resolvedId <= 0) return@withContext null
-
-                val movieTitles = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem>()
-                val tvTitles = mutableListOf<com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem>()
-
-                // Discover movies by company
-                try {
-                    TmdbRateLimiter.acquire()
-                    val movieUrl = "https://api.themoviedb.org/3/discover/movie?api_key=$TMDB_API_KEY&with_companies=$resolvedId&sort_by=popularity.desc&page=1"
-                    val movieData = com.lagradost.cloudstream3.app.get(movieUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    val results = movieData?.get("results")
-                    if (results != null && results.isArray) {
-                        results.forEach { item ->
-                            val id = item.get("id")?.asInt() ?: return@forEach
-                            val title = item.get("title")?.asText() ?: item.get("name")?.asText() ?: return@forEach
-                            val posterPath = item.get("poster_path")?.asText()
-                            val backdropPath = item.get("backdrop_path")?.asText()
-                            val releaseDate = item.get("release_date")?.asText()
-                            val releaseYear = releaseDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
-                            val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
-                            val popularity = item.get("popularity")?.asDouble() ?: 0.0
-                            val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-
-                            movieTitles.add(
-                                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
-                                    tmdbId = id,
-                                    title = title,
-                                    posterUrl = tmdbImageUrl(posterPath, "w500"),
-                                    backdropUrl = tmdbImageUrl(backdropPath, "original"),
-                                    releaseYear = releaseYear,
-                                    mediaType = com.lagradost.cloudstream3.TvType.Movie,
-                                    voteAverage = voteAverage,
-                                    popularity = popularity,
-                                    overview = overview,
-                                )
-                            )
+                        if (parsedCrew.none { it.actor.name.equals(name, ignoreCase = true) && it.roleString.equals(role, ignoreCase = true) }) {
+                            parsedCrew.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = role, role = null))
                         }
                     }
-                } catch (_: Exception) {
-                    // ignore movie discover errors
                 }
-
-                // Discover TV shows by company
-                try {
-                    TmdbRateLimiter.acquire()
-                    val tvUrl = "https://api.themoviedb.org/3/discover/tv?api_key=$TMDB_API_KEY&with_companies=$resolvedId&sort_by=popularity.desc&page=1"
-                    val tvData = com.lagradost.cloudstream3.app.get(tvUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    val results = tvData?.get("results")
-                    if (results != null && results.isArray) {
-                        results.forEach { item ->
-                            val id = item.get("id")?.asInt() ?: return@forEach
-                            val title = item.get("name")?.asText() ?: item.get("title")?.asText() ?: return@forEach
-                            val posterPath = item.get("poster_path")?.asText()
-                            val backdropPath = item.get("backdrop_path")?.asText()
-                            val firstAirDate = item.get("first_air_date")?.asText()
-                            val releaseYear = firstAirDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
-                            val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
-                            val popularity = item.get("popularity")?.asDouble() ?: 0.0
-                            val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-
-                            tvTitles.add(
-                                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
-                                    tmdbId = id,
-                                    title = title,
-                                    posterUrl = tmdbImageUrl(posterPath, "w500"),
-                                    backdropUrl = tmdbImageUrl(backdropPath, "original"),
-                                    releaseYear = releaseYear,
-                                    mediaType = com.lagradost.cloudstream3.TvType.TvSeries,
-                                    voteAverage = voteAverage,
-                                    popularity = popularity,
-                                    overview = overview,
-                                )
-                            )
-                        }
-                    }
-                } catch (_: Exception) {
-                    // ignore tv discover errors
-                }
-
-                // If tvTitles is empty, also try with_networks in case resolvedId is a TV network
-                if (tvTitles.isEmpty()) {
-                    try {
-                        TmdbRateLimiter.acquire()
-                        val tvNetUrl = "https://api.themoviedb.org/3/discover/tv?api_key=$TMDB_API_KEY&with_networks=$resolvedId&sort_by=popularity.desc&page=1"
-                        val tvNetData = com.lagradost.cloudstream3.app.get(tvNetUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                        val results = tvNetData?.get("results")
-                        if (results != null && results.isArray) {
-                            results.forEach { item ->
-                                val id = item.get("id")?.asInt() ?: return@forEach
-                                val title = item.get("name")?.asText() ?: item.get("title")?.asText() ?: return@forEach
-                                val posterPath = item.get("poster_path")?.asText()
-                                val backdropPath = item.get("backdrop_path")?.asText()
-                                val firstAirDate = item.get("first_air_date")?.asText()
-                                val releaseYear = firstAirDate?.take(4)?.takeIf { it.isNotBlank() && it != "null" }
-                                val voteAverage = item.get("vote_average")?.asDouble()?.takeIf { it > 0.0 }
-                                val popularity = item.get("popularity")?.asDouble() ?: 0.0
-                                val overview = item.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-
-                                tvTitles.add(
-                                    com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem(
-                                        tmdbId = id,
-                                        title = title,
-                                        posterUrl = tmdbImageUrl(posterPath, "w500"),
-                                        backdropUrl = tmdbImageUrl(backdropPath, "original"),
-                                        releaseYear = releaseYear,
-                                        mediaType = com.lagradost.cloudstream3.TvType.TvSeries,
-                                        voteAverage = voteAverage,
-                                        popularity = popularity,
-                                        overview = overview,
-                                    )
-                                )
-                            }
-                        }
-                    } catch (_: Exception) {
-                        // ignore
-                    }
-                }
-
-                if (movieTitles.isEmpty() && tvTitles.isEmpty()) return@withContext null
-
-                com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail(
-                    id = resolvedId,
-                    name = studioName,
-                    description = description,
-                    headquarters = headquarters,
-                    originCountry = originCountry,
-                    homepage = homepage,
-                    logoUrl = logoUrl,
-                    movieTitles = movieTitles,
-                    tvTitles = tvTitles,
-                )
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("TmdbEnrichmentService: Failed to fetch studio detail", e)
-                null
             }
+        }
+
+        // 2. Creators from TV details
+        if (createdBy != null && createdBy.isArray) {
+            createdBy.forEach { creator ->
+                val name = creator.get("name")?.asText()
+                val profilePath = creator.get("profile_path")?.asText()
+                if (!name.isNullOrBlank() && name != "null") {
+                    val profileUrl = tmdbImageUrl(profilePath, "original")
+                    personCrewRoles[name.lowercase()] = "Creator"
+                    if (parsedCrew.none { it.actor.name.equals(name, ignoreCase = true) && it.roleString == "Creator" }) {
+                        parsedCrew.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = "Creator", role = null))
+                    }
+                }
+            }
+        }
+
+        // 3. Cast in strict billing order - never overwrite an actor with Producer!
+        if (castList != null && castList.isArray) {
+            castList.take(limit).forEach { cast ->
+                val name = cast.get("name")?.asText()
+                val profilePath = cast.get("profile_path")?.asText()
+                val character = cast.get("character")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+                if (!name.isNullOrBlank() && name != "null") {
+                    if (parsedCast.none { it.actor.name.equals(name, ignoreCase = true) }) {
+                        val profileUrl = tmdbImageUrl(profilePath, "original")
+                        val crewRole = personCrewRoles[name.lowercase()]
+                        val combinedRole = when {
+                            !character.isNullOrBlank() && !crewRole.isNullOrBlank() -> "$character • $crewRole"
+                            !character.isNullOrBlank() -> character
+                            !crewRole.isNullOrBlank() -> crewRole
+                            else -> null
+                        }
+                        parsedCast.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = combinedRole, role = null))
+                    }
+                }
+            }
+        }
+
+        return (parsedCast + parsedCrew).distinctBy { it.actor.name + (it.roleString ?: "") }
+    }
+
+    suspend fun fetchSeasonCredits(
+        tmdbId: Int,
+        seasonNumber: Int,
+    ): List<com.lagradost.cloudstream3.ActorData> = withContext(Dispatchers.IO) {
+        try {
+            TmdbRateLimiter.acquire()
+            val tmdbLang = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.tmdbLanguage.value.ifBlank { "en-US" }
+            val url = "https://api.themoviedb.org/3/tv/$tmdbId/season/$seasonNumber/credits?api_key=$TMDB_API_KEY&language=$tmdbLang"
+            val resp = com.lagradost.cloudstream3.app.get(url).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
+            if (resp != null) {
+                parseCreditsJson(
+                    castList = resp.get("cast"),
+                    crewList = resp.get("crew"),
+                    createdBy = null,
+                    limit = 150,
+                )
+            } else {
+                emptyList()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("TmdbEnrichment", "Failed to fetch season $seasonNumber credits for series $tmdbId: ${e.message}")
+            emptyList()
         }
     }
 
@@ -460,8 +224,6 @@ object TmdbEnrichmentService {
                 var tempDuration: Int? = loaded.duration
                 var tempTags: List<String>? = loaded.tags
                 var tempActors: List<com.lagradost.cloudstream3.ActorData>? = loaded.actors
-                TmdbRateLimiter.acquire()
-                val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
 
                 val isAnime = loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
                     loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
@@ -474,191 +236,26 @@ object TmdbEnrichmentService {
                     loaded.type == com.lagradost.cloudstream3.TvType.AsianDrama ||
                     loaded.type == com.lagradost.cloudstream3.TvType.Cartoon
 
-                val findMatch: (com.fasterxml.jackson.databind.JsonNode?, String) -> com.fasterxml.jackson.databind.JsonNode? = { resultsNode, queryName ->
-                    if (resultsNode == null || !resultsNode.isArray) {
-                        null
-                    } else {
-                        val possible = mutableListOf<Pair<com.fasterxml.jackson.databind.JsonNode, Double>>()
-                        val isExplicitMovie = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
-                        val isExplicitTv = loaded.type == com.lagradost.cloudstream3.TvType.TvSeries || loaded.type == com.lagradost.cloudstream3.TvType.AsianDrama || loaded.type == com.lagradost.cloudstream3.TvType.Cartoon
-
-                        for (result in resultsNode) {
-                            val mediaType = result.get("media_type")?.asText()
-                            if (mediaType != null && mediaType != "movie" && mediaType != "tv") continue
-                            if (isExplicitMovie && mediaType == "tv") continue
-                            if (isExplicitTv && mediaType == "movie") continue
-
-                            val resultName = result.get("name")?.asText() ?: result.get("title")?.asText() ?: result.get("original_name")?.asText() ?: ""
-                            val cleanCompare = queryName.lowercase().removePrefix("the ").trim()
-                            val resultCompare = resultName.lowercase().removePrefix("the ").trim()
-
-                            val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
-                            val strippedCleanName = cleanCompare.replace(Regex("[^a-zA-Z0-9]"), "")
-
-                            // Check strict digit/roman number match to prevent Iron Man -> Iron Man 2 mismatches
-                            val numbers1 = Regex("""\b\d+\b""").findAll(cleanCompare).map { it.value }.toSet()
-                            val numbers2 = Regex("""\b\d+\b""").findAll(resultCompare).map { it.value }.toSet()
-                            val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
-                            val romans1 = romanRegex.findAll(cleanCompare).map { it.value }.toSet()
-                            val romans2 = romanRegex.findAll(resultCompare).map { it.value }.toSet()
-                            val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
-                            if (hasNumberMismatch) continue
-
-                            // Content Word Match: Rejects unrelated titles with overlapping stop words
-                            if (!com.lagradost.cloudstream3.desktop.utils.StringUtils.hasContentWordMatch(queryName, resultName, minOverlapRatio = 0.75)) {
-                                continue
-                            }
-
-                            val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
-
-                            val genreArray = result.get("genre_ids")
-                            val isAnimation = genreArray?.isArray == true && genreArray.any { it.asInt() == 16 }
-                            val originArray = result.get("origin_country")
-                            val isEastAsian = originArray?.isArray == true && originArray.any { it.asText() in setOf("JP", "CN", "KR") }
-
-                            // 1. Hard Domain Check for Anime: Never let live action hijack anime!
-                            if (isAnime && !isAnimation && !isEastAsian) {
-                                continue
-                            }
-
-                            val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
-                            val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
-
-                            // 2. Year Validation:
-                            val loadedYear = tempYear
-                            if (resultYear != null && loadedYear != null) {
-                                if (isTv) {
-                                    // For TV Series / Anime, parent show's first_air_date can start on or before season year
-                                    if (resultYear > loadedYear + 1) continue
-                                } else {
-                                    // For Movies, must be within 1 year
-                                    if (Math.abs(resultYear - loadedYear) > 1) continue
-                                }
-                            }
-
-                            var similarity = com.lagradost.cloudstream3.desktop.utils.StringUtils.similarity(strippedCleanName, strippedResultName)
-                            if (isStrictMatch) similarity = 1.0
-
-                            if (similarity < 0.80) continue
-
-                            var score = similarity * 10.0
-                            if (isAnime && isAnimation) score += 20.0
-                            if (resultYear != null && loadedYear != null) {
-                                if (resultYear == loadedYear) score += 5.0
-                                else if (isTv && resultYear <= loadedYear) score += 2.0
-                            }
-
-                            val popularity = result.get("popularity")?.asDouble() ?: 0.0
-                            score += Math.min(8.0, popularity / 15.0)
-
-                            val voteCount = result.get("vote_count")?.asInt() ?: 0
-                            if (voteCount > 500) {
-                                score += 6.0
-                            } else if (voteCount > 50) {
-                                score += 3.0
-                            } else if (voteCount < 3 && !isAnime) {
-                                // Heavily penalize unverified/obscure 0-vote entries
-                                score -= 12.0
-                            }
-
-                            // Only consider candidates meeting minimum confidence
-                            if (score >= 9.0) {
-                                possible.add(Pair(result, score))
-                            }
-                        }
-
-                        if (possible.isEmpty()) {
-                            null
-                        } else {
-                            possible.sortByDescending { it.second }
-                            possible.first().first
-                        }
-                    }
-                }
-
-                var resolvedMatchId: Int? = null
-                var resolvedIsMovie: Boolean = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
-                val isExplicitTv = loaded.type == com.lagradost.cloudstream3.TvType.TvSeries || loaded.type == com.lagradost.cloudstream3.TvType.AsianDrama || loaded.type == com.lagradost.cloudstream3.TvType.Cartoon
-                val isExplicitMovie = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
-
-                // Fast path 1: We have an IMDb ID — use /find/ with strict type alignment.
-                if (directImdbId != null) {
-                    TmdbRateLimiter.acquire()
-                    val findUrl = "https://api.themoviedb.org/3/find/$directImdbId?api_key=$TMDB_API_KEY&external_source=imdb_id"
-                    val findData = com.lagradost.cloudstream3.app.get(findUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                    val movieRes = findData?.get("movie_results")
-                    val tvRes = findData?.get("tv_results")
-
-                    if (isExplicitTv) {
-                        if (tvRes?.isArray == true && tvRes.size() > 0) {
-                            resolvedMatchId = tvRes[0].get("id")?.asInt()
-                            resolvedIsMovie = false
-                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → tv id=$resolvedMatchId")
-                        }
-                    } else if (isExplicitMovie) {
-                        if (movieRes?.isArray == true && movieRes.size() > 0) {
-                            resolvedMatchId = movieRes[0].get("id")?.asInt()
-                            resolvedIsMovie = true
-                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → movie id=$resolvedMatchId")
-                        }
-                    } else {
-                        if (tvRes?.isArray == true && tvRes.size() > 0) {
-                            resolvedMatchId = tvRes[0].get("id")?.asInt()
-                            resolvedIsMovie = false
-                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → tv id=$resolvedMatchId")
-                        } else if (movieRes?.isArray == true && movieRes.size() > 0) {
-                            resolvedMatchId = movieRes[0].get("id")?.asInt()
-                            resolvedIsMovie = true
-                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → movie id=$resolvedMatchId")
-                        }
-                    }
-                }
-
-                // Fast path 2: Direct TMDB ID — verify type alignment.
-                if (resolvedMatchId == null && directTmdbId != null) {
-                    resolvedMatchId = directTmdbId
-                    com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: direct TMDB ID → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
-                }
-
-                if (resolvedMatchId == null) {
-                    // Type-safe text search across root title candidates
-                    val searchCandidates = com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractRootTitleCandidates(loaded.name)
-                    val endpoint = if (isExplicitTv) "tv" else if (isExplicitMovie) "movie" else "multi"
-
-                    for (cand in searchCandidates) {
-                        val q = cand.first
-                        val searchUrl = "https://api.themoviedb.org/3/search/$endpoint?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1&language=en-US"
-                        val searchData = com.lagradost.cloudstream3.app.get(searchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                        var matchNode = findMatch(searchData?.get("results"), q)
-
-                        // Pass 2: no language filter for non-English titles
-                        if (matchNode == null) {
-                            TmdbRateLimiter.acquire()
-                            val fallbackUrl = "https://api.themoviedb.org/3/search/$endpoint?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1"
-                            val fallbackData = com.lagradost.cloudstream3.app.get(fallbackUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                            matchNode = findMatch(fallbackData?.get("results"), q)
-                        }
-
-                        if (matchNode != null) {
-                            resolvedMatchId = matchNode.get("id")?.asInt()
-                            val mType = matchNode.get("media_type")?.asText()
-                            resolvedIsMovie = if (mType != null) mType == "movie" else !isExplicitTv
-                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: text search ('$q') → ${if (resolvedIsMovie) "movie" else "tv"} id=$resolvedMatchId")
-                            break
-                        }
-                    }
-
-                    if (resolvedMatchId == null) {
-                        com.lagradost.common.logging.AppLogger.w("Enrichment", "  TMDB: text search for '${loaded.name}' found no high-confidence match")
-                    }
-                }
+                val resolvedMatch = TmdbMatchResolver.resolve(
+                    loaded = loaded,
+                    cleanName = cleanName,
+                    isAnime = isAnime,
+                    isTv = isTv,
+                    tempYear = tempYear,
+                    directTmdbId = directTmdbId,
+                    directImdbId = directImdbId,
+                    apiKey = TMDB_API_KEY,
+                )
 
                 var tmdbIsAnime = false
-                if (resolvedMatchId != null) {
+                if (resolvedMatch != null) {
+                    val resolvedMatchId = resolvedMatch.id
+                    val resolvedIsMovie = resolvedMatch.isMovie
                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: fetching details for ${if (resolvedIsMovie) "movie" else "tv"}/$resolvedMatchId")
                     val isMovie = resolvedIsMovie
                     val matchId = resolvedMatchId
                     val typeStr = if (isMovie) "movie" else "tv"
+                    loaded.syncData["tmdb"] = matchId.toString()
 
                     try {
                         TmdbRateLimiter.acquire()
@@ -919,52 +516,13 @@ object TmdbEnrichmentService {
                             val crewList = tmdbData.get("credits")?.get("crew")
                             val hasPluginVoiceActors = tempActors?.any { it.voiceActor != null } == true
                             if (!hasPluginVoiceActors) {
-                                val actors = mutableListOf<com.lagradost.cloudstream3.ActorData>()
-
-                                // First, add directors from crew list
-                                if (crewList != null && crewList.isArray) {
-                                    crewList.forEach { crew ->
-                                        val job = crew.get("job")?.asText()
-                                        if (job?.equals("Director", ignoreCase = true) == true) {
-                                            val name = crew.get("name")?.asText()
-                                            val profilePath = crew.get("profile_path")?.asText()
-                                            if (!name.isNullOrBlank() && name != "null") {
-                                                val profileUrl = tmdbImageUrl(profilePath, "original")
-                                                actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = "Director"))
-                                            }
-                                        }
-                                    }
-                                }
-                                // Then, add creators (from TV details)
-                                val createdBy = tmdbData.get("created_by")
-                                if (createdBy != null && createdBy.isArray) {
-                                    createdBy.forEach { creator ->
-                                        val name = creator.get("name")?.asText()
-                                        val profilePath = creator.get("profile_path")?.asText()
-                                        if (!name.isNullOrBlank() && name != "null") {
-                                            val profileUrl = tmdbImageUrl(profilePath, "original")
-                                            if (actors.none { it.actor.name.equals(name, ignoreCase = true) }) {
-                                                actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = "Creator"))
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Then, add regular cast (up to 150 to match all provider actors)
-                                if (castList != null && castList.isArray) {
-                                    val limit = if (tempActors.isNullOrEmpty()) 30 else 150
-                                    castList.take(limit).forEach { cast ->
-                                        val name = cast.get("name")?.asText()
-                                        val profilePath = cast.get("profile_path")?.asText()
-                                        val character = cast.get("character")?.asText()
-                                        if (!name.isNullOrBlank() && name != "null") {
-                                            if (actors.none { it.actor.name.equals(name, ignoreCase = true) }) {
-                                                val profileUrl = tmdbImageUrl(profilePath, "original")
-                                                actors.add(com.lagradost.cloudstream3.ActorData(com.lagradost.cloudstream3.Actor(name, profileUrl), roleString = character))
-                                            }
-                                        }
-                                    }
-                                }
+                                val limit = if (tempActors.isNullOrEmpty()) 30 else 150
+                                val actors = parseCreditsJson(
+                                    castList = castList,
+                                    crewList = crewList,
+                                    createdBy = tmdbData.get("created_by"),
+                                    limit = limit,
+                                )
 
                                 if (actors.isNotEmpty()) {
                                     if (tempActors.isNullOrEmpty()) {
@@ -977,10 +535,11 @@ object TmdbEnrichmentService {
                                                 merged.add(tmdbActor)
                                             } else {
                                                 val existing = merged[existingIdx]
-                                                // Overwrite provider's metadata with accurate TMDB name, photo, and character/role
+                                                // Overwrite provider's metadata with accurate TMDB name, photo, and character/role, clearing dummy role enum
                                                 merged[existingIdx] = existing.copy(
                                                     actor = tmdbActor.actor,
                                                     roleString = tmdbActor.roleString,
+                                                    role = null,
                                                 )
                                             }
                                         }
@@ -1055,125 +614,14 @@ object TmdbEnrichmentService {
                                 }
                             }
 
-                            // Extract episode thumbnails for seasons 1-15
-                            if (!isMovie) {
-                                val allEpisodes = if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                                    loaded.episodes
-                                } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                                    loaded.episodes.values.flatten()
-                                } else {
-                                    emptyList()
-                                }
-
-                                val realEpisodes = allEpisodes.filter { !it.data.startsWith("unreleased_") }
-                                val newEpisodesToAdd = mutableListOf<com.lagradost.cloudstream3.Episode>()
-                                val allSeasonNumbers = (realEpisodes.mapNotNull { it.season } + listOf(1)).distinct()
-
-                                allSeasonNumbers.forEach { seasonNum ->
-                                    val seasonNode = tmdbData.get("season/$seasonNum")
-                                    if (seasonNode != null && seasonNode.isObject) {
-                                        val episodesNode = seasonNode.get("episodes")
-                                        if (episodesNode != null && episodesNode.isArray) {
-                                            val existingEpNumbersInSeason = realEpisodes.filter { (it.season ?: 1) == seasonNum }.mapNotNull { it.episode }.toSet()
-
-                                            episodesNode.forEach { epNode ->
-                                                val epNum = epNode.get("episode_number")?.asInt()
-                                                if (epNum != null) {
-                                                    val epPosterPath = epNode.get("still_path")?.asText()
-                                                    val epPoster = tmdbImageUrl(epPosterPath, "original")
-                                                    val epOverview = epNode.get("overview")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                                                    val epReleaseDate = epNode.get("air_date")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                                                    val epName = epNode.get("name")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                                                    val epRuntime = epNode.get("runtime")?.asInt()?.takeIf { it > 0 }
-                                                    val epVote = epNode.get("vote_average")?.asDouble()?.takeIf { it > 0 }
-
-                                                    if (existingEpNumbersInSeason.contains(epNum)) {
-                                                        // Enrich existing episode
-                                                        val existingEp = realEpisodes.find { (it.season ?: 1) == seasonNum && it.episode == epNum }
-                                                        if (existingEp != null) {
-                                                            val epIsMissingOrBad = existingEp.posterUrl.isNullOrBlank() || existingEp.posterUrl?.contains("imgbb") == true
-                                                            if (epPoster != null && epIsMissingOrBad) {
-                                                                existingEp.posterUrl = epPoster
-                                                            }
-                                                            if ((existingEp.description.isNullOrBlank() || overwrite) && epOverview != null) {
-                                                                existingEp.description = epOverview
-                                                            }
-                                                            if (epReleaseDate != null) {
-                                                                val cleanDesc = (existingEp.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
-                                                                existingEp.description = "||DATE:$epReleaseDate||" + cleanDesc
-                                                            }
-                                                            if (epName != null) {
-                                                                existingEp.name = epName
-                                                            }
-                                                            if (epRuntime != null) {
-                                                                existingEp.runTime = epRuntime
-                                                            }
-                                                            if (epVote != null && existingEp.score == null) {
-                                                                existingEp.score = com.lagradost.cloudstream3.Score.from10(epVote)
-                                                            }
-                                                        }
-                                                    } else {
-                                                        // Strictly synthesize ONLY if the episode air date is in the FUTURE
-                                                        val isFuture = epReleaseDate?.let { dateStr ->
-                                                            try {
-                                                                val parsed = java.time.LocalDate.parse(dateStr.take(10))
-                                                                val now = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
-                                                                parsed.isAfter(now)
-                                                            } catch (_: Exception) {
-                                                                false
-                                                            }
-                                                        } ?: false
-
-                                                        if (isFuture) {
-                                                            val descWithDate = "||DATE:$epReleaseDate||${epOverview ?: ""}"
-                                                            val synthetic = dummyApi.newEpisode("unreleased_s${seasonNum}_e${epNum}") {
-                                                                this.name = epName ?: "Episode $epNum"
-                                                                this.season = seasonNum
-                                                                this.episode = epNum
-                                                                this.posterUrl = epPoster
-                                                                this.description = descWithDate
-                                                                this.runTime = epRuntime
-                                                                this.score = epVote?.let { com.lagradost.cloudstream3.Score.from10(it) }
-                                                            }
-                                                            newEpisodesToAdd.add(synthetic)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                val distinctNewEpisodes = newEpisodesToAdd.distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-
-                                if (distinctNewEpisodes.isNotEmpty()) {
-                                    withContext(Dispatchers.Main.immediate) {
-                                        if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
-                                            val baseEpisodes = loaded.episodes.filter { !it.data.startsWith("unreleased_") }
-                                            val updated = (baseEpisodes + distinctNewEpisodes)
-                                                .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                                                .sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 0 }))
-                                            loaded.episodes = updated.toMutableList()
-                                        } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
-                                            val mutableMap = loaded.episodes.toMutableMap()
-                                            if (mutableMap.isEmpty()) {
-                                                mutableMap[com.lagradost.cloudstream3.DubStatus.Subbed] = distinctNewEpisodes
-                                            } else {
-                                                mutableMap.keys.forEach { dubKey ->
-                                                    val current = mutableMap[dubKey].orEmpty().filter { !it.data.startsWith("unreleased_") }
-                                                    val updated = (current + distinctNewEpisodes)
-                                                        .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                                                        .sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 0 }))
-                                                    mutableMap[dubKey] = updated
-                                                }
-                                            }
-                                            loaded.episodes = mutableMap
-                                        }
-                                    }
-                                }
-                            }
-                            // Signal episode thumbnails were mutated
-                            onEpisodeThumbnailsEnriched()
+                            // Enrich episode thumbnails, descriptions, and synthesize future episodes
+                            TmdbEpisodeEnricher.enrich(
+                                loaded = loaded,
+                                tmdbData = tmdbData,
+                                isMovie = isMovie,
+                                overwrite = overwrite,
+                                onEpisodeThumbnailsEnriched = onEpisodeThumbnailsEnriched,
+                            )
 
                             var resolvedLogoUrl: String? = null
                             val logosNode = tmdbData.get("images")?.get("logos")
@@ -1397,138 +845,7 @@ object TmdbEnrichmentService {
         onEnrichmentComplete()
     }
 
-    private suspend fun fetchAniListCast(title: String, year: Int?): List<com.lagradost.cloudstream3.ActorData>? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val searchQuery = """
-                    query (${'$'}search: String) {
-                        Page(page: 1, perPage: 5) {
-                            media(search: ${'$'}search, type: ANIME) {
-                                id
-                                title { romaji english native userPreferred }
-                                startDate { year }
-                            }
-                        }
-                    }
-                """.trimIndent()
-
-                val searchPayload = mapOf(
-                    "query" to searchQuery,
-                    "variables" to mapOf("search" to title),
-                )
-
-                val searchResult = com.lagradost.cloudstream3.app.post(
-                    "https://graphql.anilist.co",
-                    json = searchPayload,
-                    headers = mapOf("Content-Type" to "application/json", "Accept" to "application/json"),
-                ).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-
-                val mediaList = searchResult?.get("data")?.get("Page")?.get("media")
-                if (mediaList == null || !mediaList.isArray || mediaList.size() == 0) return@withContext null
-
-                // Pick best match: exact title + year if possible, else first result
-                val mediaNode = mediaList.firstOrNull { media ->
-                    val mediaYear = media.get("startDate")?.get("year")?.asInt()
-                    val titles = media.get("title")
-                    val allTitles = listOfNotNull(
-                        titles?.get("romaji")?.asText(),
-                        titles?.get("english")?.asText(),
-                        titles?.get("native")?.asText(),
-                        titles?.get("userPreferred")?.asText(),
-                    )
-                    val titleMatch = allTitles.any { it.equals(title, ignoreCase = true) }
-                    val yearMatch = year == null || mediaYear == null || mediaYear == year
-                    titleMatch && yearMatch
-                } ?: mediaList.get(0) // fallback to first result
-
-                val mediaId = mediaNode.get("id")?.asInt() ?: return@withContext null
-
-                // Step 2: Fetch characters + voice actors for the matched show
-                val castQuery = """
-                    query (${'$'}id: Int) {
-                        Media(id: ${'$'}id, type: ANIME) {
-                            characters(sort: ROLE, page: 1, perPage: 20) {
-                                edges {
-                                    role
-                                    node {
-                                        name { userPreferred full native }
-                                        image { large medium }
-                                    }
-                                    voiceActors(language: JAPANESE) {
-                                        name { userPreferred full native }
-                                        image { large medium }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                """.trimIndent()
-
-                val castPayload = mapOf(
-                    "query" to castQuery,
-                    "variables" to mapOf("id" to mediaId),
-                )
-
-                val castResult = com.lagradost.cloudstream3.app.post(
-                    "https://graphql.anilist.co",
-                    json = castPayload,
-                    headers = mapOf("Content-Type" to "application/json", "Accept" to "application/json"),
-                ).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-
-                val edges = castResult?.get("data")?.get("Media")?.get("characters")?.get("edges")
-                if (edges == null || !edges.isArray) return@withContext null
-
-                val actors = mutableListOf<com.lagradost.cloudstream3.ActorData>()
-                edges.forEach { edge ->
-                    val charNode = edge.get("node") ?: return@forEach
-                    val charName = charNode.get("name")?.let {
-                        it.get("userPreferred")?.asText()
-                            ?: it.get("full")?.asText()
-                            ?: it.get("native")?.asText()
-                    } ?: return@forEach
-                    val charImage = charNode.get("image")?.let {
-                        it.get("large")?.asText() ?: it.get("medium")?.asText()
-                    }?.takeIf { it != "null" }
-
-                    val roleStr = when (edge.get("role")?.asText()) {
-                        "MAIN" -> com.lagradost.cloudstream3.ActorRole.Main
-                        "SUPPORTING" -> com.lagradost.cloudstream3.ActorRole.Supporting
-                        "BACKGROUND" -> com.lagradost.cloudstream3.ActorRole.Background
-                        else -> null
-                    }
-
-                    val vaNodes = edge.get("voiceActors")
-                    val voiceActor = if (vaNodes != null && vaNodes.isArray && vaNodes.size() > 0) {
-                        val va = vaNodes.get(0)
-                        val vaName = va.get("name")?.let {
-                            it.get("userPreferred")?.asText()
-                                ?: it.get("full")?.asText()
-                                ?: it.get("native")?.asText()
-                        }
-                        val vaImage = va.get("image")?.let {
-                            it.get("large")?.asText() ?: it.get("medium")?.asText()
-                        }?.takeIf { it != "null" }
-                        if (vaName != null) com.lagradost.cloudstream3.Actor(vaName, vaImage) else null
-                    } else {
-                        null
-                    }
-
-                    actors.add(
-                        com.lagradost.cloudstream3.ActorData(
-                            actor = com.lagradost.cloudstream3.Actor(charName, charImage),
-                            role = roleStr,
-                            voiceActor = voiceActor,
-                        ),
-                    )
-                }
-
-                if (actors.isEmpty()) null else actors
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("[AniList] fetchAniListCast exception", e)
-                null
-            }
-        }
-    }
+    private suspend fun fetchAniListCast(title: String, year: Int?): List<com.lagradost.cloudstream3.ActorData>? =
+        AniListCastFetcher.fetch(title, year)
 }
+

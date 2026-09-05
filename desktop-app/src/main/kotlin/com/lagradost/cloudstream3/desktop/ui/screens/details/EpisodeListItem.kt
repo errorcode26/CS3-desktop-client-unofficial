@@ -36,6 +36,7 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
+import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 
@@ -70,6 +71,7 @@ fun EpisodeListItem(
         uiState = uiState,
         isAntiSpoiler = isAntiSpoiler,
         lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+        thumbnailVersion = thumbnailVersion,
     )
     val releaseStatus = p.releaseStatus
     val isEpisodeLocked = p.isEpisodeLocked
@@ -167,7 +169,11 @@ fun EpisodeListItem(
                     .width(340.dp)
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .then(
+                        if (targetUrl == null && uiState?.isEnriching == true) Modifier.shimmerBackground()
+                        else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
                 if (targetUrl != null) {
                     val context = coil3.compose.LocalPlatformContext.current
@@ -185,6 +191,13 @@ fun EpisodeListItem(
                             .fillMaxSize()
                             .run { if (shouldHideSpoilers) this.blur(16.dp) else this }
                             .run { if (isEpisodeLocked) this.blur(4.dp) else this },
+                    )
+                } else if (uiState?.isEnriching != true) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
+                        modifier = Modifier.size(36.dp),
                     )
                 }
 
@@ -246,6 +259,24 @@ fun EpisodeListItem(
                         }
                     }
                 }
+
+                // Bottom progress bar
+                if (progress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(3.5.dp)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(heroColor),
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -281,17 +312,12 @@ fun EpisodeListItem(
                             data.syncData["imdb"]?.startsWith("tt") == true ||
                             data.syncData.values.any { it.startsWith("tt") }
 
-                        val brandLabel = when {
-                            isAnime -> "MAL"
-                            hasImdb -> "IMDb"
-                            else -> "TMDB"
+                        val (logoRes, logoWidth, logoHeight) = when {
+                            isAnime -> Triple("badges/rating_mal.png", 27.dp, 16.dp)
+                            hasImdb -> Triple("badges/rating_imdb.png", 33.dp, 16.dp)
+                            else -> Triple("badges/rating_tmdb.png", 28.dp, 16.dp)
                         }
-                        val brandBg = when {
-                            isAnime -> Color(0xFF02A9FF)
-                            hasImdb -> Color(0xFFF5C518)
-                            else -> Color(0xFF01B4E4)
-                        }
-                        val brandTextColor = if (hasImdb) Color.Black else Color.White
+                        val badgePainter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter(logoRes)
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -302,21 +328,11 @@ fun EpisodeListItem(
                                 .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.5.dp),
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(brandBg)
-                                    .padding(horizontal = 3.5.dp, vertical = 1.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = brandLabel,
-                                    color = brandTextColor,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = (-0.2).sp,
-                                )
-                            }
+                            androidx.compose.foundation.Image(
+                                painter = badgePainter,
+                                contentDescription = null,
+                                modifier = Modifier.size(width = logoWidth, height = logoHeight),
+                            )
                             Text(
                                 text = String.format(java.util.Locale.US, "%.1f", rating10p),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),

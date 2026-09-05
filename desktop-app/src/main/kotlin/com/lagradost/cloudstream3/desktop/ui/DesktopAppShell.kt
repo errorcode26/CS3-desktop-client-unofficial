@@ -83,7 +83,7 @@ fun DesktopAppShell(
             val isLightMode by AppearanceConfig.isLightMode.collectAsState()
             val amoledMode by AppearanceConfig.amoledMode.collectAsState()
             val primaryColor = MaterialTheme.colorScheme.primary
-
+            val backgroundColor = MaterialTheme.colorScheme.background
             val surfaceColor = MaterialTheme.colorScheme.surface
             val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
             val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
@@ -140,31 +140,49 @@ fun DesktopAppShell(
                             // Background gradient
                             val bgGradientBrush = if (backgroundGradientEnabled && !amoledMode) {
                                 val gradientAlpha = backgroundGradientIntensity
-                                val endColor = if (isLightMode) Color.White.copy(alpha = gradientAlpha) else Color.Black.copy(alpha = gradientAlpha)
-                                val startColor = surfaceColor
+                                if (isLightMode) {
+                                    val startColor = Color.White.copy(alpha = gradientAlpha * 0.35f)
+                                    val endColor = Color.Transparent
 
-                                when (backgroundGradientType) {
-                                    "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colors = listOf(startColor, endColor),
-                                        center = Offset(size.width * 0.5f, size.height * 0.25f),
-                                        radius = size.width.coerceAtLeast(size.height) * 0.95f,
-                                    )
-                                    "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
-                                        colors = listOf(startColor, endColor),
-                                        start = Offset(0f, 0f),
-                                        end = Offset(size.width, size.height),
-                                    )
-                                    else -> null
+                                    when (backgroundGradientType) {
+                                        "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                            colors = listOf(startColor, endColor),
+                                            center = Offset(size.width * 0.5f, size.height * 0.25f),
+                                            radius = size.width.coerceAtLeast(size.height) * 0.95f,
+                                        )
+                                        "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                            colors = listOf(startColor, endColor),
+                                            start = Offset(0f, 0f),
+                                            end = Offset(size.width, size.height),
+                                        )
+                                        else -> null
+                                    }
+                                } else {
+                                    val endColor = Color.Black.copy(alpha = gradientAlpha)
+                                    val startColor = surfaceColor
+
+                                    when (backgroundGradientType) {
+                                        "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                            colors = listOf(startColor, endColor),
+                                            center = Offset(size.width * 0.5f, size.height * 0.25f),
+                                            radius = size.width.coerceAtLeast(size.height) * 0.95f,
+                                        )
+                                        "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                            colors = listOf(startColor, endColor),
+                                            start = Offset(0f, 0f),
+                                            end = Offset(size.width, size.height),
+                                        )
+                                        else -> null
+                                    }
                                 }
                             } else {
                                 null
                             }
 
                             onDrawBehind {
+                                drawRect(color = backgroundColor)
                                 if (bgGradientBrush != null) {
                                     drawRect(brush = bgGradientBrush)
-                                } else {
-                                    drawRect(color = surfaceColor)
                                 }
                                 glowBrushes.forEach { drawRect(brush = it) }
                             }
@@ -461,11 +479,12 @@ private fun NavigationDock(
     val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val desktopTheme = com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme.current
     val dockHazeState = LocalHazeState.current
     val isTopOrBottom = isTop || isBottom
 
     val barBase = when {
-        isLightMode -> Color(0xFFFAFAFC)
+        isLightMode -> desktopTheme.SurfaceCard
         amoledMode -> Color.Black
         else -> Color(0xFF14141A)
     }
@@ -497,7 +516,7 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) Color.Black.copy(0.08f) else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) desktopTheme.Divider else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
                         start = Offset(0f, 0f),
                         end = Offset(size.width, 0f),
                         strokeWidth = 1.dp.toPx(),
@@ -508,7 +527,7 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) Color.Black.copy(0.08f) else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) desktopTheme.Divider else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
                         start = Offset(0f, size.height),
                         end = Offset(size.width, size.height),
                         strokeWidth = 1.dp.toPx(),
@@ -565,7 +584,7 @@ private fun NavigationDock(
         }
 
         val glassBase = when {
-            isLightMode -> Color.White
+            isLightMode -> desktopTheme.SurfaceElevated
             amoledMode -> Color.Black
             else -> Color(0xFF14141A)
         }
@@ -577,8 +596,8 @@ private fun NavigationDock(
         )
         val borderGradient = androidx.compose.ui.graphics.Brush.linearGradient(
             colors = listOf(
-                if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.45f),
-                if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.20f),
+                if (isLightMode) desktopTheme.Divider.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.45f),
+                if (isLightMode) desktopTheme.Divider.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.20f),
             ),
         )
 

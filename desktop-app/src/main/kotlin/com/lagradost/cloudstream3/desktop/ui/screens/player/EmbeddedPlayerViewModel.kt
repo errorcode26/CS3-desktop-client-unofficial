@@ -82,48 +82,38 @@ class EmbeddedPlayerViewModel(
                     scraper.cancelPreScrape()
                 }
 
-                if (currentData != null) {
-                    val title = currentData.title ?: currentData.history.showName
-                    val season = currentData.history.season
-                    val episode = currentData.history.episode
-                    val episodeInfo = when {
-                        season != null && episode != null -> "S$season • E$episode"
-                        episode != null -> "Episode $episode"
-                        else -> null
-                    }
-                    com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
-                        title = title,
-                        episodeInfo = episodeInfo,
-                        positionSeconds = currentPosSec,
-                        durationSeconds = durSec,
-                        isPaused = isPaused,
-                        posterUrl = currentData.history.posterUrl,
-                    )
-                }
-            }
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            playerState.isPaused.collect { isPaused ->
-                val currentData = uiState.value.launchData ?: return@collect
-                val currentPosSec = playerState.positionMs.value / 1000L
-                val durSec = playerState.durationMs.value / 1000L
-                val title = currentData.title ?: currentData.history.showName
-                val season = currentData.history.season
-                val episode = currentData.history.episode
-                val episodeInfo = when {
-                    season != null && episode != null -> "S$season • E$episode"
-                    episode != null -> "Episode $episode"
-                    else -> null
-                }
-                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updatePlaying(
-                    title = title,
-                    episodeInfo = episodeInfo,
+                DiscordRpcCoordinator.updatePlaying(
+                    launchData = currentData,
                     positionSeconds = currentPosSec,
                     durationSeconds = durSec,
                     isPaused = isPaused,
-                    posterUrl = currentData.history.posterUrl,
                 )
+            }
+        }
+
+        DiscordRpcCoordinator.attachPauseObserver(
+            scope = viewModelScope,
+            playerState = playerState,
+            getLaunchData = { uiState.value.launchData },
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            playerState.isPaused.collect { paused ->
+                if (paused) {
+                    val currentData = uiState.value.launchData ?: return@collect
+                    val currentPosSec = playerState.positionMs.value / 1000L
+                    val durSec = playerState.durationMs.value / 1000L
+                    if (currentPosSec > 0 && durSec > 0) {
+                        savePosition(
+                            currentData.history.copy(
+                                position = currentPosSec,
+                                duration = durSec,
+                                updateTime = System.currentTimeMillis(),
+                            ),
+                            forceNotify = true,
+                        )
+                    }
+                }
             }
         }
     }
@@ -148,46 +138,14 @@ class EmbeddedPlayerViewModel(
                 screenshotUrl = "file:///$screenshotPath",
                 updateTime = System.currentTimeMillis(),
             )
-            viewModelScope.launch(Dispatchers.IO) {
-                savePlaybackProgress.await(updatedHistory)
-
-                val percentage = currentPosSec.toFloat() / currentDurSec.toFloat()
-                if (percentage >= 0.90f && uiState.value.hasNextEpisode) {
-                    val nextEp = uiState.value.nextEpisodeData
-                    if (nextEp != null) {
-                        val existingNext = DesktopDataStore.getEpisodeWatched(
-                            parentId = updatedHistory.parentId,
-                            episodeId = nextEp.data,
-                        )
-                        if (existingNext == null) {
-                            val nextEpHistory = WatchHistory(
-                                parentId = updatedHistory.parentId,
-                                showName = updatedHistory.showName,
-                                showUrl = updatedHistory.showUrl,
-                                apiName = updatedHistory.apiName,
-                                posterUrl = updatedHistory.posterUrl,
-                                episodeThumbnailUrl = nextEp.posterUrl ?: updatedHistory.posterUrl,
-                                screenshotUrl = null,
-                                episode = nextEp.episode,
-                                season = nextEp.season,
-                                episodeId = nextEp.data,
-                                position = 0,
-                                duration = 0,
-                                updateTime = System.currentTimeMillis() + 1000,
-                                episodeName = nextEp.name,
-                                episodeDescription = nextEp.description,
-                            )
-                            savePlaybackProgress.await(nextEpHistory)
-                        } else {
-                            savePlaybackProgress.await(
-                                existingNext.copy(
-                                    updateTime = System.currentTimeMillis() + 1000,
-                                    episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: updatedHistory.posterUrl,
-                                ),
-                            )
-                        }
-                    }
-                }
+            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                WatchHistoryCoordinator.saveWithNextEpisodeQueue(
+                    history = updatedHistory,
+                    hasNextEpisode = uiState.value.hasNextEpisode,
+                    nextEpisode = uiState.value.nextEpisodeData,
+                    saveProgress = savePlaybackProgress,
+                    forceNotify = true,
+                )
             }
         }
         playerState.detachMpv()
@@ -413,57 +371,16 @@ class EmbeddedPlayerViewModel(
         // Hot-swapping requires MPV property commands, which can be added via PlayerUiEffect if needed.
     }
 
-    private fun savePosition(history: WatchHistory) {
+    private fun savePosition(history: WatchHistory, forceNotify: Boolean = false) {
         saveJob?.cancel()
         saveJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(2000)
-            val currentDurSec = history.duration
-            val currentPosSec = history.position
-            val percentage = if (currentDurSec > 0) currentPosSec.toFloat() / currentDurSec else 0f
-            if (percentage >= 0.90f) {
-                val hasNext = uiState.value.hasNextEpisode
-                if (hasNext) {
-                    val nextEp = uiState.value.nextEpisodeData
-                    if (nextEp != null) {
-                        savePlaybackProgress.await(history)
-                        // Only create a "queued" placeholder for the next episode if it has never
-                        // been touched — avoids wiping real progress if user already started it.
-                        val existingNext = DesktopDataStore.getEpisodeWatched(
-                            parentId = history.parentId,
-                            episodeId = nextEp.data,
-                        )
-                        if (existingNext == null) {
-                            val nextEpHistory = WatchHistory(
-                                parentId = history.parentId,
-                                showName = history.showName,
-                                showUrl = history.showUrl,
-                                apiName = history.apiName,
-                                posterUrl = history.posterUrl,
-                                episodeThumbnailUrl = nextEp.posterUrl ?: history.posterUrl,
-                                screenshotUrl = null,
-                                episode = nextEp.episode,
-                                season = nextEp.season,
-                                episodeId = nextEp.data,
-                                position = 0,
-                                duration = 0,
-                                updateTime = System.currentTimeMillis() + 1000,
-                                episodeName = nextEp.name,
-                                episodeDescription = nextEp.description,
-                            )
-                            savePlaybackProgress.await(nextEpHistory)
-                        } else {
-                            savePlaybackProgress.await(
-                                existingNext.copy(
-                                    updateTime = System.currentTimeMillis() + 1000,
-                                    episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEp.posterUrl ?: history.posterUrl,
-                                ),
-                            )
-                        }
-                        return@launch
-                    }
-                }
-            }
-            savePlaybackProgress.await(history)
+            WatchHistoryCoordinator.saveWithNextEpisodeQueue(
+                history = history,
+                hasNextEpisode = uiState.value.hasNextEpisode,
+                nextEpisode = uiState.value.nextEpisodeData,
+                saveProgress = savePlaybackProgress,
+                forceNotify = forceNotify,
+            )
         }
     }
 

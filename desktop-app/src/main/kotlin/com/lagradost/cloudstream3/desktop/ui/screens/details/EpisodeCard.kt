@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -75,6 +76,7 @@ fun EpisodeCard(
         uiState = uiState,
         isAntiSpoiler = isAntiSpoiler,
         lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+        thumbnailVersion = thumbnailVersion,
     )
     val releaseStatus = p.releaseStatus
     val isEpisodeLocked = p.isEpisodeLocked
@@ -194,60 +196,62 @@ fun EpisodeCard(
             )
 
             // Card background image
-            if (targetUrl != null) {
-                val context = coil3.compose.LocalPlatformContext.current
-                var bakedBitmap by remember(targetUrl, shouldHideSpoilers) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+            val context = coil3.compose.LocalPlatformContext.current
+            var bakedBitmap by remember(targetUrl, shouldHideSpoilers) {
+                mutableStateOf(targetUrl?.let { EpisodeCardBaker.getFromCache(it, shouldHideSpoilers) })
+            }
 
+            if (targetUrl != null) {
                 LaunchedEffect(targetUrl, shouldHideSpoilers) {
-                    withContext(Dispatchers.IO) {
-                        try {
-                            val request = coil3.request.ImageRequest.Builder(context)
-                                .data(targetUrl)
-                                .crossfade(false)
-                                .build()
-                            val result = coil3.SingletonImageLoader.get(context).execute(request)
-                            if (result is coil3.request.SuccessResult) {
-                                val skiaBitmap = (result.image as? coil3.BitmapImage)?.bitmap
-                                if (skiaBitmap != null) {
-                                    bakedBitmap = EpisodeCardBaker.getOrBake(targetUrl, skiaBitmap, shouldHideSpoilers)
+                    if (bakedBitmap == null) {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val request = coil3.request.ImageRequest.Builder(context)
+                                    .data(targetUrl)
+                                    .crossfade(false)
+                                    .build()
+                                val result = coil3.SingletonImageLoader.get(context).execute(request)
+                                if (result is coil3.request.SuccessResult) {
+                                    val skiaBitmap = (result.image as? coil3.BitmapImage)?.bitmap
+                                    if (skiaBitmap != null) {
+                                        bakedBitmap = EpisodeCardBaker.getOrBake(targetUrl, skiaBitmap, shouldHideSpoilers)
+                                    }
                                 }
-                            }
-                        } catch (_: Throwable) {}
+                            } catch (_: Throwable) {}
+                        }
                     }
                 }
+            }
 
-                if (bakedBitmap != null) {
+            Crossfade(
+                targetState = bakedBitmap,
+                animationSpec = tween(280),
+                modifier = Modifier.fillMaxSize(),
+            ) { bitmap ->
+                if (bitmap != null) {
                     androidx.compose.foundation.Image(
-                        bitmap = bakedBitmap!!,
+                        bitmap = bitmap,
                         contentDescription = ep.name,
                         contentScale = ContentScale.FillBounds,
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    // Image placeholder
-                    coil3.compose.AsyncImage(
-                        model = targetUrl,
-                        contentDescription = ep.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (uiState?.isEnriching == true) Modifier.shimmerBackground()
-                            else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
-                        modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (uiState?.isEnriching == true) Modifier.shimmerBackground()
+                                else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
+                            modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp),
+                        )
+                    }
                 }
             }
 
@@ -315,17 +319,12 @@ fun EpisodeCard(
                     data.syncData["imdb"]?.startsWith("tt") == true ||
                     data.syncData.values.any { it.startsWith("tt") }
 
-                val brandLabel = when {
-                    isAnime -> "MAL"
-                    hasImdb -> "IMDb"
-                    else -> "TMDB"
+                val (logoRes, logoWidth, logoHeight) = when {
+                    isAnime -> Triple("badges/rating_mal.png", if (isNarrow) 24.dp else 27.dp, if (isNarrow) 14.dp else 16.dp)
+                    hasImdb -> Triple("badges/rating_imdb.png", if (isNarrow) 29.dp else 33.dp, if (isNarrow) 14.dp else 16.dp)
+                    else -> Triple("badges/rating_tmdb.png", if (isNarrow) 25.dp else 28.dp, if (isNarrow) 14.dp else 16.dp)
                 }
-                val brandBg = when {
-                    isAnime -> Color(0xFF02A9FF)
-                    hasImdb -> Color(0xFFF5C518)
-                    else -> Color(0xFF01B4E4)
-                }
-                val brandTextColor = if (hasImdb) Color.Black else Color.White
+                val badgePainter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter(logoRes)
 
                 Box(
                     modifier = Modifier
@@ -340,21 +339,11 @@ fun EpisodeCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.5.dp),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(brandBg)
-                                .padding(horizontal = 3.5.dp, vertical = 1.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = brandLabel,
-                                color = brandTextColor,
-                                fontSize = if (isNarrow) 8.5.sp else 9.5.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = (-0.2).sp,
-                            )
-                        }
+                        androidx.compose.foundation.Image(
+                            painter = badgePainter,
+                            contentDescription = null,
+                            modifier = Modifier.size(width = logoWidth, height = logoHeight),
+                        )
                         Text(
                             text = String.format(java.util.Locale.US, "%.1f", rating10p),
                             style = MaterialTheme.typography.labelSmall.copy(

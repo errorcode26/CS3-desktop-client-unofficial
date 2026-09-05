@@ -98,10 +98,12 @@ private fun AppearanceHubCard(
     badge: String? = null,
     onClick: () -> Unit,
 ) {
+    val theme = com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme.current
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        color = if (theme.isLightMode) theme.SurfaceCard else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, if (theme.isLightMode) theme.Divider else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        shadowElevation = if (theme.isLightMode) 1.dp else 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))

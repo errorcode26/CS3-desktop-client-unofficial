@@ -128,6 +128,72 @@ fun SettingsPlayerPlaybackScreen(
             )
         }
 
+        SettingsGroupCard(title = "Language & Track Defaults") {
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_PREFERRED_AUDIO_LANG,
+                label = "Preferred Audio Language",
+                subtitle = "Auto-select matching language in multi-audio streams & prioritize dual/multi audio links",
+                options = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS,
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "auto",
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_PREFERRED_SUB_LANG,
+                label = "Default Subtitle Language",
+                subtitle = "Choose default subtitle behavior when starting playback",
+                options = listOf(
+                    "off" to "Off (Disabled by default)",
+                    "auto" to "Auto (Follow stream default)",
+                ) + PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.filter { it.first != "auto" && it.first != "original" },
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "auto",
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsToggle(
+                key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
+                label = "Override Video Subtitles",
+                subtitle = "Forces custom font and color styles over embedded subtitle tracks",
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = false,
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(
+                    onClick = { SettingsSession.selectedLeaf = LeafTab.AUDIO },
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Equalizer & Audio DSP", style = MaterialTheme.typography.labelMedium)
+                }
+
+                OutlinedButton(
+                    onClick = { SettingsSession.selectedLeaf = LeafTab.SUBTITLES },
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Subtitle Styling Studio", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
         SettingsGroupCard(title = "Stream Auto-Play & Timeout") {
             MviSettingsToggle(
                 key = PlayerConfig.PREF_AUTO_PLAY,

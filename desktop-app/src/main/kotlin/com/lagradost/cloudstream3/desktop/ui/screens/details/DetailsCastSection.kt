@@ -1,18 +1,25 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +40,7 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
 import com.lagradost.cloudstream3.fixUrlNull
 
@@ -42,52 +50,88 @@ fun DetailsCastSection(
     data: LoadResponse,
     provider: MainAPI,
     onActorClick: (ActorData) -> Unit = {},
+    onNavigate: (Config) -> Unit = {},
     uiState: DetailsUiState? = null,
     horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp,
     selectedSeason: Int? = null,
     seasonCredits: Map<Int, List<ActorData>>? = null,
+    onSeasonChange: ((Int?) -> Unit)? = null,
+    availableSeasons: List<Int> = emptyList(),
 ) {
     val activeSeasonActors = if (selectedSeason != null && seasonCredits?.containsKey(selectedSeason) == true) {
         seasonCredits[selectedSeason]
     } else null
     val actors = activeSeasonActors ?: uiState?.enrichedActors ?: data.actors ?: emptyList()
 
-    val directors = actors.filter {
-        it.roleString?.equals("Director", ignoreCase = true) == true ||
-            it.roleString?.equals("Creator", ignoreCase = true) == true
+    val directors = remember(actors) {
+        actors.filter { it.roleString?.contains("Director", ignoreCase = true) == true }
     }
-    val cast = actors.filter {
-        it.roleString?.equals("Director", ignoreCase = true) != true &&
-            it.roleString?.equals("Creator", ignoreCase = true) != true
+    val writers = remember(actors) {
+        actors.filter {
+            it.roleString?.contains("Creator", ignoreCase = true) == true ||
+                it.roleString?.contains("Writer", ignoreCase = true) == true ||
+                it.roleString?.contains("Screenplay", ignoreCase = true) == true
+        }
+    }
+    val producers = remember(actors) {
+        actors.filter {
+            it.roleString?.contains("Producer", ignoreCase = true) == true
+        }
+    }
+    val cast = remember(actors) {
+        actors.filter {
+            val r = it.roleString?.trim() ?: ""
+            !r.equals("Director", ignoreCase = true) &&
+                !r.equals("Creator", ignoreCase = true) &&
+                !r.equals("Writer", ignoreCase = true) &&
+                !r.equals("Screenplay", ignoreCase = true) &&
+                !r.equals("Producer", ignoreCase = true) &&
+                !r.equals("Executive Producer", ignoreCase = true)
+        }.distinctBy { it.actor.name }
+    }
+
+    val openFullCast: () -> Unit = {
+        onNavigate(
+            Config.FullCast(
+                mediaTitle = data.name,
+                providerName = provider.name,
+                cast = cast,
+                directors = directors,
+                writers = writers,
+                producers = producers,
+                tmdbId = uiState?.tmdbId ?: data.syncData["tmdb"]?.toIntOrNull(),
+                availableSeasons = availableSeasons,
+                initialSeason = selectedSeason,
+            )
+        )
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
         val hPad = if (isCompact) 12.dp else horizontalPadding
-        val netWidth = (maxWidth - (hPad * 2)).coerceAtLeast(100.dp)
-        val spacingDp = if (isCompact) 12.dp else 16.dp
-        val minCardWidth = if (isCompact) 110.dp else 140.dp
+        val cardWidth = if (isCompact) 110.dp else 140.dp
+        val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
+        val previewLimit = if (isCompact) 5 else 7
+        val topCast = remember(cast, previewLimit) { cast.take(previewLimit) }
+        val keyCrew = remember(directors, writers) { (directors + writers).distinctBy { it.actor.name }.take(3) }
 
-        // Column calculation
-        val columns = maxOf(2, ((netWidth + spacingDp) / (minCardWidth + spacingDp)).toInt())
-        val totalSpacingDp = spacingDp * (columns - 1)
-        val dynamicCardWidth = (netWidth - totalSpacingDp) / columns
-
-        if (cast.isNotEmpty() || directors.isNotEmpty()) {
+        if (cast.isNotEmpty() || directors.isNotEmpty() || writers.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = hPad, vertical = 8.dp),
+                    .padding(vertical = 8.dp),
             ) {
-                val invertedMap = remember { androidx.compose.runtime.mutableStateMapOf<ActorData, Boolean>() }
-                var showAllCast by remember { androidx.compose.runtime.mutableStateOf(false) }
-                val displayedCast = if (showAllCast) cast else cast.take(columns * 2)
-
-                if (cast.isNotEmpty()) {
+                // Header Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = hPad),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
                             text = if (activeSeasonActors != null && selectedSeason != null) "Season $selectedSeason Cast & Characters" else "Cast & Crew",
@@ -95,123 +139,223 @@ fun DetailsCastSection(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        if (!isCompact && cast.size > columns * 2) {
-                            androidx.compose.material3.TextButton(
-                                onClick = { showAllCast = !showAllCast },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            ) {
-                                Text(
-                                    text = if (showAllCast) "Show Less" else "View All (${cast.size})",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
+
+                        if (availableSeasons.size > 1 && onSeasonChange != null) {
+                            var seasonMenuExpanded by remember { mutableStateOf(false) }
+                            Box {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    modifier = Modifier.clickable { seasonMenuExpanded = true },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Text(
+                                            text = if (selectedSeason != null) "Season $selectedSeason" else "All Seasons",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Icon(
+                                            Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = seasonMenuExpanded,
+                                    onDismissRequest = { seasonMenuExpanded = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("All Seasons (Series Cast)") },
+                                        onClick = {
+                                            seasonMenuExpanded = false
+                                            onSeasonChange(null)
+                                        },
+                                    )
+                                    availableSeasons.forEach { s ->
+                                        DropdownMenuItem(
+                                            text = { Text(if (s == 0) "Specials" else "Season $s") },
+                                            onClick = {
+                                                seasonMenuExpanded = false
+                                                onSeasonChange(s)
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
-                    if (isCompact) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
+                    if (actors.size > 8) {
+                        androidx.compose.material3.TextButton(
+                            onClick = openFullCast,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         ) {
-                            items(cast.take(20)) { actor ->
-                                CompactActorCard(
-                                    actor = actor,
-                                    provider = provider,
-                                    onClick = { onActorClick(actor) },
-                                )
-                            }
+                            Text(
+                                text = "View All",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
                         }
-                    } else {
-                        androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(spacingDp),
-                            verticalArrangement = Arrangement.spacedBy(20.dp),
-                            maxItemsInEachRow = columns,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            displayedCast.forEach { actor ->
-                                ActorCard(
-                                    actor = actor,
-                                    provider = provider,
-                                    isInverted = invertedMap[actor] == true,
-                                    onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                                    onClick = { onActorClick(actor) },
-                                    modifier = Modifier.width(dynamicCardWidth),
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
+
+                // Virtualized Horizontal Cast Row
+                if (topCast.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 16.dp),
+                        contentPadding = PaddingValues(start = hPad, end = hPad, top = 8.dp, bottom = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        items(topCast, key = { it.actor.name + (it.roleString ?: "") }) { actor ->
+                            ActorCard(
+                                actor = actor,
+                                provider = provider,
+                                isInverted = invertedMap[actor] == true,
+                                onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
+                                onClick = { onActorClick(actor) },
+                                modifier = Modifier.width(cardWidth),
+                            )
+                        }
+
+                        if (cast.size > topCast.size || keyCrew.isNotEmpty() || producers.isNotEmpty()) {
+                            item(key = "view_all_card") {
+                                ViewAllCastCard(
+                                    totalCount = actors.size,
+                                    onClick = openFullCast,
+                                    modifier = Modifier.width(cardWidth),
                                 )
                             }
                         }
                     }
                 }
 
-                if (directors.isNotEmpty() && cast.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(if (isCompact) 16.dp else 32.dp))
-                }
-
-                if (directors.isNotEmpty()) {
-                    var showAllDirectors by remember { androidx.compose.runtime.mutableStateOf(false) }
-                    val displayedDirectors = if (showAllDirectors) directors else directors.take(columns)
-                    val headerTitle = if (directors.any { it.roleString?.equals("Creator", ignoreCase = true) == true }) "Directors & Creators" else "Directors"
+                // Directors & Creators Carousel (if present)
+                if (keyCrew.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(if (isCompact) 18.dp else 24.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = hPad),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = headerTitle,
-                            style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
+                            text = if (writers.isNotEmpty()) "Directors & Creators" else "Directors",
+                            style = if (isCompact) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        if (!isCompact && directors.size > columns) {
-                            androidx.compose.material3.TextButton(
-                                onClick = { showAllDirectors = !showAllDirectors },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            ) {
-                                Text(
-                                    text = if (showAllDirectors) "Show Less" else "View All (${directors.size})",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
                     }
-                    Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 16.dp))
-                    if (isCompact) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            items(directors) { actor ->
-                                CompactActorCard(
-                                    actor = actor,
-                                    provider = provider,
-                                    onClick = { onActorClick(actor) },
-                                )
-                            }
-                        }
-                    } else {
-                        androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(spacingDp),
-                            verticalArrangement = Arrangement.spacedBy(20.dp),
-                            maxItemsInEachRow = columns,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            displayedDirectors.forEach { actor ->
-                                ActorCard(
-                                    actor = actor,
-                                    provider = provider,
-                                    isInverted = invertedMap[actor] == true,
-                                    onInvertToggle = { invertedMap[actor] = !(invertedMap[actor] ?: false) },
-                                    onClick = { onActorClick(actor) },
-                                    modifier = Modifier.width(dynamicCardWidth),
-                                )
-                            }
+
+                    Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 12.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 16.dp),
+                        contentPadding = PaddingValues(start = hPad, end = hPad, top = 8.dp, bottom = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        items(keyCrew, key = { it.actor.name + (it.roleString ?: "") }) { actor ->
+                            ActorCard(
+                                actor = actor,
+                                provider = provider,
+                                isInverted = false,
+                                onInvertToggle = { },
+                                onClick = { onActorClick(actor) },
+                                modifier = Modifier.width(cardWidth),
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ViewAllCastCard(
+    totalCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Column(
+        modifier = modifier
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isHovered) 0.65f else 0.35f))
+                .border(
+                    width = if (isHovered) 2.dp else 1.dp,
+                    color = if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(14.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(12.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (isHovered) 0.25f else 0.15f),
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "View All",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "View All",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Cast & Crew",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Full Roster",
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -255,6 +399,7 @@ private fun CompactActorCard(
                         .build(),
                     contentDescription = actorName,
                     contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -299,15 +444,6 @@ private fun ActorCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var isHovered by remember { mutableStateOf(false) }
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isHovered) 1.04f else 1.0f,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
-        ),
-    )
-
     val (mainImgRaw, cornerImgRaw) = if (!isInverted || actor.voiceActor?.image.isNullOrBlank()) {
         Pair(actor.actor.image, actor.voiceActor?.image)
     } else {
@@ -323,72 +459,59 @@ private fun ActorCard(
     val roleStr = when {
         actor.roleString?.equals("Director", ignoreCase = true) == true -> "DIRECTOR"
         actor.roleString?.equals("Creator", ignoreCase = true) == true -> "CREATOR"
-        actor.role != null -> actor.role?.name?.uppercase()
-        !actor.roleString.isNullOrBlank() && subName.isNullOrBlank() -> null
-        else -> actor.roleString?.uppercase()
+        actor.roleString?.equals("Writer", ignoreCase = true) == true -> "WRITER"
+        actor.roleString?.equals("Producer", ignoreCase = true) == true -> "PRODUCER"
+        actor.roleString?.equals("Executive Producer", ignoreCase = true) == true -> "EXEC PRODUCER"
+        else -> null
     }
 
     val secondaryText = when {
         !subName.isNullOrBlank() -> {
             if (!isInverted) "🎙 Voice: $subName" else {
                 val raw = subName.trim()
-                if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+                if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
             }
         }
-        !actor.roleString.isNullOrBlank() && actor.roleString?.equals("Director", ignoreCase = true) != true && actor.roleString?.equals("Creator", ignoreCase = true) != true -> {
+        !actor.roleString.isNullOrBlank() &&
+            actor.roleString?.equals("Director", ignoreCase = true) != true &&
+            actor.roleString?.equals("Creator", ignoreCase = true) != true &&
+            actor.roleString?.equals("Writer", ignoreCase = true) != true &&
+            actor.roleString?.equals("Producer", ignoreCase = true) != true &&
+            actor.roleString?.equals("Executive Producer", ignoreCase = true) != true -> {
             val raw = actor.roleString!!.trim()
-            if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+            if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
         }
         else -> null
     }
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val cardShape = RoundedCornerShape(14.dp)
+
     Column(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        when (event.type) {
-                            PointerEventType.Enter -> isHovered = true
-                            PointerEventType.Exit -> isHovered = false
-                        }
-                    }
-                }
-            }
-            .clickable { onClick() },
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
-                .shadow(
-                    elevation = if (isHovered) 16.dp else 6.dp,
-                    shape = RoundedCornerShape(14.dp),
-                    ambientColor = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.5f),
-                    spotColor = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.5f),
-                )
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(
-                    width = if (isHovered) 1.5.dp else 1.dp,
-                    color = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(14.dp),
-                ),
+                .aspectRatio(2f / 3f)
+                .posterHoverEffect(cardShape)
+                .clip(cardShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
             val actorImg = provider.fixUrlNull(mainImgRaw)
             if (actorImg != null) {
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(actorImg)
-                        .size(400, 560)
+                        .size(400, 600)
                         .crossfade(true)
                         .build(),
                     contentDescription = mainName,
                     contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -468,6 +591,7 @@ private fun ActorCard(
                             .build(),
                         contentDescription = subName,
                         contentScale = ContentScale.Crop,
+                        filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium,
                         modifier = Modifier.fillMaxSize().clip(CircleShape),
                     )
                 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
@@ -43,7 +44,7 @@ fun ComposeExtensionScreen(
     val tabs = remember {
         listOf(
             ExtensionTabItem("Browse Plugins", Icons.Default.Explore),
-            ExtensionTabItem("Installed", Icons.Default.Extension),
+            ExtensionTabItem("Installed", PremiumIcons.Extensions),
             ExtensionTabItem("Repositories", Icons.Default.Folder),
             ExtensionTabItem("Stremio Addons", Icons.Default.Public, isExternal = true),
             ExtensionTabItem("Update History", Icons.Default.Update),

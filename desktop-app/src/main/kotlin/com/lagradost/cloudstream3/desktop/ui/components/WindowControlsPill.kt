@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Extension
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Refresh
@@ -179,7 +180,7 @@ fun WindowControlsPill(
                             }
                         } else {
                             Icon(
-                                Icons.Default.Extension,
+                                PremiumIcons.Extensions,
                                 contentDescription = displayText,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp),
@@ -211,7 +212,7 @@ fun WindowControlsPill(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    Icons.Default.Extension,
+                                    PremiumIcons.Extensions,
                                     contentDescription = "Providers",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(15.dp),

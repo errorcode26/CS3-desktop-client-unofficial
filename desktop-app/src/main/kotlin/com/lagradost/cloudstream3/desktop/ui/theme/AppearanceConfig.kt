@@ -210,8 +210,6 @@ object AppearanceConfig {
     private const val PREF_BG_IMAGE_TINT_ALPHA = "pref_bg_image_tint_alpha"
     private const val PREF_ANTI_SPOILER_ENABLED = "pref_anti_spoiler_enabled"
     private const val PREF_UI_CARD_OPACITY = "pref_ui_card_opacity"
-    private const val PREF_DETAILS_SHOW_CURRENT_TIME = "pref_details_show_current_time"
-    private const val PREF_DETAILS_SHOW_END_TIME = "pref_details_show_end_time"
     private const val PREF_LOCK_UNRELEASED_EPISODES = "pref_lock_unreleased_episodes"
     private const val PREF_DETAILS_SECTION_ORDER = "pref_details_section_order"
     private const val PREF_DETAILS_DISABLED_SECTIONS = "pref_details_disabled_sections"
@@ -252,10 +250,6 @@ object AppearanceConfig {
     val antiSpoilerEnabled: StateFlow<Boolean> = _antiSpoilerEnabled.asStateFlow()
     private val _lockUnreleasedEpisodes = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true)
     val lockUnreleasedEpisodes: StateFlow<Boolean> = _lockUnreleasedEpisodes.asStateFlow()
-    private val _detailsShowCurrentTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true)
-    val detailsShowCurrentTime: StateFlow<Boolean> = _detailsShowCurrentTime.asStateFlow()
-    private val _detailsShowEndTime = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true)
-    val detailsShowEndTime: StateFlow<Boolean> = _detailsShowEndTime.asStateFlow()
     private val _detailsSectionOrder = MutableStateFlow(
         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(
             DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER)
@@ -731,16 +725,6 @@ object AppearanceConfig {
         DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
     }
 
-    fun setDetailsShowCurrentTime(enabled: Boolean) {
-        _detailsShowCurrentTime.value = enabled
-        DesktopDataStore.setKey(PREF_DETAILS_SHOW_CURRENT_TIME, enabled)
-    }
-
-    fun setDetailsShowEndTime(enabled: Boolean) {
-        _detailsShowEndTime.value = enabled
-        DesktopDataStore.setKey(PREF_DETAILS_SHOW_END_TIME, enabled)
-    }
-
     fun setLockUnreleasedEpisodes(enabled: Boolean) {
         _lockUnreleasedEpisodes.value = enabled
         DesktopDataStore.setKey(PREF_LOCK_UNRELEASED_EPISODES, enabled)
@@ -948,8 +932,6 @@ object AppearanceConfig {
         _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple"
         _antiSpoilerEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true
         _lockUnreleasedEpisodes.value = DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true
-        _detailsShowCurrentTime.value = DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_CURRENT_TIME) ?: true
-        _detailsShowEndTime.value = DesktopDataStore.getKey<Boolean>(PREF_DETAILS_SHOW_END_TIME) ?: true
         _detailsSectionOrder.value = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER))
         _detailsDisabledSections.value = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS))
         _amoledMode.value = DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false

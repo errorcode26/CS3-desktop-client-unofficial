@@ -61,6 +61,8 @@ fun DetailsEpisodeSection(
     onRemoveEpisodeWatched: (com.lagradost.cloudstream3.Episode) -> Unit,
     onToggleEpisodesStackedView: (Boolean) -> Unit,
     onSetEpisodeViewMode: (Int) -> Unit = {},
+    selectedSeason: Int? = null,
+    onSeasonChange: ((Int) -> Unit)? = null,
 ) {
     val isEpisodesStackedView = uiState?.isEpisodesStackedView == true
     val coroutineScope = rememberCoroutineScope()
@@ -128,7 +130,7 @@ fun DetailsEpisodeSection(
         mutableStateOf(
             if (data is AnimeLoadResponse) {
                 if (latestHistory != null) {
-                    dubStatuses.find { dub -> data.episodes[dub]?.any { it.data == latestHistory.episodeId } == true } ?: dubStatuses.firstOrNull()
+                    dubStatuses.find { dub -> data.episodes[dub]?.any { it.matchesHistory(latestHistory) } == true } ?: dubStatuses.firstOrNull()
                 } else {
                     dubStatuses.firstOrNull()
                 }
@@ -150,7 +152,7 @@ fun DetailsEpisodeSection(
             list
         }
     }
-    var selectedSeason by remember(latestHistory?.season, data) {
+    var localSelectedSeason by remember(latestHistory?.season, data) {
         mutableStateOf(
             if (data is TvSeriesLoadResponse || data is AnimeLoadResponse) {
                 latestHistory?.season ?: seasons.firstOrNull() ?: 1
@@ -158,6 +160,11 @@ fun DetailsEpisodeSection(
                 1
             },
         )
+    }
+    val selectedSeason = selectedSeason ?: localSelectedSeason
+    val updateSeason: (Int) -> Unit = { newSeason ->
+        localSelectedSeason = newSeason
+        onSeasonChange?.invoke(newSeason)
     }
     var showSeasonModal by remember { mutableStateOf(false) }
 
@@ -236,7 +243,7 @@ fun DetailsEpisodeSection(
                 if (latestHistory != null && preChunkedEpisodes.isNotEmpty()) {
                     val isLatestCompleted = latestHistory.duration > 0 &&
                         PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
-                    val currentIdx = preChunkedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
+                    val currentIdx = preChunkedEpisodes.indexOfFirst { it.matchesHistory(latestHistory) }
                     if (currentIdx != -1) {
                         if (isLatestCompleted && currentIdx + 1 < preChunkedEpisodes.size) {
                             currentIdx + 1
@@ -277,7 +284,7 @@ fun DetailsEpisodeSection(
                     .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
             }
             val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
-                val hist = showHistory.values.find { (it.episodeId ?: "") == ep.data }
+                val hist = showHistory.values.find { ep.matchesHistory(it) }
                 hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
             }
             val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
@@ -318,7 +325,7 @@ fun DetailsEpisodeSection(
                                             DesktopFilterChip(
                                                 text = seasonName,
                                                 isSelected = isSelected,
-                                                onClick = { selectedSeason = season },
+                                                onClick = { updateSeason(season) },
                                                 minWidth = 75.dp,
                                             )
                                         }
@@ -459,7 +466,7 @@ fun DetailsEpisodeSection(
                                             DesktopFilterChip(
                                                 text = seasonName,
                                                 isSelected = isSelected,
-                                                onClick = { selectedSeason = season },
+                                                onClick = { updateSeason(season) },
                                                 minWidth = 90.dp,
                                             )
                                         }
@@ -671,7 +678,7 @@ fun DetailsEpisodeSection(
             onDismissRequest = { showSeasonModal = false },
             seasons = seasons,
             selectedSeason = selectedSeason,
-            onSelectSeason = { selectedSeason = it },
+            onSelectSeason = { updateSeason(it) },
             allEpisodesList = allEpisodesList,
             enrichedSeasonsMetadata = uiState?.enrichedSeasonsMetadata ?: emptyList(),
         )
@@ -725,8 +732,8 @@ private fun RenderEpisodesSection(
                 maxItemsInEachRow = columns,
             ) {
                 allFilteredEpisodes.forEach { ep ->
-                    val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
-                    val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
+                    val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
+                    val history = showHistory.values.find { ep.matchesHistory(it) }
                     if (currentMode == 2) {
                         EpisodeListItem(
                             ep = ep,
@@ -790,8 +797,8 @@ private fun RenderEpisodesSection(
                 modifier = Modifier.fillMaxWidth().desktopDragScroll(episodesScrollState),
             ) {
                 items(allFilteredEpisodes, key = { it.data }) { ep ->
-                    val isLatest = latestHistory != null && latestHistory.episodeId == ep.data
-                    val history = showHistory.values.find { (it.episodeId ?: "") == ep.data }
+                    val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
+                    val history = showHistory.values.find { ep.matchesHistory(it) }
                     EpisodeCard(
                         ep = ep,
                         isLatest = isLatest,

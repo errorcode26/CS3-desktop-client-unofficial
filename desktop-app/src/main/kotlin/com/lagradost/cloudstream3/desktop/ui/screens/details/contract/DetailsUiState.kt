@@ -87,6 +87,9 @@ data class DetailsUiState(
     // Bumped each time episode thumbnail URLs are mutated in-place by enrichment.
     // Compose observes this to trigger recomposition of episode cards.
     val episodeThumbnailVersion: Int = 0,
+    val tmdbId: Int? = null,
+    val selectedSeason: Int? = null,
+    val seasonCredits: Map<Int, List<ActorData>> = emptyMap(),
 ) : UiState
 
 data class ProductionCompany(

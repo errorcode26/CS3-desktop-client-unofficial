@@ -106,6 +106,7 @@ class ExtensionsViewModel(
     private fun removeRepository(url: String) {
         viewModelScope.launch(Dispatchers.IO) {
             removePluginRepository.await(url)
+            pluginRepo.incrementSyncGeneration()
         }
     }
 
@@ -250,6 +251,7 @@ class ExtensionsViewModel(
                     }
                     onResult("Installed")
                     refreshInstalled()
+                    pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
                         "Installed '${plugin.name}' (v${plugin.version})"
                     )
@@ -312,6 +314,7 @@ class ExtensionsViewModel(
                     }
                     onResult("Installed")
                     refreshInstalled()
+                    pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
                         "Trusted and installed '${plugin.name}'"
                     )

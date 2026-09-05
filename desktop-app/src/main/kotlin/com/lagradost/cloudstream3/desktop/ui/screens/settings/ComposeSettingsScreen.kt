@@ -28,32 +28,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    APPEARANCE("Appearance & Theme", Icons.Default.Palette),
-    PLAYER("Playback & Video", Icons.Default.PlayCircle),
-    AUDIO("Audio & Equalizer", Icons.Default.GraphicEq),
-    SUBTITLES("Subtitles & Styling", Icons.Default.Subtitles),
-    DOWNLOADS("Downloads Engine", Icons.Default.Download),
-    ACCOUNTS("Profiles & Accounts", Icons.Default.AccountCircle),
-    INTEGRATIONS("Metadata & Providers", Icons.Default.AutoAwesome),
-    EXTENSIONS("Extensions & Sources", Icons.Default.Extension),
-    NETWORK("Network & DNS", Icons.Default.Router),
-    DEVELOPER("Developer & Logs", Icons.Default.Terminal),
-    ADVANCED("Advanced & Storage", Icons.Default.FolderOpen),
-    ABOUT("About & Updates", Icons.Default.Info),
+    APPEARANCE("Appearance & Theme", Icons.Outlined.Palette),
+    PLAYER("Playback & Video", Icons.Outlined.PlayCircle),
+    AUDIO("Audio & Equalizer", Icons.Outlined.GraphicEq),
+    SUBTITLES("Subtitles & Styling", Icons.Outlined.Subtitles),
+    DOWNLOADS("Downloads Engine", Icons.Outlined.Download),
+    ACCOUNTS("Profiles & Accounts", Icons.Outlined.AccountCircle),
+    INTEGRATIONS("Metadata & Providers", Icons.Outlined.AutoAwesome),
+    EXTENSIONS("Extensions & Sources", Icons.Outlined.Extension),
+    NETWORK("Network & DNS", Icons.Outlined.Router),
+    DEVELOPER("Developer & Logs", Icons.Outlined.Terminal),
+    ADVANCED("Advanced & Storage", Icons.Outlined.FolderOpen),
+    ABOUT("About & Updates", Icons.Outlined.Info),
 
     // Compatibility aliases for SettingsSearchIndex and legacy references
-    THEME("Theme & Colors", Icons.Default.Palette),
-    LAYOUT("Layout & Dock", Icons.Default.Palette),
-    DETAILS("Details Page", Icons.Default.Palette),
-    EFFECTS("Backdrop & Effects", Icons.Default.Palette),
-    SHORTCUTS("Keyboard Shortcuts", Icons.Default.Keyboard),
-    SUBTITLES_LEAF("Subtitles & Styling", Icons.Default.Subtitles),
-    ADDONS("External Addons", Icons.Default.Extension),
+    THEME("Theme & Colors", Icons.Outlined.Palette),
+    LAYOUT("Layout & Dock", Icons.Outlined.Palette),
+    DETAILS("Details Page", Icons.Outlined.Palette),
+    EFFECTS("Backdrop & Effects", Icons.Outlined.Palette),
+    SHORTCUTS("Keyboard Shortcuts", Icons.Outlined.Keyboard),
+    SUBTITLES_LEAF("Subtitles & Styling", Icons.Outlined.Subtitles),
+    ADDONS("External Addons", Icons.Outlined.Extension),
 }
 
 // Keeps SettingsSearchIndex compiling without changes

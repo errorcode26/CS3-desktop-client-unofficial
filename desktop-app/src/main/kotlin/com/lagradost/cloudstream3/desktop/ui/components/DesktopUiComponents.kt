@@ -86,21 +86,94 @@ fun darkDesktopColors(
 }
 
 fun lightDesktopColors(accent: Color, backgroundTheme: String, customBgHex: String = "#0C0C16"): DesktopThemeColors {
-    val (bg, surface, surfaceElevated) = when (backgroundTheme) {
-        "Warm Mocha", "Mocha" -> Triple(Color(0xFFFBF9F7), Color(0xFFFFFFFF), Color(0xFFF3EEEA))
-        "Dark Slate", "Slate", "Slate Grey" -> Triple(Color(0xFFF1F5F9), Color(0xFFFFFFFF), Color(0xFFE2E8F0))
-        else -> Triple(Color(0xFFF8FAFC), Color(0xFFFFFFFF), Color(0xFFF1F5F9)) // Clean Slate 50 default
+    data class LightPaletteDef(
+        val bg: Color,
+        val surface: Color,
+        val surfaceElevated: Color,
+        val textPrimary: Color,
+        val textMuted: Color,
+        val divider: Color,
+    )
+
+    val p = when (backgroundTheme) {
+        "Alabaster", "Warm Alabaster", "Ivory" -> LightPaletteDef(
+            bg = Color(0xFFF7F4EE),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFEAE5DB),
+            textPrimary = Color(0xFF26211E),
+            textMuted = Color(0xFF786F66),
+            divider = Color(0xFFE2DDD3),
+        )
+        "Nordic", "Nordic Snow", "Nord" -> LightPaletteDef(
+            bg = Color(0xFFECEFF4),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFE5E9F0),
+            textPrimary = Color(0xFF2E3440),
+            textMuted = Color(0xFF4C566A),
+            divider = Color(0xFFD8DEE9),
+        )
+        "Latte", "Warm Latte", "Mocha", "Warm Mocha" -> LightPaletteDef(
+            bg = Color(0xFFF3EDE5),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFE8DECF),
+            textPrimary = Color(0xFF382F2D),
+            textMuted = Color(0xFF7D6E68),
+            divider = Color(0xFFDDD2C2),
+        )
+        "Matcha", "Matcha Tea", "Mint", "Sage", "Forest", "Deep Forest" -> LightPaletteDef(
+            bg = Color(0xFFEDF4EF),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFDFEBE2),
+            textPrimary = Color(0xFF1B2B21),
+            textMuted = Color(0xFF526859),
+            divider = Color(0xFFD1E0D5),
+        )
+        "Sakura", "Sakura Blush", "Blush", "Rose" -> LightPaletteDef(
+            bg = Color(0xFFFAF0F4),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFF5DDE7),
+            textPrimary = Color(0xFF331B24),
+            textMuted = Color(0xFF7A5665),
+            divider = Color(0xFFECCBD8),
+        )
+        "Solar", "Solarized", "Solarized Light" -> LightPaletteDef(
+            bg = Color(0xFFFDF6E3),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFF4ECCF),
+            textPrimary = Color(0xFF073642),
+            textMuted = Color(0xFF586E75),
+            divider = Color(0xFFE0D7BE),
+        )
+        "Custom" -> {
+            val customBg = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customBgHex, Color(0xFFF1F5F9))
+            LightPaletteDef(
+                bg = customBg,
+                surface = Color(0xFFFFFFFF),
+                surfaceElevated = Color(0xFFE2E8F0),
+                textPrimary = Color(0xFF0F172A),
+                textMuted = Color(0xFF475569),
+                divider = Color(0xFFCBD5E1),
+            )
+        }
+        else -> LightPaletteDef( // Clean Frost / Slate 100 default
+            bg = Color(0xFFF1F5F9),
+            surface = Color(0xFFFFFFFF),
+            surfaceElevated = Color(0xFFE2E8F0),
+            textPrimary = Color(0xFF0F172A),
+            textMuted = Color(0xFF475569),
+            divider = Color(0xFFCBD5E1),
+        )
     }
 
     return DesktopThemeColors(
         Accent = accent,
         AccentSoft = accent.copy(alpha = 0.12f),
-        Background = bg,
-        SurfaceCard = surface,
-        SurfaceElevated = surfaceElevated,
-        TextPrimary = Color(0xFF0F172A),
-        TextMuted = Color(0xFF475569),
-        Divider = Color(0xFFE2E8F0),
+        Background = p.bg,
+        SurfaceCard = p.surface,
+        SurfaceElevated = p.surfaceElevated,
+        TextPrimary = p.textPrimary,
+        TextMuted = p.textMuted,
+        Divider = p.divider,
         isLightMode = true,
         isAmoled = false,
     )

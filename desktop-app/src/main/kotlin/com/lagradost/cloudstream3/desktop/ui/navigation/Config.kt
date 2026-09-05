@@ -1,5 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.navigation
 
+import com.lagradost.cloudstream3.ActorData
+
 sealed class Config {
     data object Home : Config()
     data object Explore : Config()
@@ -31,5 +33,16 @@ sealed class Config {
         val companyId: Int? = null,
         val logoUrl: String? = null,
         val originCountry: String? = null,
+    ) : Config()
+    data class FullCast(
+        val mediaTitle: String,
+        val providerName: String? = null,
+        val cast: List<ActorData> = emptyList(),
+        val directors: List<ActorData> = emptyList(),
+        val writers: List<ActorData> = emptyList(),
+        val producers: List<ActorData> = emptyList(),
+        val tmdbId: Int? = null,
+        val availableSeasons: List<Int> = emptyList(),
+        val initialSeason: Int? = null,
     ) : Config()
 }

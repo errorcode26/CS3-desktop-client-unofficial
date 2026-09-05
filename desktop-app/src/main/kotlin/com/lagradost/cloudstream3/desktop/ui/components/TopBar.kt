@@ -84,13 +84,13 @@ fun TopBar(
         )
 
         val tintColor = when {
-            isLightMode -> Color(0xFFFAFAFC)
+            isLightMode -> theme.SurfaceCard
             amoledMode -> Color.Black
             else -> Color(0xFF0F0F14)
         }
 
         val glassBase = when {
-            isLightMode -> Color.White
+            isLightMode -> theme.SurfaceElevated
             amoledMode -> Color.Black
             else -> Color(0xFF14141A)
         }
@@ -109,8 +109,8 @@ fun TopBar(
         } else {
             androidx.compose.ui.graphics.Brush.linearGradient(
                 colors = listOf(
-                    if (isLightMode) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
-                    if (isLightMode) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f),
+                    if (isLightMode) theme.Divider.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                    if (isLightMode) theme.Divider.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f),
                 ),
             )
         }
@@ -134,7 +134,7 @@ fun TopBar(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f),
+                        color = if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.12f),
                         start = Offset(0f, size.height),
                         end = Offset(size.width, size.height),
                         strokeWidth = 1.dp.toPx(),

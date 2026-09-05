@@ -25,6 +25,16 @@ object EpisodeCardBaker {
     }
     private val lock = Any()
 
+    fun getFromCache(
+        key: String,
+        shouldHideSpoilers: Boolean,
+    ): ImageBitmap? {
+        val cacheKey = "$key-$shouldHideSpoilers"
+        synchronized(lock) {
+            return memoryCache[cacheKey]
+        }
+    }
+
     fun getOrBake(
         key: String,
         srcBitmap: Bitmap,

@@ -8,8 +8,8 @@ import kotlinx.coroutines.withContext
 class UpsertWatchHistory(
     private val repository: WatchHistoryRepository,
 ) {
-    suspend fun await(history: WatchHistory) = withContext(Dispatchers.IO) {
-        repository.upsert(history)
+    suspend fun await(history: WatchHistory, forceNotify: Boolean = false) = withContext(Dispatchers.IO) {
+        repository.upsert(history, forceNotify = forceNotify)
     }
 
     suspend fun markEpisodeWatched(

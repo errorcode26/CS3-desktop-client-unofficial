@@ -245,6 +245,7 @@ fun InstalledTab(
                                     try {
                                         ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
                                         ExtensionLoader.loadAndInit(plugin.file, forceBypassSecurity = true)
+                                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
                                         com.lagradost.common.logging.AppLogger.i("Reloaded plugin ${plugin.name} after settings update")
                                     } catch (e: Throwable) {
                                         com.lagradost.common.logging.AppLogger.e("Failed to reload plugin ${plugin.name}", e)

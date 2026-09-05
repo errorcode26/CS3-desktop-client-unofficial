@@ -9,16 +9,27 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.loadSvgPainter
+import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Badges for media cards and detail headers.
@@ -201,6 +212,36 @@ object DesktopBadgeComponents {
         }
     }
 
+    private val badgeBitmapCache = ConcurrentHashMap<String, ImageBitmap>()
+
+    @Composable
+    fun rememberSharpBadgePainter(resourcePath: String): Painter {
+        val density = LocalDensity.current
+        return remember(resourcePath, density) {
+            if (resourcePath.endsWith(".svg", ignoreCase = true)) {
+                runCatching {
+                    useResource(resourcePath) { stream ->
+                        loadSvgPainter(stream, density)
+                    }
+                }.getOrElse { ColorPainter(Color.Transparent) }
+            } else {
+                val bitmap = badgeBitmapCache[resourcePath] ?: runCatching {
+                    useResource(resourcePath) { stream ->
+                        loadImageBitmap(stream)
+                    }
+                }.getOrNull()?.also { badgeBitmapCache[resourcePath] = it }
+                if (bitmap != null) {
+                    BitmapPainter(
+                        image = bitmap,
+                        filterQuality = FilterQuality.Medium,
+                    )
+                } else {
+                    ColorPainter(Color.Transparent)
+                }
+            }
+        }
+    }
+
     @Composable
     fun BrandedRatingBadge(
         logoRes: String,
@@ -215,7 +256,7 @@ object DesktopBadgeComponents {
             modifier = modifier,
         ) {
             androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(logoRes),
+                painter = rememberSharpBadgePainter(logoRes),
                 contentDescription = null,
                 modifier = Modifier.size(width = logoWidth, height = logoHeight),
             )

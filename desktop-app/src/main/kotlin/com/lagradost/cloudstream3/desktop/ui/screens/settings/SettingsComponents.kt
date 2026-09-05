@@ -103,14 +103,14 @@ fun SettingsGroupCard(
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = when {
-                isLightMode -> Color.White
+                isLightMode -> theme.SurfaceCard
                 amoledMode -> Color.Black
                 else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
             },
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
                 when {
-                    isLightMode -> Color(0xFFE2E8F0)
+                    isLightMode -> theme.Divider
                     amoledMode -> Color.White.copy(alpha = 0.12f)
                     else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
                 },

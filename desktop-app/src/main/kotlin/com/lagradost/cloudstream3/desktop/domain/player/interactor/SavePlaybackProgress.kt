@@ -9,7 +9,7 @@ class SavePlaybackProgress(
     private val watchHistoryRepo: WatchHistoryRepository = WatchHistoryRepositoryImpl(),
     private val upsertWatchHistory: UpsertWatchHistory = UpsertWatchHistory(watchHistoryRepo),
 ) {
-    suspend fun await(history: WatchHistory) {
-        upsertWatchHistory.await(history)
+    suspend fun await(history: WatchHistory, forceNotify: Boolean = false) {
+        upsertWatchHistory.await(history, forceNotify = forceNotify)
     }
 }

@@ -123,3 +123,9 @@ class StudioComponent(
         }
     }
 }
+
+class FullCastComponent(
+    componentContext: ComponentContext,
+    val config: Config.FullCast,
+) : ComponentContext by componentContext
+

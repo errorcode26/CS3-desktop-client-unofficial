@@ -78,6 +78,12 @@ class DefaultRootComponent(
                     config = config,
                 ),
             )
+            is Config.FullCast -> RootComponent.Child.FullCast(
+                com.lagradost.cloudstream3.desktop.ui.navigation.components.FullCastComponent(
+                    componentContext = componentContext,
+                    config = config,
+                ),
+            )
         }
 
     override fun push(config: Config) {

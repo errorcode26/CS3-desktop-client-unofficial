@@ -81,6 +81,18 @@ fun SettingsThemeWallpaperScreen() {
         )
     }
 
+    val curatedLightBackgrounds = remember {
+        listOf(
+            "Frost" to ("Clean Frost" to Color(0xFFF1F5F9)),
+            "Alabaster" to ("Warm Alabaster" to Color(0xFFF7F4EE)),
+            "Nordic" to ("Nordic Snow" to Color(0xFFECEFF4)),
+            "Latte" to ("Warm Latte" to Color(0xFFF3EDE5)),
+            "Matcha" to ("Matcha Tea" to Color(0xFFEDF4EF)),
+            "Sakura" to ("Sakura Blush" to Color(0xFFFAF0F4)),
+            "Solar" to ("Solarized" to Color(0xFFFDF6E3)),
+        )
+    }
+
     val scrollState = rememberScrollState()
 
     Column(
@@ -210,12 +222,35 @@ fun SettingsThemeWallpaperScreen() {
                         fontWeight = FontWeight.Medium,
                     )
                 } else if (currentThemeMode == ThemeMode.LIGHT) {
-                    Text(
-                        text = "Calibrated to clean high-contrast neutral day palette in Light mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        curatedLightBackgrounds.forEach { (key, pair) ->
+                            val (label, color) = pair
+                            val isSelected = appThemeBackground == key || (appThemeBackground !in curatedLightBackgrounds.map { it.first } && key == "Frost")
+                            Surface(
+                                onClick = { AppearanceConfig.setAppThemeBackground(key) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = color,
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                                ),
+                                modifier = Modifier.weight(1f).height(44.dp),
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF1E293B),
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),

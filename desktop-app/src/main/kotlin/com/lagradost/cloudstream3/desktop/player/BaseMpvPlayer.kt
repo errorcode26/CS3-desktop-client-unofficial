@@ -301,17 +301,21 @@ fun BaseMpvPlayer(
 
                     // Auto-select preferred audio track if not already selected by mpv
                     if (!hasAutoSwitchedAudio && audioSearchInfo.isNotEmpty()) {
+                        val orderedAudioLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
                         val prefAudio = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-                        if (prefAudio != "auto" && prefAudio.isNotBlank()) {
+                        val candidateLangs = if (orderedAudioLangs.isNotEmpty()) orderedAudioLangs else if (prefAudio != "auto") listOf(prefAudio) else emptyList()
+
+                        for (langCode in candidateLangs) {
                             val target = audioSearchInfo.firstOrNull { (_, _, meta) ->
-                                LanguageMatcher.matchesAudioTrack(null, null, meta, prefAudio)
+                                LanguageMatcher.matchesAudioTrack(null, null, meta, langCode)
                             }
                             if (target != null) {
                                 if (!target.second) { // not already selected
-                                    com.lagradost.common.logging.AppLogger.i("Player:MPV", "Auto-switching audio track to id=${target.first}")
+                                    com.lagradost.common.logging.AppLogger.i("Player:MPV", "Auto-switching audio track to id=${target.first} for priority lang=$langCode")
                                     MpvLibrary.INSTANCE.mpv_set_property_string(handle, "aid", target.first.toString())
                                 }
                                 hasAutoSwitchedAudio = true
+                                break
                             }
                         }
                     }
@@ -323,16 +327,18 @@ fun BaseMpvPlayer(
                         val targetTrack = if (currentActiveUrl != null) {
                             lazyAudios.find { it.url == currentActiveUrl } ?: lazyAudios.first()
                         } else {
+                            val orderedAudioLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
                             val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-                            if (prefLang != "auto" && prefLang.isNotBlank()) {
-                                val keywords = LanguageMatcher.getKeywordsForCode(prefLang)
+                            val candidateLangs = if (orderedAudioLangs.isNotEmpty()) orderedAudioLangs else if (prefLang != "auto") listOf(prefLang) else emptyList()
+
+                            val matchedAudio = candidateLangs.firstNotNullOfOrNull { candidateCode ->
+                                val keywords = LanguageMatcher.getKeywordsForCode(candidateCode)
                                 lazyAudios.firstOrNull { audio ->
                                     val combined = "${audio.language} ${audio.name}".lowercase()
                                     keywords.any { kw -> combined.contains(kw) }
-                                } ?: lazyAudios.first()
-                            } else {
-                                lazyAudios.first()
+                                }
                             }
+                            matchedAudio ?: lazyAudios.first()
                         }
                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Auto-attaching audio track: ${targetTrack.name}")
                         playerState?.loadLazyAudioTrack(PlayerState.LazyTrack(targetTrack.url, targetTrack.name, targetTrack.language, targetTrack.bitrate))
@@ -831,24 +837,25 @@ fun BaseMpvPlayer(
         }
 
         // Set dynamic audio and subtitle selection according to user preference:
-        val prefAudioLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-        if (prefAudioLang != "auto" && prefAudioLang.isNotBlank()) {
-            lib.mpv_set_property_string(handle, "alang", prefAudioLang)
+        val mpvAlang = LanguagePriorityHelper.getMpvAlangString()
+        if (mpvAlang.isNotBlank()) {
+            lib.mpv_set_property_string(handle, "alang", mpvAlang)
         } else {
             lib.mpv_set_property_string(handle, "alang", "")
         }
         lib.mpv_set_property_string(handle, "aid", "auto")
 
         val prefSubLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "auto"
-        if (prefSubLang != "auto" && prefSubLang != "off" && prefSubLang.isNotBlank()) {
-            lib.mpv_set_property_string(handle, "slang", prefSubLang)
-            lib.mpv_set_property_string(handle, "sid", "auto")
-            lib.mpv_set_property_string(handle, "sub-auto", "all")
-            lib.mpv_set_property_string(handle, "sub-visibility", "yes")
-        } else if (prefSubLang == "off") {
+        val mpvSlang = LanguagePriorityHelper.getMpvSlangString()
+        if (prefSubLang == "off") {
             lib.mpv_set_property_string(handle, "sid", "no")
             lib.mpv_set_property_string(handle, "sub-auto", "no")
             lib.mpv_set_property_string(handle, "sub-visibility", "no")
+        } else if (mpvSlang.isNotBlank()) {
+            lib.mpv_set_property_string(handle, "slang", mpvSlang)
+            lib.mpv_set_property_string(handle, "sid", "auto")
+            lib.mpv_set_property_string(handle, "sub-auto", "all")
+            lib.mpv_set_property_string(handle, "sub-visibility", "yes")
         } else {
             lib.mpv_set_property_string(handle, "sid", "auto")
             lib.mpv_set_property_string(handle, "sub-auto", "fuzzy")

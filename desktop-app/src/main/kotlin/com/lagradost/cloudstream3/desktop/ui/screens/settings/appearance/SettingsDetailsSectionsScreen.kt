@@ -38,8 +38,6 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 fun SettingsDetailsSectionsScreen() {
     val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val antiSpoilerEnabled by AppearanceConfig.antiSpoilerEnabled.collectAsState()
-    val detailsShowCurrentTime by AppearanceConfig.detailsShowCurrentTime.collectAsState()
-    val detailsShowEndTime by AppearanceConfig.detailsShowEndTime.collectAsState()
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
@@ -256,23 +254,7 @@ fun SettingsDetailsSectionsScreen() {
             )
         }
 
-        SettingsGroupCard(title = "Time Badges & Metadata") {
-            SettingsToggleItem(
-                label = "Show Current Time",
-                subtitle = "Display the current time on the details page",
-                checked = detailsShowCurrentTime,
-                onCheckedChange = { AppearanceConfig.setDetailsShowCurrentTime(it) },
-            )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Show End Time",
-                subtitle = "Display what time the movie/episode will end",
-                checked = detailsShowEndTime,
-                onCheckedChange = { AppearanceConfig.setDetailsShowEndTime(it) },
-            )
-        }
 
         SettingsGroupCard(title = "Backdrop Frosted Blur & Atmosphere") {
             SettingsToggleItem(

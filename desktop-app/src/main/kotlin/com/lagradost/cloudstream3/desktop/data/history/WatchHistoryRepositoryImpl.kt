@@ -34,8 +34,8 @@ class WatchHistoryRepositoryImpl : WatchHistoryRepository {
         DesktopDataStore.getEpisodeWatched(parentId, episodeId)
     }
 
-    override suspend fun upsert(history: WatchHistory) = withContext(Dispatchers.IO) {
-        DesktopDataStore.setLastWatched(history)
+    override suspend fun upsert(history: WatchHistory, forceNotify: Boolean) = withContext(Dispatchers.IO) {
+        DesktopDataStore.setLastWatched(history, forceNotify = forceNotify)
     }
 
     override suspend fun deleteByParent(parentId: String) = withContext(Dispatchers.IO) {

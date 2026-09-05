@@ -29,7 +29,19 @@
             .replace(/'/g, '&#39;');
     };
 
+    const normalizeAudioName = (name) => {
+        if (!name) return '';
+        return String(name)
+            .replace(/\s*\([^)]*(?:stereo|surround|mono|\d+\.\d+|ch)[^)]*\)/gi, '')
+            .replace(/\s*\[[^\]]*\]/g, '')
+            .toLowerCase()
+            .trim();
+    };
+    window.normalizeAudioName = normalizeAudioName;
+
     // State
+    let currentSpeed = 1.0;
+    window.currentSpeed = 1.0;
     let isSeeking = false, durationMs = 0, currentPosMs = 0;
     let isMuted = false, currentVolume = 100;
     let isMenuOpen = false;
@@ -102,6 +114,7 @@
     const zoneLeft          = document.getElementById('zoneLeft');
     const zoneCenter        = document.getElementById('zoneCenter');
     const zoneRight         = document.getElementById('zoneRight');
+    const ctxMenu           = document.getElementById('contextMenuOverlay');
 
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
@@ -357,14 +370,14 @@
 
     // SVG Icons
     const SVGS = {
-        play:  `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path d="M4 2.691a1 1 0 0 1 1.482-.876l16.925 9.309a1 1 0 0 1 0 1.752L5.482 22.185A1 1 0 0 1 4 21.309V2.69Z" fill="currentColor"></path></svg>`,
-        pause: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><rect x="5" y="3" width="4" height="18" rx="1.5" fill="currentColor"/><rect x="15" y="3" width="4" height="18" rx="1.5" fill="currentColor"/></svg>`,
-        rewind10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.02 2.048A10 10 0 1 1 2 12H0a12 12 0 1 0 5-9.747V1H3v4a1 1 0 0 0 1 1h4V4H6a10 10 0 0 1 5.02-1.952ZM2 4v3h3v2H1a1 1 0 0 1-1-1V4h2Zm12.125 12c-.578 0-1.086-.141-1.523-.424-.43-.29-.764-.694-.999-1.215-.235-.527-.353-1.148-.353-1.861 0-.707.118-1.324.353-1.851.236-.527.568-.932.999-1.215.437-.29.945-.434 1.523-.434s1.083.145 1.513.434c.437.283.774.688 1.009 1.215.235.527.353 1.144.353 1.851 0 .713-.118 1.334-.353 1.86-.235.522-.572.927-1.009 1.216-.43.283-.935.424-1.513.424Zm0-1.35c.39 0 .696-.186.918-.56.222-.378.333-.909.333-1.59s-.111-1.208-.333-1.581c-.222-.38-.528-.57-.918-.57s-.696.19-.918.57c-.222.373-.333.9-.333 1.581 0 .681.111 1.212.333 1.59.222.374.528.56.918.56Zm-5.521 1.205v-5.139L7 11.141V9.82l3.198-.8v6.835H8.604Z" fill="currentColor"></path></svg>`,
-        forward10: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.444 3.685A10 10 0 0 1 18 4h-2v2h4a1 1 0 0 0 1-1V1h-2v1.253A12 12 0 1 0 24 12h-2A10 10 0 1 1 6.444 3.685ZM22 4v3h-3v2h4a1 1 0 0 0 1-1V4h-2Zm-9.398 11.576c.437.283.945.424 1.523.424s1.083-.141 1.513-.424c.437-.29.774-.694 1.009-1.215.235-.527.353-1.148.353-1.861 0-.707-.118-1.324-.353-1.851-.235-.527-.572-.932-1.009-1.215-.43-.29-.935-.434-1.513-.434-.578 0-1.086.145-1.523.434-.43.283-.764.688-.999 1.215-.235.527-.353 1.144-.353 1.851 0 .713.118 1.334.353 1.86.236.522.568.927.999 1.216Zm2.441-1.485c-.222.373-.528.56-.918.56s-.696-.187-.918-.56c-.222-.38-.333-.91-.333-1.591 0-.681.111-1.208.333-1.581.222-.38.528-.57.918-.57s.696.19.918.57c.222.373.333.9.333 1.581 0 .681-.111 1.212-.333 1.59Zm-6.439-3.375v5.14h1.594V9.018L7 9.82v1.321l1.604-.424Z" fill="currentColor"></path></svg>`,
-        volHigh:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M17 7a7 7 0 0 1 0 10l-1.06-1.06a5.5 5.5 0 0 0 0-7.88L17 7z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M19.5 4.5a10.5 10.5 0 0 1 0 15l-1.06-1.06a9 9 0 0 0 0-12.88L19.5 4.5z" fill="currentColor"/></svg>`,
-        volMed: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M17 7a7 7 0 0 1 0 10l-1.06-1.06a5.5 5.5 0 0 0 0-7.88L17 7z" fill="currentColor"/></svg>`,
-        volLow: `<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM14.5 9.5a3.5 3.5 0 0 1 0 5l-1.06-1.06a2 2 0 0 0 0-2.88L14.5 9.5z" fill="currentColor"/></svg>`,
-        volMute:`<svg viewBox="0 0 24 24" fill="none" width="100%" height="100%"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 4a1 1 0 0 0-1.707-.707L4.586 8H1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3.586l4.707 4.707A1 1 0 0 0 11 20V4ZM5.707 9.707 9 6.414v11.172l-3.293-3.293L5.414 14H2v-4h3.414l.293-.293ZM23.414 12l2.293-2.293-1.414-1.414L22 10.586 19.707 8.293l-1.414 1.414L20.586 12l-2.293 2.293 1.414 1.414L22 13.414l2.293 2.293 1.414-1.414L23.414 12Z" fill="currentColor"/></svg>`,
+        play:  `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M8 5v14l11-7z"/></svg>`,
+        pause: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
+        rewind10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>`,
+        forward10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 10.77 11.67 9 12.3 9 12.99 10.01 12.68 10.01 15.94"/><path d="M14.28 14.24c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>`,
+        volHigh:`<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`,
+        volMed: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>`,
+        volLow: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M7 9v6h4l5 5V4L11 9H7z"/></svg>`,
+        volMute:`<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>`,
         check:  `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`,
     };
 
@@ -681,7 +694,8 @@
     });
 
     document.addEventListener('wheel', e => {
-        if (isMenuOpen) return; // Don't scroll volume if a settings menu is open
+        const isCtxOpen = ctxMenu && ctxMenu.style.display === 'block';
+        if (isMenuOpen || isCtxOpen || (e.target && e.target.closest('#contextMenuOverlay'))) return;
 
         let newVol = currentVolume;
         // Scroll up increases volume, scroll down decreases
@@ -1800,6 +1814,9 @@
             for (const t of meta.audioTracks) {
                 const displayName = t.name || ('Track ' + t.id);
                 renderedAudioNames.add(displayName.toLowerCase().trim());
+                const normalized = normalizeAudioName(displayName);
+                if (normalized) renderedAudioNames.add(normalized);
+
                 audioHtml += `
                     <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
                         <span class="track-name">${displayName}</span>
@@ -1812,12 +1829,15 @@
         if (meta.lazyAudioTracks && meta.lazyAudioTracks.length > 0) {
             for (const t of meta.lazyAudioTracks) {
                 const displayName = t.name;
-                if (!renderedAudioNames.has(displayName.toLowerCase().trim())) {
-                    const isActive = meta.activeLazyAudioTrackUrl === t.url;
+                const normalized = normalizeAudioName(displayName);
+                const isAlreadyAttached = (meta.activeLazyAudioTrackUrl && meta.activeLazyAudioTrackUrl === t.url);
+                const isNameRendered = renderedAudioNames.has(displayName.toLowerCase().trim()) || (normalized && renderedAudioNames.has(normalized));
+
+                if (!isAlreadyAttached && !isNameRendered) {
                     audioHtml += `
-                        <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
+                        <div class="track-item" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
                             <span class="track-name">${displayName}</span>
-                            <span class="track-check">${isActive ? SVGS.check : ''}</span>
+                            <span class="track-check"></span>
                         </div>`;
                 }
             }
@@ -2672,13 +2692,13 @@
 
         if (lower.startsWith('now playing') || lower.includes('success') || lower.includes('ready')) {
             toastType = 'success';
-            iconHtml = '<div class="hud-toast-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
+            iconHtml = '<div class="hud-toast-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="#10b981"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div>';
         } else if (lower.startsWith('switching') || lower.startsWith('reconnecting') || lower.includes('loading') || lower.includes('probing')) {
             toastType = 'info';
-            iconHtml = '<div class="hud-toast-icon spin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></div>';
+            iconHtml = '<div class="hud-toast-icon spin"><svg viewBox="0 0 24 24" width="16" height="16" fill="#38bdf8"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></div>';
         } else if (lower.includes('failed') || lower.includes('error') || lower.includes('falling back') || lower.includes('timeout')) {
             toastType = 'warning';
-            iconHtml = '<div class="hud-toast-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>';
+            iconHtml = '<div class="hud-toast-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="#f59e0b"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>';
         }
 
         const toast = document.createElement('div');
@@ -2755,7 +2775,7 @@
         if (results.length === 0) {
             resultsEl.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:#777;gap:12px;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="15" x2="16" y2="15"></line><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 3c-2.33 0-4.31 1.46-5.11 3.5h10.22c-.8-2.04-2.78-3.5-5.11-3.5z"/></svg>
                 <div style="font-size:14px;font-weight:500;">No subtitles found</div>
                 <div style="font-size:12px;color:#666;">Try adjusting the title or switching language filter to "All".</div>
             </div>`;
@@ -2834,12 +2854,12 @@
                         ${epTag ? `<span style="color:#90caf9;background:rgba(33,150,243,0.12);border:1px solid rgba(33,150,243,0.25);padding:1px 6px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;">${epTag}</span>` : ''}
                     </div>
                     <div style="color:#777;font-size:12px;margin-top:3px;display:flex;align-items:center;gap:5px;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>
                         <span>${source}</span>
                     </div>
                 </div>
                 <button class="sub-download-btn" id="subDlBtn_${originalIndex}" onclick="downloadSubtitle(event, ${originalIndex})" title="Download and Apply Subtitle">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </button>
             </div>`;
         }).join('');
@@ -2874,7 +2894,7 @@
             if (btn) {
                 btn.classList.remove('downloading');
                 btn.classList.add('success');
-                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
             }
             setTimeout(() => {
                 closeSubSearchModal();
@@ -3481,12 +3501,342 @@
     };
 
     // ── Context Menu Logic ──────────────────────────────────────────
-    const ctxMenu = document.getElementById('contextMenuOverlay');
     let isLooping = false;
+    let ctxActiveSubmenu = null;
+    let ctxSubmenuCloseTimer = null;
+
+    function closeAllSubmenus() {
+        if (ctxSubmenuCloseTimer) {
+            clearTimeout(ctxSubmenuCloseTimer);
+            ctxSubmenuCloseTimer = null;
+        }
+        document.querySelectorAll('.ctx-submenu').forEach(sub => {
+            sub.classList.remove('open');
+            sub.style.display = 'none';
+        });
+        ctxActiveSubmenu = null;
+    }
+
+    function populateContextSubmenus() {
+        const meta = window.lastMeta || {};
+        try {
+
+        // 1. Audio Submenu
+        const audioSub = document.getElementById('ctxSubmenuAudio');
+        if (audioSub) {
+            let html = '<div class="ctx-sub-header">Audio Streams</div>';
+            const rendered = new Set();
+
+            if (meta.audioTracks && meta.audioTracks.length > 0) {
+                for (const t of meta.audioTracks) {
+                    const name = t.name || ('Track ' + t.id);
+                    rendered.add(name.toLowerCase().trim());
+                    const norm = normalizeAudioName(name);
+                    if (norm) rendered.add(norm);
+
+                    html += `
+                        <div class="ctx-sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeContextMenu();">
+                            <span>${name}</span>
+                            <span class="ctx-sub-check">${t.isSelected ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            }
+
+            if (meta.lazyAudioTracks && meta.lazyAudioTracks.length > 0) {
+                for (const t of meta.lazyAudioTracks) {
+                    const name = t.name;
+                    const norm = normalizeAudioName(name);
+                    const isAttached = (meta.activeLazyAudioTrackUrl && meta.activeLazyAudioTrackUrl === t.url);
+                    const isRendered = rendered.has(name.toLowerCase().trim()) || (norm && rendered.has(norm));
+
+                    if (!isAttached && !isRendered) {
+                        html += `
+                            <div class="ctx-sub-item" onclick="send('loadLazyAudioTrack','${t.url}');closeContextMenu();">
+                                <span>${name}</span>
+                                <span class="ctx-sub-check"></span>
+                            </div>`;
+                    }
+                }
+            }
+
+            html += `
+                <div class="ctx-divider"></div>
+                <div class="ctx-sub-header">Audio Timing</div>
+                <div class="ctx-sub-item" onclick="send('setAudioDelay', -0.1);showHudToast('Audio Delay: -100ms');closeContextMenu();">
+                    <span>-100 ms</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setAudioDelay', -0.05);showHudToast('Audio Delay: -50ms');closeContextMenu();">
+                    <span>-50 ms</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setAudioDelay', 0.0);showHudToast('Audio Delay: Reset');closeContextMenu();">
+                    <span>Reset (0s)</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setAudioDelay', 0.05);showHudToast('Audio Delay: +50ms');closeContextMenu();">
+                    <span>+50 ms</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setAudioDelay', 0.1);showHudToast('Audio Delay: +100ms');closeContextMenu();">
+                    <span>+100 ms</span><span class="ctx-sub-check"></span>
+                </div>
+            `;
+
+            audioSub.innerHTML = html;
+        }
+
+        // 2. Subtitles Submenu
+        const subsSub = document.getElementById('ctxSubmenuSubs');
+        if (subsSub) {
+            let html = '<div class="ctx-sub-header">Subtitles</div>';
+            const hasActiveSub = meta.subTracks && meta.subTracks.some(t => t.isSelected);
+            const isOff = !hasActiveSub;
+
+            html += `
+                <div class="ctx-sub-item ${isOff ? 'active' : ''}" onclick="send('setSubtitleTrack','');closeContextMenu();">
+                    <span>Off</span>
+                    <span class="ctx-sub-check">${isOff ? SVGS.check : ''}</span>
+                </div>`;
+
+            if (meta.subTracks && meta.subTracks.length > 0) {
+                for (const t of meta.subTracks) {
+                    const name = t.name || ('Track ' + t.id);
+                    html += `
+                        <div class="ctx-sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setSubtitleTrack','${t.id}');closeContextMenu();">
+                            <span>${name}</span>
+                            <span class="ctx-sub-check">${t.isSelected ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            }
+
+            if (meta.lazySubTracks && meta.lazySubTracks.length > 0) {
+                const renderedSubNames = new Set(meta.subTracks ? meta.subTracks.map(t => (t.name || '').toLowerCase().trim()) : []);
+                for (const t of meta.lazySubTracks) {
+                    const name = t.name;
+                    if (!renderedSubNames.has(name.toLowerCase().trim())) {
+                        html += `
+                            <div class="ctx-sub-item" onclick="send('loadLazySubtitleTrack','${t.url}');closeContextMenu();">
+                                <span>${name}</span>
+                                <span class="ctx-sub-check"></span>
+                            </div>`;
+                    }
+                }
+            }
+
+            html += `
+                <div class="ctx-divider"></div>
+                <div class="ctx-sub-header">Subtitle Timing</div>
+                <div class="ctx-sub-item" onclick="send('setSubDelay', -0.1);showHudToast('Sub Delay: -100ms');closeContextMenu();">
+                    <span>-100 ms</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setSubDelay', 0.0);showHudToast('Sub Delay: Reset');closeContextMenu();">
+                    <span>Reset (0s)</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setSubDelay', 0.1);showHudToast('Sub Delay: +100ms');closeContextMenu();">
+                    <span>+100 ms</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-sub-item" onclick="closeContextMenu();openSubSearchModal();">
+                    <span style="color: #64B5F6;">Search Online Subtitles...</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="closeContextMenu();send('openLocalSubtitlePicker','');">
+                    <span style="color: #64B5F6;">Load Local Subtitle...</span><span class="ctx-sub-check"></span>
+                </div>
+            `;
+
+            subsSub.innerHTML = html;
+        }
+
+        // 3. Quality & Video Submenu
+        const qualSub = document.getElementById('ctxSubmenuQuality');
+        if (qualSub) {
+            let html = '<div class="ctx-sub-header">Stream Quality</div>';
+            let activeRes = meta.resolution ? meta.resolution.split('x')[1] + 'p' : 'Auto';
+
+            if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
+                const height = meta.resolution ? meta.resolution.split('x')[1] : null;
+                for (const t of meta.lazyVideoTracks) {
+                    const isActive = meta.activeLazyVideoTrackUrl ? (t.url === meta.activeLazyVideoTrackUrl) : (height && t.name.includes(height));
+                    html += `
+                        <div class="ctx-sub-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeContextMenu();">
+                            <span>${t.name}</span>
+                            <span class="ctx-sub-check">${isActive ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            } else if (meta.videoTracks && meta.videoTracks.length > 0) {
+                const validVideoTracks = meta.videoTracks.filter(t => !/\.(png|jpe?g|webp|bmp|gif)$/i.test(t.name || ''));
+                if (validVideoTracks.length > 0) {
+                    for (const t of validVideoTracks) {
+                        const name = t.name || ('Track ' + t.id);
+                        html += `
+                            <div class="ctx-sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeContextMenu();">
+                                <span>${name}</span>
+                                <span class="ctx-sub-check">${t.isSelected ? SVGS.check : ''}</span>
+                            </div>`;
+                    }
+                } else {
+                    html += `<div class="ctx-sub-item active"><span>Default (${activeRes})</span><span class="ctx-sub-check">${SVGS.check}</span></div>`;
+                }
+            } else {
+                html += `<div class="ctx-sub-item active"><span>Default (${activeRes})</span><span class="ctx-sub-check">${SVGS.check}</span></div>`;
+            }
+
+            html += `
+                <div class="ctx-divider"></div>
+                <div class="ctx-sub-header">Aspect Ratio</div>
+                <div class="ctx-sub-item" onclick="send('setMpvProperty','keepaspect:yes');send('setMpvProperty','video-aspect-override:no');showHudToast('Aspect: Original');closeContextMenu();">
+                    <span>Original (Auto)</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setMpvProperty','keepaspect:yes');send('setMpvProperty','video-aspect-override:16:9');showHudToast('Aspect: 16:9');closeContextMenu();">
+                    <span>16:9 Widescreen</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setMpvProperty','keepaspect:yes');send('setMpvProperty','video-aspect-override:4:3');showHudToast('Aspect: 4:3');closeContextMenu();">
+                    <span>4:3 Standard</span><span class="ctx-sub-check"></span>
+                </div>
+                <div class="ctx-sub-item" onclick="send('setMpvProperty','keepaspect:no');send('setMpvProperty','video-aspect-override:no');showHudToast('Aspect: Fill Window');closeContextMenu();">
+                    <span>Stretch to Fill</span><span class="ctx-sub-check"></span>
+                </div>
+            `;
+
+            if (meta.shaders && meta.shaders.length > 0) {
+                html += `<div class="ctx-divider"></div><div class="ctx-sub-header">Video Shaders</div>`;
+                const noShaderActive = !meta.activeShader || meta.activeShader === 'None';
+                html += `
+                    <div class="ctx-sub-item ${noShaderActive ? 'active' : ''}" onclick="send('selectShader','None');closeContextMenu();">
+                        <span>None (Native)</span><span class="ctx-sub-check">${noShaderActive ? SVGS.check : ''}</span>
+                    </div>`;
+                for (const s of meta.shaders) {
+                    const isAct = (s === meta.activeShader);
+                    html += `
+                        <div class="ctx-sub-item ${isAct ? 'active' : ''}" onclick="send('selectShader','${s}');closeContextMenu();">
+                            <span>${s}</span><span class="ctx-sub-check">${isAct ? SVGS.check : ''}</span>
+                        </div>`;
+                }
+            }
+
+            qualSub.innerHTML = html;
+        }
+
+        // 4. Chapters Submenu
+        const chapItem = document.getElementById('ctxItemChapters');
+        const chapSub = document.getElementById('ctxSubmenuChapters');
+        if (chapItem && chapSub) {
+            if (meta.chapters && meta.chapters.length > 0) {
+                chapItem.style.display = 'flex';
+                let html = '<div class="ctx-sub-header">Chapters</div>';
+                meta.chapters.forEach((ch, idx) => {
+                    const isAct = (idx === meta.currentChapterIndex);
+                    const time = fmt(ch.timeMs);
+                    html += `
+                        <div class="ctx-sub-item ${isAct ? 'active' : ''}" onclick="send('seekToChapter',${ch.index});closeContextMenu();">
+                            <span>${ch.title} <span style="opacity: 0.5; font-size: 11px;">(${time})</span></span>
+                            <span class="ctx-sub-check">${isAct ? SVGS.check : ''}</span>
+                        </div>`;
+                });
+                chapSub.innerHTML = html;
+            } else {
+                chapItem.style.display = 'none';
+            }
+        }
+
+        // 5. Playback Speed Submenu
+        const speedSub = document.getElementById('ctxSubmenuSpeed');
+        if (speedSub) {
+            let html = '<div class="ctx-sub-header">Playback Speed</div>';
+            const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+            speeds.forEach(sp => {
+                const isAct = Math.abs(currentSpeed - sp) < 0.05;
+                html += `
+                    <div class="ctx-sub-item ${isAct ? 'active' : ''}" onclick="currentSpeed=${sp};send('setSpeed',${sp});showHudToast('Speed: ${sp}x');closeContextMenu();">
+                        <span>${sp === 1.0 ? '1.0x (Normal)' : sp + 'x'}</span>
+                        <span class="ctx-sub-check">${isAct ? SVGS.check : ''}</span>
+                    </div>`;
+            });
+            speedSub.innerHTML = html;
+        }
+        } catch (err) {
+            console.error('[ContextMenu] populateContextSubmenus error:', err);
+        }
+    }
+
+    function setupContextSubmenus() {
+        document.querySelectorAll('.ctx-parent').forEach(item => {
+            if (item._ctxBound) return;
+            item._ctxBound = true;
+
+            item.addEventListener('mouseenter', () => {
+                if (ctxSubmenuCloseTimer) {
+                    clearTimeout(ctxSubmenuCloseTimer);
+                    ctxSubmenuCloseTimer = null;
+                }
+
+                const sub = item.querySelector('.ctx-submenu');
+                if (!sub) return;
+
+                document.querySelectorAll('.ctx-submenu').forEach(s => {
+                    if (s !== sub) {
+                        s.classList.remove('open');
+                        s.style.display = 'none';
+                    }
+                });
+
+                sub.style.display = 'block';
+                sub.classList.add('open');
+                ctxActiveSubmenu = sub;
+
+                // Viewport boundary and quadrant collision
+                const zoom = parseFloat(getComputedStyle(document.body).zoom) || 1;
+                const itemRect = item.getBoundingClientRect();
+                const winW = window.innerWidth / zoom;
+                const winH = window.innerHeight / zoom;
+
+                const subW = sub.offsetWidth || 230;
+                const subH = sub.offsetHeight || 250;
+
+                // Horizontal inversion: flip left if near right viewport edge
+                if ((itemRect.right / zoom) + subW > winW - 12) {
+                    sub.style.left = 'auto';
+                    sub.style.right = '100%';
+                    sub.style.marginRight = '6px';
+                    sub.style.marginLeft = '0px';
+                } else {
+                    sub.style.left = '100%';
+                    sub.style.right = 'auto';
+                    sub.style.marginLeft = '6px';
+                    sub.style.marginRight = '0px';
+                }
+
+                // Vertical clamping: if overflowing bottom, shift upward
+                const scaledTop = itemRect.top / zoom;
+                if (scaledTop + subH > winH - 12) {
+                    const overflow = (scaledTop + subH) - (winH - 12);
+                    const clampedTop = Math.max(-(scaledTop - 12), -overflow);
+                    sub.style.top = `${clampedTop}px`;
+                } else {
+                    sub.style.top = '0px';
+                }
+            });
+
+            item.addEventListener('mouseleave', () => {
+                const sub = item.querySelector('.ctx-submenu');
+                if (!sub) return;
+                ctxSubmenuCloseTimer = setTimeout(() => {
+                    sub.classList.remove('open');
+                    sub.style.display = 'none';
+                    if (ctxActiveSubmenu === sub) ctxActiveSubmenu = null;
+                }, 120);
+            });
+        });
+    }
 
     window.showContextMenu = (x, y) => {
         if (!ctxMenu) return;
         closeAllPanels();
+        closeAllSubmenus();
+
+        try {
+            populateContextSubmenus();
+            setupContextSubmenus();
+        } catch (err) {
+            console.error('[ContextMenu] Preparation error:', err);
+        }
 
         const loopBadge = document.getElementById('ctxLoopBadge');
         if (loopBadge) {
@@ -3504,11 +3854,11 @@
         const winW = window.innerWidth / zoom;
         const winH = window.innerHeight / zoom;
         
-        const w = ctxMenu.offsetWidth || 210;
-        const h = ctxMenu.offsetHeight || 230;
+        const w = ctxMenu.offsetWidth || 230;
+        const h = ctxMenu.offsetHeight || 340;
 
-        const posX = (scaledX + w > winW) ? Math.max(10, winW - w - 12) : scaledX;
-        const posY = (scaledY + h > winH) ? Math.max(10, winH - h - 12) : scaledY;
+        const posX = (scaledX + w > winW - 12) ? Math.max(12, scaledX - w) : scaledX;
+        const posY = (scaledY + h > winH - 12) ? Math.max(12, scaledY - h) : scaledY;
 
         ctxMenu.style.left = `${posX}px`;
         ctxMenu.style.top = `${posY}px`;
@@ -3516,6 +3866,7 @@
 
     window.closeContextMenu = () => {
         if (ctxMenu) ctxMenu.style.display = 'none';
+        closeAllSubmenus();
     };
 
     window.toggleLoopFromContext = () => {
@@ -3628,8 +3979,11 @@
         showContextMenu(e.clientX, e.clientY);
     });
 
-    // Stop mousedown inside the menu from bubbling up so the outside-click dismiss works
-    ctxMenu.addEventListener('mousedown', e => e.stopPropagation());
+    // Stop mousedown and wheel events inside the menu from bubbling up
+    if (ctxMenu) {
+        ctxMenu.addEventListener('mousedown', e => e.stopPropagation());
+        ctxMenu.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+    }
 
     // Dismiss when clicking anywhere outside the menu
     document.addEventListener('mousedown', e => {
@@ -3642,7 +3996,6 @@
     // Prevent UI zooming
     document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
-    let currentSpeed = 1.0;
     document.addEventListener('keydown', e => {
         if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0')) { e.preventDefault(); return; }
         if (e.target.closest('input[type="text"], input[type="search"], textarea, [contenteditable]')) return;

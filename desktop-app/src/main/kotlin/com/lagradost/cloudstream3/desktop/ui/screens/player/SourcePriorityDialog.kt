@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
+import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.utils.Qualities
@@ -29,15 +31,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun SourcePriorityDialog(
     show: Boolean,
+    initialTab: Int = 0,
     onDismissRequest: () -> Unit,
 ) {
     if (!show) return
 
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Resolutions, 1 = Server Sources
+    var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) } // 0 = Resolutions, 1 = Audio Languages, 2 = Subtitle Languages, 3 = Server Sources
     val qualityPriorities by QualityDataHelper.qualityPriorities.collectAsState()
     val sourcePriorities by QualityDataHelper.sourcePriorities.collectAsState()
     val discoveredSources by QualityDataHelper.discoveredSources.collectAsState()
+    val audioPriorities by LanguagePriorityHelper.audioPriorities.collectAsState()
+    val subtitlePriorities by LanguagePriorityHelper.subtitlePriorities.collectAsState()
 
     val qualityList = remember {
         listOf(
@@ -82,13 +87,13 @@ fun SourcePriorityDialog(
                     }
                     Column {
                         Text(
-                            text = "Source & Quality Priorities",
+                            text = "Stream & Language Priorities",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = "Customize automatic stream ranking, resolution preferences, and server priorities",
+                            text = "Customize automatic stream ranking, resolution preferences, audio/sub priority, and server sources",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -117,58 +122,149 @@ fun SourcePriorityDialog(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     TabButton(
-                        text = "Resolution Priorities",
+                        text = "Resolutions",
                         icon = Icons.Default.HighQuality,
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
                     )
                     TabButton(
-                        text = "Server Sources (${discoveredSources.size})",
-                        icon = Icons.Default.Dns,
+                        text = "Audio Languages",
+                        icon = Icons.Default.GraphicEq,
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
+                    )
+                    TabButton(
+                        text = "Subtitle Languages",
+                        icon = Icons.Default.Subtitles,
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                    )
+                    TabButton(
+                        text = "Server Sources (${discoveredSources.size})",
+                        icon = Icons.Default.Dns,
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                     )
                 }
 
                 // Quick Presets
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                QualityDataHelper.setQualityPriority(Qualities.P2160.value, 10)
-                                QualityDataHelper.setQualityPriority(Qualities.P1080.value, 8)
-                                QualityDataHelper.setQualityPriority(Qualities.P720.value, 5)
+                    when (selectedTab) {
+                        0 -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        QualityDataHelper.setQualityPriority(Qualities.P2160.value, 10)
+                                        QualityDataHelper.setQualityPriority(Qualities.P1080.value, 8)
+                                        QualityDataHelper.setQualityPriority(Qualities.P720.value, 5)
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("Prefer 4K", fontSize = 12.sp)
                             }
-                        },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Prefer 4K", fontSize = 12.sp)
-                    }
 
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                QualityDataHelper.setQualityPriority(Qualities.P1080.value, 10)
-                                QualityDataHelper.setQualityPriority(Qualities.P720.value, 8)
-                                QualityDataHelper.setQualityPriority(Qualities.P2160.value, 4)
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        QualityDataHelper.setQualityPriority(Qualities.P1080.value, 10)
+                                        QualityDataHelper.setQualityPriority(Qualities.P720.value, 8)
+                                        QualityDataHelper.setQualityPriority(Qualities.P2160.value, 4)
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("Prefer 1080p", fontSize = 12.sp)
                             }
-                        },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Prefer 1080p", fontSize = 12.sp)
-                    }
 
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                QualityDataHelper.resetToDefaults()
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        QualityDataHelper.resetToDefaults()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Reset Defaults", fontSize = 12.sp)
                             }
-                        },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reset Defaults", fontSize = 12.sp)
+                        }
+                        1 -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        LanguagePriorityHelper.setAudioPreset(mapOf("eng,en" to 10, "original" to 8))
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("Prefer English", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        LanguagePriorityHelper.setAudioPreset(mapOf("jpn,ja" to 10, "original" to 8, "eng,en" to 6))
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("Prefer Japanese", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        LanguagePriorityHelper.resetAudioDefaults()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Reset Defaults", fontSize = 12.sp)
+                            }
+                        }
+                        2 -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        LanguagePriorityHelper.setSubtitlePreset(mapOf("eng,en" to 10))
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Text("Prefer English", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        LanguagePriorityHelper.resetSubtitleDefaults()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Reset Defaults", fontSize = 12.sp)
+                            }
+                        }
+                        3 -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        QualityDataHelper.resetToDefaults()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Reset Defaults", fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -184,60 +280,123 @@ fun SourcePriorityDialog(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
             ) {
-                if (selectedTab == 0) {
-                    // Resolution Priority List
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(qualityList, key = { it.first }) { (qualVal, qualLabel) ->
-                            val currentPriority = qualityPriorities[qualVal] ?: 4
-                            PriorityRowItem(
-                                title = qualLabel,
-                                subtitle = "Score weight: +${currentPriority * 10} pts",
-                                priority = currentPriority,
-                                onPriorityChange = { newPriority ->
-                                    scope.launch(Dispatchers.IO) {
-                                        QualityDataHelper.setQualityPriority(qualVal, newPriority)
-                                    }
-                                },
-                            )
-                        }
-                    }
-                } else {
-                    // Server Sources Priority List
-                    if (discoveredSources.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text("No Server Sources Discovered Yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Play or scrape any media title to automatically discover and rank video servers.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                when (selectedTab) {
+                    0 -> {
+                        // Resolution Priority List
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(qualityList, key = { it.first }) { (qualVal, qualLabel) ->
+                                val currentPriority = qualityPriorities[qualVal] ?: 4
+                                PriorityRowItem(
+                                    title = qualLabel,
+                                    subtitle = "Score weight: +${currentPriority * 10} pts",
+                                    priority = currentPriority,
+                                    onPriorityChange = { newPriority ->
+                                        scope.launch(Dispatchers.IO) {
+                                            QualityDataHelper.setQualityPriority(qualVal, newPriority)
+                                        }
+                                    },
+                                )
                             }
                         }
-                    } else {
-                        val sortedSources = remember(discoveredSources, sourcePriorities) {
-                            discoveredSources.sortedByDescending { sourcePriorities[it] ?: 0 }
+                    }
+                    1 -> {
+                        // Audio Languages Priority List
+                        val sortedAudioLangs = remember(audioPriorities) {
+                            PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.sortedWith(
+                                compareByDescending<Pair<String, String>> { audioPriorities[it.first] ?: 0 }
+                                    .thenBy { it.second }
+                            )
                         }
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            items(sortedSources, key = { it }) { sourceName ->
-                                val currentPriority = sourcePriorities[sourceName] ?: 0
+                            items(sortedAudioLangs, key = { it.first }) { (langCode, langName) ->
+                                val currentPriority = audioPriorities[langCode] ?: 0
                                 PriorityRowItem(
-                                    title = sourceName,
-                                    subtitle = if (currentPriority > 0) "Boosted (+${currentPriority} pts)" else if (currentPriority < 0) "Demoted (${currentPriority} pts)" else "Neutral (0 pts)",
+                                    title = langName,
+                                    subtitle = if (currentPriority > 0) "Priority rank weight: +${currentPriority * 40} pts (Active)" else "Inactive (Disabled from auto-select)",
                                     priority = currentPriority,
-                                    minPriority = -10,
-                                    maxPriority = 20,
+                                    minPriority = 0,
+                                    maxPriority = 15,
                                     onPriorityChange = { newPriority ->
                                         scope.launch(Dispatchers.IO) {
-                                            QualityDataHelper.setSourcePriority(sourceName, newPriority)
+                                            LanguagePriorityHelper.setAudioPriority(langCode, newPriority)
                                         }
                                     },
                                 )
+                            }
+                        }
+                    }
+                    2 -> {
+                        // Subtitle Languages Priority List
+                        val sortedSubLangs = remember(subtitlePriorities) {
+                            PlayerConfig.GLOBAL_LANGUAGE_OPTIONS
+                                .filter { it.first != "auto" && it.first != "off" && it.first != "original" }
+                                .sortedWith(
+                                    compareByDescending<Pair<String, String>> { subtitlePriorities[it.first] ?: 0 }
+                                        .thenBy { it.second }
+                                )
+                        }
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(sortedSubLangs, key = { it.first }) { (langCode, langName) ->
+                                val currentPriority = subtitlePriorities[langCode] ?: 0
+                                PriorityRowItem(
+                                    title = langName,
+                                    subtitle = if (currentPriority > 0) "Priority rank: #$currentPriority (Active)" else "Inactive (Disabled from auto-select)",
+                                    priority = currentPriority,
+                                    minPriority = 0,
+                                    maxPriority = 15,
+                                    onPriorityChange = { newPriority ->
+                                        scope.launch(Dispatchers.IO) {
+                                            LanguagePriorityHelper.setSubtitlePriority(langCode, newPriority)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        // Server Sources Priority List
+                        if (discoveredSources.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("No Server Sources Discovered Yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Play or scrape any media title to automatically discover and rank video servers.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        } else {
+                            val sortedSources = remember(discoveredSources, sourcePriorities) {
+                                discoveredSources.sortedByDescending { sourcePriorities[it] ?: 0 }
+                            }
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(sortedSources, key = { it }) { sourceName ->
+                                    val currentPriority = sourcePriorities[sourceName] ?: 0
+                                    PriorityRowItem(
+                                        title = sourceName,
+                                        subtitle = if (currentPriority > 0) "Boosted (+${currentPriority} pts)" else if (currentPriority < 0) "Demoted (${currentPriority} pts)" else "Neutral (0 pts)",
+                                        priority = currentPriority,
+                                        minPriority = -10,
+                                        maxPriority = 20,
+                                        onPriorityChange = { newPriority ->
+                                            scope.launch(Dispatchers.IO) {
+                                                QualityDataHelper.setSourcePriority(sourceName, newPriority)
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

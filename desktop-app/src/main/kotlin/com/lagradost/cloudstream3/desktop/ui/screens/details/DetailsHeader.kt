@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
@@ -590,15 +592,15 @@ fun DetailsMetadata(
                         val isInLibrary = currentBookmark != null
                         val libraryIcon = if (isInLibrary) {
                             when (activeWatchType) {
-                                com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Default.PlayArrow
-                                com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Default.Check
-                                com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Default.Pause
-                                com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Default.Close
-                                com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Default.Bookmark
+                                com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Outlined.PlayArrow
+                                com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Outlined.Check
+                                com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Outlined.Pause
+                                com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Outlined.Close
+                                com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Outlined.BookmarkAdded
                                 com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
                             }
                         } else {
-                            Icons.Default.Add
+                            Icons.Outlined.BookmarkAdd
                         }
                         Surface(
                             onClick = { isEditingStatus = true },
@@ -618,7 +620,7 @@ fun DetailsMetadata(
                                     imageVector = libraryIcon,
                                     contentDescription = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
                                     tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-                                    modifier = Modifier.size(if (isButtonsNarrow) 20.dp else 24.dp),
+                                    modifier = Modifier.size(if (isButtonsNarrow) 22.dp else 26.dp),
                                 )
                             }
                         }
@@ -768,45 +770,6 @@ fun DetailsMetadata(
             },
             sideContent = {
                 if (!isLoading) {
-                    val pinIcon = androidx.compose.ui.graphics.vector.rememberVectorPainter(
-                        androidx.compose.ui.graphics.vector.ImageVector.Builder(
-                            name = "Pin",
-                            defaultWidth = 24.dp,
-                            defaultHeight = 24.dp,
-                            viewportWidth = 24f,
-                            viewportHeight = 24f,
-                        ).path(
-                            fill = androidx.compose.ui.graphics.SolidColor(Color.White),
-                            stroke = null,
-                            strokeAlpha = 1f,
-                            fillAlpha = 1f,
-                            strokeLineWidth = 1f,
-                            strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Butt,
-                            strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Bevel,
-                            strokeLineMiter = 1f,
-                        ) {
-                            moveTo(16f, 9f)
-                            verticalLineTo(4f)
-                            horizontalLineTo(17f)
-                            verticalLineTo(2f)
-                            horizontalLineTo(7f)
-                            verticalLineTo(4f)
-                            horizontalLineTo(8f)
-                            verticalLineTo(9f)
-                            curveTo(8f, 10.66f, 6.66f, 12f, 5f, 12f)
-                            verticalLineTo(14f)
-                            horizontalLineTo(10.97f)
-                            verticalLineTo(21f)
-                            lineTo(11.97f, 22f)
-                            lineTo(12.97f, 21f)
-                            verticalLineTo(14f)
-                            horizontalLineTo(19f)
-                            verticalLineTo(12f)
-                            curveTo(17.34f, 12f, 16f, 10.66f, 16f, 9f)
-                            close()
-                        }.build(),
-                    )
-
                     Column(
                         modifier = Modifier
                             .then(if (isNarrow) Modifier.fillMaxWidth() else Modifier.widthIn(max = 420.dp))
@@ -874,10 +837,10 @@ fun DetailsMetadata(
                                     modifier = Modifier.size(36.dp),
                                 ) {
                                     Icon(
-                                        painter = pinIcon,
+                                        imageVector = if (isRightColumnPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                                         contentDescription = "Pin sidebar",
                                         tint = if (isRightColumnPinned) Color.White else Color.White.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(22.dp),
+                                        modifier = Modifier.size(20.dp),
                                     )
                                 }
                             }
