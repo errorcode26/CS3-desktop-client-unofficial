@@ -39,6 +39,7 @@ The application is structured into modular subprojects separating platform abstr
 
 ### Prerequisites
 * **Operating System:** Windows 10 / 11 (64-bit)
+* **Web Runtime:** **Microsoft Edge WebView2 Runtime** (pre-installed by default on Windows 11 and modern Windows 10; [Evergreen Bootstrapper](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) available if omitted on custom OS builds). Note: Google Chrome is not used.
 * **Java Development Kit:** **JDK 21** or higher (e.g. [Eclipse Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21))
 * **Git:** Installed and available in PATH
 
@@ -60,6 +61,12 @@ cd CS3-desktop-client-unofficial
 The video player requires the 64-bit native `libmpv-2.dll` placed in `desktop-app/appResources/windows/mpv/`.
 
 Because `libmpv-2.dll` (~112 MB) exceeds GitHub's 100 MB single-file repository limit, it is not bundled directly in git.
+
+| Binary | Distribution | Tracked in Git? | Purpose |
+| :--- | :--- | :---: | :--- |
+| **`libmpv-2.dll`** (~112 MB) | Downloaded manually | No | Native MPV media playback core |
+| **`player_bridge.dll`** (~180 KB) | Pre-bundled | Yes | Win32 Airspace HWND compositor & low-latency fast-path |
+| **`WebView2Loader.dll`** (~160 KB) | Pre-bundled | Yes | Microsoft WebView2 runtime dynamic loader |
 
 **How to get `libmpv-2.dll`:**
 1. Download the `mpv-dev-x86_64-*.7z` development package from [shinchiro/mpv-winbuild-cmake releases](https://github.com/shinchiro/mpv-winbuild-cmake/releases) (such as pinned build [20260610](https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260610)).
@@ -103,6 +110,31 @@ Alternatively, execute tasks directly via Gradle:
 # Compile standalone distributable
 .\gradlew.bat :desktop-app:createDistributable
 ```
+
+---
+
+## Native Bridge & Player Architecture
+
+### The Win32 Airspace & Fast-Path Architecture
+Directly overlaying Java Swing / Compose Multiplatform components onto a native video window handle (`HWND`) causes severe visual occlusion and flicker (the Win32 "Airspace problem"). Furthermore, routing high-frequency seekbar scrubs through JVM garbage collection and JNI layers introduces 10–50ms latency delays that cause scrubber rubber-banding.
+
+CloudStream Desktop resolves this through a hybrid native architecture in `desktop-app/src/main/cpp/player_bridge.cpp`:
+1. **HWND Composition:** A unified native Win32 container (`g_containerHwnd`) hosts MPV's render context as the base layer, with a transparent Microsoft WebView2 Chromium instance layered directly on top.
+2. **C++ Native Fast-Path:** Timeline scrubbing, volume changes, and state events are intercepted and processed directly inside C++ in sub-millisecond time (`g_mpv_command_string`), completely bypassing JVM overhead.
+3. **High-Frequency Polling:** A native timer polls MPV playback positions (`time-pos`, `bufferPos`) and pushes updates via `PostWebMessageAsJson` without allocating JVM objects.
+4. **Cloudflare CDP Resolution:** WebView2 is also leveraged headlessly by `CloudflareKiller.kt` via Chrome DevTools Protocol to solve Cloudflare Turnstile / anti-bot challenges that Android extensions expect an Android OS WebView to handle.
+
+### Optional: Recompiling the Native C++ Bridge
+Developers only need a C++ compiler if modifying `desktop-app/src/main/cpp/player_bridge.cpp`. The pre-compiled DLLs are already tracked in git.
+
+To recompile:
+* **MinGW-w64 (GCC):** Ensure `g++` and `JAVA_HOME` are set, then execute:
+  ```powershell
+  cd desktop-app\src\main\cpp
+  .\build_jni.ps1
+  ```
+  *(Statically links `libstdc++` and `libwinpthread` to eliminate external runtime dependencies).*
+* **CMake (MSVC / CLion):** A standard `CMakeLists.txt` is provided in `desktop-app/src/main/cpp/` linking the self-contained WebView2 headers and libraries in `webview2/`.
 
 ---
 
