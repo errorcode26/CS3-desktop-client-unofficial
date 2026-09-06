@@ -13,21 +13,30 @@ class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean 
         // Enforce Default Deny (Whitelist-Only) security policy
         val pluginName = ExtensionLoader.getCallingPluginName() ?: "Unknown Plugin"
         val hasSocketPerm = com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, com.lagradost.runtime.permission.PluginPermission.NETWORK_SOCKETS) || com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)
-        if (!com.lagradost.runtime.security.PluginSecurityPolicy.isClassAllowed(name, hasSocketPerm, isTrusted)) {
-            if (!com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)) {
-                throw SecurityException("Plugin Security: Access to class '$name' is blocked by Default Deny policy.")
+
+        if (com.lagradost.runtime.security.PluginSecurityPolicy.isClassAllowed(name, hasSocketPerm, isTrusted) ||
+            com.lagradost.runtime.permission.PluginPermissionAPI.hasPermission(pluginName, name)
+        ) {
+            return try {
+                super.loadClass(name, resolve)
+            } catch (e: ClassNotFoundException) {
+                // If the plugin requests an Android API or CloudStream API that we haven't stubbed, generate a ghost stub
+                if (name.startsWith("android.") || name.startsWith("androidx.") || name.startsWith("com.android.") || name.startsWith("com.lagradost.") || name.startsWith("com.google.")) {
+                    generateGhostStub(name)
+                } else {
+                    throw e
+                }
             }
         }
-        return try {
-            super.loadClass(name, resolve)
-        } catch (e: ClassNotFoundException) {
-            // If the plugin requests an Android API or CloudStream API that we haven't stubbed, generate a ghost stub
-            if (name.startsWith("android.") || name.startsWith("androidx.") || name.startsWith("com.android.") || name.startsWith("com.lagradost.") || name.startsWith("com.google.")) {
-                generateGhostStub(name)
-            } else {
-                throw e
-            }
+
+        // If the unwhitelisted class is a System/JDK/Host class, block it with SecurityException
+        if (com.lagradost.runtime.security.PluginSecurityPolicy.isSystemOrHostPackage(name)) {
+            throw SecurityException("Plugin Security: Access to class '$name' is blocked by Default Deny policy.")
         }
+
+        // Otherwise it is an unlisted 3rd party or plugin-internal class:
+        // throw ClassNotFoundException so CompatPluginClassLoader looks in the plugin's JAR
+        throw ClassNotFoundException(name)
     }
 
     private fun generateGhostStub(name: String): Class<*> = synchronized(getClassLoadingLock(name)) {

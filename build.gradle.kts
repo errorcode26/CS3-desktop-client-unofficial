@@ -11,8 +11,25 @@ plugins {
 
 
 subprojects {
-    // Only apply Spotless to our custom modules, NEVER to the upstream android-reference
+    // Only apply Spotless and desktop Java 21 targets to our custom modules, NEVER to the upstream android-reference
     if (project.name != "library") {
+        plugins.withType<JavaPlugin> {
+            configure<JavaPluginExtension> {
+                sourceCompatibility = JavaVersion.VERSION_21
+                targetCompatibility = JavaVersion.VERSION_21
+            }
+        }
+
+        tasks.withType<JavaCompile>().configureEach {
+            options.release.set(21)
+        }
+
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+            }
+        }
+
         apply(plugin = "com.diffplug.spotless")
         
         configure<com.diffplug.gradle.spotless.SpotlessExtension> {

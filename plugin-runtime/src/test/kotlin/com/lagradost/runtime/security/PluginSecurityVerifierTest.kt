@@ -124,7 +124,7 @@ class PluginSecurityVerifierTest {
     }
 
     @Test
-    fun `TimeZone#getDefault is blocked for untrusted plugins`() {
+    fun `TimeZone#getDefault and Locale#getDefault pass verification for all plugins`() {
         val classBytes = buildClassWithCall(
             "TzPlugin",
             "java/util/TimeZone",
@@ -132,21 +132,97 @@ class PluginSecurityVerifierTest {
             "()Ljava/util/TimeZone;",
         )
         val jar = jarWith("TzPlugin", classBytes)
-        assertFailsWith<SecurityException>("TimeZone.getDefault should be blocked for untrusted plugins") {
-            PluginSecurityVerifier.verifyJar(jar, "tz-plugin", isTrusted = false)
+        // Should NOT throw because calls are transparently spoofed by classloader
+        PluginSecurityVerifier.verifyJar(jar, "tz-plugin", isTrusted = false)
+
+        val localeBytes = buildClassWithCall(
+            "LocalePlugin",
+            "java/util/Locale",
+            "getDefault",
+            "()Ljava/util/Locale;",
+        )
+        val localeJar = jarWith("LocalePlugin", localeBytes)
+        PluginSecurityVerifier.verifyJar(localeJar, "locale-plugin", isTrusted = false)
+    }
+
+    @Test
+    fun `Files#readAllBytes is blocked`() {
+        val classBytes = buildClassWithCall(
+            "NioPlugin",
+            "java/nio/file/Files",
+            "readAllBytes",
+            "(Ljava/nio/file/Path;)[B",
+        )
+        val jar = jarWith("NioPlugin", classBytes)
+        assertFailsWith<SecurityException>("Files.readAllBytes should be blocked by Default Deny") {
+            PluginSecurityVerifier.verifyJar(jar, "nio-plugin")
         }
     }
 
     @Test
-    fun `TimeZone#getDefault is allowed for trusted plugins`() {
+    fun `Desktop#getDesktop is blocked`() {
         val classBytes = buildClassWithCall(
-            "TrustedPlugin",
-            "java/util/TimeZone",
-            "getDefault",
-            "()Ljava/util/TimeZone;",
+            "AwtPlugin",
+            "java/awt/Desktop",
+            "getDesktop",
+            "()Ljava/awt/Desktop;",
         )
-        val jar = jarWith("TrustedPlugin", classBytes)
-        // Should NOT throw for trusted plugins
-        PluginSecurityVerifier.verifyJar(jar, "trusted-plugin", isTrusted = true)
+        val jar = jarWith("AwtPlugin", classBytes)
+        assertFailsWith<SecurityException>("Desktop.getDesktop should be blocked by Default Deny") {
+            PluginSecurityVerifier.verifyJar(jar, "awt-plugin")
+        }
+    }
+
+    @Test
+    fun `Plugin calling its own internal class is permitted`() {
+        // Build an internal helper class
+        val helperBytes = buildClassWithCall(
+            "com/example/plugin/Helper",
+            "java/lang/String",
+            "valueOf",
+            "(I)Ljava/lang/String;",
+        )
+        // Build main plugin class calling the internal helper
+        val mainBytes = buildClassWithCall(
+            "com/example/plugin/Main",
+            "com/example/plugin/Helper",
+            "run",
+            "()V",
+        )
+
+        val jar = File(tempDir, "MultiClassPlugin.jar")
+        ZipOutputStream(jar.outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("com/example/plugin/Helper.class"))
+            zip.write(helperBytes)
+            zip.closeEntry()
+
+            zip.putNextEntry(ZipEntry("com/example/plugin/Main.class"))
+            zip.write(mainBytes)
+            zip.closeEntry()
+        }
+
+        // Should NOT throw because Helper is defined inside this plugin jar
+        PluginSecurityVerifier.verifyJar(jar, "multi-class-plugin")
+    }
+
+    @Test
+    fun `org json and Android material classes are permitted in ecosystem`() {
+        val jsonBytes = buildClassWithCall(
+            "JsonConsumer",
+            "org/json/JSONObject",
+            "optString",
+            "(Ljava/lang/String;)Ljava/lang/String;",
+        )
+        val jsonJar = jarWith("JsonConsumer", jsonBytes)
+        PluginSecurityVerifier.verifyJar(jsonJar, "json-plugin")
+
+        val materialBytes = buildClassWithCall(
+            "UiConsumer",
+            "com/google/android/material/bottomsheet/BottomSheetDialogFragment",
+            "dismiss",
+            "()V",
+        )
+        val materialJar = jarWith("UiConsumer", materialBytes)
+        PluginSecurityVerifier.verifyJar(materialJar, "material-plugin")
     }
 }

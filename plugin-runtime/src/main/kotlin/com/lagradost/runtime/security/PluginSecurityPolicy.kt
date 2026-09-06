@@ -23,13 +23,21 @@ object PluginSecurityPolicy {
         "com.lagradost.cloudstream3.",
         "com.lagradost.nicehttp.",
         "com.lagradost.api.",
+        "com.lagradost.safefile.",
         "org.jsoup.",
+        "com.fleeksoft.ksoup.",
         "com.fasterxml.jackson.",
         "com.google.gson.",
-        "org.mozilla.javascript.",
+        "org.json.",
+        "org.mozilla.",
         "com.evilsnow.rhino.",
+        "org.schabi.newpipe.extractor.",
+        "dev.whyoleg.cryptography.",
+        "io.ktor.",
         "android.",
         "androidx.",
+        "com.android.",
+        "com.google.android.",
         "okhttp3.",
         "okio.",
     )
@@ -94,6 +102,22 @@ object PluginSecurityPolicy {
         "java.io.PrintStream",
     )
 
+    private val SAFE_NIO_CLASSES = setOf(
+        "java.nio.ByteBuffer",
+        "java.nio.ByteOrder",
+        "java.nio.CharBuffer",
+        "java.nio.ShortBuffer",
+        "java.nio.IntBuffer",
+        "java.nio.LongBuffer",
+        "java.nio.FloatBuffer",
+        "java.nio.DoubleBuffer",
+        "java.nio.Buffer",
+        "java.nio.BufferUnderflowException",
+        "java.nio.BufferOverflowException",
+        "java.nio.ReadOnlyBufferException",
+        "java.nio.InvalidMarkException",
+    )
+
     private val EXPLICIT_DENY = setOf(
         "java.lang.Process",
         "java.lang.ProcessBuilder",
@@ -108,6 +132,14 @@ object PluginSecurityPolicy {
         "java.lang.ClassLoader",
         "java.lang.instrument.Instrumentation",
         "java.lang.management.ManagementFactory",
+        "java.nio.file.Files",
+        "java.nio.file.Path",
+        "java.nio.file.Paths",
+        "java.nio.file.FileSystem",
+        "java.nio.file.FileSystems",
+        "java.awt.Desktop",
+        "java.awt.Robot",
+        "java.net.NetworkInterface",
     )
 
     private val RAW_SOCKET_CLASSES = setOf(
@@ -165,13 +197,21 @@ object PluginSecurityPolicy {
             return hasSocketPermission
         }
 
-        // 3. Special handling for java.lang.invoke and java.io
+        // 3. Special handling for java.lang.invoke, java.io, and java.nio
         if (className.startsWith("java.lang.invoke.")) {
             return SAFE_INVOKE.contains(className)
         }
 
         if (className.startsWith("java.io.")) {
             return SAFE_IO.contains(className)
+        }
+
+        if (className.startsWith("java.nio.charset.")) {
+            return true
+        }
+
+        if (className.startsWith("java.nio.")) {
+            return SAFE_NIO_CLASSES.contains(className)
         }
 
         // 4. Ecosystem & Language Core prefix check
@@ -187,11 +227,7 @@ object PluginSecurityPolicy {
             return true
         }
 
-        // 6. Whitelist plugin's own packages and arbitrary 3rd party bundled libraries
-        if (className.contains(".")) {
-            return true
-        }
-
+        // 6. True Default Deny: Anything not explicitly whitelisted is rejected
         return false
     }
 
@@ -203,5 +239,28 @@ object PluginSecurityPolicy {
         val cleanInternal = internalName.trimStart('[').removePrefix("L").removeSuffix(";")
         val dotName = cleanInternal.replace('/', '.')
         return isClassAllowed(dotName, hasSocketPermission = false, isTrusted = isTrusted)
+    }
+
+    /**
+     * Identifies whether a class belongs to the Java Platform, JDK internals, or host desktop application.
+     */
+    fun isSystemOrHostPackage(className: String): Boolean {
+        return className.startsWith("java.") ||
+            className.startsWith("javax.") ||
+            className.startsWith("sun.") ||
+            className.startsWith("com.sun.") ||
+            className.startsWith("jdk.") ||
+            className.startsWith("com.oracle.") ||
+            className.startsWith("org.ietf.") ||
+            className.startsWith("org.omg.") ||
+            className.startsWith("org.w3c.") ||
+            className.startsWith("org.xml.") ||
+            className.startsWith("org.apache.") ||
+            className.startsWith("com.lagradost.common.") ||
+            className.startsWith("com.lagradost.cloudstream3.desktop.") ||
+            className.startsWith("com.lagradost.runtime.") ||
+            className.startsWith("app.cash.sqldelight.") ||
+            className.startsWith("org.bytedeco.") ||
+            className.startsWith("com.sun.jna.")
     }
 }

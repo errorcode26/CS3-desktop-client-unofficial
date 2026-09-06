@@ -2,6 +2,17 @@ plugins {
     kotlin("jvm")
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+}
+
 configurations.all {
     resolutionStrategy.force("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
     resolutionStrategy.force("com.fasterxml.jackson.core:jackson-databind:2.18.3")

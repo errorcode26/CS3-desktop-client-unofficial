@@ -1,74 +1,101 @@
 # CloudStream Desktop (Unofficial Client)
 
-> [!CAUTION]
-> **PROCEED AT YOUR OWN RISK (OR DON'T)**
-> 
-> * **Cursed Code Warning:** If you are a professional software engineer, browsing this source code may cause severe emotional damage. Large chunks were iterated using context-blind AI models hallucinating shortcuts while I argued with them.
-> * **Not Claiming It's Good:** It is not a textbook software engineering masterpiece. It has tech debt, weird workarounds, and pragmatic duct tape. But it compiles, launches, plays video smoothly with `libmpv`, and runs on my PC.
-> * **Windows Only & Hard Fork:** Exclusively built and tested for 64-bit Windows desktop. It is a permanent hard fork and will never merge into upstream Android CloudStream.
-> * **Zero Affiliation (Completely Different App):** Full respect to the original CloudStream creators, but this client is completely unaffiliated and uses an entirely different desktop architecture. **DO NOT contact or bother the official developers** about anything related to this project.
-> * **Zero Monetization:** No donations accepted. No feature requests taken. No support provided.
-> * **The Only Non-Negotiable Rule for Forks:** **ABSOLUTELY NO ADS.** Don't be that person. Keep it free, clean, and open.
+Desktop-native streaming client built with **Compose Multiplatform** for 64-bit Windows. Runs Android CloudStream extensions natively on a desktop JVM without requiring emulators or compatibility layers.
+
+> [!IMPORTANT]
+> **Project Scope & Architecture Directives**
+> * **Desktop-Exclusive Hard Fork:** This repository is built exclusively for 64-bit Windows desktop. It is an independent hard fork and does not merge upstream into Android CloudStream.
+> * **Zero Affiliation:** This project is independent and unaffiliated with the original Android CloudStream application or its development team. Please do not contact upstream developers regarding this client.
+> * **Ad-Free Policy:** Strict ad-free project. Derivative builds and forks must remain clean, free, and open.
 
 ---
 
-## What Is This Thing & How Does It Actually Work?
+## Architectural Overview
 
-This is a standalone desktop media client that runs Android CloudStream extensions natively on a desktop JVM without needing an Android emulator. 
+The application is structured into modular subprojects separating platform abstraction, runtime transcompilation, and UI presentation:
 
-The codebase is split into modules to pull off this trick:
-
-* **`:library`**: Core data models, scrapers, and provider contracts inherited from CloudStream to maintain extension compatibility.
-* **`:android-stubs`**: Fake mock implementations of Android platform classes (`Context`, `SharedPreferences`, `ActivityThread`) so plugin bytecode doesn't immediately crash standard JVM.
-* **`:plugin-runtime`**: The transpilation engine. Converts Dalvik DEX bytecode into JVM bytecode on the fly (`Dex2jar`), transforms instructions via ASM (`PluginBytecodeTransformer`), and sandboxes reflection calls.
-* **`:player-abstraction`**: Direct JNA bindings to the native `libmpv` C-core for hardware-accelerated video decoding, plus a local Ktor Netty proxy (`LocalStreamProxy`) to handle custom stream headers.
-* **`:common`**: Shared persistence using **SQLDelight** for local SQLite storage, settings, and watch history.
-* **`:desktop-app`**: The desktop presentation layer:
-  * **Compose Multiplatform UI** with custom Amoled dark theme and desktop window management.
-  * **Offline Turbo Downloader:** Multi-threaded chunked downloader (HTTP Range) and HLS segment downloader with local queue management.
-  * **TMDB Metadata Enrichment:** Call-sheet indexing, accurate billing order, dual actor/crew role handling, and per-season cast switching.
+| Module | Responsibility |
+| :--- | :--- |
+| **`:desktop-app`** | Compose Multiplatform presentation layer, Amoled dark theme, local stream proxy, and native desktop window controls. |
+| **`:plugin-runtime`** | Transcompilation engine. Converts Dalvik DEX bytecode into JVM bytecode via Dex2jar, applies ASM bytecode instrumentation, and enforces sandbox security policies. |
+| **`:player-abstraction`** | JNA bindings to the native `libmpv` C-core for hardware-accelerated video decoding. |
+| **`:android-stubs`** | Stubs for Android platform APIs (`Context`, `SharedPreferences`, `Build`, `DisplayMetrics`) allowing Android extension bytecode to run on the JVM. |
+| **`:common`** | SQLite persistence layer powered by **SQLDelight** for local history, preferences, and state management. |
+| **`:library`** | Base CloudStream contracts and core provider interfaces. |
 
 ---
 
-## Quick Start (Windows)
+## Developer Setup & Quick Start
 
-### Requirements
-* **JDK 21** or higher (e.g. [Eclipse Temurin](https://adoptium.net/))
-* **Git**
+### Prerequisites
+* **Operating System:** Windows 10 / 11 (64-bit)
+* **Java Development Kit:** **JDK 21** or higher (e.g. [Eclipse Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21))
+* **Git:** Installed and available in PATH
 
-### 1. Clone With Submodules
-You must clone recursively so submodules are pulled properly:
+---
+
+### Step 1: Clone With Submodules
+This repository relies on internal submodules. You **must** clone recursively:
+
 ```bash
 git clone --recursive https://github.com/errorcode26/CS3-desktop-client-unofficial.git
 cd CS3-desktop-client-unofficial
 ```
 
-### 2. Run
-Native `libmpv` 64-bit Windows binaries are pre-bundled in the repository.
+*(If you already cloned without `--recursive`, run `git submodule update --init --recursive` inside the repository).*
 
-```bat
-# Launch in dev mode with live LogCat (F12)
-.\launch.bat dev
+---
 
-# Launch standard release mode
-.\launch.bat release
+### Step 2: Native Binaries Setup (MPV)
+The video player requires the 64-bit native `libmpv-2.dll` placed in `desktop-app/appResources/windows/mpv/`.
 
-# Compile standalone release .exe
-.\launch.bat build
+Because `libmpv-2.dll` (~112 MB) exceeds GitHub's 100 MB single-file repository limit, it is not bundled directly in git.
+
+**How to get `libmpv-2.dll`:**
+1. Download the `mpv-dev-x86_64-*.7z` development package from [shinchiro/mpv-winbuild-cmake releases](https://github.com/shinchiro/mpv-winbuild-cmake/releases) (such as pinned build [20260610](https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260610)).
+2. Extract `libmpv-2.dll` from the downloaded archive.
+3. Place `libmpv-2.dll` into:
+
+```text
+desktop-app/
+└── appResources/
+    └── windows/
+        ├── mpv/
+        │   ├── libmpv-2.dll          <-- Place extracted DLL here
+        │   └── portable_config/
+        │       └── mpv.conf
+        └── jni/
+            ├── player_bridge.dll     <-- Pre-bundled in repository
+            └── WebView2Loader.dll    <-- Pre-bundled in repository
 ```
 
 ---
 
-## Contributing & Forking Policy
+### Step 3: Run & Build
 
-* **Ideas & Bugs:** Feel free to suggest ideas or report bugs. If something looks fun, I might tinker with it, but there are **zero guarantees, timelines, or obligations**.
-* **Want Specific Changes?** Fork the repository and build it yourself.
-* **Strict Reminder:** **ABSOLUTELY NO ADS** on any forks or derivative builds.
+Use the interactive launcher script:
+
+```bat
+.\launch.bat
+```
+
+The launcher provides quick shortcuts:
+* `.\launch.bat dev` — Start the client with Live LogCat (F12) enabled.
+* `.\launch.bat release` — Launch the compiled standalone executable.
+* `.\launch.bat build` — Compile the standalone distribution EXE via Gradle.
+* `.\launch.bat test` — Run all module test suites and compile checks.
+
+Alternatively, execute tasks directly via Gradle:
+```bat
+# Run in dev mode
+.\gradlew.bat :desktop-app:run --args="--dev"
+
+# Compile standalone distributable
+.\gradlew.bat :desktop-app:createDistributable
+```
 
 ---
 
 ## Disclaimer
 
-This is a blank-slate media shell and runtime harness. It does not ship with, host, distribute, or pre-configure any plugins, streaming links, or copyrighted media files. 
-
-Run at your own risk; I take zero responsibility if your CPU fans launch your PC into low Earth orbit.
+This software is an empty media player shell and runtime harness. It does not host, distribute, or bundle any media content, streams, or scrapers. Users are solely responsible for extensions they choose to install.

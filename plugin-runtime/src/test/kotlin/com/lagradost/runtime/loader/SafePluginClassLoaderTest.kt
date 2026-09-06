@@ -13,6 +13,13 @@ class SafePluginClassLoaderTest {
         // java.lang.String is perfectly safe
         val strClass = classLoader.loadClass("java.lang.String")
         assertEquals("java.lang.String", strClass.name)
+
+        // In-memory NIO buffers and charsets are allowed for decoders
+        val byteBufferClass = classLoader.loadClass("java.nio.ByteBuffer")
+        assertEquals("java.nio.ByteBuffer", byteBufferClass.name)
+
+        val charsetsClass = classLoader.loadClass("java.nio.charset.StandardCharsets")
+        assertEquals("java.nio.charset.StandardCharsets", charsetsClass.name)
     }
 
     @Test
@@ -29,6 +36,12 @@ class SafePluginClassLoaderTest {
             "java.net.ServerSocket",
             "java.io.File",
             "java.io.FileInputStream",
+            "java.nio.file.Files",
+            "java.nio.file.Paths",
+            "java.nio.file.Path",
+            "java.awt.Desktop",
+            "java.awt.Robot",
+            "java.net.NetworkInterface",
             "sun.misc.Unsafe",
         )
 
@@ -37,5 +50,36 @@ class SafePluginClassLoaderTest {
                 classLoader.loadClass(className)
             }
         }
+    }
+
+    @Test
+    fun testUnknownPluginClassThrowsClassNotFound() {
+        val classLoader = SafePluginClassLoader(this::class.java.classLoader)
+
+        // Unknown 3rd party or plugin internal classes must throw ClassNotFoundException
+        // so the child CompatPluginClassLoader checks the plugin's JAR
+        assertFailsWith<ClassNotFoundException> {
+            classLoader.loadClass("com.example.provider.MyCustomExtractor")
+        }
+    }
+
+    @Test
+    fun testGhostStubGenerationForAndroidAndGoogleClasses() {
+        val classLoader = SafePluginClassLoader(this::class.java.classLoader)
+        val stubClass = classLoader.loadClass("com.google.android.material.bottomsheet.BottomSheetDialogFragment")
+        assertEquals("com.google.android.material.bottomsheet.BottomSheetDialogFragment", stubClass.name)
+    }
+
+    @Test
+    fun testPrivacySpooferReturnsGenericData() {
+        val locale = com.lagradost.cloudstream3.PrivacySpoofer.getSpoofedLocale()
+        assertEquals("en", locale.language)
+        assertEquals("US", locale.country)
+
+        val tz = com.lagradost.cloudstream3.PrivacySpoofer.getSpoofedTimeZone()
+        assertEquals("UTC", tz.id)
+
+        val zoneId = com.lagradost.cloudstream3.PrivacySpoofer.getSpoofedZoneId()
+        assertEquals("UTC", zoneId.id)
     }
 }

@@ -94,6 +94,40 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
             descriptor: String,
             isInterface: Boolean,
         ) {
+            // Privacy Spoofing: Intercept region and timezone calls and route to PrivacySpoofer
+            if (opcode == Opcodes.INVOKESTATIC) {
+                if (owner == "java/util/Locale" && name == "getDefault" && descriptor == "()Ljava/util/Locale;") {
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "com/lagradost/cloudstream3/PrivacySpoofer",
+                        "getSpoofedLocale",
+                        "()Ljava/util/Locale;",
+                        false,
+                    )
+                    return
+                }
+                if (owner == "java/util/TimeZone" && name == "getDefault" && descriptor == "()Ljava/util/TimeZone;") {
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "com/lagradost/cloudstream3/PrivacySpoofer",
+                        "getSpoofedTimeZone",
+                        "()Ljava/util/TimeZone;",
+                        false,
+                    )
+                    return
+                }
+                if (owner == "java/time/ZoneId" && name == "systemDefault" && descriptor == "()Ljava/time/ZoneId;") {
+                    super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "com/lagradost/cloudstream3/PrivacySpoofer",
+                        "getSpoofedZoneId",
+                        "()Ljava/time/ZoneId;",
+                        false,
+                    )
+                    return
+                }
+            }
+
             // Only intercept calls into kotlinx.coroutines.* that look like they have
             // a mangled suffix (e.g. delay_VtjQ1oo, withTimeoutOrNull_KLykuaI).
             // If the method doesn't exist in the current runtime, we find the right

@@ -17,10 +17,6 @@ desktop-app/appResources/windows/mpv/portable_config/watch_later/
 *.jar
 *.cs3
 
-# Exceptions
-!gradle/wrapper/gradle-wrapper.jar
-!desktop-app/appResources/**/*.dll
-
 # Executables and Native Binaries
 *.exe
 *.msi
@@ -32,6 +28,13 @@ desktop-app/appResources/windows/mpv/portable_config/watch_later/
 *.tar.gz
 *.rar
 ms-playwright/
+
+# Large binaries (>100MB exceeds GitHub single-file limit; distributed via Releases)
+desktop-app/appResources/windows/mpv/libmpv-2.dll
+
+# Binary Exceptions (MUST come after wildcard rules above to take effect)
+!gradle/wrapper/gradle-wrapper.jar
+!desktop-app/appResources/windows/jni/*.dll
 
 # OS
 .DS_Store
@@ -62,7 +65,7 @@ spotless_*.txt
 *.orig
 .env
 secrets.properties
-# Build/Dev logs and output
+# Build/Dev logs and output
 dev_err.txt
 dev_out.txt
 exe_err.txt
@@ -103,6 +106,7 @@ plugins/
 *.db-wal
 *.sqlite
 *.sqlite3
+
 # External reference repositories
 mihon-main/
 NuvioDesktop-Dev/

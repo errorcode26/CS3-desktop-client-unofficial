@@ -16,6 +16,15 @@ object PluginSecurityVerifier {
         }
 
         ZipFile(jarFile).use { zip ->
+            val pluginJarClasses = mutableSetOf<String>()
+            val initialEntries = zip.entries()
+            while (initialEntries.hasMoreElements()) {
+                val entry = initialEntries.nextElement()
+                if (entry.name.endsWith(".class")) {
+                    pluginJarClasses.add(entry.name.removeSuffix(".class"))
+                }
+            }
+
             val entries = zip.entries()
             while (entries.hasMoreElements()) {
                 val entry = entries.nextElement()
@@ -31,9 +40,20 @@ object PluginSecurityVerifier {
                                     val owner = insn.owner // internal name e.g. java/lang/Runtime
 
                                     // Enforce Default Deny (Whitelist-Only) policy on ASM owner
-                                    if (!com.lagradost.runtime.security.PluginSecurityPolicy.isAsmOwnerAllowed(owner, isTrusted)) {
+                                    if (!pluginJarClasses.contains(owner) && !com.lagradost.runtime.security.PluginSecurityPolicy.isAsmOwnerAllowed(owner, isTrusted)) {
                                         throw SecurityException("Disallowed class '${owner.replace('/', '.')}' referenced in ${classNode.name.replace('/', '.')}.${method.name}()")
                                     }
+                                }
+
+                                if (insn is org.objectweb.asm.tree.FieldInsnNode) {
+                                    val owner = insn.owner
+                                    if (!pluginJarClasses.contains(owner) && !com.lagradost.runtime.security.PluginSecurityPolicy.isAsmOwnerAllowed(owner, isTrusted)) {
+                                        throw SecurityException("Disallowed class '${owner.replace('/', '.')}' referenced in ${classNode.name.replace('/', '.')}.${method.name}()")
+                                    }
+                                }
+
+                                if (insn is MethodInsnNode) {
+                                    val owner = insn.owner
 
                                     // Fallback block for dangerous Runtime calls (in case the bytecode transformer missed them)
                                     if (owner == "java/lang/Runtime") {
@@ -80,19 +100,6 @@ object PluginSecurityVerifier {
                                     if (owner == "java/lang/System") {
                                         if (insn.name == "exit" || insn.name == "loadLibrary" || insn.name == "load" || insn.name == "setSecurityManager" || insn.name == "getProperty" || insn.name == "getProperties" || insn.name == "getenv") {
                                             throw SecurityException("Disallowed System.${insn.name}() call in ${classNode.name.replace('/', '.')}")
-                                        }
-                                    }
-
-                                    // Block TimeZone and Region (Locale) access
-                                    if (!isTrusted) {
-                                        if (owner == "java/util/TimeZone" && insn.name == "getDefault") {
-                                            throw SecurityException("Blocked TimeZone.getDefault() access in ${classNode.name.replace('/', '.')}")
-                                        }
-                                        if (owner == "java/time/ZoneId" && insn.name == "systemDefault") {
-                                            throw SecurityException("Blocked ZoneId.systemDefault() access in ${classNode.name.replace('/', '.')}")
-                                        }
-                                        if (owner == "java/util/Locale" && insn.name == "getDefault") {
-                                            throw SecurityException("Blocked Locale.getDefault() access in ${classNode.name.replace('/', '.')}")
                                         }
                                     }
                                 }
