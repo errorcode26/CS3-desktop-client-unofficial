@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 
+@Deprecated("Replaced by self-skeletonizing DetailsContent with ScreenStateCrossfade", level = DeprecationLevel.WARNING)
 @Composable
 fun DetailsSkeletonPlaceholder(
     onBack: () -> Unit,

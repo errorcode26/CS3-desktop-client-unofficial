@@ -262,9 +262,13 @@ private fun HeroBackdropLayer(
     val pageScrimColor = Color.Black
     val verticalFadeBrush = remember {
         Brush.verticalGradient(
-            0.0f to Color.Black,
-            0.65f to Color.Black,
-            1.0f to Color.Transparent,
+            0.00f to Color.Black,
+            0.55f to Color.Black,
+            0.70f to Color.Black.copy(alpha = 0.92f),
+            0.82f to Color.Black.copy(alpha = 0.62f),
+            0.92f to Color.Black.copy(alpha = 0.25f),
+            0.98f to Color.Black.copy(alpha = 0.05f),
+            1.00f to Color.Transparent,
         )
     }
     Box(

@@ -107,7 +107,8 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
     COLLECTION("Franchise Collection", "Franchise sequels, prequels, and sagas"),
     RECOMMENDATIONS("Similar Content", "Recommendations and similar media"),
     INFO("Details & Technical Info", "Release date, runtime, status, certification, budget, and language"),
-    STUDIOS("Studios & Networks", "Production companies, broadcast networks, and studio logos"),
+    STUDIOS("Production Studios", "Animation studios, film producers, and production companies"),
+    NETWORKS("Broadcast Networks", "Broadcasters, television networks, and streaming channels"),
     REVIEWS("Community Reviews", "User star ratings and written reviews");
 
     companion object {
@@ -120,6 +121,7 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
             RECOMMENDATIONS,
             INFO,
             STUDIOS,
+            NETWORKS,
             REVIEWS,
         )
 

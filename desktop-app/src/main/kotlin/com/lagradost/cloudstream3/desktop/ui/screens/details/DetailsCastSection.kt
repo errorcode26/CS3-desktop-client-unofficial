@@ -133,8 +133,14 @@ fun DetailsCastSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        val hasMultipleSeasons = availableSeasons.size > 1
+                        val castTitle = if (hasMultipleSeasons && activeSeasonActors != null && selectedSeason != null) {
+                            if (selectedSeason == 0) "Specials Cast & Characters" else "Season $selectedSeason Cast & Characters"
+                        } else {
+                            "Cast & Crew"
+                        }
                         Text(
-                            text = if (activeSeasonActors != null && selectedSeason != null) "Season $selectedSeason Cast & Characters" else "Cast & Crew",
+                            text = castTitle,
                             style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,

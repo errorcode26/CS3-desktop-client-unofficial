@@ -2,7 +2,10 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.MainPageData
+import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
@@ -12,13 +15,16 @@ import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.HeroRepository.HeroUpdate
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeCategoryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Returns true only for real, user-facing content providers:
@@ -54,11 +60,9 @@ class DesktopHomeViewModel(
 
         viewModelScope.launch {
             ActiveProviderRepository.activeProviders.collectLatest { activeApis ->
-                val keys = activeApis.map { ActiveProviderRepository.getProviderKey(it) }
                 updateState {
                     copy(
                         activeProviderApis = activeApis,
-                        activeProviders = keys,
                     )
                 }
             }
@@ -134,6 +138,82 @@ class DesktopHomeViewModel(
                     copy(disabledCatalogs = disabledCatalogs + (event.providerName to newDisabled))
                 }
             }
+            is HomeUiEvent.OnLoadCategory -> {
+                loadCategory(event.provider, event.pageData)
+            }
+        }
+    }
+
+    private fun loadCategory(provider: MainAPI, pageData: MainPageData) {
+        val cacheKey = "${provider.name}_${pageData.name}"
+        val cachedResponse = HomeCategorySectionCache.categoryCache[cacheKey]
+        val currentState = uiState.value.categories[cacheKey]
+
+        if (cachedResponse != null && currentState?.response == cachedResponse) {
+            return
+        }
+
+        if (cachedResponse != null) {
+            updateState {
+                copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = cachedResponse, error = null)))
+            }
+            return
+        }
+
+        if (currentState?.isLoading == true) {
+            return
+        }
+
+        updateState {
+            copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = true, response = null, error = null)))
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val mutex = HomeCategorySectionCache.categoryMutex.getOrPut(cacheKey) { kotlinx.coroutines.sync.Mutex() }
+            mutex.withLock {
+                val existing = HomeCategorySectionCache.categoryCache[cacheKey]
+                if (existing != null) {
+                    updateState {
+                        copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = existing, error = null)))
+                    }
+                    return@withLock
+                }
+
+                val request = MainPageRequest(pageData.name, pageData.data, pageData.horizontalImages)
+                com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loading home category: '${pageData.name}'")
+                val result = SafePluginInvoker.invoke(
+                    tag = "HomeCategory:${provider.name}:${pageData.name.ifBlank { "Category" }}",
+                    timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
+                ) {
+                    provider.getMainPage(1, request)
+                }
+
+                if (result.isSuccess) {
+                    val response = result.getOrNull()
+                    if (response != null && response.items.isNotEmpty()) {
+                        com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loaded ${response.items.size} items for category '${pageData.name}'")
+                        HomeCategorySectionCache.categoryCache[cacheKey] = response
+                        updateState {
+                            copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = response, error = null)))
+                        }
+                    } else {
+                        updateState {
+                            copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = null, error = "No items found.")))
+                        }
+                    }
+                } else {
+                    val ex = result.exceptionOrNull()
+                    if (ex is kotlinx.coroutines.CancellationException) {
+                        throw ex
+                    }
+                    com.lagradost.common.logging.AppLogger.w("Plugin:${provider.name}", "Failed to load category '${pageData.name}': ${ex?.message}")
+                    DesktopErrorReporter.report("getMainPage failed for ${provider.name} - ${pageData.name.ifBlank { "Unknown Category" }}", ex ?: Exception("Unknown error"))
+                    val errorMsg = ex?.localizedMessage ?: "Connection error"
+                    updateState {
+                        copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = null, error = errorMsg)))
+                    }
+                }
+            }
         }
     }
 
@@ -177,16 +257,15 @@ class DesktopHomeViewModel(
     }
 
     private fun reloadProvider() {
-        com.lagradost.cloudstream3.desktop.ui.screens.home.HomeCategorySectionCache.clear()
+        HomeCategorySectionCache.clear()
+        updateState { copy(categories = emptyMap()) }
         viewModelScope.launch {
             val currentApis = ActiveProviderRepository.activeProviders.value
-            val currentKeys = uiState.value.activeProviders
             if (currentApis.isNotEmpty()) {
-                updateState { copy(activeProviders = emptyList(), activeProviderApis = emptyList()) }
+                updateState { copy(activeProviderApis = emptyList()) }
                 kotlinx.coroutines.delay(50)
                 updateState {
                     copy(
-                        activeProviders = currentKeys,
                         activeProviderApis = currentApis,
                     )
                 }

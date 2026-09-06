@@ -129,6 +129,8 @@ fun ComposeHistoryScreen(
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
                                             autoPlay = false,
+                                            targetSeason = history.season,
+                                            targetEpisodeId = history.episodeId,
                                         ),
                                     )
                                 }
@@ -143,6 +145,8 @@ fun ComposeHistoryScreen(
                                             preloadedPoster = history.posterUrl,
                                             preloadedBg = null,
                                             autoPlay = true,
+                                            targetSeason = history.season,
+                                            targetEpisodeId = history.episodeId,
                                         ),
                                     )
                                 }

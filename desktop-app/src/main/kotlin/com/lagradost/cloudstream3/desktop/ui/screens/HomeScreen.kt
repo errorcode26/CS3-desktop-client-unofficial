@@ -27,7 +27,6 @@ fun ComposeHomeScreen(
     onNavigate: (Config) -> Unit,
     viewModel: com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel,
 ) {
-    val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val providers = uiState.providers
     val activeProviders = uiState.activeProviders
@@ -154,12 +153,19 @@ fun ComposeHomeScreen(
                             HomeCategorySection(
                                 pageData = pageData,
                                 provider = currentProvider,
+                                categoryState = uiState.categories["${currentProvider.name}_${pageData.name}"],
+                                onLoadCategory = {
+                                    viewModel.onEvent(HomeUiEvent.OnLoadCategory(currentProvider, pageData))
+                                },
                                 isFirstPage = isFirstPage,
-                                parentScope = coroutineScope,
                                 heroMetaMap = uiState.heroMetaMap,
                                 allBookmarks = uiState.bookmarks,
                                 onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
-                                onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
+                                onHeroBackgroundChanged = { url ->
+                                    if (isFirstPage) {
+                                        currentHeroImageUrl = url
+                                    }
+                                },
                                 outerPadding = horizontalPad,
                                 afterHeroContent = if (isFirstPage && showContinueWatching) {
                                     {
@@ -172,10 +178,10 @@ fun ComposeHomeScreen(
                                                 onNavigate(Config.History)
                                             },
                                             onItemClick = { prov, hist ->
-                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = false))
+                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = false, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
                                             },
                                             onPlayClick = { prov, hist ->
-                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true))
+                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
                                             },
                                         )
                                     }

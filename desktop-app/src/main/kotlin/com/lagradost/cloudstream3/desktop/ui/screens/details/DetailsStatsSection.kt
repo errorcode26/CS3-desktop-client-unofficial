@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -7,6 +8,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,6 +53,24 @@ fun hasDetailsStats(
         (seasons ?: 0) > 0 || (episodes ?: 0) > 0
 }
 
+fun hasNetworks(
+    uiState: DetailsUiState?,
+): Boolean {
+    if (!MetadataConfig.separateNetworks.value) return false
+    return uiState?.enrichedNetworksList?.isNotEmpty() == true ||
+        uiState?.enrichedNetworks?.isNotEmpty() == true
+}
+
+fun hasStudios(
+    uiState: DetailsUiState?,
+): Boolean {
+    if (!MetadataConfig.separateNetworks.value) {
+        return hasStudiosOrNetworks(uiState)
+    }
+    return uiState?.enrichedProductionCompanies?.isNotEmpty() == true ||
+        uiState?.enrichedStudios?.isNotEmpty() == true
+}
+
 fun hasStudiosOrNetworks(
     uiState: DetailsUiState?,
 ): Boolean {
@@ -86,22 +108,32 @@ fun DetailsStatsSection(
         }
     } else null
 
-    val detailRows = remember(data, uiState, budget, revenue, country, lang, relDate, status, cert, runtimeStr, seasons, episodes) {
+    val isTv = data.type == com.lagradost.cloudstream3.TvType.TvSeries ||
+        data.type == com.lagradost.cloudstream3.TvType.Anime ||
+        data.type == com.lagradost.cloudstream3.TvType.AsianDrama ||
+        data.type == com.lagradost.cloudstream3.TvType.Cartoon ||
+        data is TvSeriesLoadResponse ||
+        data is AnimeLoadResponse
+
+    val detailRows = remember(data, uiState, budget, revenue, country, lang, relDate, status, cert, runtimeStr, seasons, episodes, isTv) {
         val list = mutableListOf<Pair<String, String>>()
         if (!status.isNullOrBlank()) {
             list.add("Status" to status)
         }
         if (!relDate.isNullOrBlank()) {
-            list.add("Release Info" to relDate)
+            val dateLabel = if (isTv) "First Aired" else "Release Date"
+            list.add(dateLabel to formatReleaseDate(relDate))
         }
         if (!runtimeStr.isNullOrBlank()) {
-            list.add("Runtime" to runtimeStr)
+            val runtimeLabel = if (isTv) "Episode Runtime" else "Runtime"
+            val runtimeVal = if (isTv) "~$runtimeStr / ep" else runtimeStr
+            list.add(runtimeLabel to runtimeVal)
         }
         if (!cert.isNullOrBlank()) {
             list.add("Certification" to cert)
         }
         if (!country.isNullOrBlank()) {
-            list.add("Origin Country" to country)
+            list.add("Origin Country" to formatCountry(country))
         }
         if (!lang.isNullOrBlank()) {
             list.add("Original Language" to lang)
@@ -239,6 +271,140 @@ fun DetailsStatsSection(
     }
 }
 
+private fun consolidateSubBrands(companies: List<ProductionCompany>): List<ProductionCompany> {
+    if (companies.size <= 1) return companies
+    val toRemove = mutableSetOf<ProductionCompany>()
+    for (i in companies.indices) {
+        for (j in companies.indices) {
+            if (i == j) continue
+            val a = companies[i]
+            val b = companies[j]
+            val nameA = a.name.trim()
+            val nameB = b.name.trim()
+            val isElaboration = nameB.startsWith("$nameA ", ignoreCase = true) ||
+                nameB.startsWith("$nameA -", ignoreCase = true) ||
+                nameB.startsWith("$nameA:", ignoreCase = true)
+            if (isElaboration) {
+                if (!b.logoUrl.isNullOrBlank() || a.logoUrl.isNullOrBlank()) {
+                    toRemove.add(a)
+                } else {
+                    toRemove.add(b)
+                }
+            }
+        }
+    }
+    return companies.filterNot { it in toRemove }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProductionCompanySectionLayout(
+    title: String,
+    companies: List<ProductionCompany>,
+    modifier: Modifier = Modifier,
+    onCompanyClick: ((ProductionCompany) -> Unit)? = null,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val canExpand = companies.size > 5
+    val visibleCompanies = if (expanded || !canExpand) companies else companies.take(4)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                letterSpacing = 1.2.sp,
+            )
+
+            if (canExpand) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        Color.White.copy(alpha = 0.08f),
+                    ),
+                    modifier = Modifier.clickable { expanded = !expanded },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = if (expanded) "Show less" else "Show all (${companies.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp,
+                        )
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            visibleCompanies.forEach { company ->
+                ProductionCompanyCard(
+                    company = company,
+                    onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailsNetworksSection(
+    uiState: DetailsUiState?,
+    modifier: Modifier = Modifier,
+    onCompanyClick: ((ProductionCompany) -> Unit)? = null,
+) {
+    val netCompanies = remember(uiState) {
+        val list = mutableListOf<ProductionCompany>()
+        if (uiState != null) {
+            list.addAll(uiState.enrichedNetworksList)
+            if (list.isEmpty()) {
+                list.addAll(uiState.enrichedNetworks.map { ProductionCompany(name = it) })
+            }
+        }
+        list.distinctBy { it.name.trim().lowercase() }
+            .sortedWith(compareByDescending<ProductionCompany> { !it.logoUrl.isNullOrBlank() }.thenBy { it.name })
+    }
+
+    if (netCompanies.isEmpty()) return
+
+    ProductionCompanySectionLayout(
+        title = "BROADCAST NETWORKS",
+        companies = netCompanies,
+        modifier = modifier,
+        onCompanyClick = onCompanyClick,
+    )
+}
+
 @Composable
 fun DetailsStudiosSection(
     uiState: DetailsUiState?,
@@ -258,7 +424,7 @@ fun DetailsStudiosSection(
         list.distinctBy { it.name.trim().lowercase() }
     }
 
-    val prodCompanies = remember(uiState) {
+    val prodCompanies = remember(uiState, netCompanies) {
         val list = mutableListOf<ProductionCompany>()
         if (uiState != null) {
             list.addAll(uiState.enrichedProductionCompanies)
@@ -266,95 +432,42 @@ fun DetailsStudiosSection(
                 list.addAll(uiState.enrichedStudios.map { ProductionCompany(name = it) })
             }
         }
-        list.distinctBy { it.name.trim().lowercase() }
+        val distinct = list.distinctBy { it.name.trim().lowercase() }
+
+        // Cross-category deduplication: Exclude companies that are already listed as broadcast networks
+        val netNames = netCompanies.map { it.name.trim().lowercase() }.toSet()
+        val netIds = netCompanies.mapNotNull { if (it.id > 0) it.id else null }.toSet()
+        val nonNetwork = distinct.filterNot { comp ->
+            (comp.id > 0 && comp.id in netIds) || comp.name.trim().lowercase() in netNames
+        }
+
+        consolidateSubBrands(nonNetwork)
+            .sortedWith(compareByDescending<ProductionCompany> { !it.logoUrl.isNullOrBlank() }.thenBy { it.name })
     }
 
-    val allCompanies = remember(netCompanies, prodCompanies) {
-        (prodCompanies + netCompanies).distinctBy { it.name.trim().lowercase() }
-    }
-
-    if (allCompanies.isNotEmpty()) {
-        Column(
-            modifier = modifier.fillMaxWidth(),
-        ) {
-            if (separateNetworksPref && netCompanies.isNotEmpty() && prodCompanies.isNotEmpty()) {
-                // Subsection 1: Broadcast Networks
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "BROADCAST NETWORKS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.2.sp,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                    androidx.compose.foundation.layout.FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        netCompanies.forEach { company ->
-                            ProductionCompanyCard(
-                                company = company,
-                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
-                            )
-                        }
-                    }
-                }
-
-                // Subsection 2: Production Studios
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
-                    Text(
-                        text = "PRODUCTION STUDIOS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.2.sp,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                    androidx.compose.foundation.layout.FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        prodCompanies.forEach { company ->
-                            ProductionCompanyCard(
-                                company = company,
-                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
-                            )
-                        }
-                    }
-                }
-            } else {
-                val sectionTitle = if (netCompanies.isNotEmpty() && prodCompanies.isEmpty()) "BROADCAST NETWORKS" else if (prodCompanies.isNotEmpty() && netCompanies.isEmpty()) "PRODUCTION STUDIOS" else "STUDIOS & NETWORKS"
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = sectionTitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.2.sp,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                    androidx.compose.foundation.layout.FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        allCompanies.forEach { company ->
-                            ProductionCompanyCard(
-                                company = company,
-                                onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
-                            )
-                        }
-                    }
-                }
-            }
+    val displayCompanies = remember(separateNetworksPref, netCompanies, prodCompanies) {
+        if (!separateNetworksPref && netCompanies.isNotEmpty()) {
+            (prodCompanies + netCompanies).distinctBy { it.name.trim().lowercase() }
+                .sortedWith(compareByDescending<ProductionCompany> { !it.logoUrl.isNullOrBlank() }.thenBy { it.name })
+        } else {
+            prodCompanies
         }
     }
+
+    if (displayCompanies.isEmpty()) return
+
+    val sectionTitle = if (!separateNetworksPref && netCompanies.isNotEmpty() && prodCompanies.isNotEmpty()) {
+        "STUDIOS & NETWORKS"
+    } else {
+        "PRODUCTION STUDIOS"
+    }
+
+    ProductionCompanySectionLayout(
+        title = sectionTitle,
+        companies = displayCompanies,
+        modifier = modifier,
+        onCompanyClick = onCompanyClick,
+    )
 }
 
 @Composable
@@ -446,3 +559,32 @@ private fun formatCurrency(amount: Long): String {
         else -> "$${java.text.NumberFormat.getIntegerInstance().format(amount)}"
     }
 }
+
+private fun formatReleaseDate(raw: String): String {
+    val trimmed = raw.trim()
+    return try {
+        if (trimmed.length == 10 && trimmed[4] == '-' && trimmed[7] == '-') {
+            val date = java.time.LocalDate.parse(trimmed)
+            date.format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy", java.util.Locale.ENGLISH))
+        } else {
+            trimmed
+        }
+    } catch (_: Exception) {
+        trimmed
+    }
+}
+
+private fun formatCountry(raw: String): String {
+    return raw.split(",")
+        .map { it.trim() }
+        .map { code ->
+            if (code.length == 2) {
+                val display = java.util.Locale("", code).displayCountry
+                if (display.isNotBlank() && !display.equals(code, ignoreCase = true)) display else code
+            } else {
+                code
+            }
+        }
+        .joinToString(", ")
+}
+

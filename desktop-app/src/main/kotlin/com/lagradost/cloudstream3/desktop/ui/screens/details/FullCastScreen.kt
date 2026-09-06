@@ -181,8 +181,14 @@ fun FullCastScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 24.dp)) {
+                        val hasMultipleSeasons = availableSeasons.size > 1
+                        val titleText = if (hasMultipleSeasons && activeSeason != null) {
+                            if (activeSeason == 0) "Specials Cast & Crew" else "Season $activeSeason Cast & Crew"
+                        } else {
+                            "Full Cast & Crew"
+                        }
                         Text(
-                            text = if (activeSeason != null) "Season $activeSeason Cast & Crew" else "Full Cast & Crew",
+                            text = titleText,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,

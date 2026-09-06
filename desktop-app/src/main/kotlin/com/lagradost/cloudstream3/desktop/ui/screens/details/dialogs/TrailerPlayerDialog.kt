@@ -127,6 +127,15 @@ fun TrailerPlayerDialog(
                     background = java.awt.Color.BLACK
                 }
 
+                override fun paint(g: java.awt.Graphics?) {
+                    g?.color = java.awt.Color.BLACK
+                    g?.fillRect(0, 0, width.coerceAtLeast(1), height.coerceAtLeast(1))
+                }
+
+                override fun update(g: java.awt.Graphics?) {
+                    paint(g)
+                }
+
                 override fun addNotify() {
                     super.addNotify()
                     try {

@@ -157,16 +157,32 @@ object LocalStreamProxy {
                             <style>
                                 * { margin: 0; padding: 0; box-sizing: border-box; }
                                 html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-                                iframe { width: 100%; height: 100%; border: none; }
+                                iframe { width: 100%; height: 100%; border: none; background: #000; }
                             </style>
                         </head>
-                        <body>
+                        <body style="background: #000;">
                             <iframe
                                 src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&fs=1"
+                                style="background: #000;"
+                                allowtransparency="true"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                                 allowfullscreen="true"
                                 referrerpolicy="strict-origin-when-cross-origin">
                             </iframe>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    if (window.chrome && window.chrome.webview) {
+                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'ui_ready' }));
+                                    }
+                                });
+                                window.addEventListener('keydown', function(e) {
+                                    if (e.key === 'Escape') {
+                                        if (window.chrome && window.chrome.webview) {
+                                            window.chrome.webview.postMessage(JSON.stringify({ type: 'close' }));
+                                        }
+                                    }
+                                });
+                            </script>
                         </body>
                         </html>
                         """.trimIndent()
@@ -180,11 +196,25 @@ object LocalStreamProxy {
                             <style>
                                 * { margin: 0; padding: 0; box-sizing: border-box; }
                                 html, body { width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-                                video { width: 100%; height: 100%; object-fit: contain; }
+                                video { width: 100%; height: 100%; object-fit: contain; background: #000; }
                             </style>
                         </head>
-                        <body>
-                            <video src="$u" autoplay muted controls playsinline></video>
+                        <body style="background: #000;">
+                            <video src="$u" autoplay muted controls playsinline style="background: #000;"></video>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    if (window.chrome && window.chrome.webview) {
+                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'ui_ready' }));
+                                    }
+                                });
+                                window.addEventListener('keydown', function(e) {
+                                    if (e.key === 'Escape') {
+                                        if (window.chrome && window.chrome.webview) {
+                                            window.chrome.webview.postMessage(JSON.stringify({ type: 'close' }));
+                                        }
+                                    }
+                                });
+                            </script>
                         </body>
                         </html>
                         """.trimIndent()

@@ -18,6 +18,8 @@ sealed class Config {
         val preloadedPoster: String? = null,
         val preloadedBg: String? = null,
         val autoPlay: Boolean = false,
+        val targetSeason: Int? = null,
+        val targetEpisodeId: String? = null,
     ) : Config()
     data class CategoryGrid(
         val providerName: String,

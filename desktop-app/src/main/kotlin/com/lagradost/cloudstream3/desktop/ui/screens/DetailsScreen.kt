@@ -204,89 +204,151 @@ fun ComposeDetailsScreen(
                 }
             }
             val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
-            if (isLoading) {
-                if (fakeData != null) {
-                    DetailsContent(onNavigate, onBack, provider, fakeData, screenshots, enrichmentPhase, isLoading = true, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl, onEvent = viewModel::onEvent)
-                } else {
-                    DetailsSkeletonPlaceholder(
-                        onBack = onBack,
-                        preloadedPoster = viewModel.preloadedPoster,
-                        preloadedBg = viewModel.preloadedBg,
-                    )
+            val currentStage = remember(isLoading, fakeData, response, fetchFailed) {
+                when {
+                    fetchFailed && response == null && fakeData == null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
+                    response != null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.CONTENT
+                    fakeData != null || isLoading -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.LOADING
+                    else -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
                 }
-            } else if (response != null) {
-                DetailsContent(onNavigate, onBack, provider, response, screenshots, enrichmentPhase, isLoading = false, onPlay = handlePlay, onDownload = handleDownload, enableDownloadButtons = enableDownloadButtons, onToggleWatched = handleToggleWatched, onToggleSeasonWatched = handleToggleSeasonWatched, onRemoveEpisodeWatched = handleRemoveEpisodeWatched, onToggleEpisodesStackedView = handleToggleEpisodesStackedView, onSetEpisodeViewMode = handleSetEpisodeViewMode, dynamicColorEnabled = heroBackgroundBlurEnabled, uiState = uiState, showHistory = showHistory, activeBgUrl = activeBgUrl, onEvent = viewModel::onEvent)
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                        shadowElevation = 8.dp,
-                        modifier = Modifier
-                            .padding(24.dp)
-                            .widthIn(max = 560.dp)
-                            .fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(28.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+            }
+
+            com.lagradost.cloudstream3.desktop.ui.components.ScreenStateCrossfade(
+                stage = currentStage,
+                modifier = Modifier.fillMaxSize(),
+                loadingContent = {
+                    val placeholderData = fakeData ?: @Suppress("DEPRECATION_ERROR", "DEPRECATION") MovieLoadResponse(
+                        name = viewModel.preloadedName ?: "",
+                        url = viewModel.url,
+                        apiName = provider.name,
+                        type = TvType.Movie,
+                        dataUrl = viewModel.url,
+                        posterUrl = viewModel.preloadedPoster,
+                    ).apply {
+                        this.backgroundPosterUrl = viewModel.preloadedBg
+                    }
+                    DetailsContent(
+                        onNavigate = onNavigate,
+                        onBack = onBack,
+                        provider = provider,
+                        data = placeholderData,
+                        screenshots = screenshots,
+                        enrichmentPhase = enrichmentPhase,
+                        isLoading = true,
+                        onPlay = handlePlay,
+                        onDownload = handleDownload,
+                        enableDownloadButtons = enableDownloadButtons,
+                        onToggleWatched = handleToggleWatched,
+                        onToggleSeasonWatched = handleToggleSeasonWatched,
+                        onRemoveEpisodeWatched = handleRemoveEpisodeWatched,
+                        onToggleEpisodesStackedView = handleToggleEpisodesStackedView,
+                        onSetEpisodeViewMode = handleSetEpisodeViewMode,
+                        dynamicColorEnabled = heroBackgroundBlurEnabled,
+                        uiState = uiState,
+                        showHistory = showHistory,
+                        activeBgUrl = activeBgUrl,
+                        onEvent = viewModel::onEvent,
+                    )
+                },
+                content = {
+                    val activeData = response ?: fakeData
+                    if (activeData != null) {
+                        DetailsContent(
+                            onNavigate = onNavigate,
+                            onBack = onBack,
+                            provider = provider,
+                            data = activeData,
+                            screenshots = screenshots,
+                            enrichmentPhase = enrichmentPhase,
+                            isLoading = false,
+                            onPlay = handlePlay,
+                            onDownload = handleDownload,
+                            enableDownloadButtons = enableDownloadButtons,
+                            onToggleWatched = handleToggleWatched,
+                            onToggleSeasonWatched = handleToggleSeasonWatched,
+                            onRemoveEpisodeWatched = handleRemoveEpisodeWatched,
+                            onToggleEpisodesStackedView = handleToggleEpisodesStackedView,
+                            onSetEpisodeViewMode = handleSetEpisodeViewMode,
+                            dynamicColorEnabled = heroBackgroundBlurEnabled,
+                            uiState = uiState,
+                            showHistory = showHistory,
+                            activeBgUrl = activeBgUrl,
+                            onEvent = viewModel::onEvent,
+                        )
+                    }
+                },
+                errorContent = {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .widthIn(max = 560.dp)
+                                .fillMaxWidth(),
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = "Error",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Failed to load details from ${provider.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                            if (!error.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = error,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.error,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier.padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                OutlinedButton(
-                                    onClick = { viewModel.onEvent(DetailsUiEvent.OnRefresh) },
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Retry")
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Error",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(48.dp),
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Failed to load details from ${provider.name}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                )
+                                if (!error.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(
+                                            text = error,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.error,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                        )
+                                    }
                                 }
-                                Button(
-                                    onClick = onBack,
-                                    shape = RoundedCornerShape(12.dp)
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("Go Back")
+                                    OutlinedButton(
+                                        onClick = { viewModel.onEvent(DetailsUiEvent.OnRefresh) },
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Retry")
+                                    }
+                                    Button(
+                                        onClick = onBack,
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Text("Go Back")
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
+                },
+            )
 
             AnimatedVisibility(
                 visible = isPanelOpen,
@@ -395,13 +457,6 @@ fun DetailsContent(
     }
     val currentSeason = uiState?.selectedSeason ?: latestHistory?.season ?: availableSeasons.firstOrNull() ?: 1
 
-    LaunchedEffect(availableSeasons, latestHistory) {
-        if (uiState?.selectedSeason == null && availableSeasons.isNotEmpty()) {
-            val initial = latestHistory?.season ?: availableSeasons.firstOrNull() ?: 1
-            onEvent(DetailsUiEvent.OnSelectSeason(initial))
-        }
-    }
-
     val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
 
@@ -504,7 +559,7 @@ fun DetailsContent(
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.EPISODES -> {
                         if (!isMovieLike) {
                             item(key = "Episodes") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsEpisodeSection(
@@ -533,7 +588,7 @@ fun DetailsContent(
                     }
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.CAST -> {
                         item(key = "Cast") {
-                            BoxWithConstraints {
+                            BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                 val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                 Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCastSection(
@@ -558,7 +613,7 @@ fun DetailsContent(
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.INFO -> {
                         if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasDetailsStats(uiState, data)) {
                             item(key = "Info") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     val isMovie = data.type == TvType.Movie || data.type == TvType.AnimeMovie
                                     val sectionTitle = if (isMovie) "Movie Details" else "Show Details"
@@ -580,10 +635,35 @@ fun DetailsContent(
                             }
                         }
                     }
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.NETWORKS -> {
+                        if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasNetworks(uiState)) {
+                            item(key = "Networks") {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
+                                    val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
+                                    Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsNetworksSection(
+                                            uiState = uiState,
+                                            modifier = Modifier.padding(horizontal = hPadding),
+                                            onCompanyClick = { comp ->
+                                                onNavigate(
+                                                    Config.Studio(
+                                                        name = comp.name,
+                                                        companyId = comp.id.takeIf { it > 0 },
+                                                        logoUrl = comp.logoUrl,
+                                                        originCountry = comp.originCountry,
+                                                    )
+                                                )
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.STUDIOS -> {
-                        if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasStudiosOrNetworks(uiState)) {
+                        if (com.lagradost.cloudstream3.desktop.ui.screens.details.hasStudios(uiState)) {
                             item(key = "Studios") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsStudiosSection(
@@ -609,7 +689,7 @@ fun DetailsContent(
                         val enrichedTrailers = uiState?.enrichedTrailers ?: emptyList()
                         if (enrichedTrailers.isNotEmpty()) {
                             item(key = "Trailers") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsTrailersSection(
@@ -631,7 +711,7 @@ fun DetailsContent(
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.SCREENSHOTS -> {
                         if (!screenshots.isNullOrEmpty()) {
                             item(key = "Screenshots") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsScreenshotsSection(
@@ -652,7 +732,7 @@ fun DetailsContent(
                         val collItems = uiState?.enrichedCollectionItems ?: emptyList()
                         if (!collName.isNullOrBlank()) {
                             item(key = "Collection") {
-                                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
+                                Box(modifier = Modifier.animateItem().fillMaxWidth().padding(top = 48.dp)) {
                                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsCollectionSection(
                                         collName = collName,
                                         collBg = collBg,
@@ -669,7 +749,7 @@ fun DetailsContent(
                             ?.filter { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it.apiName) != null } ?: emptyList()
                         if (validRecs.isNotEmpty()) {
                             item(key = "Recommendations") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRecommendationsSection(
@@ -685,7 +765,7 @@ fun DetailsContent(
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.REVIEWS -> {
                         if (uiState?.enrichedReviews?.isNotEmpty() == true) {
                             item(key = "Reviews") {
-                                BoxWithConstraints {
+                                BoxWithConstraints(modifier = Modifier.animateItem().fillMaxWidth()) {
                                     val hPadding = if (maxWidth < 1100.dp) 24.dp else 64.dp
                                     Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp)) {
                                         com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsReviewsSection(

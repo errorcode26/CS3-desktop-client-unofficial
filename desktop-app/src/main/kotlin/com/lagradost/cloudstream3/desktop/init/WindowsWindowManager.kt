@@ -23,11 +23,14 @@ interface ExtUser32 : com.sun.jna.Library {
 }
 
 fun initWindowsEnvironment() {
+    // Disable AWT background erasing globally to prevent white flashes when Canvas components mount
+    System.setProperty("sun.awt.noerasebackground", "true")
+
     if (System.getProperty("os.name").lowercase().contains("win")) {
         try {
             Kernel32.INSTANCE.SetEnvironmentVariableW(
-                com.sun.jna.WString("WEBVIEW2_DEFAULT_BACKGROUND_COLOR"),
-                com.sun.jna.WString("00000000"),
+                com.sun.jna.WString("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"),
+                com.sun.jna.WString("--allow-file-access-from-files --disable-web-security --allow-running-insecure-content --default-background-color=00000000 --disk-cache-size=1 --disable-application-cache --aggressive-cache-discard"),
             )
         } catch (e: Exception) {
             com.lagradost.common.logging.AppLogger.e("WindowsWindowManager", "initWindowsEnvironment failed", e)

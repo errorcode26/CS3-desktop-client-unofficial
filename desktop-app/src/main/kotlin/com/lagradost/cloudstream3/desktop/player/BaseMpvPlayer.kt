@@ -1184,7 +1184,7 @@ fun BaseMpvPlayer(
                                         playerState?.showToast("Screenshot saved to $dirName")
                                     }
                                     lower == "v" -> MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
-                                    lower == "f" || lower == "f11" -> currentOnFullscreenToggle?.invoke()
+                                    lower == "f" -> currentOnFullscreenToggle?.invoke()
                                     lower == "?" || lower == "f1" || lower == "h" -> currentOnShowShortcuts()
                                     lower.length == 1 && lower[0].isDigit() -> {
                                         val pct = (lower[0] - '0') * 10

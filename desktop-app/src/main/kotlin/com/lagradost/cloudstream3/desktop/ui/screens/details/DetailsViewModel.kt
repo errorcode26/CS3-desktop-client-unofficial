@@ -24,6 +24,8 @@ class DetailsViewModel(
     val preloadedName: String? = null,
     val preloadedPoster: String? = null,
     val preloadedBg: String? = null,
+    val initialSeason: Int? = null,
+    val targetEpisodeId: String? = null,
     cachedResponse: LoadResponse? = DetailsCache.get(url),
     cachedUiState: DetailsUiState? = EnrichedDetailsCache.get(url),
     private val getWatchHistory: GetWatchHistory = AppContainerHolder.container.getWatchHistory,
@@ -35,16 +37,18 @@ class DetailsViewModel(
     initialState = cachedUiState?.copy(
         fetchFailed = false,
         error = null,
+        selectedSeason = initialSeason ?: cachedUiState.selectedSeason,
     ) ?: DetailsUiState(
         preloadedName = preloadedName,
         response = cachedResponse,
+        selectedSeason = initialSeason,
         enrichedLogoUrl = cachedResponse?.logoUrl,
         enrichedBackdropUrl = cachedResponse?.backgroundPosterUrl,
         isLoading = cachedResponse == null,
-        fakeData = if (cachedResponse == null && preloadedName != null) {
+        fakeData = if (cachedResponse == null) {
             @Suppress("DEPRECATION_ERROR", "DEPRECATION")
             MovieLoadResponse(
-                name = preloadedName,
+                name = preloadedName ?: "",
                 url = url,
                 apiName = provider.name,
                 type = TvType.Movie,
@@ -85,7 +89,13 @@ class DetailsViewModel(
                     .distinctBy { it.episodeId }
                     .filter { it.showUrl == url || it.showUrl == currentDataUrl }
                     .associateBy { it.episodeId ?: "" }
-                updateState { copy(watchHistory = historyMap) }
+                val latestSeason = historyMap.values.maxByOrNull { it.updateTime }?.season
+                updateState {
+                    copy(
+                        watchHistory = historyMap,
+                        selectedSeason = selectedSeason ?: latestSeason,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -135,9 +145,9 @@ class DetailsViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(fetchFailed = false, isLoading = true, error = null) }
 
-            if (uiState.value.response == null && preloadedName != null) {
+            if (uiState.value.response == null && uiState.value.fakeData == null) {
                 val fake = provider.newMovieLoadResponse(
-                    name = preloadedName,
+                    name = preloadedName ?: "",
                     url = url,
                     type = TvType.Movie,
                     dataUrl = url,
@@ -325,6 +335,7 @@ class DetailsViewModel(
                 provider = provider,
                 resp = resp,
                 watchHistory = uiState.value.watchHistory,
+                targetEpisodeId = targetEpisodeId,
             )
             if (targetEp != null) {
                 val patchedData = DetailsWatchCoordinator.patchEpisodeData(targetEp, resp)

@@ -14,15 +14,10 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageData
-import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
-import com.lagradost.runtime.executor.SafePluginInvoker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.withLock
+import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeCategoryUiState
 
 object HomeCategorySectionCache {
     val categoryCache = java.util.concurrent.ConcurrentHashMap<String, HomePageResponse>()
@@ -32,15 +27,14 @@ object HomeCategorySectionCache {
         categoryMutex.clear()
     }
 }
-private val categoryCache get() = HomeCategorySectionCache.categoryCache
-private val categoryMutex get() = HomeCategorySectionCache.categoryMutex
 
 @Composable
 fun HomeCategorySection(
     pageData: MainPageData,
     provider: MainAPI,
+    categoryState: HomeCategoryUiState?,
+    onLoadCategory: () -> Unit,
     isFirstPage: Boolean = false,
-    parentScope: CoroutineScope,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
     allBookmarks: Map<String, com.lagradost.common.storage.DesktopBookmark>,
     onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
@@ -51,56 +45,12 @@ fun HomeCategorySection(
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
 ) {
-    val cacheKey = "${provider.name}_${pageData.name}"
-    var homePage by remember(cacheKey) { mutableStateOf<HomePageResponse?>(categoryCache[cacheKey]) }
-    var isLoading by remember(cacheKey) { mutableStateOf(homePage == null) }
     var visible by remember { mutableStateOf(false) }
-    var errorMessage by remember(cacheKey) { mutableStateOf<String?>(null) }
-
-    val fetchPage = {
-        parentScope.launch {
-            val mutex = categoryMutex.getOrPut(cacheKey) { kotlinx.coroutines.sync.Mutex() }
-            isLoading = true
-            mutex.withLock {
-                if (categoryCache[cacheKey] == null) {
-                    errorMessage = null
-                    val request = MainPageRequest(pageData.name, pageData.data, pageData.horizontalImages)
-                    com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loading home category: '${pageData.name}'")
-                    val result = SafePluginInvoker.invoke(
-                        tag = "HomeCategory:${provider.name}:${pageData.name.ifBlank { "Category" }}",
-                        timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
-                    ) {
-                        provider.getMainPage(1, request)
-                    }
-
-                    if (result.isSuccess) {
-                        val response = result.getOrNull()
-                        if (response != null && response.items.isNotEmpty()) {
-                            com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loaded ${response.items.size} items for category '${pageData.name}'")
-                            categoryCache[cacheKey] = response
-                        } else {
-                            errorMessage = "No items found."
-                        }
-                    } else {
-                        val ex = result.exceptionOrNull()
-                        if (ex is kotlinx.coroutines.CancellationException) {
-                            throw ex
-                        }
-                        com.lagradost.common.logging.AppLogger.w("Plugin:${provider.name}", "Failed to load category '${pageData.name}': ${ex?.message}")
-                        DesktopErrorReporter.report("getMainPage failed for ${provider.name} - ${pageData.name.ifBlank { "Unknown Category" }}", ex ?: Exception("Unknown error"))
-                        errorMessage = ex?.localizedMessage ?: "Connection error"
-                    }
-                }
-                homePage = categoryCache[cacheKey]
-            }
-            isLoading = false
-        }
-    }
 
     LaunchedEffect(pageData, provider) {
         visible = true
-        if (homePage == null) {
-            fetchPage()
+        if (categoryState == null || (categoryState.response == null && categoryState.error == null)) {
+            onLoadCategory()
         }
     }
 
@@ -111,6 +61,10 @@ fun HomeCategorySection(
     )
     val heroEnabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.heroEnabled.collectAsState()
     val homeVerticalSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeVerticalSpacingDp.collectAsState()
+
+    val hp = categoryState?.response
+    val isLoading = categoryState?.isLoading ?: (hp == null && categoryState?.error == null)
+    val errorMessage = categoryState?.error
 
     Column(
         modifier = Modifier
@@ -128,7 +82,6 @@ fun HomeCategorySection(
                 )
             }
         } else {
-            val hp = homePage
             if (hp != null && hp.items.isNotEmpty()) {
                 hp.items.forEachIndexed { sectionIndex, section ->
                     if (heroEnabled && isFirstPage && sectionIndex == 0 && section.list.size >= 3) {
@@ -260,7 +213,7 @@ fun HomeCategorySection(
                         style = MaterialTheme.typography.bodySmall,
                     )
                     androidx.compose.material3.TextButton(
-                        onClick = { fetchPage() },
+                        onClick = onLoadCategory,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     ) {
                         Text("Retry", style = MaterialTheme.typography.labelSmall)

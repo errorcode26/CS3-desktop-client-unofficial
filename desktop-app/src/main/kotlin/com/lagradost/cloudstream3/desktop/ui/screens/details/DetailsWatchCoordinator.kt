@@ -73,6 +73,7 @@ internal object DetailsWatchCoordinator {
         provider: MainAPI,
         resp: LoadResponse,
         watchHistory: Map<String, WatchHistory>,
+        targetEpisodeId: String? = null,
     ): Episode? {
         val allEpisodes = when (resp) {
             is TvSeriesLoadResponse -> resp.episodes
@@ -83,6 +84,11 @@ internal object DetailsWatchCoordinator {
             compareBy<Episode> { it.season ?: 1 }
                 .thenBy { it.episode ?: 1 },
         )
+
+        if (targetEpisodeId != null) {
+            val matchedEp = sortedEpisodes.find { it.data == targetEpisodeId }
+            if (matchedEp != null) return matchedEp
+        }
 
         val latestHistory = watchHistory.values.maxByOrNull { it.updateTime }
         val isLatestCompleted = latestHistory != null && latestHistory.duration > 0 &&

@@ -522,13 +522,13 @@ object AniListMetadataProvider : MetadataProvider {
                     emptyList(), // collectionItems
                     null, // budget
                     null, // revenue
-                    studiosList, // networks
+                    null, // networks
                     media.seasonYear ?: loaded.year,
                     loaded.duration,
                     media.genres,
                     actorsList,
-                    aniListCompanies,
-                    aniListCompanies,
+                    aniListCompanies, // productionCompanies
+                    null, // networkCompanies
                 )
             }
 

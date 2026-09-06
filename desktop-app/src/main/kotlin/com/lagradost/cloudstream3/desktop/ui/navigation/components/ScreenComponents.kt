@@ -89,6 +89,8 @@ class DetailsComponent(
                 preloadedName = config.preloadedName,
                 preloadedPoster = config.preloadedPoster,
                 preloadedBg = config.preloadedBg,
+                initialSeason = config.targetSeason,
+                targetEpisodeId = config.targetEpisodeId,
             )
         } else {
             // Dummy or throw, but UI handles api == null
@@ -97,7 +99,13 @@ class DetailsComponent(
                     override var name = "NONE"
                 },
                 url = config.url,
+                initialSeason = config.targetSeason,
+                targetEpisodeId = config.targetEpisodeId,
             )
+        }
+    }.apply {
+        if (config.targetSeason != null) {
+            selectSeason(config.targetSeason)
         }
     }
 }

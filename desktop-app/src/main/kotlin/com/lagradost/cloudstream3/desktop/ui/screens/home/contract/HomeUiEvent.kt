@@ -15,4 +15,5 @@ sealed interface HomeUiEvent : UiEvent {
     data object OnProviderRefresh : HomeUiEvent
     data class OnShowHomeManagement(val show: Boolean) : HomeUiEvent
     data class OnToggleCatalog(val providerName: String, val catalogName: String, val isEnabled: Boolean) : HomeUiEvent
+    data class OnLoadCategory(val provider: MainAPI, val pageData: com.lagradost.cloudstream3.MainPageData) : HomeUiEvent
 }

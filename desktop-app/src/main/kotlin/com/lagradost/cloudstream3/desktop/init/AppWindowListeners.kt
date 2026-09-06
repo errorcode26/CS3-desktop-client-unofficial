@@ -43,22 +43,27 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
 
     // Snapshot the drawable content area before hiding the title bar.
     var savedContentPxBeforeFullscreen = remember<Pair<Int, Int>?> { null }
+    var lastToggleTime = remember { 0L }
 
     val toggleFunc = remember(controller) {
         {
-            val w = windowRef.get() as? JFrame
-            if (w != null) {
-                if (controller.isFullscreen) {
-                    savedContentPxBeforeFullscreen?.let { saved ->
-                        controller.contentAreaPx = saved
+            val now = System.currentTimeMillis()
+            if (now - lastToggleTime >= 300L) {
+                lastToggleTime = now
+                val w = windowRef.get() as? JFrame
+                if (w != null) {
+                    if (controller.isFullscreen) {
+                        savedContentPxBeforeFullscreen?.let { saved ->
+                            controller.contentAreaPx = saved
+                        }
+                        exitWindowsFullscreen(w)
+                        controller.isFullscreen = false
+                    } else {
+                        val pane = w.contentPane
+                        savedContentPxBeforeFullscreen = Pair(pane.width, pane.height)
+                        enterWindowsFullscreen(w)
+                        controller.isFullscreen = true
                     }
-                    exitWindowsFullscreen(w)
-                    controller.isFullscreen = false
-                } else {
-                    val pane = w.contentPane
-                    savedContentPxBeforeFullscreen = Pair(pane.width, pane.height)
-                    enterWindowsFullscreen(w)
-                    controller.isFullscreen = true
                 }
             }
         }

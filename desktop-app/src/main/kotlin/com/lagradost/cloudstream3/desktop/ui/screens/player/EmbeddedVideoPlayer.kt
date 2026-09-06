@@ -117,7 +117,7 @@ fun EmbeddedVideoPlayer(
             val playerMaxHeight = maxHeight
 
             if (!isFinished) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                     // activeLink is owned entirely by the ViewModel — no local picking logic here.
                     val activeLink = uiState.activeLink
                     val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink

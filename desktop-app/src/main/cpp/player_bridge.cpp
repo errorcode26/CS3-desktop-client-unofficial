@@ -59,6 +59,7 @@ HWND g_messageHwnd   = nullptr;  // Message-only window for UI tasks
 ICoreWebView2Controller* g_webviewController = nullptr;
 ICoreWebView2*           g_webview           = nullptr;
 bool                     g_webviewReady      = false;
+static std::atomic<bool> g_uiReady{false};
 std::wstring             g_pendingUrl        = L"";
 
 mpv_handle* g_mpvHandle = nullptr;
@@ -258,6 +259,10 @@ public:
             }
 
             if (evType == L"ui_ready") {
+                g_uiReady = true;
+                if (g_messageHwnd) {
+                    KillTimer(g_messageHwnd, 0x4E52);
+                }
                 if (g_webviewController) {
                     g_webviewController->put_IsVisible(TRUE);
                 }
@@ -515,6 +520,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_TIMER: {
             if (wParam == 0x4E52) {
                 KillTimer(hwnd, 0x4E52);
+                g_uiReady = true;
                 if (g_webviewController && g_webviewReady) {
                     g_webviewController->put_IsVisible(TRUE);
                 }
@@ -1066,7 +1072,11 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
 {
     g_hostHwnd = (HWND)hostHwndPtr;
+    g_uiReady = false;
     LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
+
+    // Force Canvas HWND class background to black to prevent white flash on initial window exposure
+    SetClassLongPtrW(g_hostHwnd, GCLP_HBRBACKGROUND, (LONG_PTR)GetStockObject(BLACK_BRUSH));
 
     // Subclass the AWT Canvas to prevent white flashes on resize
     if (!g_originalHostWndProc) {
@@ -1287,7 +1297,9 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         if (g_webviewController) {
             RECT bounds = {0, 0, (LONG)physW, (LONG)physH};
             g_webviewController->put_Bounds(bounds);
-            g_webviewController->put_IsVisible(TRUE);
+            if (g_uiReady.load()) {
+                g_webviewController->put_IsVisible(TRUE);
+            }
         }
     });
 }
