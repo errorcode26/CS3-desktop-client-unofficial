@@ -10,6 +10,16 @@ Desktop-native streaming client built with **Compose Multiplatform** for 64-bit 
 
 ---
 
+## Interface Preview
+
+| Home Spotlight & Banner | Media Details & Episode Browser |
+| :---: | :---: |
+| ![Home Spotlight](screenshots/1.png) | ![Media Details](screenshots/2.png) |
+| **Hardware-Accelerated MPV Player** | **Catalog & Discovery** |
+| ![Player Controls](screenshots/3.png) | ![Catalog Explorer](screenshots/4.png) |
+
+---
+
 ## Architectural Overview
 
 The application is structured into modular subprojects separating platform abstraction, runtime transcompilation, and UI presentation:

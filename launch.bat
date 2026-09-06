@@ -99,45 +99,45 @@ set "MPV_DLL=desktop-app\appResources\windows\mpv\libmpv-2.dll"
 set "BRIDGE_DLL=desktop-app\appResources\windows\jni\player_bridge.dll"
 set "WEBVIEW_DLL=desktop-app\appResources\windows\jni\WebView2Loader.dll"
 
-if not exist "%MPV_DLL%" (
-    echo.
-    echo ===============================================================================
-    echo   [MISSING DEPENDENCY] libmpv-2.dll Not Found
-    echo ===============================================================================
-    echo   Because libmpv-2.dll exceeds GitHub's 100MB file size limit (~112MB),
-    echo   it cannot be bundled directly into the Git repository.
-    echo.
-    echo   Expected Location:
-    echo     %MPV_DLL%
-    echo.
-    echo   How to fix:
-    echo     1. Download 'mpv-dev-x86_64-*.7z' from shinchiro's MPV builds:
-    echo        https://github.com/shinchiro/mpv-winbuild-cmake/releases
-    echo     2. Extract 'libmpv-2.dll' and place it into:
-    echo        desktop-app\appResources\windows\mpv\
-    echo ===============================================================================
-    echo.
-    pause
-    exit /b 1
-)
+if exist "%MPV_DLL%" goto :check_bridge
+echo.
+echo ===============================================================================
+echo   [MISSING DEPENDENCY] libmpv-2.dll Not Found
+echo ===============================================================================
+echo   Because libmpv-2.dll exceeds GitHub's 100MB file size limit,
+echo   it is not bundled in the Git repository.
+echo.
+echo   Expected Location:
+echo     %MPV_DLL%
+echo.
+echo   How to fix:
+echo     1. Download 'mpv-dev-x86_64-*.7z' from shinchiro's MPV builds:
+echo        https://github.com/shinchiro/mpv-winbuild-cmake/releases
+echo     2. Extract 'libmpv-2.dll' and place it into:
+echo        desktop-app\appResources\windows\mpv\
+echo ===============================================================================
+echo.
+pause
+exit /b 1
 
-if not exist "%BRIDGE_DLL%" (
-    echo.
-    echo [ERROR] Missing native bridge library: %BRIDGE_DLL%
-    echo Please verify your repository clone or run desktop-app\src\main\cpp\build_jni.ps1
-    echo.
-    pause
-    exit /b 1
-)
+:check_bridge
+if exist "%BRIDGE_DLL%" goto :check_webview
+echo.
+echo [ERROR] Missing native bridge library: %BRIDGE_DLL%
+echo Please verify your repository clone or run desktop-app\src\main\cpp\build_jni.ps1
+echo.
+pause
+exit /b 1
 
-if not exist "%WEBVIEW_DLL%" (
-    echo.
-    echo [ERROR] Missing native WebView2 loader: %WEBVIEW_DLL%
-    echo.
-    pause
-    exit /b 1
-)
+:check_webview
+if exist "%WEBVIEW_DLL%" goto :binaries_ok
+echo.
+echo [ERROR] Missing native WebView2 loader: %WEBVIEW_DLL%
+echo.
+pause
+exit /b 1
 
+:binaries_ok
 exit /b 0
 
 :: ── Option 1: Normal Launch ──────────────────────────────────
